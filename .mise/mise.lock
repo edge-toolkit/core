@@ -6,9 +6,9 @@ lockfile_version = 3
 url = "https://conda.anaconda.org/conda-forge/linux-aarch64/_openmp_mutex-4.5-20_gnu.conda"
 checksum = "sha256:a2527b1d81792a0ccd2c05850960df119c2b6d8f5fdec97f2db7d25dc23b1068"
 
-[conda-packages.linux-arm64."ca-certificates-2026.10.19-hbd8a1cb_0"]
-url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.19-hbd8a1cb_0.conda"
-checksum = "sha256:9404ee878c6bd5b260655ab651366db43fac6be8d465fcc0acd0f7a50be91acb"
+[conda-packages.linux-arm64."ca-certificates-2026.10.23-hbd8a1cb_0"]
+url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda"
+checksum = "sha256:95619b9c1184be7175392eeb0ee7eeb5ccf25d280951f4225f2d62e725790be3"
 
 [conda-packages.linux-arm64."libgcc-16.2.0-h205dda4_7"]
 url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libgcc-16.2.0-h205dda4_7.conda"
@@ -22,9 +22,9 @@ checksum = "sha256:4406fd67c5beeb99b9372f9bf07aa3e40ca141e337eceebac3ff64aa72799
 url = "https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda"
 checksum = "sha256:1dd3fffd892081df9726d7eb7e0dea6198962ba775bd88842135a4ddb4deb3c9"
 
-[conda-packages.linux-x64."ca-certificates-2026.10.19-hbd8a1cb_0"]
-url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.19-hbd8a1cb_0.conda"
-checksum = "sha256:9404ee878c6bd5b260655ab651366db43fac6be8d465fcc0acd0f7a50be91acb"
+[conda-packages.linux-x64."ca-certificates-2026.10.23-hbd8a1cb_0"]
+url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda"
+checksum = "sha256:95619b9c1184be7175392eeb0ee7eeb5ccf25d280951f4225f2d62e725790be3"
 
 [conda-packages.linux-x64."libgcc-16.2.0-ha9f2e26_7"]
 url = "https://conda.anaconda.org/conda-forge/linux-64/libgcc-16.2.0-ha9f2e26_7.conda"
@@ -34,33 +34,33 @@ checksum = "sha256:e031634c3a928f9594eba868bc46ef5230d6571a364a0c63215b06c4563bf
 url = "https://conda.anaconda.org/conda-forge/linux-64/libgomp-16.2.0-he0feb66_7.conda"
 checksum = "sha256:92a0bb350c7be6a4eedcb4e111c60aefd176018e6b1c009a6e025dbe9bbcd758"
 
-[conda-packages.macos-arm64."ca-certificates-2026.10.19-hbd8a1cb_0"]
-url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.19-hbd8a1cb_0.conda"
-checksum = "sha256:9404ee878c6bd5b260655ab651366db43fac6be8d465fcc0acd0f7a50be91acb"
+[conda-packages.macos-arm64."ca-certificates-2026.10.23-hbd8a1cb_0"]
+url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda"
+checksum = "sha256:95619b9c1184be7175392eeb0ee7eeb5ccf25d280951f4225f2d62e725790be3"
 
-[conda-packages.macos-x64."ca-certificates-2026.10.19-hbd8a1cb_0"]
-url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.19-hbd8a1cb_0.conda"
-checksum = "sha256:9404ee878c6bd5b260655ab651366db43fac6be8d465fcc0acd0f7a50be91acb"
+[conda-packages.macos-x64."ca-certificates-2026.10.23-hbd8a1cb_0"]
+url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda"
+checksum = "sha256:95619b9c1184be7175392eeb0ee7eeb5ccf25d280951f4225f2d62e725790be3"
 
-[conda-packages.windows-x64."ca-certificates-2026.10.19-h4c7d964_0"]
-url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.19-h4c7d964_0.conda"
-checksum = "sha256:44a799ed27b3764416f8f26f56592e0ecfc67c161d79470e986e771cb2e0bf70"
+[conda-packages.windows-x64."ca-certificates-2026.10.23-h4c7d964_0"]
+url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-h4c7d964_0.conda"
+checksum = "sha256:f1d280d2618de987204102090e83733089c092dc2dd45686fd3dcbe809034f6a"
 
 [conda-packages.windows-x64."ucrt-10.0.26100.0-h57928b3_0"]
 url = "https://conda.anaconda.org/conda-forge/win-64/ucrt-10.0.26100.0-h57928b3_0.conda"
 checksum = "sha256:3005729dce6f3d3f5ec91dfc49fc75a0095f9cd23bab49efb899657297ac91a5"
 
-[conda-packages.windows-x64."vc-14.5-ha367084_41"]
-url = "https://conda.anaconda.org/conda-forge/win-64/vc-14.5-ha367084_41.conda"
-checksum = "sha256:35444c55a92e2f7f7ba26bc70f81e56e52344f7d064c0fd4b40a46a58517b79c"
+[conda-packages.windows-x64."vc-14.5-ha367084_42"]
+url = "https://conda.anaconda.org/conda-forge/win-64/vc-14.5-ha367084_42.conda"
+checksum = "sha256:0598ca1ce913618cff9bd90391bcf75cd9edb22057c85dd6784dd762b7a888e2"
 
-[conda-packages.windows-x64."vc14_runtime-14.51.36247-habf1de7_41"]
-url = "https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.51.36247-habf1de7_41.conda"
-checksum = "sha256:4e4cb599cdc41bf2109d1464c127b5bcbddf548ce3e322e612afb691338b48f8"
+[conda-packages.windows-x64."vc14_runtime-14.51.36247-habf1de7_42"]
+url = "https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.51.36247-habf1de7_42.conda"
+checksum = "sha256:8dfbfd68ebf53249d11e528cbb80ad5a2460b0c5b4636eed82ee0d3950827a3d"
 
-[conda-packages.windows-x64."vcomp14-14.51.36247-habf1de7_41"]
-url = "https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.51.36247-habf1de7_41.conda"
-checksum = "sha256:731e043390c9457299484d39e427221fc868a9249540a498a5a4f6456c7744d1"
+[conda-packages.windows-x64."vcomp14-14.51.36247-habf1de7_42"]
+url = "https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.51.36247-habf1de7_42.conda"
+checksum = "sha256:b3558ed059d6272ef919ea959311af73c35b5fe43c789cd43f71b398671fec49"
 
 [[tools.action-validator]]
 version = "0.9.0"
@@ -338,29 +338,29 @@ url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellche
 url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056944"
 
 [[tools."aqua:kubernetes/kubernetes/kubectl"]]
-version = "1.37.1"
+version = "1.37.2"
 backend = "aqua:kubernetes/kubernetes/kubectl"
 specifiers = ["latest"]
 
 [tools."aqua:kubernetes/kubernetes/kubectl"."platforms.linux-arm64"]
-checksum = "sha256:ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7"
-url = "https://dl.k8s.io/v1.37.1/bin/linux/arm64/kubectl"
+checksum = "sha256:fcc16f63186659d9722014b7e02d5fdd2d4e669cb8c0ab66365d7d3b8ba03509"
+url = "https://dl.k8s.io/v1.37.2/bin/linux/arm64/kubectl"
 
 [tools."aqua:kubernetes/kubernetes/kubectl"."platforms.linux-x64"]
-checksum = "sha256:65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8"
-url = "https://dl.k8s.io/v1.37.1/bin/linux/amd64/kubectl"
+checksum = "sha256:c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4"
+url = "https://dl.k8s.io/v1.37.2/bin/linux/amd64/kubectl"
 
 [tools."aqua:kubernetes/kubernetes/kubectl"."platforms.macos-arm64"]
-checksum = "sha256:fd65982c97ddad3106754b69ffa196d0e543aa591930ae52aed1adfb92f8c77f"
-url = "https://dl.k8s.io/v1.37.1/bin/darwin/arm64/kubectl"
+checksum = "sha256:55701af0d51815ee335f240e48acf0959c3c23017ed3fa816e880c4a92bae581"
+url = "https://dl.k8s.io/v1.37.2/bin/darwin/arm64/kubectl"
 
 [tools."aqua:kubernetes/kubernetes/kubectl"."platforms.macos-x64"]
-checksum = "sha256:6851381c486ff6edd691623e3d65c87cb9a5b02887ff8fbbb38d8a031b748387"
-url = "https://dl.k8s.io/v1.37.1/bin/darwin/amd64/kubectl"
+checksum = "sha256:88379aff5c8111de6be0a394adffba2819e44cde269f3ab23cef76de1a48eaa8"
+url = "https://dl.k8s.io/v1.37.2/bin/darwin/amd64/kubectl"
 
 [tools."aqua:kubernetes/kubernetes/kubectl"."platforms.windows-x64"]
-checksum = "sha256:14b93c4916a6f37a06fbc1f46b0a1d2404c4f9741be09f00d6caf8af3b05f1d3"
-url = "https://dl.k8s.io/v1.37.1/bin/windows/amd64/kubectl.exe"
+checksum = "sha256:1691938f7de0e931969f9968c3601cf32d6b0d573573afb4ce471f3d28f51984"
+url = "https://dl.k8s.io/v1.37.2/bin/windows/amd64/kubectl.exe"
 
 [[tools."aqua:mvdan/sh"]]
 version = "3.14.1"
@@ -660,7 +660,7 @@ channel = "conda-forge"
 checksum = "sha256:238136f1df197ecd89bafd728a34d0642176f3170423d13d8276746d675a9485"
 url = "https://conda.anaconda.org/conda-forge/linux-aarch64/openssl-3.6.5-he6ad1d5_0.conda"
 conda_deps = [
-    "ca-certificates-2026.10.19-hbd8a1cb_0",
+    "ca-certificates-2026.10.23-hbd8a1cb_0",
     "libgcc-16.2.0-h205dda4_7",
     "_openmp_mutex-4.5-20_gnu",
     "libgomp-16.2.0-h8acb6b2_7",
@@ -670,7 +670,7 @@ conda_deps = [
 checksum = "sha256:9c1533f1cf784f0e250919c0c9762d0b0e6bc727a79290ffb7cea1ceca1d038c"
 url = "https://conda.anaconda.org/conda-forge/linux-64/openssl-3.6.5-h781a0a9_0.conda"
 conda_deps = [
-    "ca-certificates-2026.10.19-hbd8a1cb_0",
+    "ca-certificates-2026.10.23-hbd8a1cb_0",
     "libgcc-16.2.0-ha9f2e26_7",
     "_openmp_mutex-4.5-20_gnu",
     "libgomp-16.2.0-he0feb66_7",
@@ -679,22 +679,22 @@ conda_deps = [
 [tools."conda:openssl"."platforms.macos-arm64"]
 checksum = "sha256:44fbc526456571a9fb8fa18157f6f269d4d4bd40eef20183a93b9c9296f94497"
 url = "https://conda.anaconda.org/conda-forge/osx-arm64/openssl-3.6.5-h55eecbc_0.conda"
-conda_deps = ["ca-certificates-2026.10.19-hbd8a1cb_0"]
+conda_deps = ["ca-certificates-2026.10.23-hbd8a1cb_0"]
 
 [tools."conda:openssl"."platforms.macos-x64"]
 checksum = "sha256:d992d27aec2f1beac81f792c85b449546c030f06937b5b3ea7cf58431861dde4"
 url = "https://conda.anaconda.org/conda-forge/osx-64/openssl-3.6.5-h332eb6d_0.conda"
-conda_deps = ["ca-certificates-2026.10.19-hbd8a1cb_0"]
+conda_deps = ["ca-certificates-2026.10.23-hbd8a1cb_0"]
 
 [tools."conda:openssl"."platforms.windows-x64"]
 checksum = "sha256:bc44625e0c6d83f3e02b5f6adc01e0e3ca7001d3d94e24959591a57f5a011b9a"
 url = "https://conda.anaconda.org/conda-forge/win-64/openssl-3.6.5-hf411b9b_0.conda"
 conda_deps = [
-    "ca-certificates-2026.10.19-h4c7d964_0",
+    "ca-certificates-2026.10.23-h4c7d964_0",
     "ucrt-10.0.26100.0-h57928b3_0",
-    "vc-14.5-ha367084_41",
-    "vc14_runtime-14.51.36247-habf1de7_41",
-    "vcomp14-14.51.36247-habf1de7_41",
+    "vc-14.5-ha367084_42",
+    "vc14_runtime-14.51.36247-habf1de7_42",
+    "vcomp14-14.51.36247-habf1de7_42",
 ]
 
 [[tools.conftest]]
@@ -1199,6 +1199,36 @@ url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9
 url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620604881"
 provenance = "github-attestations"
 
+[[tools."github:noemaforge/vimanam"]]
+version = "2.0.0"
+backend = "github:noemaforge/vimanam"
+specifiers = ["latest"]
+
+[tools."github:noemaforge/vimanam"."platforms.linux-arm64"]
+checksum = "sha256:d8733449899f1648fe60f2854320e981c7993444f8fcea64baa60cf30fc8e66a"
+url = "https://github.com/noemaforge/vimanam/releases/download/v2.0.0/vimanam-aarch64-unknown-linux-gnu.tar.xz"
+url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/638963970"
+
+[tools."github:noemaforge/vimanam"."platforms.linux-x64"]
+checksum = "sha256:343cd31e9e8d1311743be96b3f34003ef25aef51874a4135a075ab2552767c9a"
+url = "https://github.com/noemaforge/vimanam/releases/download/v2.0.0/vimanam-x86_64-unknown-linux-gnu.tar.xz"
+url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/638964032"
+
+[tools."github:noemaforge/vimanam"."platforms.macos-arm64"]
+checksum = "sha256:9bdeaf49dcb248b527f7f5f2dff563693e26481792dfb9e427cedad53fd0f3cf"
+url = "https://github.com/noemaforge/vimanam/releases/download/v2.0.0/vimanam-aarch64-apple-darwin.tar.xz"
+url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/638963950"
+
+[tools."github:noemaforge/vimanam"."platforms.macos-x64"]
+checksum = "sha256:27b360ffb60ca9babba6f95d81553dfd83db21e33533c7f8438d79ea0898450a"
+url = "https://github.com/noemaforge/vimanam/releases/download/v2.0.0/vimanam-x86_64-apple-darwin.tar.xz"
+url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/638963998"
+
+[tools."github:noemaforge/vimanam"."platforms.windows-x64"]
+checksum = "sha256:08b03ae36183bbb83d12af46d3865bc72c92b20248b436b5fbdbbe8dcf8f5b76"
+url = "https://github.com/noemaforge/vimanam/releases/download/v2.0.0/vimanam-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/638964011"
+
 [[tools."github:open-telemetry/opentelemetry-collector-releases"]]
 version = "0.163.1"
 backend = "github:open-telemetry/opentelemetry-collector-releases"
@@ -1297,6 +1327,44 @@ url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/631602479"
 checksum = "sha256:60c60da3b2e0e273fde15ce31f2ab733989f83278bb71d70f219e0f75b6577d5"
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.2/dekit-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/631602487"
+
+[[tools."github:rvben/rumdl"]]
+version = "0.3.2"
+backend = "github:rvben/rumdl"
+specifiers = ["latest"]
+
+[tools."github:rvben/rumdl".options]
+asset_pattern = '*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*'
+
+[tools."github:rvben/rumdl"."platforms.linux-arm64"]
+checksum = "sha256:afc6dd91f1c4f2a8cf4a40ab99f8e52e06e6dddfc5334f1c1db8b158d353d143"
+url = "https://github.com/rvben/rumdl/releases/download/v0.3.2/rumdl-v0.3.2-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449354"
+provenance = "github-attestations"
+
+[tools."github:rvben/rumdl"."platforms.linux-x64"]
+checksum = "sha256:395c4061041c5a25301c7b3564a93c4a661ed4df93427a77b6fc9e426ec8a13a"
+url = "https://github.com/rvben/rumdl/releases/download/v0.3.2/rumdl-v0.3.2-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449350"
+provenance = "github-attestations"
+
+[tools."github:rvben/rumdl"."platforms.macos-arm64"]
+checksum = "sha256:a1eefb1cd2e0cafa42f0ca98d3f8713d7e73f9eba77fc8ef0ed6836875197935"
+url = "https://github.com/rvben/rumdl/releases/download/v0.3.2/rumdl-v0.3.2-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449362"
+provenance = "github-attestations"
+
+[tools."github:rvben/rumdl"."platforms.macos-x64"]
+checksum = "sha256:ab35f245127a06374833127162eebdbdec1be17c1e3d8274f02f1b909645635c"
+url = "https://github.com/rvben/rumdl/releases/download/v0.3.2/rumdl-v0.3.2-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449351"
+provenance = "github-attestations"
+
+[tools."github:rvben/rumdl"."platforms.windows-x64"]
+checksum = "sha256:87a632668c55969a7d916f214a28a7d365f6a68ec626b547bd1243e035b9c7ff"
+url = "https://github.com/rvben/rumdl/releases/download/v0.3.2/rumdl-v0.3.2-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449367"
+provenance = "github-attestations"
 
 [[tools."github:taiki-e/cargo-hack"]]
 version = "0.6.45"
@@ -1740,29 +1808,29 @@ url = "https://github.com/loeffel-io/ls-lint/releases/download/v2.3.2/ls-lint-wi
 url_api = "https://api.github.com/repos/loeffel-io/ls-lint/releases/assets/649806526"
 
 [[tools.node]]
-version = "22.23.4"
+version = "24.22.2"
 backend = "core:node"
-specifiers = ["22"]
+specifiers = ["24"]
 
 [tools.node."platforms.linux-arm64"]
-checksum = "sha256:f7a1e486dbc8b286847815b477d4fb5e9fb963ed4489c3e1588853d685f589f9"
-url = "https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-arm64.tar.gz"
+checksum = "sha256:95c264150aceb7f3437a29fd6984924f5f8d1511ea3cbd6c508b83f6c555dae2"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-arm64.tar.gz"
 
 [tools.node."platforms.linux-x64"]
-checksum = "sha256:b8492284c76a54baf58d61668dd0e41ee0fc98adabf9503d30f05d08f55b4406"
-url = "https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.gz"
+checksum = "sha256:361718c444e49af2ca5a110c83ba6a8901143f23ab285ebbef0341f391f482a9"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64.tar.gz"
 
 [tools.node."platforms.macos-arm64"]
-checksum = "sha256:c9e1dbc748b33ed2d14f42445191ecaf14c56259c7a9a26d0042c49ec2b66428"
-url = "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-arm64.tar.gz"
+checksum = "sha256:aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-arm64.tar.gz"
 
 [tools.node."platforms.macos-x64"]
-checksum = "sha256:efcc2b0db6f94bf53eddb038fe2b370277a042bd29e4f19b8f8e23598795b819"
-url = "https://nodejs.org/dist/v22.23.4/node-v22.23.4-darwin-x64.tar.gz"
+checksum = "sha256:d5e336d588c45be0c37dbd52cc29895593009ca4997a77a1fd02815131ed0e52"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-x64.tar.gz"
 
 [tools.node."platforms.windows-x64"]
-checksum = "sha256:cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20"
-url = "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip"
+checksum = "sha256:ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-win-x64.zip"
 
 [[tools.osv-scanner]]
 version = "2.7.0"

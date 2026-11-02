@@ -2,6 +2,37 @@ asyncapi: 3.0.0
 channels:
   ws:
     address: /ws
+    messages:
+      AgentMessage:
+        $ref: "#/components/messages/AgentMessage"
+      Alive:
+        $ref: "#/components/messages/Alive"
+      BroadcastMessage:
+        $ref: "#/components/messages/BroadcastMessage"
+      ClientEvent:
+        $ref: "#/components/messages/ClientEvent"
+      Connect:
+        $ref: "#/components/messages/Connect"
+      ConnectAck:
+        $ref: "#/components/messages/ConnectAck"
+      Invalid:
+        $ref: "#/components/messages/Invalid"
+      ListAgents:
+        $ref: "#/components/messages/ListAgents"
+      ListAgentsResponse:
+        $ref: "#/components/messages/ListAgentsResponse"
+      MessageAck:
+        $ref: "#/components/messages/MessageAck"
+      MessageStatus:
+        $ref: "#/components/messages/MessageStatus"
+      RelayBinary:
+        $ref: "#/components/messages/RelayBinary"
+      RelayText:
+        $ref: "#/components/messages/RelayText"
+      Response:
+        $ref: "#/components/messages/Response"
+      SendAgentMessage:
+        $ref: "#/components/messages/SendAgentMessage"
 components:
   messages:
     AgentMessage:
@@ -207,42 +238,19 @@ components:
         type: object
       title: MessageStatus
     RelayBinary:
-      contentType: application/json
+      contentType: application/octet-stream
       name: RelayBinary
       payload:
-        properties:
-          content:
-            description: Byte array (uint8)
-            items:
-              format: uint8
-              maximum: 255
-              minimum: 0
-              type: integer
-            type: array
-          type:
-            const: et-relay-binary
-            type: string
-        required:
-          - type
-          - content
-        title: WsServerRelayBinary
-        type: object
+        description: Any binary frame, forwarded as is.
+        format: binary
+        type: string
       title: RelayBinary
     RelayText:
-      contentType: application/json
+      contentType: text/plain
       name: RelayText
       payload:
-        properties:
-          content:
-            type: string
-          type:
-            const: et-relay-text
-            type: string
-        required:
-          - type
-          - content
-        title: WsServerRelayText
-        type: object
+        description: Any text frame that is not an et- message, forwarded as is.
+        type: string
       title: RelayText
     Response:
       contentType: application/json
@@ -366,10 +374,29 @@ operations:
     action: receive
     channel:
       $ref: "#/channels/ws"
+    messages:
+      - $ref: "#/channels/ws/messages/AgentMessage"
+      - $ref: "#/channels/ws/messages/ConnectAck"
+      - $ref: "#/channels/ws/messages/Invalid"
+      - $ref: "#/channels/ws/messages/ListAgentsResponse"
+      - $ref: "#/channels/ws/messages/MessageStatus"
+      - $ref: "#/channels/ws/messages/RelayBinary"
+      - $ref: "#/channels/ws/messages/RelayText"
+      - $ref: "#/channels/ws/messages/Response"
   sendWsMessage:
     action: send
     channel:
       $ref: "#/channels/ws"
+    messages:
+      - $ref: "#/channels/ws/messages/Alive"
+      - $ref: "#/channels/ws/messages/BroadcastMessage"
+      - $ref: "#/channels/ws/messages/ClientEvent"
+      - $ref: "#/channels/ws/messages/Connect"
+      - $ref: "#/channels/ws/messages/ListAgents"
+      - $ref: "#/channels/ws/messages/MessageAck"
+      - $ref: "#/channels/ws/messages/RelayBinary"
+      - $ref: "#/channels/ws/messages/RelayText"
+      - $ref: "#/channels/ws/messages/SendAgentMessage"
 servers:
   local:
     description: Default ws-server bind address (mise run ws-server)

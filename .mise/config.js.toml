@@ -29,6 +29,18 @@
 "npm:pnpm" = { version = "11", os = ["macos/x64"] }
 # flakiness-junit-xml uploads CI test results to flakiness.io, which tracks each test's flakiness across runs.
 "npm:@flakiness/junit-xml" = "latest"
+# The AsyncAPI generator renders generated/specs/ws.yaml as generated/specs/ws.md through the markdown template.
+# The template is installed here and handed to the generator as a local path, so generation never fetches it. It is
+# pinned because upstream asks templates to be: an unpinned template changes the rendered document on its own.
+#
+# Both reach rollup@2.80.0 through @asyncapi/generator-react-sdk, which aube's trust policy refuses:
+#   trust downgrade for rollup@2.80.0 (trustPolicy=no-downgrade): earlier published version 4.52.4 had trusted
+#   publisher but this version has no trust evidence
+# It is a manually published 2.x backport of a path-traversal fix by rollup's lead maintainer, and its npm gitHead is
+# the commit the v2.80.0 tag names, https://github.com/rollup/rollup/commit/d17ae15336a45c3c59b2a4aacac2b14186035d28.
+# Only that version is excluded, so any other release without trust evidence still fails.
+"npm:@asyncapi/generator" = { version = "latest", trust_policy_excludes = ["rollup@2.80.0"] }
+"npm:@asyncapi/markdown-template" = { version = "2.0.0", trust_policy_excludes = ["rollup@2.80.0"] }
 
 # oxlint + oxfmt are the Rust-native JS/TS linter + formatter from the oxc-project.
 # They are pulled directly from the shared `apps_v<tag>` GitHub release. Aqua's registry entry trips mise's
@@ -177,6 +189,36 @@ dir = "services/ws-modules/js-data1"
 # script child on Windows (`'node' is not recognized`), whereas the mise task shell always has node (a `[tools]`
 # entry) resolvable -- the same way `pnpm` itself resolves here.
 run = "pnpm install && node build.mjs"
+
+[tasks."gen:ws-md"]
+depends = ["gen:ws-spec"]
+description = "Render generated/specs/ws.yaml as the Markdown reference generated/specs/ws.md (AsyncAPI generator)"
+env = { RUMDL_CACHE_DIR = "{{ config_root }}/target/rumdl-cache" }
+# The generator runs the pinned markdown template from its npm: install, so generation fetches nothing.
+# It is driven through its library API rather than the AsyncAPI CLI, which wraps the same generator in a command
+# framework that sends usage metrics by default and pulls in dependencies this repo does not otherwise need. rumdl's
+# fixes and the Markdown formatter then settle the layout, so the committed file is already what both checks want. The
+# work is staged under target/ and lands in one rename, leaving the committed file whole if any step fails.
+run = """
+stage=target/int-gen/ws-md
+out=generated/specs/ws.md
+generator="$(mise where npm:@asyncapi/generator)/node_modules/@asyncapi/generator"
+template="$(mise where npm:@asyncapi/markdown-template)/node_modules/@asyncapi/markdown-template"
+coreutils mkdir -p "$stage"
+node -e '
+const [generator, template, target, spec] = process.argv.slice(1);
+const Generator = require(generator);
+const options = { forceWrite: true, templateParams: { outFilename: "raw.md" } };
+new Generator(template, target, options).generateFromFile(spec).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+' "$generator" "$template" "$stage" generated/specs/ws.yaml
+rumdl check --fix --fail-on never --silent --config config/rumdl.toml "$stage/raw.md"
+dprint fmt --stdin "$out" <"$stage/raw.md" >"$stage/ws.md"
+coreutils mv -f "$stage/ws.md" "$out"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.oxlint-check]
 description = "Lint JavaScript/TypeScript sources (oxlint)"

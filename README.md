@@ -350,18 +350,18 @@ A custom UX module can be used by setting the `ws-server` environment variable `
 
 ## Protocol & API specs
 
-The WebSocket protocol and the ws-server REST surface are described by machine-readable specs regenerated from their
-Rust sources of truth by `mise run gen-specs-all`:
+The WebSocket protocol and the ws-server REST surface are each described twice: by a machine-readable spec generated
+from their Rust sources of truth, and by a Markdown reference to read, rendered from that spec. `mise run gen-specs-all`
+regenerates both:
 
-- **WebSocket** (AsyncAPI 3.0): [`generated/specs/ws.yaml`](generated/specs/ws.yaml).
-  Source: `ClientMessage` + `ServerMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:
-  [`generated/dart-ws/`](generated/dart-ws/), [`generated/python-ws/`](generated/python-ws/), and the
-  `et:ws-messages` WIT under `generated/specs/wit/deps/`. Client events (`et-client-event`) carry their payload in a
-  [CloudEvents 1.0](https://cloudevents.io/) envelope, so they can be forwarded to any CloudEvents consumer as-is.
-- **REST** (OpenAPI 3.0): [`generated/specs/rest.yaml`](generated/specs/rest.yaml).
-  Source: `#[utoipa::path]` annotations on the handlers in `services/{ws-server,modules,storage}`. Typed Rust
-  client at [`generated/rust-rest/`](generated/rust-rest/) (consumed by `et-ws-wasi-runner` and the browser
-  `data1` module).
+- **WebSocket**: [`generated/specs/ws.md`](generated/specs/ws.md), and the AsyncAPI 3.0 spec
+  [`generated/specs/ws.yaml`](generated/specs/ws.yaml). Source: `ClientMessage` + `ServerMessage` in
+  `libs/edge-toolkit/src/ws.rs`. Generated clients: [`generated/dart-ws/`](generated/dart-ws/),
+  [`generated/python-ws/`](generated/python-ws/), and the `et:ws-messages` WIT under `generated/specs/wit/deps/`.
+- **REST**: [`generated/specs/rest.md`](generated/specs/rest.md), and the OpenAPI 3.0 spec
+  [`generated/specs/rest.yaml`](generated/specs/rest.yaml). Source: `#[utoipa::path]` annotations on the handlers in
+  `services/{ws,ws-server,modules,storage}`. Typed Rust client at [`generated/rust-rest/`](generated/rust-rest/)
+  (consumed by `et-ws-wasi-runner` and the browser `data1` module).
 
 See [`generated/README.md`](generated/README.md) for a full catalogue of what's regenerated vs. hand-maintained
 under `generated/`.

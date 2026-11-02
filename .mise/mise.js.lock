@@ -53,6 +53,24 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-
 [tools."http:oxlint"."platforms.windows-x64"]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-x86_64-pc-windows-msvc.zip"
 
+[[tools."npm:@asyncapi/generator"]]
+version = "3.5.0"
+aube = { path = "locks/mise.js/npm-asyncapi-generator/3.5.0~39db1ca7", digest = "sha256:7f0f42969d2d0b14ab125d05f712d544d39c812de78a17e650576b2b7f5e2b7a" }
+backend = "npm:@asyncapi/generator"
+specifiers = ["latest"]
+
+[tools."npm:@asyncapi/generator".options]
+trust_policy_excludes = '["rollup@2.80.0"]'
+
+[[tools."npm:@asyncapi/markdown-template"]]
+version = "2.0.0"
+aube = { path = "locks/mise.js/npm-asyncapi-markdown-template/2.0.0~34f72aac", digest = "sha256:df38330379788243896e3f0a528e5eee13e225265f5a2b21b5676eb797523fd8" }
+backend = "npm:@asyncapi/markdown-template"
+specifiers = ["2.0.0"]
+
+[tools."npm:@asyncapi/markdown-template".options]
+trust_policy_excludes = '["rollup@2.80.0"]'
+
 [[tools."npm:@flakiness/junit-xml"]]
 version = "1.4.0"
 aube = { path = "locks/mise.js/npm-flakiness-junit-xml/1.4.0", digest = "sha256:988b4a2547677c49f0090bbceea86ae2461dd4fe340d49b4a1a44e1c6da63540" }

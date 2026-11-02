@@ -1,0 +1,13 @@
+# rumdl Markdown linter configuration.
+# Every rule rumdl enables by default applies to every tracked Markdown file. The line length is raised to the
+# repo-wide 120-character limit the rest of the tooling holds Markdown to, and waived only below.
+[global]
+line-length = 120
+respect-gitignore = true
+
+# The two rendered spec references keep every rule but the line length.
+# Their generators set a description beside its bold label on one line, as they do table rows, and neither can be
+# wrapped without rewriting what the generator wrote.
+[per-file-ignores]
+"generated/specs/rest.md" = ["MD013"]
+"generated/specs/ws.md" = ["MD013"]

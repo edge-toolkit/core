@@ -1,10 +1,10 @@
 # Checks
 
-- **Generated:** 2026-11-01
-- **Checks:** 80
-- **Tools:** 47
+- **Generated:** 2026-11-02
+- **Checks:** 81
+- **Tools:** 48
 - **Shell-script checks:** 10
-- **Checks with a repair pass:** 21
+- **Checks with a repair pass:** 22
 - **Rules:** 360 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
@@ -821,6 +821,11 @@ Rules, from `config/conftest/policy`:
 
 - `ruff-check` (`python` env; run by `check:python`). Repaired by `ruff-fix`. Config: `ruff.toml`.
 - `ruff-fmt-check` (`python` env; run by `check:python`). Repaired by `ruff-fmt`. Config: `ruff.toml`.
+
+## `rumdl`
+
+- `rumdl-check` (`default` env; run by `check:rust`) -- Lint every tracked Markdown file (rumdl). Repaired by
+  `rumdl-fix`. Config: `config/rumdl.toml`.
 
 ## `ryl`
 

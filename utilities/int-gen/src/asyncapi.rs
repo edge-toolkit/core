@@ -69,7 +69,9 @@ struct WsApiServer;
 ///   1. Derive the two halves via `WsApiClient` / `WsApiServer`.
 ///   2. Merge the server-side channels / operations / `components.messages` / `components.schemas` into the
 ///      client-side document (`merge_asyncapi`).
-///   3. Assert that `info.version` matches [`WS_VERSION`] so any drift between the derive literal and the const is
+///   3. Attach each half's messages to its operation and to the channel that operation names (`link_messages`).
+///   4. Describe the relay messages as the raw frames they travel as (`describe_relay_frames`).
+///   5. Assert that `info.version` matches [`WS_VERSION`] so any drift between the derive literal and the const is
 ///      caught loudly.
 ///
 /// `asyncapi-rust` 0.5 already emits each message's payload as its own object schema (no `oneOf` fan-out), with shared
@@ -80,7 +82,10 @@ pub fn build_spec() -> Result<serde_json::Value, Error> {
     let server_spec = WsApiServer::asyncapi_spec();
     let mut spec_value = serde_json::to_value(&client_spec)?;
     let server_value = serde_json::to_value(&server_spec)?;
+    let client_value = spec_value.clone();
     merge_asyncapi(&mut spec_value, &server_value);
+    link_messages(&mut spec_value, [&client_value, &server_value])?;
+    describe_relay_frames(&mut spec_value)?;
     let info_version = spec_value
         .get("info")
         .and_then(|info| info.get("version"))
@@ -91,6 +96,120 @@ pub fn build_spec() -> Result<serde_json::Value, Error> {
         ));
     }
     Ok(spec_value)
+}
+
+/// Attach each half's messages to its operations, and list them under the channel each operation names.
+///
+/// `asyncapi-rust` puts a derive's messages under `components.messages` only, which leaves the merged document's
+/// operations and channel carrying no messages: a tool rendering it shows two operations with nothing in them. A half
+/// derives exactly the messages its operation carries, so its `components.messages` keys are that operation's list.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named step of build_spec(); the linking is a logical step worth its own scope, like merge_asyncapi"
+)]
+fn link_messages(spec: &mut serde_json::Value, halves: [&serde_json::Value; 2]) -> Result<(), Error> {
+    use serde_json::{Map, Value, json};
+
+    for half in halves {
+        let names = message_names(half)?;
+        let operations = half
+            .get("operations")
+            .and_then(Value::as_object)
+            .ok_or(Error::SchemaMalformed("an AsyncAPI half has no operations"))?;
+        for (operation_name, operation) in operations {
+            let channel_ref = operation
+                .pointer("/channel/$ref")
+                .and_then(Value::as_str)
+                .ok_or(Error::SchemaMalformed("an AsyncAPI operation names no channel"))?;
+            let channel_messages = spec
+                .pointer_mut(channel_ref.trim_start_matches('#'))
+                .and_then(Value::as_object_mut)
+                .ok_or(Error::SchemaMalformed(
+                    "an AsyncAPI operation names a channel the document lacks",
+                ))?
+                .entry("messages")
+                .or_insert_with(|| Value::Object(Map::new()))
+                .as_object_mut()
+                .ok_or(Error::SchemaMalformed(
+                    "an AsyncAPI channel's messages is not an object",
+                ))?;
+            for name in &names {
+                let _previous = channel_messages.insert(
+                    (*name).clone(),
+                    json!({ "$ref": format!("#/components/messages/{name}") }),
+                );
+            }
+            let references = names
+                .iter()
+                .map(|name| json!({ "$ref": format!("{channel_ref}/messages/{name}") }))
+                .collect();
+            let _previous = spec
+                .pointer_mut(&format!("/operations/{operation_name}"))
+                .and_then(Value::as_object_mut)
+                .ok_or(Error::SchemaMalformed(
+                    "an AsyncAPI operation is missing from the merged document",
+                ))?
+                .insert("messages".to_owned(), Value::Array(references));
+        }
+    }
+    Ok(())
+}
+
+/// The names of the messages an `AsyncAPI` half derives, sorted.
+///
+/// `serde_json`'s map keeps insertion order when any crate in the build turns on its `preserve_order` feature, and
+/// sorts keys otherwise, so the order of its keys depends on what else was compiled with et-int-gen. Sorting here makes
+/// the operations' lists the same whichever build writes the spec.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the sorting step of link_messages, kept apart so its reason sits with it"
+)]
+fn message_names(half: &serde_json::Value) -> Result<Vec<&String>, Error> {
+    let mut names: Vec<&String> = half
+        .pointer("/components/messages")
+        .and_then(serde_json::Value::as_object)
+        .ok_or(Error::SchemaMalformed("an AsyncAPI half has no components.messages"))?
+        .keys()
+        .collect();
+    names.sort_unstable();
+    Ok(names)
+}
+
+/// Describe the two relay messages as the raw frames they travel as, not the JSON envelope the derive gives them.
+///
+/// `RelayText` and `RelayBinary` are how the hub holds a frame that is not an `et-` message. The derive renders them
+/// like every other variant, as a JSON object with `type` and `content`, but the wire carries only the content: the
+/// text or binary frame as it arrived, which the hub forwards unchanged.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named step of build_spec(); the relay correction is a logical step worth its own scope"
+)]
+fn describe_relay_frames(spec: &mut serde_json::Value) -> Result<(), Error> {
+    use serde_json::{Value, json};
+
+    let frames = [
+        (
+            "RelayText",
+            "text/plain",
+            json!({ "type": "string", "description": "Any text frame that is not an et- message, forwarded as is." }),
+        ),
+        (
+            "RelayBinary",
+            "application/octet-stream",
+            json!({ "type": "string", "format": "binary", "description": "Any binary frame, forwarded as is." }),
+        ),
+    ];
+    for (name, content_type, payload) in frames {
+        let message = spec
+            .pointer_mut(&format!("/components/messages/{name}"))
+            .and_then(Value::as_object_mut)
+            .ok_or(Error::SchemaMalformed(
+                "a relay message is missing from the AsyncAPI document",
+            ))?;
+        let _previous_content_type = message.insert("contentType".to_owned(), json!(content_type));
+        let _previous_payload = message.insert("payload".to_owned(), payload);
+    }
+    Ok(())
 }
 
 /// Fold `source`'s channels, operations, `components.messages` and `components.schemas` into `target`.
