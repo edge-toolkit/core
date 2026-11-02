@@ -1,13 +1,15 @@
 //! et-ws-server as firmware: the hub's `/ws`, `/health`, `/favicon.ico` and the modules built into it, on port 8080,
 //! over a board's own Wi-Fi.
 //!
-//! The target picks the board: bare-metal Arm is the Raspberry Pi Pico 2 W, and bare-metal RISC-V the ESP32-C6. Built
-//! for any target with an operating system, the same hub serves the same modules from the host, over tokio, so what a
-//! board would serve can be explored without one.
+//! The target picks the board: bare-metal Arm is the Raspberry Pi Pico 2 W, or the Pimoroni Pico Plus 2 W with its
+//! feature, and bare-metal RISC-V the ESP32-C6. The Pico Plus 2 W also runs the wasi runners the build compiled in
+//! beside the hub. Built for any target with an operating system, the same hub serves the same modules and runs the
+//! same runners from the host, over tokio, so what a board would do can be explored without one.
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(target_os = "none", no_std, no_main)]
 #![recursion_limit = "256"]
 
-#[cfg(target_os = "none")]
 extern crate alloc;
 
 use edge_toolkit::ports::Services;
@@ -16,6 +18,7 @@ use edge_toolkit::ports::Services;
 mod board;
 #[cfg(not(target_os = "none"))]
 mod host;
+mod runner;
 
 #[cfg(not(target_os = "none"))]
 use self::host::main;

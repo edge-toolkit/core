@@ -16,7 +16,7 @@
 depends = ["fetch-cyw43-firmware-rclone"]
 description = "Build et-ws-server as Raspberry Pi Pico 2 W firmware"
 env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
-run = "cargo build --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf"
+run = "cargo build --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf --features pico2w"
 
 # The firmware's body compiles only for the board, so the workspace's host clippy never reaches it; this does.
 # It needs what build-firmware-pico2w needs.
@@ -24,7 +24,44 @@ run = "cargo build --release -p et-int-ws-server-firmware --target thumbv8m.main
 depends = ["fetch-cyw43-firmware-rclone"]
 description = "Lint the Raspberry Pi Pico 2 W firmware for its own target"
 env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
-run = "cargo clippy --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf"
+run = "cargo clippy --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf --features pico2w"
+
+# As build-firmware-pico2w, for the Pimoroni Pico Plus 2 W: the same radio on the RP2350B, with PSRAM for the heap.
+# It also builds in each runner RUNNER_GUESTS names, compiled for the board from the module MODULES_PATHS provides.
+[tasks.build-firmware-pico-plus2w]
+depends = ["fetch-cyw43-firmware-rclone"]
+description = "Build et-ws-server and its wasi runners as Pimoroni Pico Plus 2 W firmware"
+env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
+run = "cargo build --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf --features pico-plus2w"
+
+# Generate a scenario's deployment as one board's firmware, then build it, as CI does for every board.
+# The deployment lands in target/<format>, and the build reads WIFI_NETWORK and WIFI_PASSWORD as any board
+# build does. With --host-test it then serves the same modules, and runs the same runners, from this host.
+[tasks.firmware-scenario]
+description = "Generate a scenario's firmware deployment under target/ and build it, optionally testing it on the host"
+run = """
+dst="target/$usage_format"
+set -- --input-file "$usage_input" --output-dir "$dst" --output-type "$usage_format"
+cargo run -q -p et-cli -- generate-deployment "$@"
+cd "$dst"
+MISE_ENV="$usage_format" mise run firmware-build
+if [ "${usage_host_test:-false}" = true ]; then
+  MISE_ENV="$usage_format" mise run firmware-host-test
+fi
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+arg "<input>" help="The scenario input file"
+arg "<format>" help="The board's output type, such as firmware-pico2"
+flag "--host-test" help="Also serve the modules and run the runners from this host, checking each"
+"""
+
+# As cargo-clippy-check-pico2w, for the Pico Plus 2 W's body.
+[tasks.cargo-clippy-check-pico-plus2w]
+depends = ["fetch-cyw43-firmware-rclone"]
+description = "Lint the Pimoroni Pico Plus 2 W firmware for its own target"
+env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
+run = "cargo clippy --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf --features pico-plus2w"
 
 # et-ws-server as ESP32-C6 firmware: an ELF that espflash writes to the board, with esp-hal's bootloader before it.
 # Its radio's blobs come with esp-radio, so the build needs only the network to join, from WIFI_NETWORK and
@@ -68,7 +105,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-no-std]
 description = "Build the no_std crates for a bare-metal target"
 run = """
-features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server
+features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server,et-ws-wasi-runner/board
 set -- -p et-org -p edge-toolkit -p et-ws-service -p et-ws-server -p et-ws-wasi-runner
 cargo build --lib --target thumbv8m.main-none-eabihf --no-default-features --features "$features" "$@"
 """

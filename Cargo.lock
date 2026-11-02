@@ -4672,6 +4672,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
+ "wasmparser 0.258.3",
+ "wat",
 ]
 
 [[package]]
@@ -5746,10 +5748,14 @@ dependencies = [
 name = "et-firmware-modules"
 version = "0.1.0"
 dependencies = [
+ "edge-toolkit",
+ "et-ws-wasi-runner",
  "fs-err",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+ "wasmparser 0.258.3",
+ "wat",
 ]
 
 [[package]]
@@ -5839,6 +5845,7 @@ dependencies = [
  "cyw43-pio",
  "defmt 1.2.0",
  "defmt-rtt",
+ "document-features",
  "edge-toolkit",
  "embassy-executor",
  "embassy-net",
@@ -5855,6 +5862,7 @@ dependencies = [
  "et-firmware-modules",
  "et-ws-server",
  "et-ws-service",
+ "et-ws-wasi-runner",
  "fs-err",
  "panic-probe",
  "picoserve",
@@ -6572,6 +6580,7 @@ dependencies = [
  "et-test-otlp",
  "et-ws-runner-common",
  "et-ws-test-server",
+ "et-ws-wasi-runner",
  "fs-err",
  "futures-util",
  "libc",
@@ -6582,6 +6591,7 @@ dependencies = [
  "secrecy",
  "serde_json",
  "serde_path_to_error",
+ "spin 0.12.3",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",

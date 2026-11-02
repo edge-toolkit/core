@@ -1,7 +1,7 @@
 # wasi-math1
 
 This directory contains generated deployment configs for the `wasi-math1` scenario.
-Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`.
+Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`, `mise.firmware-pico-plus2.toml`.
 
 The scenario exposes these workflow modules: wasi-math1, wasi-math1-sender.
 
@@ -154,3 +154,30 @@ starts is expected here rather than a fault. Watch it settle with:
 ```bash
 kubectl get pods -n "$ns" --watch
 ```
+
+## Run As Pimoroni Pico Plus 2 W Firmware
+
+The board runs the hub, and beside it each wasi runner the scenario declares, compiled into the
+firmware from its module's component. The build refuses a runner that imports what the board
+does not host, or runners needing more memory than it holds.
+The board serves this scenario's modules from its 16 MiB of flash.
+Build those modules first, since the firmware takes each one's built package.
+Set `WIFI_NETWORK` and `WIFI_PASSWORD` to the Wi-Fi network the board joins.
+Then hold the board's BOOTSEL button while plugging it in.
+From this directory, build the firmware and load it with:
+
+```bash
+MISE_ENV=firmware-pico-plus2 mise run firmware-flash
+```
+
+To check what the board will serve without one, serve the same modules from this host and fetch
+each, as a page would:
+
+```bash
+MISE_ENV=firmware-pico-plus2 mise run firmware-host-test
+```
+
+The board takes an address over DHCP and serves the page at port 8080 of it. npm packages the
+modules use that are too big for its flash, such as onnxruntime-web, are not built in: the board
+redirects a request for one to the same path under `https://cdn.jsdelivr.net/npm`, which the browser has to be
+able to reach.

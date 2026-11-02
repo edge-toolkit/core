@@ -20,6 +20,10 @@ name = "args"
 required-features = ["std"]
 
 [[test]]
+name = "board"
+required-features = ["std"]
+
+[[test]]
 name = "config"
 required-features = ["std"]
 
@@ -78,6 +82,7 @@ std = [
   "dep:serde_yaml",
   "dep:strum",
   "dep:tracing",
+  "dep:wasmparser",
   "serde/std",
   "serde_json/std",
   "thiserror/std",
@@ -89,6 +94,8 @@ schema-export = ["dep:asyncapi-rust", "dep:schemars", "schemars/chrono04", "std"
 ## Derives JSON Schema for the configuration types the binaries read from the environment.
 ## et-int-gen renders each binary's environment variables into its HELP.md from that schema.
 env-schema = ["dep:schemars", "std"]
+## Internal: a board runner built for coverage also hosts the `/cov` interfaces an instrumented guest writes through.
+coverage = []
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
@@ -114,6 +121,7 @@ spin.workspace = true
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tracing = { workspace = true, features = ["std"], optional = true }
+wasmparser = { workspace = true, optional = true }
 
 [dev-dependencies]
 cloudevents-sdk.workspace = true
@@ -122,6 +130,7 @@ et-test-helpers.workspace = true
 et-test-otlp.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+wat.workspace = true
 
 [lints]
 workspace = true

@@ -1,0 +1,30 @@
+id: no-repeated-wildcard-pattern
+valid:
+  - |
+    let (outcome, ..) = ran();
+  - |
+    let (outcome, .., closed) = ran();
+  - |
+    let (outcome, _, closed, _) = ran();
+  - |
+    let Frame(_, text) = frame;
+  - |
+    let _ = (first, second);
+  - |
+    let (_, _, value, _, _) = five();
+  - |
+    let (first, .., _, _) = many();
+invalid:
+  - |
+    let (outcome, _, _, _) = ran();
+  - |
+    let (outcome, _, _, closed) = ran();
+  - |
+    for (_, _, path) in &sources {}
+  - |
+    let Frame(_, _, text) = frame;
+  - |
+    let (outcome, (_,
+        _)) = ran();
+  - |
+    let (_, _, value, _) = four();

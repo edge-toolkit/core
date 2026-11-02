@@ -655,6 +655,7 @@ fn generate_format(
         }
         OutputType::FirmwarePico2 => generate_firmware_deployment(cluster, output_dir, Board::Pico2),
         OutputType::FirmwareEsp32c6 => generate_firmware_deployment(cluster, output_dir, Board::Esp32c6),
+        OutputType::FirmwarePicoPlus2 => generate_firmware_deployment(cluster, output_dir, Board::PicoPlus2),
     }
 }
 
@@ -1134,15 +1135,28 @@ fn generated_run_instructions(
         OutputType::K3s => k3s_run_instructions(cluster, image_build, runners, artifacts, build_contexts),
         OutputType::FirmwarePico2 => firmware_run_instructions(Board::Pico2.spec()),
         OutputType::FirmwareEsp32c6 => firmware_run_instructions(Board::Esp32c6.spec()),
+        OutputType::FirmwarePicoPlus2 => firmware_run_instructions(Board::PicoPlus2.spec()),
     }
 }
 
 /// Render the README section that builds the hub as firmware for `board` and loads it onto one.
 fn firmware_run_instructions(board: BoardSpec) -> String {
+    let runs = if board.runners.is_empty() {
+        "The board runs the hub alone and".to_owned()
+    } else {
+        format!(
+            concat!(
+                "The board runs the hub, and beside it each {} runner the scenario declares, compiled into the\n",
+                "firmware from its module's component. The build refuses a runner that imports what the board\n",
+                "does not host, or runners needing more memory than it holds.\nThe board"
+            ),
+            board.runners.join(", ")
+        )
+    };
     format!(
         concat!(
             "## Run As {title} Firmware\n\n",
-            "The board runs the hub alone and serves this scenario's modules from its {flash} of flash.\n",
+            "{runs} serves this scenario's modules from its {flash} of flash.\n",
             "Build those modules first, since the firmware takes each one's built package.\n",
             "{network}\n",
             "Then {preparation}.\n",
@@ -1161,6 +1175,7 @@ fn firmware_run_instructions(board: BoardSpec) -> String {
             "able to reach.\n"
         ),
         title = board.title,
+        runs = runs,
         flash = board.flash,
         network = board.network_setup,
         preparation = board.load_preparation,
@@ -1273,7 +1288,9 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
         ),
         OutputType::K3s => return k3s_machine_instructions(cluster, server),
         // Refused before anything is written: the board is one machine.
-        OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 => return String::default(),
+        OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 | OutputType::FirmwarePicoPlus2 => {
+            return String::default();
+        }
     };
     let roles = machine_roles(cluster, server);
     let loopback = loopback_note(cluster);

@@ -49,6 +49,8 @@ Generate deployment config from a cluster input YAML
     The hub alone, as firmware for a Raspberry Pi Pico 2 W
   - `firmware-esp32c6`:
     The hub alone, as firmware for an ESP32-C6
+  - `firmware-pico-plus2`:
+    The hub and the scenario's wasi runners, as firmware for a Pimoroni Pico Plus 2 W
 
 ## `et-cli regen-verification`
 

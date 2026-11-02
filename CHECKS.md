@@ -1,11 +1,11 @@
 # Checks
 
 - **Generated:** 2026-11-02
-- **Checks:** 81
+- **Checks:** 82
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 360 custom local rules, or non-default strict linter settings
+- **Rules:** 361 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -212,6 +212,11 @@ Rules, from `config/ast-grep/rules`:
   repository root instead -- `edge_toolkit::config::get_project_root()` (runtime) or
   `et_path::find_project_root_from_manifest()` (build scripts) -- and join the remainder onto it. (Char literals like
   `'.'` for splitting are unaffected.)
+- `no-repeated-wildcard-pattern` -- Two or more `_` side by side in a tuple or tuple-struct pattern each ignore one
+  field where `..` ignores them all. Write the run as `..`: `(outcome, _, _, _)` becomes `(outcome, ..)`, `(_, _, path)`
+  becomes `(.., path)`, and `(outcome, _, _, closed)` becomes `(outcome, .., closed)`. The pattern then says which
+  fields matter rather than counting the ones that do not, and it keeps compiling when one is added. This mirrors
+  `DeepSource RS-W1213`; clippy has no equivalent.
 - `no-result-alias` -- Defining a `type Result<...>` alias shadows `std::result::Result` at file scope and makes every
   `Result<T>` ambiguous to readers. Spell the error type at each call site instead (`Result<T, my::Error>`).
 - `no-result-string-err` -- `Result<_, String>` flattens any typed error to a free-form string at the point of failure
@@ -334,6 +339,8 @@ Rules, from `config/ast-grep/rules`:
   `config/clippy.toml`.
 - `cargo-clippy-check-esp32c6` (`rust` env; not run by `mise run check`) -- Lint the ESP32-C6 firmware for its own
   target. Config: `Cargo.toml`, `config/clippy.toml`.
+- `cargo-clippy-check-pico-plus2w` (`rust` env; not run by `mise run check`) -- Lint the Pimoroni Pico Plus 2 W firmware
+  for its own target. Config: `Cargo.toml`, `config/clippy.toml`.
 - `cargo-clippy-check-pico2w` (`rust` env; not run by `mise run check`) -- Lint the Raspberry Pi Pico 2 W firmware for
   its own target. Config: `Cargo.toml`, `config/clippy.toml`.
 - `cargo-clippy-check-pkg` (`default` env; not run by `mise run check`) -- cargo clippy on one or more workspace

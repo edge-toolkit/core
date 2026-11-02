@@ -1,9 +1,9 @@
 //! Explores the host build of the firmware the way a page or a runner would: every module it lists, fetched.
 //!
-//! It asks the server what it serves rather than being told, so it holds for whatever modules the build put in: none
-//! in a plain test run, and a whole scenario's when that scenario's `firmware-host-test` task builds it. A module built
-//! in has to serve its `package.json` and its `main`, and answer a revalidation without the body; one served elsewhere
-//! has to redirect to the same path under its base, which is not fetched, since it is not this server's to serve.
+//! It asks the server what it serves rather than being told, so it holds for whatever modules the build put in: none in
+//! a plain test run, and a whole scenario's when that scenario's `firmware-host-test` task builds it. A module built in
+//! has to serve its `package.json` and its `main`, and answer a revalidation without the body; one served elsewhere has
+//! to redirect to the same path under its base, which is not fetched, since it is not this server's to serve.
 #![cfg(test)]
 
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
@@ -17,6 +17,8 @@ use tungstenite::Message;
 struct Server {
     child: Child,
     address: SocketAddr,
+    /// How many runners it said it starts: none in a plain test run, a scenario's in its own `firmware-host-test`.
+    runners: usize,
 }
 
 impl Server {
@@ -32,13 +34,15 @@ impl Server {
         let _read = BufReader::new(child.stdout.take().unwrap())
             .read_line(&mut line)
             .unwrap();
-        let address = line
+        let (address, runners) = line
             .trim()
             .strip_prefix("Serving http://")
             .unwrap()
-            .trim_end_matches('/');
+            .split_once("/ with ")
+            .unwrap();
         Self {
             address: address.parse().unwrap(),
+            runners: runners.strip_suffix(" runners").unwrap().parse().unwrap(),
             child,
         }
     }
@@ -136,6 +140,8 @@ fn it_serves_every_module_it_lists() {
 }
 
 /// Send `message` to the hub over `socket`, and decode its reply.
+///
+/// What other agents send in the meantime is passed over: a runner the build compiled in may be broadcasting.
 fn exchange(
     socket: &mut tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<TcpStream>>,
     message: &ClientMessage,
@@ -143,7 +149,38 @@ fn exchange(
     socket
         .send(Message::text(serde_json::to_string(message).unwrap()))
         .unwrap();
-    ServerMessage::from_text_frame(socket.read().unwrap().to_text().unwrap()).unwrap()
+    loop {
+        let reply = ServerMessage::from_text_frame(socket.read().unwrap().to_text().unwrap()).unwrap();
+        if !matches!(reply, ServerMessage::AgentMessage { .. }) {
+            return reply;
+        }
+    }
+}
+
+#[test]
+fn every_runner_the_build_compiled_in_joins_the_hub() {
+    let server = Server::start();
+    let runners = server.runners;
+    let (mut socket, _response) = tungstenite::connect(format!("ws://{}/ws", server.address)).unwrap();
+    let ServerMessage::ConnectAck { agent_id, .. } = exchange(&mut socket, &ClientMessage::Connect { agent_id: None })
+    else {
+        panic!("the connect was not acknowledged");
+    };
+    let mut joined = || {
+        let ServerMessage::ListAgentsResponse { agents } = exchange(&mut socket, &ClientMessage::ListAgents) else {
+            panic!("the agents were not listed");
+        };
+        agents.iter().filter(|agent| agent.agent_id != agent_id).count()
+    };
+    let mut others = joined();
+    for _ in 0..100_u32 {
+        if others >= runners {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        others = joined();
+    }
+    assert_eq!(others, runners);
 }
 
 #[test]
@@ -153,7 +190,8 @@ fn an_agent_is_given_an_id_and_told_the_time() {
     let (mut socket, _response) = tungstenite::connect(format!("ws://{}/ws", server.address)).unwrap();
 
     let connected = exchange(&mut socket, &ClientMessage::Connect { agent_id: None });
-    assert!(matches!(connected, ServerMessage::ConnectAck { agent_id, .. } if agent_id == "host-1"));
+    // Not necessarily `host-1`: a runner the build compiled in may have connected first.
+    assert!(matches!(connected, ServerMessage::ConnectAck { agent_id, .. } if agent_id.starts_with("host-")));
     let alive = ClientMessage::Alive {
         timestamp: "now".to_owned(),
     };

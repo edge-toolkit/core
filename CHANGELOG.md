@@ -23,25 +23,34 @@ Changelog 1.1.0.
   `GET /ws` over HTTP and WebSocket through picoserve on any socket the embedder accepts, such as an `embassy-net`
   `TcpSocket`. It is a local hub, with no backplane, admin API, idle timeout or registry file. A crate awaiting
   `Hub::serve` needs `#![recursion_limit = "256"]`.
+- `picoserve_hub::Hub::local` joins an agent the embedder runs itself to the hub, with no socket between them: a
+  `LocalLink` routes what it sends as a connection's frames are, queues what others send it, and disconnects the agent
+  when dropped. It is how a board's own runner reaches the hub beside it. Its `send_text` and `send_binary` refuse a
+  frame larger than the hub reads from a socket with `FrameTooLarge`.
 - `et-ws-server` builds as `no_std` + `alloc` without its new `std` feature. Its `picoserve-server` feature, on by
   default, adds `picoserve_server::serve`: the hub's `/ws` with `/health` and `/favicon.ico` beside it, over picoserve,
   and the modules a `picoserve_modules::Modules` builds into the binary under `/modules` and `/`, as the `std` server
   serves them from disk. A module listed as served elsewhere is redirected to a base URL instead.
-- The `et-ws-server-firmware` firmware runs et-ws-server on a Raspberry Pi Pico 2 W or an ESP32-C6, over the board's
-  Wi-Fi. `MISE_ENV=rust mise run build-firmware-pico2w` fetches the Pico's radio blobs and builds it for the Pico, and
-  `build-firmware-esp32c6` for the ESP32-C6, each for the network `WIFI_NETWORK` and `WIFI_PASSWORD` name, embedding
-  the modules `MODULES_PATHS` names and serving `MODULES_ROOT` at `/`.
-- `et-cli generate-deployment --output-type firmware-pico2` writes a `mise.firmware-pico2.toml`, and
-  `firmware-esp32c6` a `mise.firmware-esp32c6.toml`, whose `firmware-flash` task builds that firmware with the
-  scenario's modules in it and loads it onto a board, with picotool or espflash. The npm
-  packages the modules use, such as onnxruntime-web, are redirected to jsDelivr rather than built in. A scenario with
-  a runner, `machines:` or published artifacts is refused, since the board runs one hub and nothing else. Its
-  `firmware-host-test` task serves the same modules from the host, as the firmware's host build does, and fetches
-  every module it lists, with no board needed.
+- The `et-ws-server-firmware` firmware runs et-ws-server on a Raspberry Pi Pico 2 W, an ESP32-C6 or a Pimoroni Pico
+  Plus 2 W, over the board's Wi-Fi. `MISE_ENV=rust mise run build-firmware-pico2w` fetches the Pico's radio blobs and
+  builds it for the Pico, `build-firmware-esp32c6` for the ESP32-C6, and `build-firmware-pico-plus2w` for the Pico Plus
+  2 W, each for the network `WIFI_NETWORK` and `WIFI_PASSWORD` name, embedding the modules `MODULES_PATHS` names and
+  serving `MODULES_ROOT` at `/`. The Pico Plus 2 W makes its 8 MiB of PSRAM the heap, and also runs each wasi runner
+  `RUNNER_GUESTS` names beside the hub, its guest compiled into the firmware and its websocket a link into the hub.
+- `et-cli generate-deployment --output-type firmware-pico2` writes a `mise.firmware-pico2.toml`, `firmware-esp32c6` a
+  `mise.firmware-esp32c6.toml`, and `firmware-pico-plus2` a `mise.firmware-pico-plus2.toml`, whose `firmware-flash`
+  task builds that firmware with the scenario's modules in it and loads it onto a board, with picotool or espflash.
+  The npm packages the modules use, such as onnxruntime-web, are redirected to jsDelivr rather than built in. The
+  board's firmware decides which runners it runs: the Pico Plus 2 W runs a scenario's `wasi` runners, and every other
+  runner, or a runner with `limits:`, is refused; the other boards refuse any runner. A scenario with `machines:` or
+  published artifacts is refused on every board. Its `firmware-host-test` task serves the same modules from the host,
+  and runs the same runners, as the firmware's host build does, and fetches every module it lists, with no board
+  needed.
 - `et-firmware-modules` generates the source a firmware's build script writes to build ws-modules into its image,
   from the same `MODULES_*` variables, so every board's firmware embeds modules the same way. Its `board` writes what
   the board a target picks bakes in -- the Wi-Fi network, and the Pico 2 W's radio blobs and memory layout -- and
-  returns the directives that link it.
+  returns the directives that link it. Its `guests` compiles each runner's guest for the board, refusing one that
+  imports what a board does not host, or guests needing more memory than the board holds for them.
 - `et-ws-wasi-runner` builds as `no_std` + `alloc` without its new default `std` feature, and its `board` module
   runs a guest on a microcontroller: compiled ahead of time with `engine::precompile` for the board's Pulley target,
   and hosted through the firmware's `board::Platform` and `board::Transport`.
@@ -51,6 +60,13 @@ Changelog 1.1.0.
 - Recovery supervision reconnects after hub interruptions and restores incident context with explicit observation gaps.
   Optional dependency checks, fleet action limits, bounded backoff with jitter and sustained-recovery assessment extend
   the existing restart policy. Reports distinguish observed failure conditions from reasons for withholding actions.
+- `edge-toolkit`'s `board` module lists the interfaces a board's runner hosts, and its `Guest` reads what a component
+  imports and how much memory it starts with, so a guest can be checked against a board before it is built in.
+- `et-ws-wasi-runner` builds as `no_std` + `alloc` without its new default `std` feature, and with its new `board`
+  feature its `board` module runs a guest on a microcontroller: compiled ahead of time with `engine::precompile` (the
+  `precompile` feature) for the board's Pulley target, and hosted through the firmware's `board::Platform` and
+  `board::Transport`. Every guest on a board shares its storage in `board::Buckets`, and draws its memories and
+  tables from one `board::MemoryBudget`, which refuses growth past what the board holds for them.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,

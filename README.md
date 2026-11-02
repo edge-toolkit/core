@@ -427,10 +427,10 @@ for `localhost` only and the runners have no way to be told to trust it.
 
 ### Firmware
 
-The `firmware-<board>` output types deploy the hub alone, as firmware for a networked microcontroller board that
-serves the scenario's modules itself. Each board has one: `firmware-pico2` builds for the Raspberry Pi Pico 2 W, over
-its own Wi-Fi. It writes a `mise.firmware-pico2.toml` beside the other formats, and its `firmware-flash` task builds
-the firmware and loads it onto a board in BOOTSEL mode:
+The `firmware-<board>` output types deploy the hub as firmware for a networked microcontroller board that serves the
+scenario's modules itself. Each board has one: `firmware-pico2` builds for the Raspberry Pi Pico 2 W, over its own
+Wi-Fi. It writes a `mise.firmware-pico2.toml` beside the other formats, and its `firmware-flash` task builds the
+firmware and loads it onto a board in BOOTSEL mode:
 
 ```bash
 input=verification/local/input/facility-security-scenario.yaml
@@ -442,8 +442,14 @@ MISE_ENV=firmware-pico2 mise run firmware-flash
 
 A board has no filesystem, so each module from this repository, or from the scenario's `module_paths:`, is built
 into the firmware from its built package, and the modules have to be built first. The npm packages they use, such as
-onnxruntime-web, are bigger than a board's flash: those are redirected to jsDelivr instead. A scenario with a runner,
-more than one machine or published artifacts is refused, since the board runs nothing but the hub.
+onnxruntime-web, are bigger than a board's flash: those are redirected to jsDelivr instead. A scenario with more than
+one machine or published artifacts is refused.
+
+The board's firmware decides which runners it can run. Only `firmware-pico-plus2`, for the Pimoroni Pico Plus 2 W,
+runs any: its 8 MiB of PSRAM holds the memory a guest needs, so it runs each `wasi` runner beside the hub, its guest
+compiled into the firmware. The firmware's build refuses a guest that imports what a board does not host, such as
+`wasi:webgpu` or `wasi:nn`, or guests needing more memory than the board holds for them. Every other board refuses a
+scenario with a runner, and the Pico Plus 2 W refuses any runner but `wasi`, or one with `limits:`.
 
 ### Multiple machines
 

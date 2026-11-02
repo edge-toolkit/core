@@ -27,9 +27,11 @@ required-features = ["std"]
 
 # The tests of the `std` runner, and of the board's, which compiles its guests as only a host can.
 # `server_message_to_wit`, the test of the conversions a board shares, runs with `--no-default-features` as well.
+# The board's test also needs `board` and `precompile`, which the crate's dev-dependency on itself turns on, so it
+# runs whatever features the crate is otherwise built with.
 [[test]]
 name = "board"
-required-features = ["std"]
+required-features = ["board", "precompile", "std"]
 
 [[test]]
 name = "modules"
@@ -58,7 +60,7 @@ required-features = ["std"]
 default = ["nn", "std", "webgpu"]
 ## The runner for a host with an operating system.
 ## It fetches a component from the hub, compiles it, and hosts WASI Preview 2 through `wasmtime-wasi`. Without it the
-## crate is `no_std`, and runs a component compiled ahead of time for a board through its `board` module.
+## crate is `no_std`: the message conversions, and with `board` the runner for a board.
 std = [
   "chrono/std",
   "dep:et-otlp",
@@ -73,13 +75,17 @@ std = [
   "dep:tracing",
   "dep:wasmtime-wasi",
   "edge-toolkit/std",
-  "precompile",
   "serde_json/std",
   "thiserror/std",
   "wasmtime/default",
 ]
 ## Compiles a component ahead of time for a board's engine, as a firmware's build script does.
-precompile = ["wasmtime/cranelift", "wasmtime/std"]
+## The board runs Pulley bytecode, so this compiles to it; a host runner, which runs native code, has no need of it.
+precompile = ["wasmtime/cranelift", "wasmtime/pulley", "wasmtime/std"]
+## The runner for a board with no operating system, `board::run`, which a firmware runs its guests on.
+## It hosts a component compiled ahead of time on the clock, log and websocket the firmware provides, interpreting its
+## Pulley bytecode, and keeps the board's storage buckets under a spin lock, since a board has no `std::sync::Mutex`.
+board = ["dep:spin", "wasmtime/pulley"]
 ## Hosts `wasi:nn` (graph, tensor, inference) on ONNX Runtime through `wasmtime-wasi-nn`.
 ## Guests can then load an ONNX model and run inference on it.
 nn = ["dep:ort", "dep:wasmtime-wasi-nn", "std"]
@@ -95,7 +101,7 @@ cuda = ["nn", "wasmtime-wasi-nn/onnx-cuda"]
 ## Internal: compiles in the `/cov` preopen for the repo's coverage workflow.
 ## Mapped to `target/wasi-cov`, it is where instrumented WASI guests dump their minicov `.profraw`.
 ## `ET_TEST_COVERAGE` still gates the preopen at runtime.
-coverage = ["et-ws-runner-common?/coverage", "std"]
+coverage = ["edge-toolkit/coverage", "et-ws-runner-common?/coverage", "std"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
@@ -106,6 +112,8 @@ document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 serde_json = { workspace = true, features = ["alloc"] }
 serde_path_to_error.workspace = true
+# The lock a board's guests share their buckets under, when there is no `std::sync::Mutex`.
+spin = { workspace = true, optional = true }
 thiserror.workspace = true
 wasmtime.workspace = true
 # The rest is the `std` runner's.
@@ -114,10 +122,6 @@ et-rest-client = { workspace = true, features = ["tracing"], optional = true }
 et-ws-runner-common = { workspace = true, optional = true }
 fs-err = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
-# libc::_exit for the macOS test-only fast exit (see main.rs).
-# std::process::exit still runs atexit handlers, which is exactly the path that races libc++ during
-# ORT teardown -- _exit skips them.
-libc = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json", "rustls", "stream"], optional = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
 tokio-tungstenite = { workspace = true, features = ["connect"], optional = true }
@@ -138,12 +142,19 @@ wasi-webgpu-wasmtime = { workspace = true, optional = true }
 wgpu-core = { workspace = true, optional = true }
 wgpu-types = { workspace = true, optional = true }
 
+# libc::_exit for the macOS test-only fast exit (see main.rs), the one platform that needs it.
+# std::process::exit still runs atexit handlers, which is exactly the path that races libc++ during
+# ORT teardown -- _exit skips them.
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = { workspace = true, optional = true }
+
 [dev-dependencies]
 command-error.workspace = true
 et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true
 et-ws-test-server.workspace = true
+et-ws-wasi-runner = { workspace = true, features = ["board", "precompile"] }
 reqwest = { workspace = true, features = ["blocking"] }
 retry.workspace = true
 rstest.workspace = true

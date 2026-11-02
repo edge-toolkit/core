@@ -12,6 +12,8 @@ use std::fmt::Write as _;
 use std::hash::{DefaultHasher, Hash as _, Hasher as _};
 use std::path::{Component, Path, PathBuf};
 
+use edge_toolkit::board::Guest;
+use et_ws_wasi_runner::engine::precompile;
 use fs_err as fs;
 
 /// The variables [`board`] reads, which a build script has to rerun when one changes.
@@ -31,6 +33,10 @@ const PACKAGE_JSON: &str = "package.json";
 const MODULES_API: &str = "et_ws_server::picoserve_modules";
 /// The variable the module directories come from, which errors about them name.
 const MODULES_PATHS: &str = "MODULES_PATHS";
+/// The variable naming the runners a board starts and the modules they run, which errors about them name.
+pub const RUNNER_GUESTS: &str = "RUNNER_GUESTS";
+/// The Pulley target of a 32-bit board, whose pointers, and so table elements, are four bytes rather than eight.
+const PULLEY32: &str = "pulley32";
 
 /// Why a firmware's modules cannot be built in, or its board's build cannot be generated.
 #[derive(Debug, thiserror::Error)]
@@ -66,6 +72,32 @@ pub enum ModulesError {
     MissingBlob { variable: String, file: String },
     #[error("no board is built for {0}")]
     NoBoard(String),
+    #[error("RUNNER_GUESTS holds {0:?}, which is not a runner=package pair")]
+    NotAGuest(String),
+    #[error("runner {runner} runs {package}, which none of MODULES_PATHS provides; serving {names:?}")]
+    UnknownGuest {
+        runner: String,
+        package: String,
+        names: Vec<String>,
+    },
+    #[error("runner {runner} runs {package}, whose main {main:?} is not a WebAssembly component")]
+    NotAComponent {
+        runner: String,
+        package: String,
+        main: String,
+    },
+    #[error("{path} is not a WebAssembly component")]
+    Unreadable {
+        path: PathBuf,
+        #[source]
+        source: wasmparser::BinaryReaderError,
+    },
+    #[error("runner {runner} imports {imports:?}, which this board does not host")]
+    Unhosted { runner: String, imports: Vec<String> },
+    #[error("the runners' guests start with {needed} bytes of memories and tables, but this board holds {budget}")]
+    GuestMemory { needed: u64, budget: u64 },
+    #[error("runner {runner}'s guest could not be compiled for the board: {reason}")]
+    Precompile { runner: String, reason: String },
 }
 
 /// The source of `modules.rs`, and every file it builds in, which the build has to rerun when one changes.
@@ -100,11 +132,7 @@ pub fn generate(paths: &str, root: &str, elsewhere: &str, elsewhere_url: &str) -
         let path = PathBuf::from(path);
         // Checked before anything is read, so a relative entry is refused as one, wherever the build happens to run.
         let _literal = include_path(MODULES_PATHS, &path)?;
-        let package_dir = if path.join(PACKAGE_DIR).is_dir() {
-            path.join(PACKAGE_DIR)
-        } else {
-            path
-        };
+        let package_dir = package_dir(path);
         let package = package(&package_dir)?;
         let _written = writeln!(embedded, "    {MODULES_API}::Module::new({:?}, &[", package.name);
         for file in package.files {
@@ -154,6 +182,183 @@ static MODULES: {MODULES_API}::Modules = {MODULES_API}::Modules::new(
     })
 }
 
+/// The source building in a guest for each runner in `guests`, compiled for `target`, and checked against the board.
+///
+/// `guests` is a comma-separated list of `runner=package` pairs, as `RUNNER_GUESTS` holds it, each naming a module in
+/// `paths` whose `main` is the component to run. A board hosts only what [`edge_toolkit::board::HOSTED_IMPORTS`] lists,
+/// and holds `memory` bytes for its guests' memories and tables, so a guest importing anything else, or guests starting
+/// with more between them, are refused here rather than when the board instantiates them. A table element is counted
+/// at the pointer width of `target`, as the board's runner charges it. Each compiled guest is written to `out_dir`, and
+/// the source defines `const GUESTS`, every runner's name and its compiled component, as an array so the firmware can
+/// size a task pool by it.
+///
+/// # Errors
+///
+/// When a pair is malformed, a package is not in `paths` or its `main` is not a readable component, a guest imports
+/// what the board does not host, the guests need more than `memory`, or one does not compile for `target`.
+#[expect(
+    clippy::use_debug,
+    reason = "a str's Debug form is the Rust literal the generated source needs"
+)]
+pub fn guests(paths: &str, guests: &str, target: &str, memory: u64, out_dir: &Path) -> Result<Generated, ModulesError> {
+    // Checked before anything is written, so every compiled guest's path is absolute UTF-8 too.
+    let _literal = include_path(RUNNER_GUESTS, out_dir)?;
+    let packages = items(paths)
+        .map(|path| runnable(&package_dir(PathBuf::from(path))))
+        .collect::<Result<Vec<_>, _>>()?;
+    let pointer_bytes = if target == PULLEY32 { 4 } else { 8 };
+    let mut entries = String::default();
+    let mut components = Vec::new();
+    let mut needed: u64 = 0;
+    for (index, pair) in items(guests).enumerate() {
+        let (runner, component, bytes, guest) = checked_guest(pair, &packages)?;
+        needed = needed.saturating_add(guest.starts_with(pointer_bytes));
+        // Matched rather than converted, so the error can name the runner whose guest would not compile.
+        let compiled = match precompile(target, &bytes) {
+            Ok(compiled) => compiled,
+            Err(error) => {
+                return Err(ModulesError::Precompile {
+                    runner: runner.to_owned(),
+                    reason: error.to_string(),
+                });
+            }
+        };
+        let compiled_path = out_dir.join(format!("guest-{index}.cwasm"));
+        fs::write(&compiled_path, compiled)?;
+        let literal = compiled_path.display().to_string();
+        let _written = writeln!(entries, "    ({runner:?}, include_bytes!({literal:?})),");
+        components.push(component);
+    }
+    if needed > memory {
+        return Err(ModulesError::GuestMemory { needed, budget: memory });
+    }
+    let count = components.len();
+    let source = format!(
+        "/// The guests the firmware runs beside the hub, each compiled for it, as `RUNNER_GUESTS` named them.
+pub(crate) const GUESTS: [(&str, &[u8]); {count}] = [
+{entries}];
+/// The bytes the board holds for its guests' memories, which they draw on as they grow, whatever they start with.
+pub(crate) const GUEST_MEMORY: u64 = {budget};
+",
+        budget = separated(memory)
+    );
+    Ok(Generated {
+        source,
+        files: components,
+    })
+}
+
+/// `value` as an integer literal with its digits in groups of three, as the firmware's lints ask of a long one.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the literal step of guests, kept apart from what it writes"
+)]
+fn separated(value: u64) -> String {
+    let digits = value.to_string();
+    let mut groups: Vec<&[u8]> = digits.as_bytes().rchunks(3).collect();
+    groups.reverse();
+    groups
+        .iter()
+        .map(|group| String::from_utf8_lossy(group))
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
+/// Refuse `entry`, a path the manifest at `manifest` names, unless it names something within the package.
+///
+/// A root, a drive or a `..` would build in a file from elsewhere.
+fn within_package(entry: &str, manifest: &Path) -> Result<(), ModulesError> {
+    if Path::new(entry)
+        .components()
+        .all(|part| matches!(part, Component::Normal(_) | Component::CurDir))
+    {
+        return Ok(());
+    }
+    Err(ModulesError::OutsidePackage {
+        manifest: manifest.to_path_buf(),
+        entry: entry.to_owned(),
+    })
+}
+
+/// A package a runner may run: its name, the path of its `main`, and `main` as the manifest spells it.
+struct Runnable {
+    name: String,
+    component: PathBuf,
+    main: String,
+}
+
+/// The package in `dir`, as a runner would find its component there.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the per-module step of guests, kept apart from its runners' checks"
+)]
+fn runnable(dir: &Path) -> Result<Runnable, ModulesError> {
+    let manifest_path = dir.join(PACKAGE_JSON);
+    let manifest = manifest(&manifest_path)?;
+    let name = manifest_name(&manifest, &manifest_path)?;
+    // No `main` is no component, which is refused for the runner that names the package rather than here.
+    let main = manifest
+        .get("main")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    within_package(main, &manifest_path)?;
+    Ok(Runnable {
+        name,
+        component: dir.join(main),
+        main: main.to_owned(),
+    })
+}
+
+/// The runner `pair` names, once a board can host its component.
+///
+/// With it, the component's path and bytes, and what the component asks of the board.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the per-runner check of guests, kept apart from compiling"
+)]
+fn checked_guest<'pair>(
+    pair: &'pair str,
+    packages: &[Runnable],
+) -> Result<(&'pair str, PathBuf, Vec<u8>, Guest), ModulesError> {
+    let (runner, package) = pair
+        .split_once('=')
+        .map(|(runner, package)| (runner.trim(), package.trim()))
+        .filter(|(runner, package)| !runner.is_empty() && !package.is_empty())
+        .ok_or_else(|| ModulesError::NotAGuest(pair.to_owned()))?;
+    let Some(found) = packages.iter().find(|candidate| candidate.name == package) else {
+        return Err(ModulesError::UnknownGuest {
+            runner: runner.to_owned(),
+            package: package.to_owned(),
+            names: packages.iter().map(|candidate| candidate.name.clone()).collect(),
+        });
+    };
+    if found.component.extension().and_then(|extension| extension.to_str()) != Some("wasm") {
+        return Err(ModulesError::NotAComponent {
+            runner: runner.to_owned(),
+            package: package.to_owned(),
+            main: found.main.clone(),
+        });
+    }
+    let bytes = fs::read(&found.component)?;
+    let guest = match Guest::read(&bytes) {
+        Ok(guest) => guest,
+        Err(source) => {
+            return Err(ModulesError::Unreadable {
+                path: found.component.clone(),
+                source,
+            });
+        }
+    };
+    let unhosted: Vec<String> = guest.unhosted().map(str::to_owned).collect();
+    if !unhosted.is_empty() {
+        return Err(ModulesError::Unhosted {
+            runner: runner.to_owned(),
+            imports: unhosted,
+        });
+    }
+    Ok((runner, found.component.clone(), bytes, guest))
+}
+
 /// `path` as the literal an `include_bytes!` names it by, which has to be absolute; `variable` is where it came from.
 ///
 /// A build script runs in its own crate's directory, so a relative path would quietly resolve against that.
@@ -178,8 +383,8 @@ pub fn include_path(variable: &str, path: &Path) -> Result<String, ModulesError>
 ///
 /// Every board gets `wifi.rs`, the network `WIFI_NETWORK` and `WIFI_PASSWORD` name, each read through `var` as from
 /// the environment. Bare-metal Arm is the Raspberry Pi Pico 2 W, which also gets its `memory_x` layout and `cyw43.rs`,
-/// its radio's blobs from `CYW43_FIRMWARE_DIR`, and links with cortex-m-rt's script; bare-metal RISC-V is the
-/// ESP32-C6, which links with esp-hal's. Both link defmt's too.
+/// its radio's blobs from `CYW43_FIRMWARE_DIR`, and links with cortex-m-rt's script; bare-metal RISC-V is the ESP32-C6,
+/// which links with esp-hal's. Both link defmt's too.
 ///
 /// # Errors
 ///
@@ -258,6 +463,36 @@ fn items(list: &str) -> impl Iterator<Item = &str> {
     list.split(',').map(str::trim).filter(|item| !item.is_empty())
 }
 
+/// The directory holding the package of the module at `path`: its `pkg/` when it has one, otherwise `path` itself.
+fn package_dir(path: PathBuf) -> PathBuf {
+    if path.join(PACKAGE_DIR).is_dir() {
+        path.join(PACKAGE_DIR)
+    } else {
+        path
+    }
+}
+
+/// The `package.json` at `path`, parsed.
+fn manifest(path: &Path) -> Result<serde_json::Value, ModulesError> {
+    // Matched rather than converted, so the error can name the manifest that would not parse.
+    match serde_json::from_str(&fs::read_to_string(path)?) {
+        Ok(manifest) => Ok(manifest),
+        Err(source) => Err(ModulesError::Json {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// The name `manifest`, read from `path`, declares.
+fn manifest_name(manifest: &serde_json::Value, path: &Path) -> Result<String, ModulesError> {
+    Ok(manifest
+        .get("name")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| ModulesError::NoName(path.to_path_buf()))?
+        .to_owned())
+}
+
 /// A module package: the name its `package.json` declares, and the files it publishes.
 struct Package {
     name: String,
@@ -271,21 +506,8 @@ struct Package {
 #[expect(clippy::single_call_fn, reason = "the per-module step of generate")]
 fn package(dir: &Path) -> Result<Package, ModulesError> {
     let manifest_path = dir.join(PACKAGE_JSON);
-    // Matched rather than converted, so the error can name the manifest that would not parse.
-    let manifest: serde_json::Value = match serde_json::from_str(&fs::read_to_string(&manifest_path)?) {
-        Ok(manifest) => manifest,
-        Err(source) => {
-            return Err(ModulesError::Json {
-                path: manifest_path,
-                source,
-            });
-        }
-    };
-    let name = manifest
-        .get("name")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| ModulesError::NoName(manifest_path.clone()))?
-        .to_owned();
+    let manifest = manifest(&manifest_path)?;
+    let name = manifest_name(&manifest, &manifest_path)?;
     let mut files = Vec::new();
     match manifest.get("files").and_then(serde_json::Value::as_array) {
         Some(listed) => {
@@ -294,16 +516,7 @@ fn package(dir: &Path) -> Result<Package, ModulesError> {
                 let entry = entry
                     .as_str()
                     .ok_or_else(|| ModulesError::FileNotString(manifest_path.clone()))?;
-                // Only names within the package: a root, a drive or a `..` would build in a file from elsewhere.
-                if !Path::new(entry)
-                    .components()
-                    .all(|part| matches!(part, Component::Normal(_) | Component::CurDir))
-                {
-                    return Err(ModulesError::OutsidePackage {
-                        manifest: manifest_path,
-                        entry: entry.to_owned(),
-                    });
-                }
+                within_package(entry, &manifest_path)?;
                 // Joined without its `.` parts, which would otherwise end up in the path the file is served at.
                 let within: PathBuf = Path::new(entry)
                     .components()

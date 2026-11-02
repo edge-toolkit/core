@@ -2,8 +2,8 @@
 //!
 //! The fixture splits the math1 pair the way `verification/local/input/math1-multi.yaml` does -- the trigger on the
 //! server with the hub, the twin on `edge` -- plus a third agent no machine lists, which has to land on the server.
-//! The single-host half of each test is what keeps the option opt-in: a scenario without `machines:` must render
-//! none of it.
+//! The single-host half of each test is what keeps the option opt-in: a scenario without `machines:` must render none
+//! of it.
 #![cfg(test)]
 
 use std::collections::BTreeMap;
@@ -288,7 +288,11 @@ fn the_readme_says_how_to_run_each_machine_share() {
     let readme = read(&dir, "README.md");
 
     // Every format but the boards', which refuse a scenario spanning machines.
-    let boards = [OutputType::FirmwarePico2, OutputType::FirmwareEsp32c6];
+    let boards = [
+        OutputType::FirmwarePico2,
+        OutputType::FirmwareEsp32c6,
+        OutputType::FirmwarePicoPlus2,
+    ];
     assert_eq!(
         readme.matches("### Run Across Machines With").count(),
         OutputType::ALL.len() - boards.len()

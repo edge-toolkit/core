@@ -359,7 +359,7 @@ fn render_dockerfile(cluster_name: &str, published: bool, sources: &ImageSources
     if !sources.released.is_empty() {
         out.push_str("COPY --from=released --chown=10001:10001 /staged/app /app\n");
     }
-    for (_, _, docker_path) in &sources.mise_tools {
+    for (.., docker_path) in &sources.mise_tools {
         let _write_result = writeln!(
             out,
             "COPY --from=deps --chown=10001:10001 /staged{docker_path} {docker_path}"
@@ -445,13 +445,13 @@ fn render_released_stage(released: &[(String, String)]) -> String {
 fn render_deps_stage(mise_tools: &[(String, String, String)]) -> String {
     let tools = mise_tools
         .iter()
-        .map(|(tool, _, _)| tool.as_str())
+        .map(|(tool, ..)| tool.as_str())
         .collect::<Vec<_>>()
         .join(" ");
     let mut stage = String::default();
     stage.push_str(DEPS_BASE_STAGE);
     let _write_result = writeln!(stage, "ENV MISE_ENV={DEPS_MISE_ENV}");
-    if mise_tools.iter().any(|(tool, _, _)| tool.starts_with("npm:")) {
+    if mise_tools.iter().any(|(tool, ..)| tool.starts_with("npm:")) {
         // mise's npm backend shells out to npm, and refuses an `npm:` tool whose configured `node` dependency is
         // not installed yet ("requires configured install dependency 'node@22', but its selected version is not
         // installed"). Its version comes from the repo's own [tools] pin, like every other tool staged here. The

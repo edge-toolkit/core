@@ -172,8 +172,16 @@ pub enum CliError {
     )]
     ScheduleUnsupported { agent: String, output_type: String },
 
-    #[error("The {board} firmware runs one hub and nothing else, so it cannot deploy a scenario that {reason}")]
+    #[error("The {board} firmware cannot deploy a scenario that {reason}")]
     BoardCannotRun { board: &'static str, reason: &'static str },
+
+    #[error("Agent {agent:?} names the {runner:?} runner, but the {board} firmware runs only {supported}")]
+    BoardRunnerUnsupported {
+        board: &'static str,
+        agent: String,
+        runner: String,
+        supported: String,
+    },
 
     #[error("Module path {0:?} has a name a shell would interpret or a filesystem would not hold; rename it")]
     UnsafeModulePath(PathBuf),

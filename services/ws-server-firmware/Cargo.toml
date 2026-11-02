@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 # `#[embassy_executor::main]` expands to `#[cortex_m_rt::entry]`, which cargo-shear's scan cannot see.
 [package.metadata.cargo-shear]
 ignored = ["cortex-m-rt"]
@@ -18,13 +21,25 @@ name = "et-ws-server-firmware"
 path = "src/main.rs"
 test = false
 
-# The hub, its settings and the modules built in are the same wherever the binary is built for.
+# The board a bare-metal Arm build is for, each picking its RP2350; a host or RISC-V build needs neither.
+[features]
+## The Raspberry Pi Pico 2 W, on its RP2350A.
+pico2w = ["embassy-rp/rp235xa"]
+## The Pimoroni Pico Plus 2 W, on its RP2350B, whose PSRAM holds the heap the wasi runners' guests need.
+pico-plus2w = ["embassy-rp/rp235xb"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
+# The hub, its settings, the modules built in and the runner its guests run on are the same wherever it is built for.
 [dependencies]
 chrono = { workspace = true, features = ["alloc"] }
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-ws-server = { workspace = true, features = ["picoserve-server"] }
 et-ws-service = { workspace = true, features = ["picoserve-hub"] }
+et-ws-wasi-runner = { workspace = true, features = ["board"] }
 picoserve.workspace = true
+serde_json = { workspace = true, features = ["alloc"] }
 
 # What every board shares once its radio is up: embassy's network stack, executor and clock, and the defmt log.
 [target.'cfg(target_os = "none")'.dependencies]
@@ -42,7 +57,7 @@ cyw43 = { workspace = true, features = ["defmt"] }
 cyw43-pio = { workspace = true, features = ["defmt"] }
 defmt-rtt.workspace = true
 embassy-executor = { workspace = true, features = ["executor-thread", "platform-cortex-m"] }
-embassy-rp = { workspace = true, features = ["critical-section-impl", "defmt", "rp235xa", "time-driver"] }
+embassy-rp = { workspace = true, features = ["critical-section-impl", "defmt", "time-driver"] }
 embedded-alloc.workspace = true
 panic-probe = { workspace = true, features = ["defmt"] }
 

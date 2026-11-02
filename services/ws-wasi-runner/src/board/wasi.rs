@@ -1,11 +1,11 @@
-//! The WASI Preview 2 a board hosts: what a guest built for `wasm32-wasip2` imports even when it never uses it,
-//! defined by hand, since `wasmtime-wasi` needs `std`.
+//! The WASI Preview 2 a board hosts: what a guest built for `wasm32-wasip2` imports even when it never uses it, defined
+//! by hand, since `wasmtime-wasi` needs `std`.
 //!
 //! Every ws-module guest imports the same few functions: its standard streams and environment, `exit`, the terminal
 //! queries, and the monotonic clock and polling it sleeps with. A component imports only the functions it calls, so
-//! these are all a guest needs; one importing any other fails to instantiate, naming it. Its standard streams go to
-//! the board's console, its environment is empty, it has no terminal, and a pollable is ready at once or at a
-//! deadline on the board's clock.
+//! these are all a guest needs; one importing any other fails to instantiate, naming it. Its standard streams go to the
+//! board's console, its environment is empty, it has no terminal, and a pollable is ready at once or at a deadline on
+//! the board's clock.
 #![expect(
     clippy::integer_division_remainder_used,
     reason = "wasmtime's ComponentType derive, on StreamError, aligns with `%` in the impls it generates"
@@ -14,14 +14,13 @@
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 
+pub(super) use edge_toolkit::board::PREVIEW2;
 use wasmtime::StoreContextMut;
 use wasmtime::component::{ComponentType, Lift, Linker, Lower, Resource, ResourceType};
 
 use super::host::BoardHost;
 use super::platform::{Console, Platform, Transport};
 
-/// The WASI Preview 2 release the guests import, which any later 0.2 import also resolves to.
-pub(super) const PREVIEW2: &str = "0.2.12";
 /// How many bytes `check-write` lets the guest write at once; the board's console takes any amount.
 const WRITE_BUDGET: u64 = 4096;
 

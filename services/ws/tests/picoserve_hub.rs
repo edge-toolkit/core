@@ -1,5 +1,5 @@
-//! The picoserve hub over real TCP sockets, with tokio standing in for an embedded executor and network stack:
-//! agents connect over HTTP, upgrade to WebSocket, and reach each other through the one hub.
+//! The picoserve hub over real TCP sockets, with tokio standing in for an embedded executor and network stack: agents
+//! connect over HTTP, upgrade to WebSocket, and reach each other through the one hub.
 #![cfg(test)]
 #![recursion_limit = "256"]
 
@@ -7,10 +7,13 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
-use edge_toolkit::ws::{ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage};
+use bytes::Bytes;
+use edge_toolkit::ws::{
+    AgentConnectionState, ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage,
+};
 use edge_toolkit::ws_server::MessageRetention;
 use et_ws_service::hub::{SessionMessage, Stamps};
-use et_ws_service::picoserve_hub::{Hub, Outbox, config};
+use et_ws_service::picoserve_hub::{Hub, LocalLink, Outbox, config};
 use futures_util::{SinkExt as _, StreamExt as _};
 use picoserve::time::TokioTimer;
 use serde_json::json;
@@ -121,8 +124,23 @@ async fn receive(client: &mut Client) -> ServerMessage {
     ServerMessage::from_text_frame(next_frame(client).await.to_text().unwrap()).unwrap()
 }
 
-/// Whether a direct message `client` sent was answered with `status`.
-async fn answered_with(client: &mut Client, expected: &MessageDeliveryStatus) -> bool {
+/// Whether `message`, sent by `client` directly to the agent `to_agent_id`, was answered as delivered.
+async fn delivered(client: &mut Client, to_agent_id: &str, message: serde_json::Value) -> bool {
+    sent_directly(client, to_agent_id, message, &MessageDeliveryStatus::Delivered).await
+}
+
+/// Whether `message`, sent by `client` directly to the agent `to_agent_id`, was answered with `expected`.
+async fn sent_directly(
+    client: &mut Client,
+    to_agent_id: &str,
+    message: serde_json::Value,
+    expected: &MessageDeliveryStatus,
+) -> bool {
+    let direct = ClientMessage::SendAgentMessage {
+        to_agent_id: to_agent_id.to_owned(),
+        message,
+    };
+    send(client, &direct).await;
     matches!(receive(client).await, ServerMessage::MessageStatus { status, .. } if status == *expected)
 }
 
@@ -134,12 +152,7 @@ async fn agents_on_separate_sockets_reach_each_other() {
         let (mut bob, _bob_status) = connect(address, "bob").await;
         assert_eq!(alice_status, ConnectStatus::Assigned);
 
-        let direct = ClientMessage::SendAgentMessage {
-            to_agent_id: "bob".to_owned(),
-            message: json!({"hello": "bob"}),
-        };
-        send(&mut alice, &direct).await;
-        assert!(answered_with(&mut alice, &MessageDeliveryStatus::Delivered).await);
+        assert!(delivered(&mut alice, "bob", json!({"hello": "bob"})).await);
         assert!(matches!(
             receive(&mut bob).await,
             ServerMessage::AgentMessage { from_agent_id, scope: MessageScope::Direct, .. } if from_agent_id == "alice"
@@ -170,12 +183,7 @@ async fn a_message_waits_for_a_recipient_that_has_gone() {
         // The close is answered once the hub has released bob's id.
         while bob.next().await.is_some() {}
 
-        let direct = ClientMessage::SendAgentMessage {
-            to_agent_id: "bob".to_owned(),
-            message: json!(null),
-        };
-        send(&mut alice, &direct).await;
-        assert!(answered_with(&mut alice, &MessageDeliveryStatus::Queued).await);
+        assert!(sent_directly(&mut alice, "bob", json!(null), &MessageDeliveryStatus::Queued).await);
 
         let (mut bob, status) = connect(address, "bob").await;
         assert_eq!(status, ConnectStatus::Reconnected);
@@ -232,6 +240,152 @@ async fn a_blocked_address_is_refused_and_other_paths_are_not_found() {
         assert!(hub.registry().blocklist.block(IpAddr::V4(Ipv4Addr::LOCALHOST)));
         let refused = connect_async(format!("ws://{address}/ws")).await.unwrap_err();
         assert!(matches!(refused, WsError::Http(response) if response.status() == 403));
+    })
+    .await;
+}
+
+/// The next message `link`'s agent is sent, as a protocol message.
+async fn local_receive(link: &mut LocalLink<'_, Counter>) -> ServerMessage {
+    let SessionMessage::Json(message) = tokio::time::timeout(PATIENCE, link.next()).await.unwrap() else {
+        panic!("a raw frame arrived where a message was expected");
+    };
+    message
+}
+
+#[tokio::test]
+async fn an_agent_in_process_reaches_one_on_a_socket_and_leaves_when_dropped() {
+    on_one_thread(async || {
+        let (hub, address) = served_hub().await;
+        let (mut alice, _alice_status) = connect(address, "alice").await;
+        let mut board = hub.local(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        board.send(ClientMessage::Connect {
+            agent_id: Some("board".to_owned()),
+        });
+        assert!(matches!(
+            local_receive(&mut board).await,
+            ServerMessage::ConnectAck { agent_id, status: ConnectStatus::Assigned } if agent_id == "board"
+        ));
+
+        board.send(ClientMessage::SendAgentMessage {
+            to_agent_id: "alice".to_owned(),
+            message: json!({"from": "the board"}),
+        });
+        assert!(matches!(
+            local_receive(&mut board).await,
+            ServerMessage::MessageStatus {
+                status: MessageDeliveryStatus::Delivered,
+                ..
+            }
+        ));
+        assert!(matches!(
+            receive(&mut alice).await,
+            ServerMessage::AgentMessage { from_agent_id, .. } if from_agent_id == "board"
+        ));
+
+        assert!(delivered(&mut alice, "board", json!({"from": "alice"})).await);
+        assert!(matches!(
+            local_receive(&mut board).await,
+            ServerMessage::AgentMessage { from_agent_id, .. } if from_agent_id == "alice"
+        ));
+
+        board.send_binary(Bytes::from_static(&[4, 5, 6])).unwrap();
+        assert_eq!(next_frame(&mut alice).await, Message::binary(vec![4, 5, 6]));
+
+        drop(board);
+        send(&mut alice, &ClientMessage::ListAgents).await;
+        let ServerMessage::ListAgentsResponse { agents } = receive(&mut alice).await else {
+            panic!("the agents were not listed");
+        };
+        let board_state = agents
+            .iter()
+            .find(|agent| agent.agent_id == "board")
+            .map(|agent| &agent.state);
+        assert_eq!(board_state, Some(&AgentConnectionState::Disconnected));
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn an_agent_in_process_is_held_to_the_frames_a_connection_may_send() {
+    let hub = Hub::new(Counter::default(), MessageRetention::All, MAX_FRAME_SIZE, MAX_QUEUED);
+    let mut board = hub.local(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let oversized = MAX_FRAME_SIZE.saturating_add(1);
+    let refused = board.send_binary(Bytes::from(vec![0; oversized])).unwrap_err();
+    assert_eq!((refused.size, refused.max), (oversized, MAX_FRAME_SIZE));
+    let refused = board.send_text(&" ".repeat(oversized)).unwrap_err();
+    assert_eq!(
+        refused.to_string(),
+        "a 1025-byte frame is larger than the 1024 bytes the hub reads"
+    );
+
+    // Text that is no message is dropped, as a connection's is, so the first reply is the connect's.
+    board.send_text("not a message").unwrap();
+    let connect = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
+    board.send_text(&connect).unwrap();
+    assert!(matches!(
+        local_receive(&mut board).await,
+        ServerMessage::ConnectAck { .. }
+    ));
+}
+
+#[tokio::test]
+async fn an_agent_in_process_that_never_reads_keeps_only_its_latest_replies() {
+    let hub = Hub::new(Counter::default(), MessageRetention::All, MAX_FRAME_SIZE, MAX_QUEUED);
+    let mut board = hub.local(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    board.send(ClientMessage::Connect { agent_id: None });
+    for _ in 0..MAX_QUEUED.saturating_mul(3) {
+        board.send(ClientMessage::Alive {
+            timestamp: "now".to_owned(),
+        });
+    }
+    board.send(ClientMessage::ListAgents);
+    for _ in 1..MAX_QUEUED {
+        assert!(matches!(
+            local_receive(&mut board).await,
+            ServerMessage::Response { .. }
+        ));
+    }
+    assert!(matches!(
+        local_receive(&mut board).await,
+        ServerMessage::ListAgentsResponse { .. }
+    ));
+    let _nothing_more = tokio::time::timeout(Duration::from_millis(100), board.next())
+        .await
+        .unwrap_err();
+}
+
+#[tokio::test]
+async fn an_agent_in_process_reconnecting_to_more_than_its_outbox_holds_is_still_acknowledged() {
+    on_one_thread(async || {
+        let (hub, address) = served_hub().await;
+        let (mut alice, _alice_status) = connect(address, "alice").await;
+        let loopback = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let connect = || ClientMessage::Connect {
+            agent_id: Some("board".to_owned()),
+        };
+        let mut board = hub.local(loopback);
+        board.send(connect());
+        drop(board);
+        // One more than the outbox holds, all waiting for the board while it is away.
+        for _ in 0..=MAX_QUEUED {
+            assert!(sent_directly(&mut alice, "board", json!(null), &MessageDeliveryStatus::Queued).await);
+        }
+
+        let mut board = hub.local(loopback);
+        board.send(connect());
+        assert!(matches!(
+            local_receive(&mut board).await,
+            ServerMessage::ConnectAck {
+                status: ConnectStatus::Reconnected,
+                ..
+            }
+        ));
+        for _ in 0..=MAX_QUEUED {
+            assert!(matches!(
+                local_receive(&mut board).await,
+                ServerMessage::AgentMessage { from_agent_id, .. } if from_agent_id == "alice"
+            ));
+        }
     })
     .await;
 }

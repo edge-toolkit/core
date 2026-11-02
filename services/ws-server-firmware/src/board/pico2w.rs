@@ -1,5 +1,8 @@
 //! The Raspberry Pi Pico 2 W: bring up the CYW43439's Wi-Fi, join the network named at build time, and serve the hub
 //! on it.
+//!
+//! With the `pico-plus2w` feature it is the Pimoroni Pico Plus 2 W instead, the same radio wired the same way to an
+//! RP2350B, whose PSRAM it maps in and makes the heap before anything allocates.
 
 #![expect(
     clippy::future_not_send,
@@ -22,7 +25,9 @@ use embedded_alloc::LlffHeap as Heap;
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
-use super::hub::{HEAP_SIZE, serve, stack_resources};
+#[cfg(not(feature = "pico-plus2w"))]
+use super::hub::HEAP_SIZE;
+use super::hub::{serve, stack_resources};
 
 include!(concat!(env!("OUT_DIR"), "/wifi.rs"));
 include!(concat!(env!("OUT_DIR"), "/cyw43.rs"));
@@ -58,10 +63,31 @@ async fn main(spawner: Spawner) {
         reason = "handing the allocator its memory is unsafe by nature: nothing else may own that memory"
     )]
     // SAFETY: this runs once, first, before anything allocates, and `init!` declares the memory it hands over.
+    #[cfg(not(feature = "pico-plus2w"))]
     unsafe {
         embedded_alloc::init!(HEAP, HEAP_SIZE);
     }
     let peripherals = embassy_rp::init(embassy_rp::config::Config::default());
+    // The Pico Plus 2 W's heap is its 8 MiB of PSRAM instead, which its guests' memories need, mapped in first.
+    #[cfg(feature = "pico-plus2w")]
+    {
+        use embassy_rp::psram::{Config as PsramConfig, Psram};
+        use embassy_rp::qmi_cs1::QmiCs1;
+
+        let config = PsramConfig {
+            clock_hz: embassy_rp::clocks::clk_sys_freq(),
+            ..PsramConfig::aps6404l()
+        };
+        let psram = Psram::new(QmiCs1::new(peripherals.QMI_CS1, peripherals.PIN_47), config).unwrap();
+        #[expect(
+            unsafe_code,
+            reason = "handing the allocator its memory is unsafe by nature: nothing else may own that memory"
+        )]
+        // SAFETY: nothing has allocated yet, and the PSRAM window is mapped and belongs to nothing else.
+        unsafe {
+            HEAP.init(psram.base_address().addr(), psram.size());
+        }
+    }
     let mut trng = Trng::new(peripherals.TRNG, Irqs, trng::Config::default());
 
     let power = Output::new(peripherals.PIN_23, Level::Low);

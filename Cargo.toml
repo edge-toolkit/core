@@ -142,6 +142,7 @@ et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.3.0" }
 et-ws-server = { path = "services/ws-server", version = "0.3.0", default-features = false }
 et-ws-service = { path = "services/ws", version = "0.2.0", default-features = false }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.2.0" }
+et-ws-wasi-runner = { path = "services/ws-wasi-runner", version = "0.3.0", default-features = false }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.3.0" }
 fake = "5"
 fs-err = "3"
@@ -301,17 +302,19 @@ wasi-webgpu-wasmtime = "0.4"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
+# Held to the release wasmtime parses with, so a guest it reads as importable is one wasmtime loads the same way.
+wasmparser = { version = "0.258", default-features = false, features = ["component-model", "std"] }
 # Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
 # 49.0.5 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3,
 # RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, and RUSTSEC-2026-0420 and RUSTSEC-2026-0422 through
 # RUSTSEC-2026-0424 only from 49.0.5, on the 49 line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4
 # line requires wasmtime ^49.
 # Without its default features, which need std, so a board's runner can depend on it; a host build turns them on.
+# Pulley likewise, which only a board's runner and the compiler for it need, so ws-wasi-runner's features turn it on.
 wasmtime = { version = "49.0.5", default-features = false, features = [
   "async",
   "component-model",
   "component-model-async",
-  "pulley",
   "runtime",
 ] }
 # The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
@@ -322,6 +325,8 @@ wasmtime = { version = "49.0.5", default-features = false, features = [
 wasmtime-internal-wit-bindgen = { version = "49.0.5", features = ["async", "component-model-async"] }
 wasmtime-wasi = "49.0.5"
 wasmtime-wasi-nn = { version = "49", default-features = false, features = ["onnx"] }
+# Writes the components the tests read from WebAssembly text.
+wat = "1"
 web-sys = "0.3"
 # wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.
 wgpu-core = { version = "29", default-features = false }

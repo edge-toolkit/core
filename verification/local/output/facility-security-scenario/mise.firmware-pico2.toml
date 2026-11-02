@@ -15,6 +15,7 @@ mise -E rust run build-firmware-pico2w
 MODULES_ELSEWHERE = "onnxruntime-web, pyodide, stats-gl"
 MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
 MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+RUNNER_GUESTS = ""
 
 [tasks.firmware-flash]
 depends = ["firmware-build"]
@@ -39,3 +40,4 @@ mise run cargo-test-pkg et-int-ws-server-firmware
 MODULES_ELSEWHERE = "onnxruntime-web, pyodide, stats-gl"
 MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
 MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+RUNNER_GUESTS = ""
