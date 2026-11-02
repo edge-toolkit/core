@@ -58,12 +58,27 @@ jobs:
       # jlumbroso/free-disk-space (which test.yaml uses) only frees space on the existing root partition. This
       # workflow needs more: the image build writes to /var/lib/docker, so we have to relocate Docker's data dir
       # onto an LVM volume that concatenates the freed root space with /mnt. easimon is the only maintained action
-      # that does that LVM remount, so we stay on it here despite its rougher edges (hard-fails on runners without
-      # /mnt or without a Docker daemon -- not a concern for this workflow's ubuntu-latest matrix, which has both).
+      # that does that LVM remount, so we stay on it here despite its rougher edges (hard-fails without a Docker
+      # daemon -- not a concern for this workflow's ubuntu-latest matrix, which has one).
+      #
+      # The runner has no separate temp disk any more: /mnt is a plain directory on the root filesystem, so the
+      # action's temp PV (/mnt/tmp-pv.img, sized to /mnt's free space minus temp-reserve-mb) is carved from root
+      # after the root PV has already taken all but root-reserve-mb. What root keeps is therefore temp-reserve-mb,
+      # and at the action's 100 MiB default the runner cannot even write its own diagnostics log:
+      #
+      #   System.IO.IOException: No space left on device :
+      #   '/home/runner/actions-runner/cached/2.338.2/_diag/Worker_20261101-013323-utc.log'
+      #
+      # Observed on every Linux lane of
+      # https://github.com/edge-toolkit/core/actions/runs/41258748478/job/124707430653 at commit
+      # https://github.com/edge-toolkit/core/commit/b2dc2d01fd45353626fbe0b5d660b5232725a349. temp-reserve-mb is
+      # the space root keeps; root-reserve-mb must exceed it, as equal values size the temp PV to zero bytes,
+      # which fallocate rejects. On a runner that does have a /mnt disk this only leaves 4 GiB of it unused.
       - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:
-          root-reserve-mb: 4096
+          root-reserve-mb: 5120
+          temp-reserve-mb: 4096
           swap-size-mb: 1024
           remove-dotnet: "true"
           remove-android: "true"
