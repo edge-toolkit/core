@@ -9,7 +9,7 @@ use et_recovery_supervisor::config::{Mode, Workload};
 use et_recovery_supervisor::kubernetes::{Backend, Kubernetes};
 use et_recovery_supervisor::persistence::StateStore;
 use et_recovery_supervisor::policy::{Action, Health, Supervisor};
-use et_recovery_supervisor::runtime::{cycle, hub, load_budget, run};
+use et_recovery_supervisor::runtime::{cycle, hub, load_budget, load_supervisor, run};
 use et_test_recovery::{config, environment, event, report, supervisor};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -65,6 +65,97 @@ impl Backend for FakeBackend {
             return std::future::ready(Err(RecoveryError::Invalid("restart denied".into())));
         }
         std::future::ready(Ok(()))
+    }
+}
+
+/// Only an absent file starts a fresh supervisor; unreadable or invalid saved state fails closed.
+#[tokio::test]
+async fn supervisor_loading_preserves_committed_state_and_rejects_invalid_storage() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut settings = config();
+    settings.state_file = directory.path().join("state.json");
+    let fresh = load_supervisor(&settings).unwrap();
+    assert!(fresh.budget().restarts.is_empty());
+    let mut saved = report(&fresh);
+    saved["restart_budget"]["restarts"]["example-worker"] = serde_json::json!(1_u32);
+    StateStore::new(settings.state_file.clone())
+        .persist(saved)
+        .await
+        .unwrap();
+    let restored = load_supervisor(&settings).unwrap();
+    assert_eq!(restored.budget().restarts["example-worker"], 1);
+    for bytes in [b"invalid json".as_slice(), b"{}".as_slice()] {
+        fs::write(&settings.state_file, bytes).unwrap();
+        let _invalid = load_supervisor(&settings).unwrap_err();
+    }
+    fs::remove_file(&settings.state_file).unwrap();
+    fs::create_dir(&settings.state_file).unwrap();
+    let _unreadable = load_supervisor(&settings).unwrap_err();
+}
+
+struct DependencyBackend {
+    dependency_health: Health,
+    observed: Vec<String>,
+    restarted: Vec<String>,
+}
+
+impl Backend for DependencyBackend {
+    /// Record every target so supporting services cannot be silently omitted or observed twice.
+    fn health(&mut self, workload: &Workload) -> impl Future<Output = Result<Health, RecoveryError>> + Send {
+        self.observed.push(workload.deployment.clone());
+        std::future::ready(Ok(if workload.deployment == "storage" {
+            self.dependency_health
+        } else {
+            Health::Unready
+        }))
+    }
+
+    /// Record action targets to distinguish dependency observation from permission to restart it.
+    fn restart(&mut self, workload: &Workload) -> impl Future<Output = Result<(), RecoveryError>> + Send {
+        self.restarted.push(workload.deployment.clone());
+        std::future::ready(Ok(()))
+    }
+}
+
+/// Read dependencies before deciding on restarts, whether or not they are themselves supervised.
+#[tokio::test]
+async fn cycles_observe_dependencies_once_and_gate_actions_on_their_current_health() {
+    for supervised in [false, true] {
+        for health in [Health::Ready, Health::Unready, Health::Unknown] {
+            let directory = tempfile::tempdir().unwrap();
+            let mut settings = config();
+            settings.mode = Mode::ControllerAssisted;
+            settings.state_file = directory.path().join("state.json");
+            let _previous = settings
+                .resilience
+                .dependencies
+                .insert("example-worker".into(), vec!["storage".into()]);
+            if supervised {
+                let mut dependency = settings.workloads[0].clone();
+                dependency.deployment = "storage".into();
+                dependency.agent_id = "storage".into();
+                settings.workloads.push(dependency);
+            }
+            let mut policy = Supervisor::new(settings.clone(), load_budget(&settings).unwrap()).unwrap();
+            let store = StateStore::new(settings.state_file.clone());
+            let mut backend = DependencyBackend {
+                dependency_health: health,
+                observed: Vec::new(),
+                restarted: Vec::new(),
+            };
+            for now in [0, 3, 23] {
+                cycle(&settings, &store, &mut policy, &mut backend, now).await.unwrap();
+            }
+            assert_eq!(backend.observed.iter().filter(|name| *name == "storage").count(), 3);
+            assert_eq!(
+                backend.restarted.contains(&"example-worker".into()),
+                health == Health::Ready
+            );
+            if !supervised {
+                assert!(!backend.restarted.contains(&"storage".into()));
+                assert!(!policy.report().assessments.contains_key("storage"));
+            }
+        }
     }
 }
 
@@ -291,7 +382,8 @@ impl Backend for ReadyBackend {
 async fn idle_control_rejects_invalid_evidence_without_losing_subsequent_valid_work() {
     let directory = tempfile::tempdir().unwrap();
     let server = et_ws_test_server::start();
-    let config = connected_config(&server, directory.path(), 3600);
+    let mut config = connected_config(&server, directory.path(), 3600);
+    config.resilience.reconnect = false;
     let (sender, mut rejected) = tokio::sync::mpsc::unbounded_channel();
     let subscriber = tracing_subscriber::registry().with(RejectedEvidence(sender));
     let task = tokio::spawn(run(config.clone(), ReadyBackend).with_subscriber(subscriber));
@@ -319,6 +411,74 @@ async fn idle_control_rejects_invalid_evidence_without_losing_subsequent_valid_w
     assert_eq!(checkpoints[0]["progress"], 3_u64);
     assert_eq!(checkpoints[0]["instance"], "one");
     assert_eq!(saved["incidents"], serde_json::json!([]));
+}
+
+/// A replacement hub at the same endpoint restores supervision without replacing its owner or resetting state.
+#[tokio::test]
+async fn supervisor_reconnects_to_a_replacement_hub_and_retains_lifecycle_context() {
+    let directory = tempfile::tempdir().unwrap();
+    let server = et_ws_test_server::start();
+    let port = url::Url::parse(&server.ws_url).unwrap().port().unwrap();
+    let mut config = connected_config(&server, directory.path(), 1);
+    config.resilience.connect_timeout_seconds = 1;
+    let task = tokio::spawn(run(config.clone(), ReadyBackend));
+    let (mut producer, _) = et_ws_test_server::connect_agent_as(&server.ws_url, Some("example-worker")).await;
+    wait_for_agent(&mut producer, &config.agent_id).await;
+    send_evidence(&mut producer, &config.agent_id, event("started", 0, 1, "one")).await;
+    wait_for_sequence(&config, 1).await;
+    server.stop().await;
+    wait_for_registration_retries(&config).await;
+    assert!(!task.is_finished());
+    let replacement = et_ws_test_server::start_on(port);
+    let (mut producer, _) = et_ws_test_server::connect_agent_as(&replacement.ws_url, Some("example-worker")).await;
+    wait_for_agent(&mut producer, &config.agent_id).await;
+    send_evidence(&mut producer, &config.agent_id, event("progress", 1, 2, "one")).await;
+    wait_for_sequence(&config, 2).await;
+    assert!(!task.is_finished());
+    let saved: serde_json::Value = serde_json::from_slice(&fs::read(&config.state_file).unwrap()).unwrap();
+    assert!(saved["observation_gaps"].as_array().unwrap().last().unwrap()["ended_at"].is_number());
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+}
+
+/// Leave the hub unavailable across bounded registration attempts and observe their persisted gap.
+#[expect(
+    clippy::single_call_fn,
+    reason = "registration retry waiting is distinct from sequence advancement"
+)]
+async fn wait_for_registration_retries(config: &et_recovery_supervisor::config::Config) {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let saved: serde_json::Value = serde_json::from_slice(&fs::read(&config.state_file).unwrap()).unwrap();
+            if saved["context"]["elapsed_seconds"].as_u64().unwrap() >= 3
+                && saved["observation_gaps"]
+                    .as_array()
+                    .unwrap()
+                    .last()
+                    .is_some_and(|gap| gap["ended_at"].is_null())
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+/// Observe persisted sequence advancement rather than assume that a transport acknowledgement committed policy state.
+async fn wait_for_sequence(config: &et_recovery_supervisor::config::Config, expected: u64) {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let saved: serde_json::Value = serde_json::from_slice(&fs::read(&config.state_file).unwrap()).unwrap();
+            if saved["context"]["states"]["example-worker"]["sequence"] == expected {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
 }
 
 /// Complete registration and the initial poll before sending events that must be handled by the idle control loop.

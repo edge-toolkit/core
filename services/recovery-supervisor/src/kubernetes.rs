@@ -32,12 +32,14 @@ impl Kubernetes {
 
     /// Execute kubectl directly, without shell interpolation, bounding both the API request and child lifetime.
     pub async fn execute(&self, workload: &Workload, arguments: &[&str]) -> Result<Vec<u8>, RecoveryError> {
-        if !self
+        let supervised = self
             .config
             .workloads
             .iter()
-            .any(|item| item.deployment == workload.deployment)
-        {
+            .any(|item| item.deployment == workload.deployment);
+        let dependency_read = arguments == ["get", "-o", "json"]
+            && self.config.resilience.dependency_names().contains(&workload.deployment);
+        if !supervised && !dependency_read {
             return Err(RecoveryError::Invalid("Kubernetes target is not allowlisted".into()));
         }
         let target = format!("deployment/{}", workload.deployment);
@@ -99,8 +101,13 @@ struct DeploymentStatus {
 
 /// Decode readiness without assuming that an HTTP-available process has resumed application work.
 pub fn deployment_health(bytes: &[u8]) -> Result<Health, RecoveryError> {
+    readiness(bytes, true)
+}
+
+/// Supporting deployments can have several replicas; application recovery still requires a single writer.
+fn readiness(bytes: &[u8], single_writer: bool) -> Result<Health, RecoveryError> {
     let deployment: Deployment = serde_json::from_slice(bytes)?;
-    if deployment.spec.replicas != 1 {
+    if single_writer && deployment.spec.replicas != 1 {
         return Err(RecoveryError::Invalid(
             "supervised deployments must have exactly one desired replica".into(),
         ));
@@ -108,9 +115,10 @@ pub fn deployment_health(bytes: &[u8]) -> Result<Health, RecoveryError> {
     let status = deployment.status;
     Ok(
         if status.observed_generation >= deployment.metadata.generation
-            && status.available_replicas == 1
-            && status.updated_replicas == 1
-            && status.replicas == 1
+            && deployment.spec.replicas > 0
+            && status.available_replicas == deployment.spec.replicas
+            && status.updated_replicas == deployment.spec.replicas
+            && status.replicas == deployment.spec.replicas
             && status.unavailable_replicas == 0
         {
             Health::Ready
@@ -123,7 +131,12 @@ pub fn deployment_health(bytes: &[u8]) -> Result<Health, RecoveryError> {
 impl Backend for Kubernetes {
     /// Query and decode readiness for one allowlisted deployment.
     async fn health(&mut self, workload: &Workload) -> Result<Health, RecoveryError> {
-        deployment_health(&self.execute(workload, &["get", "-o", "json"]).await?)
+        let single_writer = self
+            .config
+            .workloads
+            .iter()
+            .any(|item| item.deployment == workload.deployment);
+        readiness(&self.execute(workload, &["get", "-o", "json"]).await?, single_writer)
     }
 
     /// Request a bounded rollout restart for one allowlisted deployment.

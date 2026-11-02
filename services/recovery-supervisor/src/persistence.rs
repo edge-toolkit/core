@@ -4,7 +4,6 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-#[cfg(unix)]
 use fs_err as fs;
 use serde::Serialize;
 use tokio::sync::Mutex;
@@ -16,6 +15,13 @@ use crate::RecoveryError;
 pub struct StateStore {
     path: PathBuf,
     serial: Arc<Mutex<()>>,
+    ownership: Ownership,
+}
+
+#[derive(Clone, Debug)]
+enum Ownership {
+    Unbound,
+    Guard { _lease: Arc<fs::File> },
 }
 
 impl StateStore {
@@ -25,6 +31,16 @@ impl StateStore {
         Self {
             path,
             serial: Arc::new(Mutex::new(())),
+            ownership: Ownership::Unbound,
+        }
+    }
+
+    /// Keep the supervisor's lease until blocking persistence completes, even when its async caller is cancelled.
+    #[must_use]
+    pub fn owned(path: PathBuf, lease: Arc<fs::File>) -> Self {
+        Self {
+            ownership: Ownership::Guard { _lease: lease },
+            ..Self::new(path)
         }
     }
 
@@ -36,8 +52,10 @@ impl StateStore {
         // The blocking task owns the permit: cancelling its waiter cannot let a later save overtake this write.
         let permit = Arc::clone(&self.serial).lock_owned().await;
         let path = self.path.clone();
+        let ownership = self.ownership.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
+            let _ownership = ownership;
             persist(&path, &value)
         })
         .await?

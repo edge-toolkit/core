@@ -5962,9 +5962,11 @@ dependencies = [
  "reqwest",
  "retry-policies",
  "serde",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-opentelemetry",
+ "tracing-subscriber",
  "web-sys",
 ]
 
@@ -5994,6 +5996,7 @@ dependencies = [
  "image",
  "log",
  "object_store",
+ "reqwest",
  "schemars 1.2.3",
  "serde",
  "serde_default",

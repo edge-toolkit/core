@@ -7,6 +7,92 @@ use et_recovery_supervisor::policy::{Budget, Health, Supervisor};
 use et_test_recovery::{config, event, supervisor};
 use fs_err as fs;
 
+/// A dependency cycle spanning deployments is rejected, while shared dependencies remain valid.
+#[test]
+fn dependency_cycles_are_rejected_without_rejecting_shared_dependencies() {
+    let mut settings = config();
+    let mut second = settings.workloads[0].clone();
+    second.deployment = "second-worker".into();
+    second.agent_id = "second-worker".into();
+    settings.workloads.push(second);
+    settings.resilience.dependencies = [
+        ("example-worker".into(), vec!["second-worker".into()]),
+        ("second-worker".into(), vec!["example-worker".into()]),
+    ]
+    .into();
+    let error = settings.validate().unwrap_err();
+    assert!(error.to_string().contains("cycle"));
+    settings.resilience.dependencies = [
+        ("example-worker".into(), vec!["second-worker".into(), "storage".into()]),
+        ("second-worker".into(), vec!["storage".into()]),
+    ]
+    .into();
+    settings.validate().unwrap();
+}
+
+/// Structured scenarios and encoded settings preserve options and reject malformed or unknown values.
+#[test]
+fn resilience_deserialization_preserves_settings_and_rejects_invalid_encodings() {
+    let settings = serde_json::json!({"dependencies": {"example-worker": ["storage"]}, "stability_seconds": 10_u64});
+    for input in [settings.clone(), serde_json::json!(settings.to_string())] {
+        let mut value = config_for_serialization();
+        value["resilience"] = input;
+        let parsed: Config = serde_json::from_value(value).unwrap();
+        parsed.validate().unwrap();
+        assert_eq!(parsed.resilience.stability_seconds, 10);
+        assert_eq!(parsed.resilience.dependencies["example-worker"], vec!["storage"]);
+    }
+    for input in [
+        serde_json::json!("not json"),
+        serde_json::json!(r#"{"unexpected": true}"#),
+        serde_json::json!(r#"{"connect_timeout_seconds": "invalid"}"#),
+        serde_json::json!(42_u64),
+    ] {
+        let mut value = config_for_serialization();
+        value["resilience"] = input;
+        let _invalid = serde_json::from_value::<Config>(value).unwrap_err();
+    }
+}
+
+/// Resilience options accept structured scenarios and JSON environment values, rejecting ambiguous dependencies.
+#[test]
+fn resilience_configuration_round_trips_and_rejects_invalid_dependency_graphs() {
+    let mut settings = config();
+    let _previous = settings
+        .resilience
+        .dependencies
+        .insert("example-worker".into(), vec!["storage".into()]);
+    settings.validate().unwrap();
+    let mut env = et_test_recovery::environment();
+    let _previous = env.insert(
+        "RECOVERY_RESILIENCE".into(),
+        serde_json::to_string(&settings.resilience).unwrap(),
+    );
+    let parsed: et_recovery_supervisor::config::EnvConfig = serde_env::from_iter(env).unwrap();
+    assert_eq!(
+        parsed.recovery.resilience.dependencies,
+        settings.resilience.dependencies
+    );
+    for dependencies in [vec!["example-worker"], vec!["bad/name"], vec!["storage", "storage"]] {
+        let _previous = settings.resilience.dependencies.insert(
+            "example-worker".into(),
+            dependencies.into_iter().map(str::to_owned).collect(),
+        );
+        assert!(settings.validate().is_err());
+    }
+    settings.resilience.dependencies.clear();
+    let _previous = settings
+        .resilience
+        .dependencies
+        .insert("foreign".into(), vec!["storage".into()]);
+    assert!(settings.validate().is_err());
+    for field in ["connect_timeout_seconds", "backoff_multiplier"] {
+        let mut value = config_for_serialization();
+        value["resilience"][field] = serde_json::json!(0_u64);
+        assert!(serde_json::from_value::<Config>(value).unwrap().validate().is_err());
+    }
+}
+
 /// Typed construction preserves the complete in-cluster configuration without encoding it through JSON.
 #[test]
 fn typed_in_cluster_settings_match_the_expected_runtime_configuration() {

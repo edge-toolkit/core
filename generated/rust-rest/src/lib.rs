@@ -116,40 +116,12 @@ impl ClientInfo<()> for Client {
         &()
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
+mod retry;
 impl ClientHooks<()> for &Client {
-    // Injected by `utilities/int-gen` (inject_retry_exec): retry request execution with exponential backoff. reqwest's
-    // native retry has no backoff yet -- remove this and use `ClientBuilder::retries` once it does.
     #[cfg(not(target_arch = "wasm32"))]
     async fn exec(&self, request: ::reqwest::Request, _info: &OperationInfo) -> ::reqwest::Result<::reqwest::Response> {
-        use ::retry_policies::policies::ExponentialBackoff;
-        use ::retry_policies::{RetryDecision, RetryPolicy as _};
-        let policy = ExponentialBackoff::builder()
-            .retry_bounds(
-                ::core::time::Duration::from_millis(250),
-                ::core::time::Duration::from_secs(5),
-            )
-            .build_with_total_retry_duration(::core::time::Duration::from_secs(30));
-        let started = ::std::time::SystemTime::now();
-        let mut n_past_retries: u32 = 0;
-        loop {
-            // Retry only when the request can be replayed (no streaming body).
-            let Some(attempt) = request.try_clone() else {
-                return self.client().execute(request).await;
-            };
-            match self.client().execute(attempt).await {
-                Ok(response) => return Ok(response),
-                Err(err) => match policy.should_retry(started, n_past_retries) {
-                    RetryDecision::Retry { execute_after } => {
-                        let wait = execute_after
-                            .duration_since(::std::time::SystemTime::now())
-                            .unwrap_or_default();
-                        ::tokio::time::sleep(wait).await;
-                        n_past_retries = n_past_retries.saturating_add(1);
-                    }
-                    RetryDecision::DoNotRetry => return Err(err),
-                },
-            }
-        }
+        crate::retry::execute(self.client(), request).await
     }
 }
 #[allow(clippy::all)]

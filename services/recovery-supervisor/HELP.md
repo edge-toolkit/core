@@ -76,6 +76,12 @@ Type: integer. Required.
 
 Time between infrastructure observation passes.
 
+### `RECOVERY_RESILIENCE`
+
+Type: string. Default: `{}`.
+
+Optional connection, dependency, coordination and stability safeguards.
+
 ### `RECOVERY_STATE_FILE`
 
 Type: string. Required.

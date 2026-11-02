@@ -84,6 +84,9 @@ pub struct RecoverySettings {
     pub policy: Policy,
     /// Existing, continuous native-Python deployments and their application evidence identities.
     pub workloads: Vec<Workload>,
+    /// Optional safeguards for transport, dependencies, coordinated actions and sustained recovery.
+    #[serde(default)]
+    pub resilience: et_recovery_supervisor::resilience::Settings,
     /// Limits for the supervisor's own container.
     #[serde(default, skip_serializing_if = "Limits::is_unset")]
     pub limits: Limits,
@@ -102,6 +105,7 @@ impl RecoverySettings {
         config.mode = self.mode;
         config.poll_seconds = self.poll_seconds;
         config.command_timeout_seconds = self.command_timeout_seconds;
+        config.resilience.clone_from(&self.resilience);
         config.validate()?;
         Ok(config)
     }
