@@ -11,12 +11,16 @@ repository.workspace = true
 doctest = false
 
 [dependencies]
+edge-toolkit = { workspace = true, features = ["std"] }
+et-ws-wasi-runner = { workspace = true, features = ["precompile"] }
 fs-err.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 thiserror = { workspace = true, features = ["std"] }
+wasmparser.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+wat.workspace = true
 
 [lints]
 workspace = true

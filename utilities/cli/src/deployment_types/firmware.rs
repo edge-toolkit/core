@@ -7,7 +7,7 @@ use toml::{Table, Value};
 use super::mise::{mise_task, registry_and_modules, wrap_module_paths};
 use crate::error::CliError;
 use crate::input::{ArtifactSource, Board, ClusterInput};
-use crate::{ModuleSource, ScenarioModules, cluster_module_names, resolve_cluster_modules};
+use crate::{ModuleSource, ScenarioModules, cluster_module_names, resolve_cluster_modules, scenario_runners};
 
 /// The task that builds the firmware with the scenario's modules in it.
 const BUILD_TASK: &str = "firmware-build";
@@ -18,32 +18,55 @@ pub(crate) const HOST_TEST_TASK: &str = "firmware-host-test";
 /// Where npm packages too big for the board are fetched from instead: a CDN mirroring the npm registry by package path.
 pub(crate) const ELSEWHERE_URL: &str = "https://cdn.jsdelivr.net/npm";
 
-/// Refuse a scenario `board` cannot run: it holds one hub and the modules built into it, and nothing else.
+/// Refuse a scenario `board` cannot run.
 ///
-/// A runner needs an OS to run on, a second machine a backplane, and a published deployment modules staged from a
-/// release, none of which the firmware has. A second hub needs a second machine, so is refused with it. Checked before
-/// anything is written, as every format's refusals are.
+/// A board holds one hub, the modules built into it, and the runners its firmware hosts, and nothing else. A second
+/// machine needs a backplane, and a published deployment modules staged from a release, neither of which the firmware
+/// has. A second hub needs a second machine, so is refused with it. A runner is refused unless the board's firmware
+/// runs its kind; whether the guest itself fits, the firmware's build decides. Checked before anything is written, as
+/// every format's refusals are.
 pub(crate) fn validate_firmware(cluster: &ClusterInput, board: Board) -> Result<(), CliError> {
-    let reason = if cluster.agents.iter().any(|agent| agent.runner.is_some()) {
-        "starts a runner"
-    } else if !cluster.machines.is_empty() {
-        "spans several machines"
-    } else if matches!(cluster.artifact_source, ArtifactSource::Published) {
-        "uses published artifacts, since the firmware is built from this repository"
-    } else {
-        return Ok(());
+    let spec = board.spec();
+    let refused = |reason| {
+        Err(CliError::BoardCannotRun {
+            board: spec.title,
+            reason,
+        })
     };
-    Err(CliError::BoardCannotRun {
-        board: board.spec().title,
-        reason,
-    })
+    if !cluster.machines.is_empty() {
+        return refused("spans several machines");
+    }
+    if matches!(cluster.artifact_source, ArtifactSource::Published) {
+        return refused("uses published artifacts, since the firmware is built from this repository");
+    }
+    for agent in &cluster.agents {
+        let Some(runner) = agent.runner.as_deref().map(str::trim).filter(|kind| !kind.is_empty()) else {
+            continue;
+        };
+        if spec.runners.is_empty() {
+            return refused("starts a runner, since the board has no memory to run one in");
+        }
+        if !agent.limits.is_unset() {
+            return refused("sets limits on a runner, since a board has no way to hold one to them");
+        }
+        if !spec.runners.contains(&runner) {
+            return Err(CliError::BoardRunnerUnsupported {
+                board: spec.title,
+                agent: agent.name.clone(),
+                runner: runner.to_owned(),
+                supported: spec.runners.join(", "),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Write the `mise.firmware-<board>.toml` that builds the scenario's hub as `board` firmware and loads it onto one.
 ///
 /// The board serves the modules the scenario names, and what they depend on, from flash: each module from this
 /// repository or the scenario's own `module_paths:` is built into the firmware, and each npm package a mise tool
-/// stages is redirected to a CDN instead, since onnxruntime-web alone is bigger than a board's flash. Selected with
+/// stages is redirected to a CDN instead, since onnxruntime-web alone is bigger than a board's flash. A board
+/// that runs runners also starts one per runner the scenario declares, on its module's component. Selected with
 /// `MISE_ENV=firmware-<board>`, so it sits beside a `mise.toml` without either loading the other's tasks unasked.
 pub(crate) fn generate_firmware_deployment(
     cluster: &ClusterInput,
@@ -109,7 +132,11 @@ pub(crate) fn generate_firmware_deployment(
     Ok(())
 }
 
-/// The `MODULES_PATHS` assignments naming the modules built in, and the rest of the `MODULES_*` environment.
+/// The `MODULES_PATHS` assignments naming the modules built in, and the rest of the build's environment.
+///
+/// That is the other `MODULES_*` variables, and `RUNNER_GUESTS`: a `name=package` pair for each runner the board
+/// starts, naming the module built in whose component the firmware compiles for it. Set even when empty, so a build
+/// never picks runners up from the shell it was started in.
 #[expect(
     clippy::single_call_fn,
     reason = "the module-resolving step of generate_firmware_deployment, kept apart from writing the file"
@@ -117,8 +144,12 @@ pub(crate) fn generate_firmware_deployment(
 fn module_env(cluster: &ClusterInput, workspace_root: &Path) -> Result<(String, Table), CliError> {
     let ws_server_dir = workspace_root.join("services/ws-server");
     let module_names = cluster_module_names(cluster);
-    // With no runner allowed, every agent is one the page runs, so the board always serves the page.
+    // The page is served whether or not the board runs agents of its own, since a browser can still join it.
     let scenario = ScenarioModules::new(&ws_server_dir, &module_names, true).with_module_paths(&cluster.module_paths);
+    let guests = scenario_runners(cluster)?
+        .into_iter()
+        .map(|runner| format!("{}={}", runner.name, runner.module))
+        .collect::<Vec<_>>();
 
     let (registry, modules) = registry_and_modules(&scenario);
     let mut embedded = Vec::new();
@@ -140,5 +171,6 @@ fn module_env(cluster: &ClusterInput, workspace_root: &Path) -> Result<(String, 
     set("MODULES_ROOT", super::hub_root_module(&ws_server_dir));
     set("MODULES_ELSEWHERE", elsewhere.join(", "));
     set("MODULES_ELSEWHERE_URL", ELSEWHERE_URL.to_owned());
+    set("RUNNER_GUESTS", guests.join(", "));
     Ok((wrap_module_paths(&embedded), env))
 }

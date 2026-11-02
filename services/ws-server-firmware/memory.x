@@ -1,4 +1,5 @@
 /* The RP2350's memory as the Pico 2 W wires it: 4 MiB of flash and 512 KiB of striped SRAM. */
+/* The Pico Plus 2 W's build swaps in its 16 MiB of flash; its PSRAM is the heap's, so is not laid out here. */
 MEMORY {
     FLASH : ORIGIN = 0x10000000, LENGTH = 4096K
     RAM : ORIGIN = 0x20000000, LENGTH = 512K

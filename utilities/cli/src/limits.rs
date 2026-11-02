@@ -540,8 +540,12 @@ pub(crate) fn limits_note(output_type: OutputType, cluster: &ClusterInput) -> St
     // Named per format, because every format's section lands in the one README and markdownlint rejects a repeated
     // heading.
     let heading = match output_type {
-        // The board runs no agent, and only the one hub, which has nothing else to be limited against.
-        OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 => {
+        // A board runs no agent, or refuses a runner that sets limits, since it has no way to hold one to them.
+        OutputType::DockerCompose
+        | OutputType::K3s
+        | OutputType::FirmwarePico2
+        | OutputType::FirmwareEsp32c6
+        | OutputType::FirmwarePicoPlus2 => {
             return String::default();
         }
         OutputType::Mise => "Mise",

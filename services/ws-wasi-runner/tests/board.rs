@@ -7,6 +7,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use edge_toolkit::board::Guest;
 use edge_toolkit::config::get_project_root;
 use edge_toolkit::ws::{
     AgentConnectionState, AgentSummary, ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope,
@@ -15,7 +16,7 @@ use edge_toolkit::ws::{
 use et_ws_wasi_runner::bindings::et::ws_wasi::ws::WsError;
 use et_ws_wasi_runner::bindings::exports::et::ws_wasi::entry::EntryError;
 use et_ws_wasi_runner::bindings::wasi::logging::logging::Level;
-use et_ws_wasi_runner::board::{BoardError, Console, Platform, Transport, run};
+use et_ws_wasi_runner::board::{BoardError, Buckets, Console, MemoryBudget, Platform, Transport, run};
 use et_ws_wasi_runner::convert::Frame;
 use et_ws_wasi_runner::engine::{NATIVE_PULLEY, board_engine, precompile};
 use rstest::rstest;
@@ -153,31 +154,52 @@ fn text_frame(message: &ServerMessage) -> Frame {
     Frame::Text(serde_json::to_string(message).unwrap())
 }
 
-/// `module`'s component as its build left it, compiled for the board engine this build has.
-fn compiled(module: &str) -> Vec<u8> {
+/// `module`'s component as its build left it.
+fn component(module: &str) -> Vec<u8> {
     let file = format!("et_ws_{}.wasm", module.replace('-', "_"));
-    let wasm = fs_err::read(
+    fs_err::read(
         get_project_root()
             .join("services/ws-modules")
             .join(module)
             .join("pkg")
             .join(file),
     )
-    .unwrap();
-    precompile(NATIVE_PULLEY, &wasm).unwrap()
+    .unwrap()
+}
+
+/// `module`'s component as its build left it, compiled for the board engine this build has.
+fn compiled(module: &str) -> Vec<u8> {
+    precompile(NATIVE_PULLEY, &component(module)).unwrap()
 }
 
 /// What running `component` against `hub` left.
 ///
 /// That is how the run ended, every line it logged, every frame it sent, and whether it closed the websocket.
 async fn ran_on(component: &[u8], hub: Hub) -> (Result<(), BoardError>, Vec<String>, Vec<Frame>, bool) {
+    ran_within(component, hub, MemoryBudget::new(usize::MAX)).await
+}
+
+/// What running `component` against `hub` left, its memories and tables drawn from `memory`.
+async fn ran_within(
+    component: &[u8],
+    hub: Hub,
+    memory: MemoryBudget,
+) -> (Result<(), BoardError>, Vec<String>, Vec<Frame>, bool) {
     let lines = Arc::new(Mutex::new(Vec::new()));
     let host = Host {
         clock: AtomicU64::new(0),
         lines: Arc::clone(&lines),
     };
     let (sent, closed) = (Arc::clone(&hub.sent), Arc::clone(&hub.closed));
-    let outcome = run(&board_engine().unwrap(), component, host, hub).await;
+    let outcome = run(
+        &board_engine().unwrap(),
+        component,
+        host,
+        hub,
+        Buckets::default(),
+        memory,
+    )
+    .await;
     let lines = lines.lock().unwrap().clone();
     let sent = sent.lock().unwrap().clone();
     let closed = *closed.lock().unwrap();
@@ -209,7 +231,7 @@ async fn failed(module: &str, hub: Hub) -> EntryError {
 
 /// The error `module`'s `entry.run` returned against `hub`, and whether the websocket was closed.
 async fn failed_closing(module: &str, hub: Hub) -> (EntryError, bool) {
-    let (outcome, _, _, closed) = ran_on(&compiled(module), hub).await;
+    let (outcome, .., closed) = ran_on(&compiled(module), hub).await;
     let Err(BoardError::Guest(error)) = outcome else {
         panic!("{module} did not fail: {outcome:?}");
     };
@@ -326,6 +348,44 @@ async fn data1_fails_to_connect_when_a_frame_claims_a_type_it_does_not_match() {
 async fn comm1_fails_when_its_roster_request_cannot_be_sent() {
     let error = failed("wasi-comm1", Hub::new(Fault::SendFailsAfterConnect, [])).await;
     assert!(matches!(error, EntryError::Ws(WsError::Transport(reason)) if reason == "broken pipe"));
+}
+
+/// Every guest the tests above run on the board imports only what the hosted list names.
+///
+/// So a deployment that checks a guest against the list refuses none the board can run.
+#[rstest]
+#[case::comm1("wasi-comm1")]
+#[case::data1("wasi-data1")]
+#[case::math1("wasi-math1")]
+#[case::math1_sender("wasi-math1-sender")]
+fn a_guest_the_board_runs_imports_only_what_it_hosts(#[case] module: &str) {
+    let guest = Guest::read(&component(module)).unwrap();
+    assert_eq!(guest.unhosted().count(), 0);
+    assert!(guest.memory > 0);
+}
+
+#[test]
+fn a_guest_that_needs_a_gpu_or_a_model_imports_what_the_board_does_not_host() {
+    let guest = Guest::read(&component("wasi-graphics-info")).unwrap();
+    let unhosted = guest.unhosted().collect::<Vec<_>>();
+    assert!(unhosted.iter().any(|import| import.starts_with("wasi:webgpu/")));
+    assert!(unhosted.iter().any(|import| import.starts_with("wasi:nn/")));
+}
+
+#[tokio::test]
+async fn a_guest_runs_within_the_board_s_memory_and_returns_it_when_it_ends() {
+    let module = "wasi-data1";
+    let starts_with = usize::try_from(Guest::read(&component(module)).unwrap().memory).unwrap();
+    let roomy = MemoryBudget::new(starts_with.saturating_mul(4));
+    let (outcome, ..) = ran_within(&compiled(module), Hub::default(), roomy.clone()).await;
+    outcome.unwrap();
+    assert_eq!(roomy.left(), starts_with.saturating_mul(4));
+
+    let short = MemoryBudget::new(starts_with.saturating_sub(1));
+    let (outcome, lines, sent, _) = ran_within(&compiled(module), Hub::default(), short.clone()).await;
+    assert!(matches!(outcome, Err(BoardError::Wasmtime(_))));
+    assert!(lines.is_empty() && sent.is_empty());
+    assert_eq!(short.left(), starts_with.saturating_sub(1));
 }
 
 #[tokio::test]

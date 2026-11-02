@@ -50,18 +50,23 @@ pub enum OutputType {
     /// The hub alone, as firmware for an ESP32-C6.
     #[serde(rename = "firmware-esp32c6", alias = "firmware_esp32c6")]
     FirmwareEsp32c6,
+    /// The hub and the scenario's wasi runners, as firmware for a Pimoroni Pico Plus 2 W.
+    #[serde(rename = "firmware-pico-plus2", alias = "firmware_pico_plus2")]
+    FirmwarePicoPlus2,
 }
 
 /// A board a `firmware-*` format builds the hub for, each the board of exactly one format.
 ///
-/// Only boards with a network of their own are supported, so a board's name leaves out the suffix its vendor gives
-/// the networked variant: `pico2` is the Pico 2 W.
+/// Only boards with a network of their own are supported, so a board's name leaves out the suffix its vendor gives the
+/// networked variant: `pico2` is the Pico 2 W.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Board {
     /// The Raspberry Pi Pico 2 W, over its own Wi-Fi.
     Pico2,
     /// Any ESP32-C6 board, over the chip's own Wi-Fi.
     Esp32c6,
+    /// The Pimoroni Pico Plus 2 W, over its own Wi-Fi, with the PSRAM a guest's memory needs.
+    PicoPlus2,
 }
 
 /// What building, loading and describing one board's firmware takes.
@@ -85,11 +90,16 @@ pub(crate) struct BoardSpec {
     pub network_setup: &'static str,
     /// How big the board's flash is, which bounds what can be built in.
     pub flash: &'static str,
+    /// The runner kinds the board's firmware runs beside the hub, none for a board without the memory a guest needs.
+    ///
+    /// What a guest may import and how much memory it may take, the firmware's build decides, reading the guest it
+    /// builds in: the deployment is generated before the module is necessarily built, so this is only the kind.
+    pub runners: &'static [&'static str],
 }
 
 impl Board {
     /// Every board, each with a `firmware-*` format of its own.
-    pub(crate) const ALL: &'static [Self] = &[Self::Pico2, Self::Esp32c6];
+    pub(crate) const ALL: &'static [Self] = &[Self::Pico2, Self::Esp32c6, Self::PicoPlus2];
 
     /// What building, loading and describing this board's firmware takes.
     #[must_use]
@@ -105,6 +115,7 @@ impl Board {
                 load_preparation: "hold the board's BOOTSEL button while plugging it in",
                 network_setup: WIFI_SETUP,
                 flash: "4 MiB",
+                runners: &[],
             },
             Self::Esp32c6 => BoardSpec {
                 output_type: OutputType::FirmwareEsp32c6,
@@ -116,6 +127,19 @@ impl Board {
                 load_preparation: "plug the board in over USB, where espflash finds it",
                 network_setup: WIFI_SETUP,
                 flash: "4 MiB",
+                runners: &[],
+            },
+            Self::PicoPlus2 => BoardSpec {
+                output_type: OutputType::FirmwarePicoPlus2,
+                title: "Pimoroni Pico Plus 2 W",
+                build_task: "build-firmware-pico-plus2w",
+                package: FIRMWARE_PACKAGE,
+                image: "target/thumbv8m.main-none-eabihf/release/et-ws-server-firmware",
+                load_command: "picotool load -x -t elf",
+                load_preparation: "hold the board's BOOTSEL button while plugging it in",
+                network_setup: WIFI_SETUP,
+                flash: "16 MiB",
+                runners: &["wasi"],
             },
         }
     }
@@ -125,9 +149,9 @@ impl OutputType {
     /// Every format, in the order a generated README lists their files and run sections.
     ///
     /// The order is what running each takes and what it offers. The three that need no container runtime come first:
-    /// mise, a plain CLI; dekit, a TUI; then process-compose, a TUI that can also schedule. Compose follows because it
-    /// needs Docker, and k3s because it needs a Kubernetes cluster such as Rancher Desktop's. The firmware is last,
-    /// because it needs a board, and because it deploys only the hub.
+    /// mise, a plain CLI; dekit, a TUI; then process-compose, a TUI that can also schedule. Compose follows because
+    /// it needs Docker, and k3s because it needs a Kubernetes cluster such as Rancher Desktop's. The firmware is last,
+    /// because it needs a board, and because it deploys the hub and at most the runners the board can hold.
     pub const ALL: &'static [Self] = &[
         Self::Mise,
         Self::Dekit,
@@ -136,6 +160,7 @@ impl OutputType {
         Self::K3s,
         Self::FirmwarePico2,
         Self::FirmwareEsp32c6,
+        Self::FirmwarePicoPlus2,
     ];
 
     /// The file this format is written to, beside the others in the deployment directory.
@@ -149,6 +174,7 @@ impl OutputType {
             Self::ProcessCompose => "process-compose.yaml",
             Self::FirmwarePico2 => "mise.firmware-pico2.toml",
             Self::FirmwareEsp32c6 => "mise.firmware-esp32c6.toml",
+            Self::FirmwarePicoPlus2 => "mise.firmware-pico-plus2.toml",
         }
     }
 
@@ -163,18 +189,19 @@ impl OutputType {
             Self::ProcessCompose => "process-compose",
             Self::FirmwarePico2 => "firmware-pico2",
             Self::FirmwareEsp32c6 => "firmware-esp32c6",
+            Self::FirmwarePicoPlus2 => "firmware-pico-plus2",
         }
     }
 
     /// Whether this format can start an agent on its `schedule:`.
     ///
     /// mise and dekit have no scheduler of their own, so a scheduled agent is refused rather than run continuously, and
-    /// the board runs no agents at all.
+    /// a board starts what it runs once, at boot.
     #[must_use]
     pub const fn runs_schedules(self) -> bool {
         !matches!(
             self,
-            Self::Mise | Self::Dekit | Self::FirmwarePico2 | Self::FirmwareEsp32c6
+            Self::Mise | Self::Dekit | Self::FirmwarePico2 | Self::FirmwareEsp32c6 | Self::FirmwarePicoPlus2
         )
     }
 

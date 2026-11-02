@@ -1,5 +1,5 @@
-//! Covers the `runner` world calls no shipped guest makes on a board: the websocket used out of order, and the
-//! bucket calls a board refuses.
+//! Covers the `runner` world calls no shipped guest makes on a board: the websocket used out of order, and the bucket
+//! calls a board refuses.
 #![cfg(test)]
 
 #[cfg(not(feature = "std"))]
@@ -8,9 +8,11 @@ use core::pin::pin;
 use core::task::{Context, Poll, Waker};
 
 use edge_toolkit::ws::{ConnectStatus, ServerMessage};
+use wasmtime::ResourceLimiter as _;
 use wasmtime::component::Resource;
 
-use super::host::BoardHost;
+use super::host::{BoardHost, Buckets};
+use super::memory::MemoryBudget;
 use super::platform::{Console, Platform, Transport};
 use crate::bindings::et::ws_messages::messages::ClientMessage;
 use crate::bindings::et::ws_wasi::ws::{Host as _, State, WsError};
@@ -18,6 +20,9 @@ use crate::bindings::wasi::keyvalue::store::{Error, Host as _, HostBucket};
 use crate::bindings::wasi::logging::logging::Level;
 use crate::convert::Frame;
 use crate::keyvalue::Bucket;
+
+/// A WebAssembly page, the unit a memory grows by.
+const PAGE: usize = 64 * 1024;
 
 /// A board with nothing to say: its clock stands still and its log goes nowhere.
 struct Quiet;
@@ -76,7 +81,17 @@ where
 
 /// A guest's store data on a quiet board with an acking hub.
 fn host() -> BoardHost<Quiet, Acking> {
-    BoardHost::new(Quiet, Acking)
+    on_board(Buckets::default(), roomy())
+}
+
+/// A guest's store data on a quiet board with an acking hub, sharing `buckets` and `memory` with the board's others.
+fn on_board(buckets: Buckets, memory: MemoryBudget) -> BoardHost<Quiet, Acking> {
+    BoardHost::new(Quiet, Acking, buckets, memory)
+}
+
+/// A budget no guest here spends.
+fn roomy() -> MemoryBudget {
+    MemoryBudget::new(usize::MAX)
 }
 
 /// The bucket `identifier` opens.
@@ -126,6 +141,26 @@ fn a_module_bucket_holds_nothing_and_cannot_be_written() {
 }
 
 #[test]
+fn guests_handed_the_same_buckets_read_what_each_other_wrote() {
+    let buckets = Buckets::default();
+    let mut writer = on_board(buckets.clone(), roomy());
+    let mut reader = on_board(buckets, roomy());
+    let written = open(&mut writer, "agent-1");
+    now(writer.set(written, "math1-input.json".to_owned(), vec![7])).unwrap();
+    let read = open(&mut reader, "agent-1");
+    assert_eq!(
+        now(reader.get(read, "math1-input.json".to_owned())).unwrap(),
+        Some(vec![7])
+    );
+    let mut other_board = host();
+    let elsewhere = open(&mut other_board, "agent-1");
+    assert_eq!(
+        now(other_board.get(elsewhere, "math1-input.json".to_owned())).unwrap(),
+        None
+    );
+}
+
+#[test]
 fn a_bucket_refuses_the_calls_a_board_does_not_implement() {
     let mut host = host();
     let rep = open(&mut host, "agent-1").rep();
@@ -149,4 +184,49 @@ fn a_bucket_refuses_the_calls_a_board_does_not_implement() {
             "list-keys not implemented"
         ]
     );
+}
+
+#[test]
+fn guests_grow_only_into_what_the_board_has_left() {
+    let memory = MemoryBudget::new(3 * PAGE);
+    let mut first = on_board(Buckets::default(), memory.clone());
+    let mut second = on_board(Buckets::default(), memory.clone());
+    assert!(first.allowance().memory_growing(0, 2 * PAGE, None).unwrap());
+    assert!(!second.allowance().memory_growing(0, 2 * PAGE, None).unwrap());
+    assert!(second.allowance().memory_growing(0, PAGE, None).unwrap());
+    assert_eq!(memory.left(), 0);
+    assert!(!first.allowance().memory_growing(2 * PAGE, 3 * PAGE, None).unwrap());
+    drop(first);
+    assert_eq!(memory.left(), 2 * PAGE);
+    drop(second);
+    assert_eq!(memory.left(), 3 * PAGE);
+}
+
+#[test]
+fn a_growth_that_fails_after_all_returns_what_it_drew() {
+    let memory = MemoryBudget::new(4 * PAGE);
+    let mut guest = on_board(Buckets::default(), memory.clone());
+    assert!(guest.allowance().memory_growing(0, PAGE, None).unwrap());
+    assert!(
+        guest
+            .allowance()
+            .memory_growing(PAGE, 3 * PAGE, Some(2 * PAGE))
+            .unwrap()
+    );
+    guest
+        .allowance()
+        .memory_grow_failed(wasmtime::Error::msg("past the maximum"))
+        .unwrap();
+    assert_eq!(memory.left(), 3 * PAGE);
+
+    let pointer = size_of::<usize>();
+    assert!(guest.allowance().table_growing(0, 8, None).unwrap());
+    assert_eq!(memory.left(), 3 * PAGE - 8 * pointer);
+    guest
+        .allowance()
+        .table_grow_failed(wasmtime::Error::msg("past the maximum"))
+        .unwrap();
+    assert_eq!(memory.left(), 3 * PAGE);
+    drop(guest);
+    assert_eq!(memory.left(), 4 * PAGE);
 }

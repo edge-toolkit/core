@@ -1,0 +1,23 @@
+id: no-repeated-wildcard-pattern
+language: Rust
+severity: error
+message: |
+  Two or more `_` side by side in a tuple or tuple-struct pattern each ignore one field where `..` ignores them all.
+  Write the run as `..`: `(outcome, _, _, _)` becomes `(outcome, ..)`, `(_, _, path)` becomes `(.., path)`, and
+  `(outcome, _, _, closed)` becomes `(outcome, .., closed)`. The pattern then says which fields matter rather than
+  counting the ones that do not, and it keeps compiling when one is added. This mirrors `DeepSource RS-W1213`; clippy
+  has no equivalent.
+# Check-only, because a pattern holds only one `..`.
+# A rewrite would have to collapse one run and leave any other alone, which a single template cannot express.
+# Matched on the pattern's own text: the wildcard is an anonymous node that a structural `has` does not reach.
+# A pattern already holding `..`, or with two runs and a field between them, is left alone, since `..` can replace at
+# most one run there and the rule would ask for a rewrite Rust does not allow.
+rule:
+  any:
+    - kind: tuple_pattern
+    - kind: tuple_struct_pattern
+  regex: '[(,]\s*_\s*,\s*_\s*[,)]'
+  not:
+    any:
+      - regex: '\.\.'
+      - regex: '_\s*,\s*_\s*,.*[^\s_,()].*,\s*_\s*,\s*_'

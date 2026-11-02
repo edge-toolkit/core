@@ -3,7 +3,8 @@
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Engine, Store};
 
-use super::host::BoardHost;
+use super::host::{BoardHost, Buckets};
+use super::memory::MemoryBudget;
 use super::platform::{Platform, Transport};
 use super::wasi;
 use crate::bindings;
@@ -27,16 +28,24 @@ impl From<wasmtime::Error> for BoardError {
     }
 }
 
-/// Run `component` on `engine` until its `entry.run` returns, hosting it on `platform` and `transport`.
+/// Run `component` on `engine` until its `entry.run` returns, hosting it on what the board hands it.
 ///
-/// `engine` is [`crate::engine::board_engine`]'s, and `component` what [`crate::engine::precompile`] compiled for
-/// it: a firmware builds its guest in, compiled by its build script.
+/// `engine` is [`crate::engine::board_engine`]'s, and `component` what `engine::precompile` compiled for it: a firmware
+/// builds its guest in, compiled by its build script. The guest runs on `platform` and `transport`, and every guest a
+/// board runs is handed the same `buckets` for its storage and the same `memory` for its memories and tables.
 ///
 /// # Errors
 ///
-/// When `component` was not compiled for `engine`, the guest imports something a board does not host, it traps,
-/// or its `entry.run` returns an error.
-pub async fn run<P, T>(engine: &Engine, component: &[u8], platform: P, transport: T) -> Result<(), BoardError>
+/// When `component` was not compiled for `engine`, the guest imports something a board does not host, starts with more
+/// memory than `memory` has left, traps, or its `entry.run` returns an error.
+pub async fn run<P, T>(
+    engine: &Engine,
+    component: &[u8],
+    platform: P,
+    transport: T,
+    buckets: Buckets,
+    memory: MemoryBudget,
+) -> Result<(), BoardError>
 where
     P: Platform + 'static,
     T: Transport + 'static,
@@ -45,13 +54,14 @@ where
         unsafe_code,
         reason = "a precompiled component is native code to wasmtime, so loading one is unsafe by nature"
     )]
-    // SAFETY: the bytes are what `precompile` produced for this engine's settings, built into the firmware by its
-    // build script rather than received from anywhere at run time.
+    // SAFETY: the bytes are what `precompile` produced for this engine's settings, built into the firmware by its build
+    // script rather than received from anywhere at run time.
     let component = unsafe { Component::deserialize(engine, component) }?;
     let mut linker = Linker::new(engine);
     wasi::add_to_linker(&mut linker)?;
     bindings::Runner::add_to_linker::<BoardHost<P, T>, HasSelf<BoardHost<P, T>>>(&mut linker, |host| host)?;
-    let mut store = Store::new(engine, BoardHost::new(platform, transport));
+    let mut store = Store::new(engine, BoardHost::new(platform, transport, buckets, memory));
+    store.limiter(|host| host.allowance());
     let runner = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
     // `entry.run` is an async export, which only the concurrent API can call.
     match store

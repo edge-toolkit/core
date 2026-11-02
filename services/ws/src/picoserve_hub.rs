@@ -1,9 +1,9 @@
 //! A `no_std` hub serving `/ws` over HTTP and WebSocket through picoserve, on whatever sockets the embedder accepts.
 //!
-//! The embedder owns the network stack and the executor. It accepts each connection on a socket picoserve can drive
-//! -- an `embassy-net` `TcpSocket` on a microcontroller, a tokio `TcpStream` on a host -- and runs [`Hub::serve`] for
-//! it, typically as a task of its own. Every connection shares the one [`Hub`], so agents on different sockets reach
-//! each other through its registry, with [`Link`] deciding what goes where.
+//! The embedder owns the network stack and the executor. It accepts each connection on a socket picoserve can drive --
+//! an `embassy-net` `TcpSocket` on a microcontroller, a tokio `TcpStream` on a host -- and runs [`Hub::serve`] for it,
+//! typically as a task of its own. Every connection shares the one [`Hub`], so agents on different sockets reach each
+//! other through its registry, with [`Link`] deciding what goes where.
 //!
 //! It is a local hub: there is no backplane, admin API, idle timeout or registry file, and a frame larger than
 //! [`Hub::new`]'s `max_frame_size` ends its connection.
@@ -36,9 +36,9 @@ const CONNECTION_LIFETIME: Duration = Duration::from_secs(24 * 60 * 60);
 /// The picoserve configuration a hub connection needs.
 ///
 /// picoserve bounds every read of a request by `read_request`, counted from the moment the request starts and still
-/// running after the upgrade, so its default of three seconds would close each agent's WebSocket three seconds after
-/// it connected. This lifts that bound to a day and leaves the other timeouts at picoserve's defaults; an embedder
-/// wanting another maximum connection lifetime builds its own.
+/// running after the upgrade, so its default of three seconds would close each agent's WebSocket three seconds after it
+/// connected. This lifts that bound to a day and leaves the other timeouts at picoserve's defaults; an embedder wanting
+/// another maximum connection lifetime builds its own.
 #[must_use]
 pub const fn config() -> Config {
     Config::new(Timeouts {
@@ -147,13 +147,24 @@ where
         &self.registry
     }
 
+    /// Refuse a frame of `size` bytes from an agent in process if a connection could not send one that large.
+    const fn fits(&self, size: usize) -> Result<(), FrameTooLarge> {
+        if size > self.max_frame_size {
+            return Err(FrameTooLarge {
+                size,
+                max: self.max_frame_size,
+            });
+        }
+        Ok(())
+    }
+
     /// Serve one accepted connection from `client_ip` until it closes.
     ///
     /// `GET /ws` upgrades to the hub's WebSocket protocol, as [`Hub::routes`] describes; every other request is
     /// answered 404. `config` is usually [`config`], and `http_buffer` holds the request head.
     ///
-    /// picoserve's futures nest deeply enough that the crate awaiting this one needs `#![recursion_limit = "256"]`
-    /// for rustc to lay out the future; rustc says so when it is missing.
+    /// picoserve's futures nest deeply enough that the crate awaiting this one needs `#![recursion_limit = "256"]` for
+    /// rustc to lay out the future; rustc says so when it is missing.
     #[expect(
         clippy::future_not_send,
         reason = "picoserve's futures hold Cells; its executors run each connection on one thread"
@@ -195,6 +206,21 @@ where
         )
     }
 
+    /// An agent the embedder runs itself, joined to the hub with no socket between them.
+    ///
+    /// The hub sees it as connected from `client_ip`. What it sends is routed as a connection's frames are, and what
+    /// others send it waits in its outbox with the hub's replies, as a connection's would. It is how a board's own
+    /// runner reaches the hub it runs beside. Unlike a connection, it is not refused for a blocked `client_ip`, since
+    /// nothing outside the embedder reaches it.
+    #[must_use]
+    pub fn local(&self, client_ip: IpAddr) -> LocalLink<'_, T> {
+        LocalLink {
+            hub: self,
+            link: Link::new(client_ip, Outbox::new(self.max_queued), self.retention),
+            replies: VecDeque::new(),
+        }
+    }
+
     /// Route one frame from `link`'s agent.
     fn route(&self, link: &mut Link<Outbox>, frame: Frame) -> Routing<Outbox> {
         let mut stamps = self.stamps.lock();
@@ -228,6 +254,119 @@ where
                 Either::Second(queued) => write(tx, queued).await?,
             }
         }
+    }
+}
+
+/// A frame an agent in process sent that is larger than the hub reads from a socket.
+///
+/// Held to the same bound a connection is, so an agent on the board cannot fill other agents' outboxes, and the heap,
+/// with frames no socket could carry.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct FrameTooLarge {
+    /// The frame's size in bytes.
+    pub size: usize,
+    /// The largest frame the hub reads.
+    pub max: usize,
+}
+
+impl core::fmt::Display for FrameTooLarge {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "a {}-byte frame is larger than the {} bytes the hub reads",
+            self.size, self.max
+        )
+    }
+}
+
+/// An agent joined to a [`Hub`] in process, as [`Hub::local`] makes one; dropping it disconnects the agent.
+pub struct LocalLink<'hub, T> {
+    hub: &'hub Hub<T>,
+    link: Link<Outbox>,
+    /// The hub's replies to what this agent sent, not yet taken.
+    ///
+    /// Kept apart from the outbox, so the replies to the latest request are never lost to what others send: the `et-
+    /// connect-ack`, say, that reconnecting with more messages waiting than the outbox holds would otherwise lose. A
+    /// connection writes its replies to its socket at once, so has no such queue. It holds the hub's `max_queued`, as
+    /// an outbox does, or the latest request's replies when they are more: an agent that keeps sending without reading,
+    /// as one broadcasting on a timer does, loses its oldest replies rather than taking the heap with it.
+    replies: VecDeque<SessionMessage>,
+}
+
+impl<T> LocalLink<'_, T>
+where
+    T: Stamps,
+{
+    /// Route `message` from this agent, queueing the hub's replies to it.
+    pub fn send(&mut self, message: ClientMessage) {
+        let routing = self.hub.route(&mut self.link, Frame::Message(message));
+        self.deliver(routing);
+    }
+
+    /// Route `text` from this agent, as a text frame from a connection is: decoded, or dropped if it is no message.
+    ///
+    /// # Errors
+    ///
+    /// When `text` is larger than the hub reads from a socket, a frame that would end a connection.
+    pub fn send_text(&mut self, text: &str) -> Result<(), FrameTooLarge> {
+        self.hub.fits(text.len())?;
+        match ClientMessage::from_text_frame(text) {
+            Ok(message) => self.send(message),
+            Err(err) => warn!(
+                "Decode error for et-* frame from {}: {}",
+                self.link.current_agent_id(),
+                err
+            ),
+        }
+        Ok(())
+    }
+
+    /// Relay `bytes` from this agent, as a binary frame from a connection is.
+    ///
+    /// # Errors
+    ///
+    /// When `bytes` is larger than the hub reads from a socket, a frame that would end a connection.
+    pub fn send_binary(&mut self, bytes: Bytes) -> Result<(), FrameTooLarge> {
+        self.hub.fits(bytes.len())?;
+        let routing = self.hub.route(&mut self.link, Frame::Binary(bytes));
+        self.deliver(routing);
+        Ok(())
+    }
+
+    /// The next message for this agent, once there is one: the hub's replies first, then what others sent it.
+    pub async fn next(&mut self) -> SessionMessage {
+        match self.replies.pop_front() {
+            Some(reply) => reply,
+            None => self.link.session().next().await,
+        }
+    }
+
+    /// Carry out `routing`: other agents' messages go to their outboxes, and the replies to this agent's own queue.
+    ///
+    /// Older replies make room for these, never these for older ones.
+    fn deliver(&mut self, routing: Routing<Outbox>) {
+        for (session, message) in routing.deliveries {
+            session.send(message);
+        }
+        let room = self.hub.max_queued.saturating_sub(routing.replies.len());
+        let unread = self.replies.len().saturating_sub(room);
+        if unread > 0 {
+            warn!("Dropped the {unread} oldest replies to an in-process agent that is not reading");
+            for _ in 0..unread {
+                let _oldest = self.replies.pop_front();
+            }
+        }
+        self.replies
+            .extend(routing.replies.into_iter().map(SessionMessage::Json));
+    }
+}
+
+impl<T> Drop for LocalLink<'_, T> {
+    /// Disconnect the agent, unless another session has taken its id over since.
+    fn drop(&mut self) {
+        let link = &self.link;
+        let _released = link.release(&self.hub.registry, &|session| session.same_connection(link.session()));
     }
 }
 

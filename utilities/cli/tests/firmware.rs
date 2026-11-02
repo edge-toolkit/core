@@ -1,6 +1,6 @@
 //! Covers the firmware formats, mostly through `firmware-pico2`: which modules a firmware build embeds and which it
-//! redirects, the scenarios it refuses because a board runs one hub and nothing else, and what `firmware-esp32c6`
-//! builds and loads differently.
+//! redirects, the scenarios a board refuses, what `firmware-esp32c6` builds and loads differently, and the wasi runners
+//! `firmware-pico-plus2` starts beside its hub.
 #![cfg(test)]
 
 use std::path::PathBuf;
@@ -15,6 +15,19 @@ agents:
   - name: "math1-twin"
     resources:
       - type: "math1"
+"#;
+
+/// Two wasi runners, the math1 sender and the twin it feeds, which a board with the memory runs beside its hub.
+const WASI: &str = r#"cluster_name: "board"
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+  - name: "wasi-math1-twin"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1"
 "#;
 
 /// The file `firmware-pico2` writes.
@@ -85,6 +98,7 @@ fn it_embeds_the_repository_modules_and_redirects_the_npm_packages() {
     assert_eq!(build.env["MODULES_ROOT"], "@edge-toolkit/et-ws-server-static");
     assert_eq!(build.env["MODULES_ELSEWHERE"], "onnxruntime-web, stats-gl");
     assert_eq!(build.env["MODULES_ELSEWHERE_URL"], "https://cdn.jsdelivr.net/npm");
+    assert_eq!(build.env["RUNNER_GUESTS"], "");
 
     assert_eq!(config.tasks.flash.depends, ["firmware-build"]);
     assert_eq!(config.tasks.flash.dir, build.dir);
@@ -132,8 +146,8 @@ fn it_embeds_a_module_the_scenario_keeps_beside_it() {
         r#"{"name": "mine", "main": "mine.js"}"#,
     )
     .unwrap();
-    // Named relative to the scenario, as `module_paths:` is meant to be; the temporary directory holding both, which
-    // on Windows runs through `RUNNER~1`, is not the scenario author's to name.
+    // Named relative to the scenario, as `module_paths:` is meant to be; the temporary directory holding both, which on
+    // Windows runs through `RUNNER~1`, is not the scenario author's to name.
     let input = format!("{BROWSER}module_paths: [\"mine\"]\n").replace(r#"type: "math1""#, r#"type: "mine""#);
 
     let module_path = module_dir.display().to_string();
@@ -147,14 +161,70 @@ fn it_refuses_what_the_board_cannot_run() {
     let machines = format!("{BROWSER}machines:\n  - name: \"server\"\n    address: \"10.0.0.1\"\n");
     let published = format!("{BROWSER}artifact_source: \"published\"\n");
     for (input, reason) in [
-        (runner, "starts a runner"),
-        (machines, "spans several machines"),
-        (published, "uses published artifacts"),
+        (&runner, "starts a runner"),
+        (&WASI.to_owned(), "starts a runner"),
+        (&machines, "spans several machines"),
+        (&published, "uses published artifacts"),
     ] {
-        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &input, OutputType::FirmwarePico2);
-        assert!(outcome.starts_with("The Raspberry Pi Pico 2 W firmware runs one hub and nothing else"));
+        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), input, OutputType::FirmwarePico2);
+        assert!(outcome.starts_with("The Raspberry Pi Pico 2 W firmware cannot deploy a scenario that"));
         assert!(outcome.contains(reason));
         assert!(!output_dir.join(CONFIG_FILE).exists());
+    }
+}
+
+#[test]
+fn a_pico_plus_2_w_starts_each_wasi_runner_beside_its_hub() {
+    let (_root, config, readme) = generated_in(tempdir().unwrap(), WASI, OutputType::FirmwarePicoPlus2);
+    let build = &config.tasks.build;
+    assert_eq!(
+        build.env["RUNNER_GUESTS"],
+        "math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender, wasi-math1-twin=@edge-toolkit/et-ws-wasi-math1"
+    );
+    for module in [
+        "services/ws-modules/wasi-math1",
+        "services/ws-modules/wasi-math1-sender",
+    ] {
+        assert!(build.run.contains(&format!("$PWD/{module}")));
+    }
+    assert!(build.run.contains("mise -E rust run build-firmware-pico-plus2w"));
+    assert_eq!(config.tasks.host_test.env, build.env);
+    assert!(config.tasks.flash.run.starts_with("picotool load"));
+    assert!(readme.contains("## Run As Pimoroni Pico Plus 2 W Firmware"));
+    assert!(readme.contains("The board runs the hub, and beside it each wasi runner the scenario declares"));
+    assert!(readme.contains("MISE_ENV=firmware-pico-plus2 mise run firmware-flash"));
+}
+
+#[test]
+fn a_pico_plus_2_w_refuses_a_runner_its_firmware_does_not_host() {
+    let web = WASI.replacen(r#"runner: "wasi""#, r#"runner: "web""#, 1);
+    let limited = WASI.replacen(
+        "    resources:",
+        "    limits:\n      memory: \"64m\"\n    resources:",
+        1,
+    );
+    let published = format!("{WASI}artifact_source: \"published\"\n");
+    for (input, refusal) in [
+        (
+            web,
+            r#"Agent "math1-trigger" names the "web" runner, but the Pimoroni Pico Plus 2 W firmware runs only wasi"#,
+        ),
+        (
+            limited,
+            "The Pimoroni Pico Plus 2 W firmware cannot deploy a scenario that sets limits on a runner",
+        ),
+        (
+            published,
+            "The Pimoroni Pico Plus 2 W firmware cannot deploy a scenario that uses published artifacts",
+        ),
+    ] {
+        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &input, OutputType::FirmwarePicoPlus2);
+        assert!(outcome.starts_with(refusal));
+        assert!(
+            !output_dir
+                .join(OutputType::FirmwarePicoPlus2.output_file_name())
+                .exists()
+        );
     }
 }
 
@@ -168,13 +238,21 @@ fn verification_renders_it_only_for_a_scenario_the_board_can_run() {
     let headless = BROWSER.replace("    resources:", "    runner: \"web\"\n    resources:");
     fs::write(input_dir.join("headless.yaml"), headless).unwrap();
 
+    fs::write(input_dir.join("wasi.yaml"), WASI).unwrap();
+
     let _regenerated = regenerate_verification(&verification_root, None).unwrap();
     let output = verification_root.join("local/output");
     let esp_file = OutputType::FirmwareEsp32c6.output_file_name();
+    let plus_file = OutputType::FirmwarePicoPlus2.output_file_name();
     assert!(output.join("browser").join(CONFIG_FILE).is_file());
     assert!(output.join("browser").join(esp_file).is_file());
+    assert!(output.join("browser").join(plus_file).is_file());
     assert!(output.join("browser/mise.toml").is_file());
-    assert!(!output.join("headless").join(CONFIG_FILE).exists());
-    assert!(!output.join("headless").join(esp_file).exists());
+    for unsupported in [CONFIG_FILE, esp_file, plus_file] {
+        assert!(!output.join("headless").join(unsupported).exists());
+    }
     assert!(output.join("headless/mise.toml").is_file());
+    assert!(!output.join("wasi").join(CONFIG_FILE).exists());
+    assert!(!output.join("wasi").join(esp_file).exists());
+    assert!(output.join("wasi").join(plus_file).is_file());
 }

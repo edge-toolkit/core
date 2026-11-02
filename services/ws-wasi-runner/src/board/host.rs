@@ -1,5 +1,5 @@
-//! A board's store data, and its hosting of the `runner` world: the guest's log through the board, its buckets in
-//! the board's memory, and its websocket over the board's transport.
+//! A board's store data, and its hosting of the `runner` world: the guest's log through the board, its buckets in the
+//! board's memory, and its websocket over the board's transport.
 
 use alloc::collections::{BTreeMap, VecDeque};
 #[cfg(not(feature = "std"))]
@@ -11,6 +11,7 @@ use alloc::{
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use wasmtime::component::{Resource, ResourceTable};
 
+use super::memory::{Allowance, MemoryBudget};
 use super::platform::{Platform, Transport};
 use crate::bindings::et::ws_messages::messages::{
     ClientMessage as WitClientMessage, ServerMessage as WitServerMessage,
@@ -25,6 +26,16 @@ use crate::keyvalue::{Bucket, bucket_from_identifier, kv_not_implemented};
 /// How long `connect` waits for each frame while it waits for the hub's `et-connect-ack`.
 const CONNECT_ACK_TIMEOUT_MS: u32 = 10_000;
 
+/// Every storage bucket the guests on one board have written, by agent id, each a map from key to value.
+///
+/// A handle: its clones are the same buckets, so every guest a board runs is handed one and can read what another
+/// wrote, as agents share the hub's storage elsewhere.
+#[derive(Clone, Default)]
+pub struct Buckets(alloc::sync::Arc<spin::Mutex<BTreeMap<String, Stored>>>);
+
+/// What one storage bucket holds, a map from key to value.
+type Stored = BTreeMap<String, Vec<u8>>;
+
 /// The store data a board runs a guest with.
 pub struct BoardHost<P, T> {
     /// The board's clock, log and console.
@@ -33,8 +44,10 @@ pub struct BoardHost<P, T> {
     table: ResourceTable,
     /// The websocket to the hub.
     transport: T,
-    /// Every storage bucket the guest has written, by its agent id, each a map from key to value.
-    buckets: BTreeMap<String, BTreeMap<String, Vec<u8>>>,
+    /// The board's storage, which the guest's storage buckets are in.
+    buckets: Buckets,
+    /// The guest's draw on the board's memory, which wasmtime asks before each memory or table grows.
+    allowance: Allowance,
     /// Messages that arrived before the guest asked for them: the connect ack, and any that came ahead of it.
     inbox: VecDeque<ServerMessage>,
     /// The id the hub assigned, empty until it has.
@@ -44,7 +57,7 @@ pub struct BoardHost<P, T> {
 }
 
 impl<P, T> BoardHost<P, T> {
-    /// A guest's store data, with nothing yet stored and no websocket open.
+    /// A guest's store data, keeping its storage in `buckets` and its memories in `memory`, with no websocket open.
     #[cfg_attr(
         not(test),
         expect(
@@ -52,16 +65,22 @@ impl<P, T> BoardHost<P, T> {
             reason = "the store data's constructor, called where run makes the store"
         )
     )]
-    pub(super) fn new(platform: P, transport: T) -> Self {
+    pub(super) fn new(platform: P, transport: T, buckets: Buckets, memory: MemoryBudget) -> Self {
         Self {
             platform,
             table: ResourceTable::new(),
             transport,
-            buckets: BTreeMap::new(),
+            buckets,
+            allowance: Allowance::new(memory),
             inbox: VecDeque::new(),
             agent_id: String::default(),
             state: State::Closed,
         }
+    }
+
+    /// The guest's draw on the board's memory, which the store's limiter is.
+    pub(super) const fn allowance(&mut self) -> &mut Allowance {
+        &mut self.allowance
     }
 
     /// The board's clock, log and console, which the WASI functions use.
@@ -133,7 +152,13 @@ impl<P: Platform, T: Transport> wasi::keyvalue::store::Host for BoardHost<P, T> 
 impl<P: Platform, T: Transport> wasi::keyvalue::store::HostBucket for BoardHost<P, T> {
     async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, StoreError> {
         Ok(match self.table.get(&self_)? {
-            Bucket::Storage { agent_id } => self.buckets.get(agent_id).and_then(|stored| stored.get(&key)).cloned(),
+            Bucket::Storage { agent_id } => self
+                .buckets
+                .0
+                .lock()
+                .get(agent_id)
+                .and_then(|stored| stored.get(&key))
+                .cloned(),
             // A board serves no module's files, so none of them holds a key.
             Bucket::Modules { .. } => None,
         })
@@ -143,7 +168,13 @@ impl<P: Platform, T: Transport> wasi::keyvalue::store::HostBucket for BoardHost<
         let Bucket::Storage { agent_id } = self.table.get(&self_)? else {
             return Err(StoreError::AccessDenied);
         };
-        let _previous = self.buckets.entry(agent_id.clone()).or_default().insert(key, value);
+        let _previous = self
+            .buckets
+            .0
+            .lock()
+            .entry(agent_id.clone())
+            .or_default()
+            .insert(key, value);
         Ok(())
     }
 

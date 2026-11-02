@@ -8,6 +8,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 pub mod args;
 pub mod auth;
+pub mod board;
 #[cfg(feature = "std")]
 pub mod config;
 pub mod ports;

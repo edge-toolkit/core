@@ -72,13 +72,7 @@ jobs:
         run: |
           mise run cargo-clippy-check-pico2w
           mise run build-ws-wasm-agent
-          src=verification/local/input/default.yaml
-          dst=target/firmware-default
-          fmt=firmware-pico2
-          cargo run -q -p et-cli -- generate-deployment --input-file "$src" --output-dir "$dst" --output-type "$fmt"
-          cd "$dst"
-          MISE_ENV="$fmt" mise run firmware-build
-          MISE_ENV="$fmt" mise run firmware-host-test
+          mise run firmware-scenario verification/local/input/default.yaml firmware-pico2 --host-test
 
       # The host build the step above tested is the one both boards share, so only the board's own build is left.
       - name: Lint the ESP32-C6 firmware, then build a generated scenario's
@@ -88,9 +82,19 @@ jobs:
           WIFI_PASSWORD: not-a-real-passphrase
         run: |
           mise run cargo-clippy-check-esp32c6
-          src=verification/local/input/default.yaml
-          dst=target/firmware-default
-          fmt=firmware-esp32c6
-          cargo run -q -p et-cli -- generate-deployment --input-file "$src" --output-dir "$dst" --output-type "$fmt"
-          cd "$dst"
-          MISE_ENV="$fmt" mise run firmware-build
+          mise run firmware-scenario verification/local/input/default.yaml firmware-esp32c6
+
+      # The board with PSRAM runs wasi runners beside the hub, so its scenario is the two math1 runners.
+      # Their components have to be built before the firmware compiles them for the board. The host build then runs the
+      # same guests against the same hub.
+      - name: Lint the Pico Plus 2 W firmware, then build and serve a generated scenario's runners
+        timeout-minutes: 45
+        env:
+          WIFI_NETWORK: edge-toolkit-ci
+          WIFI_PASSWORD: not-a-real-passphrase
+        run: |
+          mise run cargo-clippy-check-pico-plus2w
+          mise run build-ws-wasm-agent
+          mise run build-ws-wasi-math1-module
+          mise run build-ws-wasi-math1-sender-module
+          mise run firmware-scenario verification/local/input/wasi-math1.yaml firmware-pico-plus2 --host-test
