@@ -4,6 +4,8 @@ name: docker-linux
 "on":
   pull_request:
     paths:
+      - .github/actions/add-swap/**
+      - .github/actions/free-disk-space/**
       - .github/workflows/docker-linux.yaml
       - Dockerfile
   workflow_dispatch:
@@ -54,27 +56,20 @@ jobs:
       - name: Show MISE_ENV
         run: echo "MISE_ENV=$MISE_ENV"
 
-      # Relocate Docker's data dir onto an LVM volume to maximize build space.
-      # jlumbroso/free-disk-space (which test.yaml uses) only frees space on the existing root partition. This
-      # workflow needs more: the image build writes to /var/lib/docker, so we have to relocate Docker's data dir
-      # onto an LVM volume that concatenates the freed root space with /mnt. easimon is the only maintained action
-      # that does that LVM remount, so we stay on it here despite its rougher edges (hard-fails on runners without
-      # /mnt or without a Docker daemon -- not a concern for this workflow's ubuntu-latest matrix, which has both).
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@v10
-        with:
-          root-reserve-mb: 4096
-          swap-size-mb: 1024
-          remove-dotnet: "true"
-          remove-android: "true"
-          remove-haskell: "true"
-          remove-codeql: "true"
-          remove-docker-images: "true"
-          build-mount-path: /var/lib/docker
-          build-mount-path-ownership: "root:root"
-
-      - name: Restart Docker on the maximized volume
-        run: sudo systemctl restart docker
+      # Free space on the root filesystem, where Docker keeps /var/lib/docker.
+      # Root is the runner's only disk: 145G with 86G free before any cleanup, and no separate /mnt temp disk. The
+      # image build needs about 27G. Moving Docker onto an LVM volume (easimon/maximize-build-space) gains nothing
+      # on that layout, because both of its loop PVs come out of the same root filesystem. It also left root almost
+      # full, so the runner could not write its own diagnostics log and died during "Build stage test", even with
+      # 4 GiB reserved:
+      #
+      #   System.IO.IOException: No space left on device :
+      #   '/home/runner/actions-runner/cached/2.338.2/_diag/Worker_20261102-042649-utc.log'
+      #
+      # Observed at commit https://github.com/edge-toolkit/core/commit/7b09577c2d5159c51afafbac016379534f7f749f
+      # on https://github.com/edge-toolkit/core/actions/runs/41386335154/job/125087889255.
+      - name: Free disk space
+        uses: $/.github/actions/free-disk-space
 
       - name: Resolve BASE_IMAGE
         env:
