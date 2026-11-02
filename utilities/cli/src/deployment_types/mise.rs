@@ -7,18 +7,18 @@ use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use toml::{Table, Value};
 
+use super::firmware::{board_firmware_tasks, flash_task};
 use super::hub_sharing::{
     BACKPLANE_IMAGE, BACKPLANE_TASK, DATA_DIR, SHARED_STORAGE_IMAGE, SHARED_STORAGE_TASK, backplane_args,
     shared_hub_env, shared_storage_env, shared_storage_start,
 };
 use super::process_compose::PROCESS_COMPOSE_TOOL;
 use crate::error::CliError;
-use crate::input::{ArtifactSource, ClusterInput};
-use crate::placement::{hubs, shares_hubs};
+use crate::input::{ArtifactSource, ClusterInput, Delivery};
+use crate::placement::{hubs, server_delivery, shares_hubs};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
-    cluster_module_names, module_registry, resolve_cluster_modules, resolve_module_paths, runner_crate,
-    scenario_runners,
+    cluster_module_names, module_registry, resolve_cluster_modules, resolve_module_paths, runner_crate, task_runners,
 };
 
 /// Crate whose binary serves the hub, which a published deployment installs in place of building it.
@@ -80,7 +80,12 @@ pub(crate) fn container(task: &str, cluster_name: &str) -> String {
 }
 
 /// The tasks the server runs besides its runners: the collector, its hub, and what the hubs share when there are more.
+///
+/// A board is loaded with the hub instead, and runs no collector.
 fn server_tasks(cluster: &ClusterInput) -> Vec<String> {
+    if let (Delivery::Firmware(_), Some(server)) = (server_delivery(cluster), cluster.machines.first()) {
+        return vec![flash_task(&server.name)];
+    }
     let mut tasks = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
     if shares_hubs(cluster) {
         tasks.extend([BACKPLANE_TASK.to_string(), SHARED_STORAGE_TASK.to_string()]);
@@ -109,6 +114,15 @@ fn runner_task(runner: &RunnerInstance, workspace_rel: &str, artifacts: Artifact
 fn insert_entry_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[RunnerInstance]) {
     let mut scenario_depends = server_tasks(cluster);
     scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
+    // Every other board too, since its runners are its firmware's.
+    scenario_depends.extend(
+        cluster
+            .machines
+            .iter()
+            .skip(1)
+            .filter(|machine| machine.device.delivery() != Delivery::Tasks)
+            .map(|machine| flash_task(&machine.name)),
+    );
     let description = format!("Run generated scenario for {}", cluster.cluster_name);
     let scenario = mise_task(
         None,
@@ -120,6 +134,9 @@ fn insert_entry_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[Runn
     );
     let _previous: Option<Value> = tasks.insert("generated-scenario".to_string(), Value::Table(scenario));
     insert_machine_tasks(tasks, cluster, runners);
+    if server_delivery(cluster) != Delivery::Tasks {
+        return;
+    }
     let opener = mise_task(
         None,
         Some("Open the OpenObserve UI"),
@@ -142,6 +159,9 @@ fn insert_machine_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[Ru
     for (index, machine) in cluster.machines.iter().enumerate() {
         let mut depends = if index == 0 {
             server_tasks(cluster)
+        } else if machine.device.delivery() != Delivery::Tasks {
+            // A board's runners are its firmware's, so loading it is its whole share.
+            vec![flash_task(&machine.name)]
         } else {
             hubs.iter()
                 .filter(|hub| hub.site.machine_names().contains(&machine.name))
@@ -185,12 +205,17 @@ pub fn generate_mise_deployment(
     };
 
     let mut root = Table::new();
-    let mut tasks = service_tasks(cluster, &scenario, &output_abs, &ws_server_dir)?;
+    let mut tasks = if server_delivery(cluster) == Delivery::Tasks {
+        service_tasks(cluster, &scenario, &output_abs, &ws_server_dir)?
+    } else {
+        Table::new()
+    };
+    tasks.extend(board_firmware_tasks(cluster, output_dir)?);
     // Each runner agent becomes its own task, and `generated-scenario` depends on all of them. mise runs `depends`
     // concurrently, which is what a cluster wants -- the hub and every runner are long-running peers, not a pipeline --
     // but it also means a runner starts before the hub is listening. Each runner body therefore waits for the hub's own
-    // health endpoint first; see `runner_run_body`.
-    let runners = scenario_runners(cluster)?;
+    // health endpoint first; see `runner_run_body`. A runner on a board is the board's firmware's to start instead.
+    let runners = task_runners(cluster)?;
     for runner in &runners {
         let task = runner_task(runner, &workspace_rel, artifacts);
         let _previous: Option<Value> = tasks.insert(runner.name.clone(), Value::Table(task));

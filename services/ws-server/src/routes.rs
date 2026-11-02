@@ -1,48 +1,20 @@
-//! `/health` route handler and its response schema, carrying the
-//! `#[utoipa::path]` and `utoipa::ToSchema` annotations.
+//! `/health` route handler, carrying the `#[utoipa::path]` annotation. Its response schema is et-ws-service's
+//! `HealthResponse`, which a board's hub answers with too.
 //!
-//! Lives in its own file so the file-level
-//! `#![expect(clippy::exhaustive_structs)]` (active under the
-//! `openapi-spec` feature) is scoped only to where utoipa's derives
-//! emit `pub struct`s without `#[non_exhaustive]` -- neither location
-//! can be silenced via a function- or item-level `#[expect]`.
+//! Lives in its own file so the file-level `#![expect(clippy::exhaustive_structs)]` (active under the `openapi-spec`
+//! feature) is scoped only to where utoipa's path macro emits a `pub struct` without `#[non_exhaustive]`, which no
+//! item-level `#[expect]` can reach.
 
 #![cfg_attr(
     feature = "openapi-spec",
     expect(
         clippy::exhaustive_structs,
-        reason = "utoipa emits sibling pub structs without #[non_exhaustive]; only file scope can silence the lint"
+        reason = "utoipa emits a sibling pub struct without #[non_exhaustive]; only file scope can silence the lint"
     )
 )]
 
-#[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString as _};
-
-#[cfg(feature = "std")]
 use actix_web::HttpResponse;
-use serde::{Deserialize, Serialize};
-
-/// Server liveness probe response.
-///
-/// Returned by `GET /health`.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[cfg_attr(feature = "openapi-spec", derive(utoipa::ToSchema))]
-#[non_exhaustive]
-pub struct HealthResponse {
-    pub status: String,
-    pub service: String,
-}
-
-impl HealthResponse {
-    /// What a server that is up answers, whichever server it is.
-    #[must_use]
-    pub fn healthy() -> Self {
-        Self {
-            status: "healthy".to_string(),
-            service: "ws-server".to_string(),
-        }
-    }
-}
+use et_ws_service::health::HealthResponse;
 
 /// Liveness probe.
 ///
@@ -57,7 +29,6 @@ impl HealthResponse {
         responses((status = 200, description = "Server is up", body = HealthResponse))
     )
 )]
-#[cfg(feature = "std")]
 pub async fn health() -> HttpResponse {
     HttpResponse::Ok().json(HealthResponse::healthy())
 }

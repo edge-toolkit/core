@@ -1,0 +1,11 @@
+defaults:
+  stop: SIGINT
+tasks:
+  pyo3-math1-twin:
+    cmd:
+      - mise
+      - run
+      - pyo3-math1-twin
+    tags:
+      - edge
+    autorestart: on-failure

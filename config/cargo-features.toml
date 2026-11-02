@@ -1,0 +1,34 @@
+# Every Cargo feature name a crate in this workspace may declare, and what it gives the crate's user.
+#
+# Maintained by hand, and only by a human. A feature name is part of a crate's public API, so a new one is a
+# decision to make deliberately -- named for what it gives the user, such as where the crate runs or what it serves,
+# never for a dependency it pulls in -- and the same name means the same thing in every crate. Reuse a name below
+# before adding one, add one only with the meaning written beside it, and remove one no crate declares any longer.
+
+[features]
+board = "Runs on a microcontroller board: `no_std` + `alloc`, served or driven over the board's own sockets."
+coverage = "Internal: builds in what the repo's coverage workflow measures with, such as minicov or the `/cov` preopen."
+cuda = "Runs `wasi:nn` inference on an NVIDIA GPU, through ONNX Runtime's CUDA provider."
+default = "Cargo's own: the features a dependent gets unless it sets `default-features = false`."
+docs = "Internal: renders the crate's feature list into its documentation, as docs.rs builds it."
+env-schema = "Internal: derives JSON Schema for the crate's environment config, which et-int-gen renders into HELP.md."
+modules = "Serves ws-module packages from disk under `/modules`, and the root module as the browser UI."
+nats = "Shares agents between hubs through the NATS JetStream backplane."
+nn = "Hosts `wasi:nn` for guests, running their models through ONNX Runtime."
+openapi-spec = "Adds OpenAPI metadata to the crate's HTTP handlers, for et-int-gen to harvest into the published spec."
+otel = "Records OpenTelemetry spans and metrics."
+otlp = "Exports traces and logs over OTLP."
+pico-plus2w = "Builds for the Pimoroni Pico Plus 2 W, on its RP2350B."
+pico2w = "Builds for the Raspberry Pi Pico 2 W, on its RP2350A."
+precompile = "Compiles guests ahead of time for a board's engine, as a firmware's build script does."
+qr = "Prints the advertised URL as a terminal QR code at startup."
+rustls-0_23 = "Builds actix-web with rustls 0.23, which adds the TLS handshake timeout setting."
+schema-export = "Derives JSON Schema and AsyncAPI descriptions for the WebSocket protocol types."
+std = "Builds against the standard library, with everything that needs an operating system."
+storage = "Serves per-agent file storage under `/storage`."
+tls = "Adds an HTTPS and WSS listener."
+tls-self-signed = "Generates a self-signed `localhost` certificate when none is configured."
+tracing = "Injects the W3C `traceparent` of the current span into every request."
+tty-image = "Renders each stored image as a thumbnail on the server's terminal."
+webgpu = "Hosts `wasi:webgpu` for guests, through the host's wgpu device."
+websockify = "Relays `/websockify` WebSocket traffic to the hub's own HTTP port, for runtimes that cannot open TCP."

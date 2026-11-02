@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use crate::deployment_types::HUB_TASK;
 use crate::error::CliError;
 use crate::hub_ws_url::{hub_ws_url, hub_ws_url_at};
-use crate::input::{ClusterInput, Machine};
+use crate::input::{ClusterInput, Delivery, Machine};
 use crate::rfc1123_label;
 
 /// Longest machine name, which is a Kubernetes label value as it is: an RFC 1123 label's 63 characters.
@@ -88,6 +88,26 @@ impl Hub {
     pub(crate) fn on_server(&self) -> bool {
         self.name == HUB_TASK
     }
+}
+
+/// How the share at `site` reaches its machine: as the device there takes it, or as tasks on a single host.
+#[must_use]
+pub(crate) fn delivery_at(cluster: &ClusterInput, site: &Site) -> Delivery {
+    let names = site.machine_names();
+    cluster
+        .machines
+        .iter()
+        .find(|machine| names.contains(&machine.name))
+        .map_or(Delivery::Tasks, |machine| machine.device.delivery())
+}
+
+/// How the server's share reaches it, the hub's among it: as firmware when the server is a board.
+#[must_use]
+pub(crate) fn server_delivery(cluster: &ClusterInput) -> Delivery {
+    cluster
+        .machines
+        .first()
+        .map_or(Delivery::Tasks, |server| server.device.delivery())
 }
 
 /// The site of the collector, and of NATS and the object store when the hubs share them: the server, or the one host.

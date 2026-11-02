@@ -157,7 +157,7 @@ kubectl get pods -n "$ns" --watch
 
 ## Run As Pimoroni Pico Plus 2 W Firmware
 
-The board runs the hub, and beside it each wasi runner the scenario declares, compiled into the
+The board runs the hub, and beside it each wasi runner the scenario places on it, compiled into the
 firmware from its module's component. The build refuses a runner that imports what the board
 does not host, or runners needing more memory than it holds.
 The board serves this scenario's modules from its 16 MiB of flash.

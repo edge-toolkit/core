@@ -1,0 +1,99 @@
+[env]
+OTLP_AUTH_USERNAME = "root@example.com"
+
+[env._]
+file = "secrets.env"
+
+[tasks.firmware-build-hub-board]
+description = "Build the Raspberry Pi Pico 2 W firmware serving mixed-hardware"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/services/ws-modules/pyo3-math1, $PWD/services/ws-modules/wasi-math1-sender"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-server/static, $PWD/services/ws-wasm-agent"
+export MODULES_PATHS
+mise -E rust run build-firmware-pico2w
+"""
+
+[tasks.firmware-build-hub-board.env]
+CARGO_TARGET_DIR = "target/firmware/hub-board"
+MODULES_ELSEWHERE = "onnxruntime-web, stats-gl"
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+RUNNER_GUESTS = ""
+
+[tasks.firmware-build-runner-board]
+description = "Build the Pimoroni Pico Plus 2 W firmware running the runners of mixed-hardware"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/services/ws-modules/wasi-math1-sender"
+export MODULES_PATHS
+mise -E rust run build-firmware-pico-plus2w
+"""
+
+[tasks.firmware-build-runner-board.env]
+CARGO_TARGET_DIR = "target/firmware/runner-board"
+HUB_ADDRESS = "et-hub-board.local:8080"
+MODULES_ELSEWHERE = ""
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = ""
+RUNNER_GUESTS = "math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender"
+
+[tasks.firmware-flash-hub-board]
+depends = ["firmware-build-hub-board"]
+description = "Load the Raspberry Pi Pico 2 W firmware onto the board, and start it"
+dir = "../../../.."
+run = "picotool load -x -t elf target/firmware/hub-board/thumbv8m.main-none-eabihf/release/et-ws-server-firmware"
+
+[tasks.firmware-flash-runner-board]
+depends = ["firmware-build-runner-board"]
+description = "Load the Pimoroni Pico Plus 2 W firmware onto the board, and start it"
+dir = "../../../.."
+run = "picotool load -x -t elf target/firmware/runner-board/thumbv8m.main-none-eabihf/release/et-ws-server-firmware"
+
+[tasks.firmware-host-test-hub-board]
+description = "Serve mixed-hardware's modules from this host as the board would, and fetch each"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/services/ws-modules/pyo3-math1, $PWD/services/ws-modules/wasi-math1-sender"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-server/static, $PWD/services/ws-wasm-agent"
+export MODULES_PATHS
+mise run cargo-test-pkg et-int-ws-server-firmware
+"""
+
+[tasks.firmware-host-test-hub-board.env]
+CARGO_TARGET_DIR = "target/firmware/hub-board"
+MODULES_ELSEWHERE = "onnxruntime-web, stats-gl"
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+RUNNER_GUESTS = ""
+
+[tasks.generated-scenario]
+depends = ["firmware-flash-hub-board", "firmware-flash-runner-board", "pyo3-math1-twin"]
+description = "Run generated scenario for mixed-hardware"
+
+[tasks.machine-edge]
+depends = ["pyo3-math1-twin"]
+description = "Run what machine edge runs"
+
+[tasks.machine-hub-board]
+depends = ["firmware-flash-hub-board"]
+description = "Run what machine hub-board runs"
+
+[tasks.machine-runner-board]
+depends = ["firmware-flash-runner-board"]
+description = "Run what machine runner-board runs"
+
+[tasks.pyo3-math1-twin]
+description = "Run @edge-toolkit/et-ws-pyo3-math1 in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.pyo3-math1-twin.env]
+RUNNER_MODULE = "@edge-toolkit/et-ws-pyo3-math1"
+WS_SERVER_URL = "ws://et-hub-board.local:8080/ws"
+
+[tools]
+"aqua:F1bonacc1/process-compose" = "latest"
+"cargo:open" = "latest"

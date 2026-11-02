@@ -1,7 +1,7 @@
-//! A board's store data, and its hosting of the `runner` world: the guest's log through the board, its buckets in the
-//! board's memory, and its websocket over the board's transport.
+//! A board's store data, and its hosting of the `runner` world: the guest's log through the board, and its websocket
+//! and storage buckets the hub's, over the board's transport.
 
-use alloc::collections::{BTreeMap, VecDeque};
+use alloc::collections::VecDeque;
 #[cfg(not(feature = "std"))]
 use alloc::{
     string::{String, ToString as _},
@@ -26,26 +26,14 @@ use crate::keyvalue::{Bucket, bucket_from_identifier, kv_not_implemented};
 /// How long `connect` waits for each frame while it waits for the hub's `et-connect-ack`.
 const CONNECT_ACK_TIMEOUT_MS: u32 = 10_000;
 
-/// Every storage bucket the guests on one board have written, by agent id, each a map from key to value.
-///
-/// A handle: its clones are the same buckets, so every guest a board runs is handed one and can read what another
-/// wrote, as agents share the hub's storage elsewhere.
-#[derive(Clone, Default)]
-pub struct Buckets(alloc::sync::Arc<spin::Mutex<BTreeMap<String, Stored>>>);
-
-/// What one storage bucket holds, a map from key to value.
-type Stored = BTreeMap<String, Vec<u8>>;
-
 /// The store data a board runs a guest with.
 pub struct BoardHost<P, T> {
     /// The board's clock, log and console.
     platform: P,
     /// The guest's resources: its buckets, streams and pollables.
     table: ResourceTable,
-    /// The websocket to the hub.
+    /// The hub: its websocket, and the storage the guest's storage buckets are in.
     transport: T,
-    /// The board's storage, which the guest's storage buckets are in.
-    buckets: Buckets,
     /// The guest's draw on the board's memory, which wasmtime asks before each memory or table grows.
     allowance: Allowance,
     /// Messages that arrived before the guest asked for them: the connect ack, and any that came ahead of it.
@@ -57,7 +45,9 @@ pub struct BoardHost<P, T> {
 }
 
 impl<P, T> BoardHost<P, T> {
-    /// A guest's store data, keeping its storage in `buckets` and its memories in `memory`, with no websocket open.
+    /// A guest's store data, with no websocket open.
+    ///
+    /// The guest reaches the hub through `transport`, and keeps its memories in `memory`.
     #[cfg_attr(
         not(test),
         expect(
@@ -65,12 +55,11 @@ impl<P, T> BoardHost<P, T> {
             reason = "the store data's constructor, called where run makes the store"
         )
     )]
-    pub(super) fn new(platform: P, transport: T, buckets: Buckets, memory: MemoryBudget) -> Self {
+    pub(super) fn new(platform: P, transport: T, memory: MemoryBudget) -> Self {
         Self {
             platform,
             table: ResourceTable::new(),
             transport,
-            buckets,
             allowance: Allowance::new(memory),
             inbox: VecDeque::new(),
             agent_id: String::default(),
@@ -145,47 +134,48 @@ impl<P: Platform, T: Transport> wasi::keyvalue::store::Host for BoardHost<P, T> 
     }
 }
 
-#[expect(
-    clippy::unused_async_trait_impl,
-    reason = "the generated HostBucket trait declares every method async, and the buckets are in memory"
-)]
 impl<P: Platform, T: Transport> wasi::keyvalue::store::HostBucket for BoardHost<P, T> {
     async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, StoreError> {
-        Ok(match self.table.get(&self_)? {
-            Bucket::Storage { agent_id } => self
-                .buckets
-                .0
-                .lock()
-                .get(agent_id)
-                .and_then(|stored| stored.get(&key))
-                .cloned(),
+        let Bucket::Storage { agent_id } = self.table.get(&self_)? else {
             // A board serves no module's files, so none of them holds a key.
-            Bucket::Modules { .. } => None,
-        })
+            return Ok(None);
+        };
+        match self.transport.load(agent_id, &key).await {
+            Ok(value) => Ok(value),
+            Err(error) => Err(StoreError::Other(error.to_string())),
+        }
     }
 
     async fn set(&mut self, self_: Resource<Bucket>, key: String, value: Vec<u8>) -> Result<(), StoreError> {
         let Bucket::Storage { agent_id } = self.table.get(&self_)? else {
             return Err(StoreError::AccessDenied);
         };
-        let _previous = self
-            .buckets
-            .0
-            .lock()
-            .entry(agent_id.clone())
-            .or_default()
-            .insert(key, value);
-        Ok(())
+        match self.transport.store(agent_id, &key, value).await {
+            Ok(()) => Ok(()),
+            Err(error) => Err(StoreError::Other(error.to_string())),
+        }
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "the generated HostBucket trait declares every method async, and a board refuses this one at once"
+    )]
     async fn delete(&mut self, _bucket: Resource<Bucket>, _key: String) -> Result<(), StoreError> {
         Err(kv_not_implemented("delete"))
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "the generated HostBucket trait declares every method async, and a board refuses this one at once"
+    )]
     async fn exists(&mut self, _bucket: Resource<Bucket>, _key: String) -> Result<bool, StoreError> {
         Err(kv_not_implemented("exists"))
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "the generated HostBucket trait declares every method async, and a board refuses this one at once"
+    )]
     async fn list_keys(
         &mut self,
         _bucket: Resource<Bucket>,
@@ -194,6 +184,10 @@ impl<P: Platform, T: Transport> wasi::keyvalue::store::HostBucket for BoardHost<
         Err(kv_not_implemented("list-keys"))
     }
 
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "the generated HostBucket trait declares every method async, and a bucket handle is in memory"
+    )]
     async fn drop(&mut self, rep: Resource<Bucket>) -> wasmtime::Result<()> {
         let _dropped: Bucket = self.table.delete(rep)?;
         Ok(())

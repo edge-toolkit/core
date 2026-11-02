@@ -14,30 +14,73 @@ rustdoc-args = ["--cfg", "docsrs"]
 [lib]
 doctest = false
 
+[[test]]
+name = "api_modules"
+required-features = ["std"]
+
+[[test]]
+name = "configure_missing_root"
+required-features = ["std"]
+
+[[test]]
+name = "declared_names"
+required-features = ["std"]
+
+[[test]]
+name = "get_module_file"
+required-features = ["std"]
+
+[[test]]
+name = "picoserve"
+required-features = ["board"]
+
+[[test]]
+name = "symlinks"
+required-features = ["std"]
+
 [features]
+default = ["std"]
+## The actix-web service that discovers module packages on disk and serves their files.
+## Without it the crate is `no_std` + `alloc`, and serves modules built into the binary under `picoserve`.
+std = [
+  "dep:actix-files",
+  "dep:actix-web",
+  "dep:fs-err",
+  "dep:serde",
+  "dep:serde-inline-default",
+  "dep:serde_default",
+  "dep:serde_json",
+  "edge-toolkit/std",
+]
+## Serves ws-module packages built into the binary through picoserve, on a board with no filesystem.
+board = ["dep:picoserve"]
 ## Adds OpenAPI metadata to the module-discovery handlers for `et-int-gen` to harvest into the published spec.
-openapi-spec = ["dep:utoipa"]
+openapi-spec = ["dep:utoipa", "std"]
 ## Internal: derives JSON Schema for `ModulesConfig`, which et-int-gen renders into the hub's HELP.md.
-env-schema = ["dep:schemars"]
+env-schema = ["dep:schemars", "std"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
 [dependencies]
-actix-files.workspace = true
-actix-web.workspace = true
+actix-files = { workspace = true, optional = true }
+actix-web = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
-edge-toolkit = { workspace = true, features = ["std"] }
-fs-err.workspace = true
+edge-toolkit.workspace = true
+fs-err = { workspace = true, optional = true }
+picoserve = { workspace = true, features = ["json"], optional = true }
 schemars = { workspace = true, optional = true }
-serde = { workspace = true, features = ["std"] }
-serde-inline-default.workspace = true
-serde_default.workspace = true
-serde_json = { workspace = true, features = ["std"] }
+serde = { workspace = true, features = ["std"], optional = true }
+serde-inline-default = { workspace = true, optional = true }
+serde_default = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["std"], optional = true }
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
 actix-rt.workspace = true
+picoserve = { workspace = true, features = ["tokio"] }
+serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "time"] }
 
 [lints]
 workspace = true

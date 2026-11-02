@@ -42,10 +42,10 @@ pub(crate) use self::deployment_types::{
 pub use self::error::CliError;
 pub use self::hub_ws_url::{hub_service_ws_url, hub_service_ws_url_named, hub_ws_url, hub_ws_url_at};
 pub use self::input::{
-    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, Service, Services, infer_artifact_source,
+    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, Device, OutputType, Service, Services, infer_artifact_source,
     manifest_declares_this_repository,
 };
-pub(crate) use self::input::{Board, BoardSpec, running_in_this_repository};
+pub(crate) use self::input::{Board, BoardSpec, Delivery, running_in_this_repository};
 pub use self::limits::{Cpus, Limits, LimitsError, Ulimit};
 pub use self::module_package_json::generate_module_package_json;
 pub use self::recovery::{Recovery, RecoverySettings};
@@ -531,6 +531,7 @@ pub fn regenerate_verification(
                         || deployment_types::validate_firmware(&cluster, *board).is_ok()
                 })
             })
+            .filter(|output_type| deployment_types::validate_devices(&cluster, *output_type).is_ok())
             .collect();
         if output_types.is_empty() {
             continue;
@@ -571,6 +572,9 @@ fn validate_deployment_outputs(cluster: &ClusterInput, output_types: &[OutputTyp
         if output_types.contains(&board.spec().output_type) {
             deployment_types::validate_firmware(cluster, *board)?;
         }
+    }
+    for output_type in output_types {
+        deployment_types::validate_devices(cluster, *output_type)?;
     }
     Ok(())
 }
@@ -902,7 +906,7 @@ fn generated_readme(
             let _write_result = write!(flags, " --build-context \"{name}={path}\"");
             flags
         });
-    let run_instructions = output_types
+    let mut run_instructions = output_types
         .iter()
         .map(|output_type| {
             let mut section = generated_run_instructions(
@@ -920,6 +924,7 @@ fn generated_readme(
         })
         .collect::<Vec<_>>()
         .join("\n");
+    run_instructions.push_str(&board_instructions(cluster));
     // Every way of running the tasks needs what they name installed first, so the step comes once, ahead of them all.
     let install_note = if output_types.iter().any(|output_type| output_type.runs_mise_tasks()) {
         mise_install_note(cluster.artifact_source)
@@ -1096,6 +1101,9 @@ fn generated_run_instructions(
     artifacts: ArtifactSource,
     build_contexts: &str,
 ) -> String {
+    if let (Delivery::Firmware(board), Some(server)) = (placement::server_delivery(cluster), cluster.machines.first()) {
+        return board_hub_run_instructions(output_type, &server.name, board.spec());
+    }
     match output_type {
         OutputType::Mise => concat!(
             "## Run With Mise\n\n",
@@ -1133,20 +1141,115 @@ fn generated_run_instructions(
         OutputType::ProcessCompose => process_compose_run_instructions(artifacts).to_string(),
         OutputType::DockerCompose => docker_compose_run_instructions(cluster, artifacts),
         OutputType::K3s => k3s_run_instructions(cluster, image_build, runners, artifacts, build_contexts),
-        OutputType::FirmwarePico2 => firmware_run_instructions(Board::Pico2.spec()),
-        OutputType::FirmwareEsp32c6 => firmware_run_instructions(Board::Esp32c6.spec()),
-        OutputType::FirmwarePicoPlus2 => firmware_run_instructions(Board::PicoPlus2.spec()),
+        OutputType::FirmwarePico2 => firmware_output_instructions(Board::Pico2.spec()),
+        OutputType::FirmwareEsp32c6 => firmware_output_instructions(Board::Esp32c6.spec()),
+        OutputType::FirmwarePicoPlus2 => firmware_output_instructions(Board::PicoPlus2.spec()),
     }
 }
 
-/// Render the README section that builds the hub as firmware for `board` and loads it onto one.
-fn firmware_run_instructions(board: BoardSpec) -> String {
+/// Render the README section of a format whose server is a board, which leaves the format only the runners elsewhere.
+///
+/// Only a format that runs `mise.toml` tasks gets here, since the others are refused a board before anything is
+/// written.
+fn board_hub_run_instructions(output_type: OutputType, server: &str, board: BoardSpec) -> String {
+    let format_name = match output_type {
+        OutputType::Dekit => "dekit",
+        OutputType::ProcessCompose => "process-compose",
+        OutputType::Mise
+        | OutputType::DockerCompose
+        | OutputType::K3s
+        | OutputType::FirmwarePico2
+        | OutputType::FirmwareEsp32c6
+        | OutputType::FirmwarePicoPlus2 => "Mise",
+    };
+    format!(
+        concat!(
+            "## Run With {format_name}\n\n",
+            "The hub runs on `{server}`, a {title},\n",
+            "as firmware the section loading it describes. The board runs no OpenObserve, so there is no UI to\n",
+            "open. Each runner on another machine reaches the hub across the network, and starts as that\n",
+            "machine's share below.\n"
+        ),
+        format_name = format_name,
+        server = server,
+        title = board.title,
+    )
+}
+
+/// Render the README sections that load each board among the machines.
+///
+/// That is the hub onto the server, when it is a board, and the runners onto every other board; nothing when no
+/// machine is a board.
+fn board_instructions(cluster: &ClusterInput) -> String {
+    let Some(server) = cluster.machines.first() else {
+        return String::default();
+    };
+    let mut text = String::default();
+    for machine in &cluster.machines {
+        let Delivery::Firmware(board) = machine.device.delivery() else {
+            continue;
+        };
+        let flash = format!("mise run {}", deployment_types::firmware_flash_task(&machine.name));
+        let section = if machine.name == server.name {
+            let heading = format!("## Load The Hub Onto `{}`", machine.name);
+            let host_test = format!(
+                "mise run {}-{}",
+                deployment_types::FIRMWARE_HOST_TEST_TASK,
+                machine.name
+            );
+            firmware_run_instructions(board.spec(), &heading, &flash, &host_test)
+        } else {
+            runner_board_instructions(board.spec(), &machine.name, &hub_ws_url_at(&server.address), &flash)
+        };
+        let _write_result = write!(text, "\n{section}");
+    }
+    text
+}
+
+/// Render the README section that loads the runners onto `machine`, a board reaching the hub at `hub_url`.
+fn runner_board_instructions(board: BoardSpec, machine: &str, hub_url: &str, flash: &str) -> String {
+    format!(
+        concat!(
+            "## Load The Runners Onto `{machine}`\n\n",
+            "`{machine}` is a {title} running each {runners} runner the scenario places on it, compiled into the\n",
+            "firmware from its module's component, and no hub: the runners join the one at `{hub_url}`.\n",
+            "Build those modules first, since the firmware takes each one's built package.\n",
+            "{network}\n",
+            "Then {preparation}.\n",
+            "From this directory, build the firmware and load it with:\n\n",
+            "```bash\n",
+            "{flash}\n",
+            "```\n"
+        ),
+        flash = flash,
+        hub_url = hub_url,
+        machine = machine,
+        network = board.network_setup,
+        preparation = board.load_preparation,
+        runners = board.runners.join(", "),
+        title = board.title,
+    )
+}
+
+/// Render the README section of a `firmware-*` format, which puts the whole scenario on `board`.
+fn firmware_output_instructions(board: BoardSpec) -> String {
+    let heading = format!("## Run As {} Firmware", board.title);
+    let env = board.output_type.name();
+    let flash = format!("MISE_ENV={env} mise run {}", deployment_types::FIRMWARE_FLASH_TASK);
+    let host_test = format!("MISE_ENV={env} mise run {}", deployment_types::FIRMWARE_HOST_TEST_TASK);
+    firmware_run_instructions(board, &heading, &flash, &host_test)
+}
+
+/// Render a README section, under `heading`, that builds the hub as firmware for `board` and loads it onto one.
+///
+/// `flash` is the command that builds and loads it, and `host_test` the one that serves the same modules from here.
+fn firmware_run_instructions(board: BoardSpec, heading: &str, flash: &str, host_test: &str) -> String {
     let runs = if board.runners.is_empty() {
         "The board runs the hub alone and".to_owned()
     } else {
         format!(
             concat!(
-                "The board runs the hub, and beside it each {} runner the scenario declares, compiled into the\n",
+                "The board runs the hub, and beside it each {} runner the scenario places on it, compiled into the\n",
                 "firmware from its module's component. The build refuses a runner that imports what the board\n",
                 "does not host, or runners needing more memory than it holds.\nThe board"
             ),
@@ -1155,33 +1258,32 @@ fn firmware_run_instructions(board: BoardSpec) -> String {
     };
     format!(
         concat!(
-            "## Run As {title} Firmware\n\n",
-            "{runs} serves this scenario's modules from its {flash} of flash.\n",
+            "{heading}\n\n",
+            "{runs} serves this scenario's modules from its {flash_size} of flash.\n",
             "Build those modules first, since the firmware takes each one's built package.\n",
             "{network}\n",
             "Then {preparation}.\n",
             "From this directory, build the firmware and load it with:\n\n",
             "```bash\n",
-            "MISE_ENV={env} mise run {task}\n",
+            "{flash}\n",
             "```\n\n",
             "To check what the board will serve without one, serve the same modules from this host and fetch\n",
             "each, as a page would:\n\n",
             "```bash\n",
-            "MISE_ENV={env} mise run {host_test}\n",
+            "{host_test}\n",
             "```\n\n",
             "The board takes an address over DHCP and serves the page at port 8080 of it. npm packages the\n",
             "modules use that are too big for its flash, such as onnxruntime-web, are not built in: the board\n",
             "redirects a request for one to the same path under `{elsewhere}`, which the browser has to be\n",
             "able to reach.\n"
         ),
-        title = board.title,
+        heading = heading,
         runs = runs,
-        flash = board.flash,
+        flash_size = board.flash,
         network = board.network_setup,
         preparation = board.load_preparation,
-        env = board.output_type.name(),
-        task = deployment_types::FIRMWARE_FLASH_TASK,
-        host_test = deployment_types::FIRMWARE_HOST_TEST_TASK,
+        flash = flash,
+        host_test = host_test,
         elsewhere = deployment_types::FIRMWARE_ELSEWHERE_URL,
     )
 }
@@ -1255,10 +1357,7 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
     let (format_name, intro, command): (&str, &str, fn(&str) -> String) = match output_type {
         OutputType::Mise => (
             "Mise",
-            concat!(
-                "Copy this directory to each machine -- for a scenario built from the repository, into a checkout\n",
-                "of it at the same path -- and start that machine's share of the scenario there.\n"
-            ),
+            "Copy this directory to each machine and start that machine's share of the scenario there.\n",
             |machine| format!("mise run {}", deployment_types::machine_task(machine)),
         ),
         OutputType::Dekit => (
@@ -1272,18 +1371,12 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
         ),
         OutputType::ProcessCompose => (
             "process-compose",
-            concat!(
-                "Copy this directory to each machine -- for a scenario built from the repository, into a checkout\n",
-                "of it at the same path -- and start only that machine's namespace there.\n"
-            ),
+            "Copy this directory to each machine and start only that machine's namespace there.\n",
             |machine| format!(concat!(process_compose_up!(), " -n {}"), machine),
         ),
         OutputType::DockerCompose => (
             "Docker Compose",
-            concat!(
-                "Copy this directory to each machine -- for a scenario built from the repository, into a checkout\n",
-                "of it at the same path -- and start only that machine's profile there.\n"
-            ),
+            "Copy this directory to each machine and start only that machine's profile there.\n",
             |machine| format!("docker compose --profile {machine} up --build"),
         ),
         OutputType::K3s => return k3s_machine_instructions(cluster, server),
@@ -1296,12 +1389,12 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
     let loopback = loopback_note(cluster);
     let mut text = format!("\n### Run Across Machines With {format_name}\n\n{intro}{roles}{loopback}");
     for machine in &cluster.machines {
-        let _write_result = writeln!(
-            text,
-            "On `{}`:\n\n```bash\n{}\n```\n",
-            machine.name,
-            command(&machine.name)
-        );
+        // A board's share is its firmware, which every format loads the same way.
+        let start = match machine.device.delivery() {
+            Delivery::Tasks => command(&machine.name),
+            Delivery::Firmware(_) => format!("mise run {}", deployment_types::firmware_flash_task(&machine.name)),
+        };
+        let _write_result = writeln!(text, "On `{}`:\n\n```bash\n{start}\n```\n", machine.name);
     }
     text.truncate(text.len().saturating_sub(1));
     text
@@ -1351,6 +1444,18 @@ fn compose_single_host_profiles(cluster: &ClusterInput) -> String {
 /// The paragraph every format's machine section opens with.
 #[expect(clippy::single_call_fn, reason = "the roles step of machine_instructions")]
 fn machine_roles(cluster: &ClusterInput, server: &input::Machine) -> String {
+    if let Delivery::Firmware(board) = server.device.delivery() {
+        return format!(
+            concat!(
+                "`{server}` is a {title} running `ws-server` as firmware,\n",
+                "and the runners on every other machine reach the hub at `{address}`, which the network the board\n",
+                "joins has to resolve to it. Its share is loading the firmware, which it then runs from power-on.\n\n"
+            ),
+            address = server.address,
+            server = server.name,
+            title = board.spec().title,
+        );
+    }
     if placement::shares_hubs(cluster) {
         return format!(
             concat!(
@@ -2330,6 +2435,14 @@ pub(crate) fn scenario_runners(cluster: &ClusterInput) -> Result<Vec<RunnerInsta
         &module_registry(&workspace_root, &ws_server_dir, &cluster.module_paths),
         cluster,
     )
+}
+
+/// The runners a format starts as tasks of its own: every runner but those on a board, which its firmware runs.
+pub(crate) fn task_runners(cluster: &ClusterInput) -> Result<Vec<RunnerInstance>, CliError> {
+    Ok(scenario_runners(cluster)?
+        .into_iter()
+        .filter(|runner| placement::delivery_at(cluster, &runner.site) == Delivery::Tasks)
+        .collect())
 }
 
 /// Base HTTP URL a generated deployment reaches the hub on.

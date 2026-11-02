@@ -20,39 +20,80 @@ ignored = ["log", "serde_json"]
 doctest = false
 
 [[test]]
+name = "blocked"
+required-features = ["std"]
+
+[[test]]
+name = "image_logging"
+required-features = ["std"]
+
+[[test]]
+name = "picoserve"
+required-features = ["board"]
+
+[[test]]
+name = "put"
+required-features = ["std"]
+
+[[test]]
+name = "s3_backend"
+required-features = ["std"]
+
+[[test]]
 name = "tty_render"
 required-features = ["tty-image"]
 
 [features]
-default = ["tty-image"]
+default = ["std", "tty-image"]
+## The actix-web service, storing each agent's files in any `object_store` backend.
+## Without it the crate is `no_std` + `alloc`, and serves storage the embedder keeps under `picoserve`.
+std = [
+  "dep:actix-web",
+  "dep:actix-web-thiserror",
+  "dep:et-hub-backplane",
+  "dep:fs-err",
+  "dep:futures-util",
+  "dep:log",
+  "dep:object_store",
+  "dep:serde",
+  "dep:serde_default",
+  "dep:serde_json",
+  "dep:thiserror",
+  "dep:tracing",
+  "dep:url",
+  "edge-toolkit/std",
+]
+## Serves agent storage through picoserve, kept wherever the embedder keeps it, on a board with no filesystem.
+board = ["dep:picoserve"]
 ## Adds OpenAPI metadata to the `/storage` handlers for `et-int-gen` to harvest into the published spec.
-openapi-spec = ["dep:utoipa"]
+openapi-spec = ["dep:utoipa", "std"]
 ## Renders each stored image as a thumbnail on the server's terminal, e.g. what pic-viewer uploads.
 ## Without it a stored image is still logged by name and size, and the `image` decoder stays out of the build.
-tty-image = ["dep:image"]
+tty-image = ["dep:image", "std"]
 ## Internal: derives JSON Schema for `StorageConfig`, which et-int-gen renders into the hub's HELP.md.
-env-schema = ["dep:schemars"]
+env-schema = ["dep:schemars", "std"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
 [dependencies]
-actix-web.workspace = true
-actix-web-thiserror.workspace = true
+actix-web = { workspace = true, optional = true }
+actix-web-thiserror = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
-edge-toolkit = { workspace = true, features = ["std"] }
-et-hub-backplane.workspace = true
-fs-err.workspace = true
-futures-util.workspace = true
+edge-toolkit.workspace = true
+et-hub-backplane = { workspace = true, optional = true }
+fs-err = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
-log.workspace = true
-object_store.workspace = true
+log = { workspace = true, optional = true }
+object_store = { workspace = true, optional = true }
+picoserve = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
-serde = { workspace = true, features = ["std"] }
-serde_default.workspace = true
-serde_json = { workspace = true, features = ["std"] }
-thiserror = { workspace = true, features = ["std"] }
-tracing = { workspace = true, features = ["std"] }
-url.workspace = true
+serde = { workspace = true, features = ["std"], optional = true }
+serde_default = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["std"], optional = true }
+thiserror = { workspace = true, features = ["std"], optional = true }
+tracing = { workspace = true, features = ["std"], optional = true }
+url = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -61,9 +102,11 @@ actix-rt.workspace = true
 command-error.workspace = true
 et-test-helpers.workspace = true
 object_store.workspace = true
+picoserve = { workspace = true, features = ["tokio"] }
 reqwest.workspace = true
 temp-env = { workspace = true, features = ["async_closure"] }
 tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "time"] }
 
 [lints]
 workspace = true

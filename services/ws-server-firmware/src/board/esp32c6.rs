@@ -21,7 +21,8 @@ use esp_radio::wifi::sta::StationConfig;
 use esp_radio::wifi::{AuthenticationMethodConfig, Config, ControllerConfig, Interface, WifiController};
 use {esp_backtrace as _, esp_println as _};
 
-use super::hub::{HEAP_SIZE, serve, stack_resources};
+use super::platform::HEAP_SIZE;
+use super::role::{serve, stack_resources};
 
 include!(concat!(env!("OUT_DIR"), "/wifi.rs"));
 

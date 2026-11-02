@@ -11,7 +11,8 @@ use edge_toolkit::ws::{ConnectStatus, ServerMessage};
 use wasmtime::ResourceLimiter as _;
 use wasmtime::component::Resource;
 
-use super::host::{BoardHost, Buckets};
+use super::buckets::Buckets;
+use super::host::BoardHost;
 use super::memory::MemoryBudget;
 use super::platform::{Console, Platform, Transport};
 use crate::bindings::et::ws_messages::messages::ClientMessage;
@@ -39,8 +40,21 @@ impl Platform for Quiet {
     fn write(&self, _console: Console, _bytes: &[u8]) {}
 }
 
-/// A hub that acks every connect, and has nothing else to say.
-struct Acking;
+/// A hub that acks every connect, and has nothing else to say, its storage `buckets` unless it is `unreachable`.
+struct Acking {
+    buckets: Buckets,
+    unreachable: bool,
+}
+
+impl Acking {
+    /// Its storage, or why it cannot be reached.
+    const fn storage(&self) -> Result<&Buckets, &'static str> {
+        if self.unreachable {
+            return Err("storage unreachable");
+        }
+        Ok(&self.buckets)
+    }
+}
 
 #[expect(
     clippy::unused_async_trait_impl,
@@ -66,6 +80,15 @@ impl Transport for Acking {
     }
 
     async fn close(&mut self) {}
+
+    async fn load(&mut self, bucket: &str, key: &str) -> Result<Option<Vec<u8>>, &'static str> {
+        Ok(self.storage()?.get(bucket, key).ok())
+    }
+
+    async fn store(&mut self, bucket: &str, key: &str, value: Vec<u8>) -> Result<(), &'static str> {
+        self.storage()?.set(bucket, key, value);
+        Ok(())
+    }
 }
 
 /// `future`'s output, which every call below has at once, since nothing in them waits.
@@ -86,7 +109,11 @@ fn host() -> BoardHost<Quiet, Acking> {
 
 /// A guest's store data on a quiet board with an acking hub, sharing `buckets` and `memory` with the board's others.
 fn on_board(buckets: Buckets, memory: MemoryBudget) -> BoardHost<Quiet, Acking> {
-    BoardHost::new(Quiet, Acking, buckets, memory)
+    let hub = Acking {
+        buckets,
+        unreachable: false,
+    };
+    BoardHost::new(Quiet, hub, memory)
 }
 
 /// A budget no guest here spends.
@@ -158,6 +185,22 @@ fn guests_handed_the_same_buckets_read_what_each_other_wrote() {
         now(other_board.get(elsewhere, "math1-input.json".to_owned())).unwrap(),
         None
     );
+}
+
+#[test]
+fn a_bucket_on_a_hub_whose_storage_is_unreachable_says_why() {
+    let hub = Acking {
+        buckets: Buckets::default(),
+        unreachable: true,
+    };
+    let mut host = BoardHost::new(Quiet, hub, roomy());
+    let rep = open(&mut host, "agent-1").rep();
+    for failed in [
+        now(host.get(Resource::new_own(rep), "key".to_owned())).err(),
+        now(host.set(Resource::new_own(rep), "key".to_owned(), vec![1])).err(),
+    ] {
+        assert!(matches!(failed, Some(Error::Other(detail)) if detail == "storage unreachable"));
+    }
 }
 
 #[test]

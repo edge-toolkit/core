@@ -7,6 +7,8 @@
 use edge_toolkit::ports::Services;
 
 use super::mise::COLLECTOR_TASK;
+use crate::input::{ClusterInput, Delivery};
+use crate::placement::{server_delivery, shares_hubs};
 
 /// The task, service and `Deployment` that runs NATS.
 pub(crate) const BACKPLANE_TASK: &str = "nats";
@@ -49,10 +51,14 @@ pub(crate) const BACKPLANE_CONFIG_FILE: &str = "nats-server.conf";
 
 /// Each container the server runs as a task, with the port and path its readiness check asks.
 ///
-/// The collector always, and what the hubs share when `shared`: the tasks the server's hub waits on.
-pub(crate) fn server_containers(shared: bool) -> Vec<(&'static str, u16, &'static str)> {
+/// The collector, and what the hubs share when there are several: the tasks the server's hub waits on. None when the
+/// server is a board, which runs the hub as firmware and no collector.
+pub(crate) fn server_containers(cluster: &ClusterInput) -> Vec<(&'static str, u16, &'static str)> {
+    if server_delivery(cluster) != Delivery::Tasks {
+        return Vec::new();
+    }
     let mut containers = vec![(COLLECTOR_TASK, Services::OtlpCollector.port(), "/healthz")];
-    if shared {
+    if shares_hubs(cluster) {
         containers.extend([
             (BACKPLANE_TASK, Services::BackplaneMonitor.port(), BACKPLANE_HEALTH_PATH),
             (

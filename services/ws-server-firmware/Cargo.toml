@@ -1,7 +1,7 @@
 [package]
 name = "et-int-ws-server-firmware"
 publish = false
-description = "et-ws-server as firmware for the Raspberry Pi Pico 2 W and the ESP32-C6"
+description = "The ws hub, its modules and storage, as firmware for the Pico 2 W, Pico Plus 2 W and ESP32-C6"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -35,18 +35,29 @@ docs = ["dep:document-features"]
 chrono = { workspace = true, features = ["alloc"] }
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
-et-ws-server = { workspace = true, features = ["picoserve-server"] }
-et-ws-service = { workspace = true, features = ["picoserve-hub"] }
+et-modules-service = { workspace = true, features = ["board"] }
+et-storage-service = { workspace = true, features = ["board"] }
+et-ws-service = { workspace = true, features = ["board"] }
 et-ws-wasi-runner = { workspace = true, features = ["board"] }
-picoserve.workspace = true
+picoserve = { workspace = true, features = ["json"] }
 serde_json = { workspace = true, features = ["alloc"] }
 
 # What every board shares once its radio is up: embassy's network stack, executor and clock, and the defmt log.
 [target.'cfg(target_os = "none")'.dependencies]
 defmt.workspace = true
 embassy-executor = { workspace = true, features = ["defmt"] }
-embassy-net = { workspace = true, features = ["defmt", "dhcpv4", "medium-ethernet", "proto-ipv4", "tcp"] }
+# `mdns` resolves a hub named by its `.local` host name, as a scenario's machine addresses often are.
+embassy-net = { workspace = true, features = [
+  "defmt",
+  "dhcpv4",
+  "dns",
+  "mdns",
+  "medium-ethernet",
+  "proto-ipv4",
+  "tcp",
+] }
 embassy-time = { workspace = true, features = ["defmt"] }
+embedded-io-async.workspace = true
 picoserve = { workspace = true, features = ["embassy"] }
 static_cell.workspace = true
 
@@ -74,6 +85,9 @@ esp-rtos = { workspace = true, features = ["defmt", "embassy", "esp-alloc", "esp
 # Anywhere else, the host's: tokio, and a clock that knows the date.
 [target.'cfg(not(target_os = "none"))'.dependencies]
 chrono = { workspace = true, features = ["std"] }
+critical-section = { workspace = true, features = ["std"] }
+# The guests' sockets to a hub elsewhere are tokio's.
+et-ws-wasi-runner = { workspace = true, features = ["board", "std"] }
 picoserve = { workspace = true, features = ["tokio"] }
 tokio = { workspace = true, features = ["net", "rt", "time"] }
 

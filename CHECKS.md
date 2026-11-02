@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-11-02
+- **Generated:** 2026-11-03
 - **Checks:** 82
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 361 custom local rules, or non-default strict linter settings
+- **Rules:** 363 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -566,8 +566,8 @@ Rules, from `Cargo.toml`:
 - `conftest-check-policy-tests` (`default` env; run by `conftest-check`) -- Run the Rego unit tests beside the conftest
   policies (conftest verify). Config: `config/conftest/policy`.
 - `conftest-check-toml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the TOML
-  config + lock files. Config: `config/conftest/policy`, `config/deny.toml`, `config/pyrefly.toml`,
-  `config/upstream-cache/data.toml`.
+  config + lock files. Config: `config/cargo-features.toml`, `config/conftest/policy`, `config/deny.toml`,
+  `config/pyrefly.toml`, `config/upstream-cache/data.toml`.
 - `conftest-check-yaml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the GitHub
   Actions YAML, and the backslash ban over all YAML. Config: `config/conftest/policy`.
 
@@ -602,6 +602,8 @@ Rules, from `config/conftest/policy`:
   - crates.io rejects an upload whose manifest carries no description, so every publishable crate has one.
   - An empty `features = []` on a dependency is pointless noise -- drop it.
   - A member crate's feature must not share its name with one of its dependencies.
+  - A member crate's feature must be one config/cargo-features.toml lists.
+  - config/cargo-features.toml lists no feature that no crate declares any longer.
   - No manifest may depend on a `cargo_*` / `cargo-*` crate (`cargo_metadata`, `cargo_toml`, ...).
   - Crates log through `tracing`, so none may depend on the `log` facade directly.
   - tokio's `full` feature is banned on every dependency spec, the workspace table included.

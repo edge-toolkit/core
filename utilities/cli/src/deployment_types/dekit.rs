@@ -9,9 +9,9 @@ use super::hub_sharing::server_containers;
 use super::mise::{COLLECTOR_TASK, OPENER_TASK, container};
 use super::yaml::{insert, strings};
 use crate::error::CliError;
-use crate::input::ClusterInput;
-use crate::placement::{Site, hub_site, hubs, shares_hubs};
-use crate::{OutputType, hub_http_base, scenario_runners};
+use crate::input::{ClusterInput, Delivery};
+use crate::placement::{Site, hub_site, hubs, server_delivery};
+use crate::{OutputType, hub_http_base, task_runners};
 
 /// How long the collector, or any other container the deployment runs, gets to exit once stopped.
 ///
@@ -31,15 +31,17 @@ const CONTAINER_STOP_TIMEOUT: &str = "30s";
 /// runner on its hub's. The task names need no path of their own, because the file is its own project root: dekit
 /// takes the nearest `dekit.yaml` as the root, and starts every task there, which is where mise finds the `mise.toml`.
 pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
-    let runners = scenario_runners(cluster)?;
+    let runners = task_runners(cluster)?;
     // A multi-machine cluster tags each task with its machine and starts none on `dekit up`, since every machine runs
     // the same file and `up` would otherwise start the whole cluster on each of them; `dekit start +<machine>` starts
     // one machine's share instead.
     let autostart = cluster.machines.is_empty();
     let server = hub_site(cluster);
+    // A server that is a board runs the hub as firmware, with no collector: every task here is then a runner elsewhere.
+    let server_tasks = server_delivery(cluster) == Delivery::Tasks;
 
     let mut tasks = Mapping::new();
-    let containers = server_containers(shares_hubs(cluster));
+    let containers = server_containers(cluster);
     let server_hub_deps: Vec<&str> = containers.iter().map(|(name, ..)| *name).collect();
     for (name, port, path) in containers {
         let mut service = task(name, &[], autostart, &server);
@@ -57,7 +59,9 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
         insert(&mut service, "stop", Value::Mapping(stop));
         insert(&mut tasks, name, Value::Mapping(service));
     }
-    insert_hub_tasks(&mut tasks, cluster, &server_hub_deps, autostart);
+    if server_tasks {
+        insert_hub_tasks(&mut tasks, cluster, &server_hub_deps, autostart);
+    }
 
     for runner in runners {
         // A runner on a machine without a hub cannot wait on a hub task this machine does not hold, so it restarts
@@ -74,10 +78,12 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
 
     // A job, since it opens the browser and exits, and not started on `dekit up`: it is there to be run once the
     // collector is up, which its dependency then waits for.
-    let mut opener = Mapping::new();
-    insert(&mut opener, "type", Value::from("job"));
-    opener.extend(task(OPENER_TASK, &[COLLECTOR_TASK], false, &server));
-    insert(&mut tasks, OPENER_TASK, Value::Mapping(opener));
+    if server_tasks {
+        let mut opener = Mapping::new();
+        insert(&mut opener, "type", Value::from("job"));
+        opener.extend(task(OPENER_TASK, &[COLLECTOR_TASK], false, &server));
+        insert(&mut tasks, OPENER_TASK, Value::Mapping(opener));
+    }
 
     let config = DekitConfig {
         // SIGINT rather than dekit's SIGTERM, because it is the interrupt a mise task is written to stop on -- the same

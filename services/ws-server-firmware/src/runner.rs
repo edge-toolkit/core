@@ -1,22 +1,22 @@
-//! The wasi runners the firmware starts beside its hub: each guest the build compiled in, run on the board's engine,
-//! its websocket a link into the hub in the same process rather than a socket.
+//! The wasi runners the firmware starts: each guest the build compiled in, run on the board's engine.
 //!
-//! The board and the host share all of it but the clock and the log, which each hands in as a [`Platform`].
+//! Each reaches its hub through the [`Transport`] it is handed: the hub beside it, or one on another machine. The board
+//! and the host share all of it but the clock and the log, which each hands in as a [`Platform`].
 
 #[cfg(target_os = "none")]
-use alloc::string::{String, ToString as _};
-use core::future::poll_fn;
-use core::net::{IpAddr, Ipv4Addr};
-use core::pin::pin;
+use alloc::string::ToString as _;
 use core::ptr::null_mut;
 use core::sync::atomic::{AtomicPtr, Ordering};
-use core::task::Poll;
 
-use et_ws_service::hub::{SessionMessage, Stamps};
-use et_ws_service::picoserve_hub::{FrameTooLarge, Hub, LocalLink};
-use et_ws_wasi_runner::board::{BoardError, Buckets, MemoryBudget, Platform, Transport, run};
-use et_ws_wasi_runner::convert::Frame;
+#[cfg(not(remote_hub))]
+use et_ws_service::picoserve_hub::Hub;
+#[cfg(not(remote_hub))]
+use et_ws_wasi_runner::board::Buckets;
+use et_ws_wasi_runner::board::{BoardError, MemoryBudget, Platform, Transport, run};
 use et_ws_wasi_runner::engine::board_engine;
+
+#[cfg(not(remote_hub))]
+use crate::local::{BoardStorage, HubTransport};
 
 include!(concat!(env!("OUT_DIR"), "/guests.rs"));
 
@@ -28,10 +28,9 @@ include!(concat!(env!("OUT_DIR"), "/guests.rs"));
     expect(dead_code, reason = "the host spawns its guests without a pool")
 )]
 pub(crate) const GUEST_POOL: usize = if GUESTS.is_empty() { 1 } else { GUESTS.len() };
-/// The address a runner's agent is registered from: the board itself.
-const LOOPBACK: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
-/// Nanoseconds in a millisecond, the unit a guest's `recv` timeout comes in.
-const NANOS_PER_MILLI: u64 = 1_000_000;
+
+/// How long, in nanoseconds of the board's clock, a guest whose run failed waits before it is run again.
+const RERUN_DELAY: u64 = 5_000_000_000;
 
 /// The pointers wasmtime keeps for the call it is in, which with one thread are statics rather than a thread's.
 ///
@@ -62,145 +61,13 @@ extern "C" fn wasmtime_tls_set(slot: usize, pointer: *mut u8) {
     }
 }
 
-/// Why a guest's link to the hub refused a call; nothing between them can break, so only the guest's own use.
-#[derive(Debug)]
-pub(crate) enum LinkError {
-    /// The link was used while closed.
-    NotOpen,
-    /// A frame larger than the hub reads from a socket, which it holds the board's own agents to too.
-    TooLarge(FrameTooLarge),
-}
-
-impl From<FrameTooLarge> for LinkError {
-    fn from(refused: FrameTooLarge) -> Self {
-        Self::TooLarge(refused)
-    }
-}
-
-impl core::fmt::Display for LinkError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::NotOpen => f.write_str("the link to the hub is not open"),
-            Self::TooLarge(refused) => refused.fmt(f),
-        }
-    }
-}
-
-/// Whether a guest's link to the hub is open, and the link when it is.
-enum State<S: 'static> {
-    Closed,
-    Open(LocalLink<'static, S>),
-}
-
-/// A guest's websocket to the hub it runs beside: a link in process, opened on the guest's `connect`.
-///
-/// Its waits are on the guest's own clock, `platform`'s. It needs no keep-alive, since nothing idles out a link.
-pub(crate) struct HubTransport<S: 'static, P> {
-    hub: &'static Hub<S>,
-    platform: P,
-    state: State<S>,
-}
-
-impl<S, P> HubTransport<S, P> {
-    /// A transport into `hub`, waiting on `platform`'s clock, not yet open.
-    #[expect(
-        clippy::single_call_fn,
-        reason = "the transport's constructor, called where a guest is started"
-    )]
-    pub(crate) const fn new(hub: &'static Hub<S>, platform: P) -> Self {
-        Self {
-            hub,
-            platform,
-            state: State::Closed,
-        }
-    }
-}
-
-#[expect(
-    clippy::unused_async_trait_impl,
-    reason = "the Transport trait declares every method async, and a link in process never waits to open or send"
-)]
-impl<S, P> Transport for HubTransport<S, P>
-where
-    S: Stamps + Send + 'static,
-    P: Platform,
-{
-    type Error = LinkError;
-
-    /// Join the hub as an agent of the board's own, which never fails, since nothing lies between them.
-    async fn connect(&mut self) -> Result<(), LinkError> {
-        self.state = State::Open(self.hub.local(LOOPBACK));
-        Ok(())
-    }
-
-    /// Route `frame` through the hub, as a connection's frame would be, refusing one larger than a connection's may be.
-    async fn send(&mut self, frame: Frame) -> Result<(), LinkError> {
-        let State::Open(link) = &mut self.state else {
-            return Err(LinkError::NotOpen);
-        };
-        match frame {
-            Frame::Text(text) => link.send_text(&text)?,
-            Frame::Binary(bytes) => link.send_binary(bytes.into())?,
-            // Every kind of frame a guest sends is one of the two above.
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// The next message for the guest, as the frame a socket would have carried, if one comes within `timeout_ms`.
-    async fn recv(&mut self, timeout_ms: u32) -> Result<Option<Frame>, LinkError> {
-        let State::Open(link) = &mut self.state else {
-            return Err(LinkError::NotOpen);
-        };
-        let deadline = self
-            .platform
-            .now()
-            .saturating_add(u64::from(timeout_ms).saturating_mul(NANOS_PER_MILLI));
-        let Ok(message) = first(link.next(), self.platform.sleep_until(deadline)).await else {
-            return Ok(None);
-        };
-        Ok(Some(match message {
-            SessionMessage::Json(message) => Frame::Text(serde_json::to_string(&message).unwrap_or_default()),
-            SessionMessage::Text(text) => Frame::Text(text),
-            SessionMessage::Binary(bytes) => Frame::Binary(bytes.to_vec()),
-            _ => Frame::Text(String::default()),
-        }))
-    }
-
-    /// Leave the hub, which drops the link and so disconnects the guest's agent.
-    async fn close(&mut self) {
-        self.state = State::Closed;
-    }
-}
-
-/// That a wait's deadline passed before what it waited for arrived.
-struct Elapsed;
-
-/// What `wanted` resolves to, or [`Elapsed`] once `deadline` has passed first.
-#[expect(
-    clippy::single_call_fn,
-    reason = "the timeout of recv, a race of two futures kept apart from the frames"
-)]
-async fn first<W, D>(wanted: W, deadline: D) -> Result<W::Output, Elapsed>
-where
-    W: Future,
-    D: Future<Output = ()>,
-{
-    let mut wanted = pin!(wanted);
-    let mut deadline = pin!(deadline);
-    poll_fn(|context| {
-        if let Poll::Ready(output) = wanted.as_mut().poll(context) {
-            return Poll::Ready(Ok(output));
-        }
-        deadline.as_mut().poll(context).map(|()| Err(Elapsed))
-    })
-    .await
-}
-
-/// What every guest on the board shares: its storage, and the memory the build holds for the guests.
+/// What every guest on the board shares: the storage of a hub beside them, and the memory the build holds for them.
 #[derive(Clone)]
 pub(crate) struct Shared {
+    /// The storage of the hub beside the guests.
+    #[cfg(not(remote_hub))]
     buckets: Buckets,
+    /// The memory the build holds for the guests' memories and tables.
     memory: MemoryBudget,
 }
 
@@ -212,35 +79,72 @@ impl Shared {
     )]
     pub(crate) fn new() -> Self {
         Self {
+            #[cfg(not(remote_hub))]
             buckets: Buckets::default(),
             memory: MemoryBudget::new(usize::try_from(GUEST_MEMORY).unwrap_or(usize::MAX)),
         }
     }
+
+    /// The memory the build holds for the guests, which each guest draws on.
+    pub(crate) fn memory(&self) -> MemoryBudget {
+        self.memory.clone()
+    }
+
+    /// The guests' storage, for the hub beside them to serve.
+    #[cfg(not(remote_hub))]
+    pub(crate) fn storage(&self) -> BoardStorage {
+        BoardStorage::new(self.buckets.clone())
+    }
+
+    /// A guest's transport into `hub`, its storage the board's, waiting on `platform`'s clock, not yet open.
+    #[cfg(not(remote_hub))]
+    pub(crate) fn hub_transport<S, P>(&self, hub: &'static Hub<S>, platform: P) -> HubTransport<S, P> {
+        HubTransport::new(hub, platform, self.buckets.clone())
+    }
 }
 
-/// Run the guest `name` until it ends, against `hub`, on `platform`, with what it shares with the board's other guests.
+/// Run the guest `name` on `platform` until it finishes.
 ///
-/// `component` is the guest as the build compiled it in. How it ended is logged rather than returned, since nothing
-/// waits on a runner: the hub carries on without it.
+/// It reaches its hub through a transport from `transport`, and keeps its memories in `memory`. `component` is the
+/// guest as the build compiled it in. A run the guest itself fails, as it does when its hub drops the connection under
+/// it, is run again on a fresh transport after [`RERUN_DELAY`], as a supervisor restarts a runner process; one that
+/// cannot load the guest is not, since it would fail the same way every time. How each run ended is logged rather than
+/// returned, since nothing waits on a runner: the hub carries on without it.
 #[expect(
     clippy::single_call_fn,
     reason = "shared by the board's guest task and the host's, each of which a build has only one of"
 )]
-pub(crate) async fn run_guest<S, P>(hub: &'static Hub<S>, name: &str, component: &[u8], platform: P, shared: Shared)
-where
-    S: Stamps + Send + Sync + 'static,
+pub(crate) async fn run_guest<P, T>(
+    name: &str,
+    component: &[u8],
+    platform: P,
+    mut transport: impl FnMut() -> T,
+    memory: MemoryBudget,
+) where
     P: Platform + Clone + 'static,
+    T: Transport + 'static,
 {
-    let transport = HubTransport::new(hub, platform.clone());
-    let Shared { buckets, memory } = shared;
-    let outcome = match board_engine() {
-        Ok(engine) => run(&engine, component, platform.clone(), transport, buckets, memory).await,
-        Err(error) => Err(BoardError::Wasmtime(error)),
+    let engine = match board_engine() {
+        Ok(engine) => engine,
+        Err(error) => return report(&platform, name, &BoardError::Wasmtime(error).to_string()),
     };
-    let ended = match outcome {
-        Ok(()) => "finished".to_string(),
-        Err(error) => error.to_string(),
-    };
+    loop {
+        match run(&engine, component, platform.clone(), transport(), memory.clone()).await {
+            Ok(()) => return report(&platform, name, "finished"),
+            Err(error @ BoardError::Guest(_)) => {
+                report(&platform, name, &alloc::format!("{error}; running it again"));
+                platform.sleep_until(platform.now().saturating_add(RERUN_DELAY)).await;
+            }
+            Err(error) => return report(&platform, name, &error.to_string()),
+        }
+    }
+}
+
+/// Log how a run of the guest `name` ended, on `platform`'s stderr.
+fn report<P>(platform: &P, name: &str, ended: &str)
+where
+    P: Platform,
+{
     platform.write(
         et_ws_wasi_runner::board::Console::Stderr,
         alloc::format!("runner {name}: {ended}\n").as_bytes(),

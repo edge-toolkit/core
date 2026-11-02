@@ -5,7 +5,7 @@
 
 use std::env;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use et_firmware_modules::{BOARD_VARIABLES, RUNNER_GUESTS, board, generate, guests};
 use fs_err as fs;
@@ -34,6 +34,10 @@ const MODULES_ROOT: &str = "MODULES_ROOT";
 const MODULES_ELSEWHERE: &str = "MODULES_ELSEWHERE";
 /// Where a request for a module in `MODULES_ELSEWHERE` is redirected, its path under `/modules` appended.
 const MODULES_ELSEWHERE_URL: &str = "MODULES_ELSEWHERE_URL";
+/// The `address:port` of a hub on another machine, which makes the firmware a runner of its guests and no hub.
+const HUB_ADDRESS: &str = "HUB_ADDRESS";
+/// The cfg a build for a hub elsewhere is compiled with.
+const REMOTE_HUB: &str = "remote_hub";
 /// The operating system cargo is building for, `none` for a board.
 const CARGO_CFG_TARGET_OS: &str = "CARGO_CFG_TARGET_OS";
 /// The architecture cargo is building for, which picks the board.
@@ -47,11 +51,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     for variable in BOARD_VARIABLES
         .into_iter()
         .chain(MODULE_VARIABLES)
-        .chain([RUNNER_GUESTS])
+        .chain([RUNNER_GUESTS, HUB_ADDRESS])
     {
         println!("cargo:rerun-if-env-changed={variable}");
     }
     let out_dir = PathBuf::from(env::var(OUT_DIR)?);
+    write_hub_address(&out_dir)?;
     // The modules are served on the host too, so what a board would serve can be explored without one.
     let modules = generate(
         &optional(MODULES_PATHS),
@@ -96,6 +101,26 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("{directive}");
         }
     }
+    Ok(())
+}
+
+/// Write `hub_address.rs`, naming [`HUB_ADDRESS`], and compile the firmware as a runner for that hub when it is set.
+///
+/// With a hub elsewhere the firmware serves nothing, and its guests reach that hub instead of one beside them.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the hub step of main, named apart from the modules"
+)]
+fn write_hub_address(out_dir: &Path) -> Result<(), Box<dyn Error>> {
+    println!("cargo::rustc-check-cfg=cfg({REMOTE_HUB})");
+    let hub_address = optional(HUB_ADDRESS);
+    if !hub_address.is_empty() {
+        println!("cargo::rustc-cfg={REMOTE_HUB}");
+    }
+    let source = format!(
+        "/// The hub this firmware's guests reach, `address:port`.\nconst HUB_ADDRESS: &str = {hub_address:?};\n"
+    );
+    fs::write(out_dir.join("hub_address.rs"), source)?;
     Ok(())
 }
 

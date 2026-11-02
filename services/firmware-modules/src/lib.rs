@@ -30,7 +30,7 @@ const PACKAGE_DIR: &str = "pkg";
 /// The manifest naming a module, and listing its files.
 const PACKAGE_JSON: &str = "package.json";
 /// Where the types the source builds its modules from live, named in full so a build with none imports nothing.
-const MODULES_API: &str = "et_ws_server::picoserve_modules";
+const MODULES_API: &str = "et_modules_service::picoserve";
 /// The variable the module directories come from, which errors about them name.
 const MODULES_PATHS: &str = "MODULES_PATHS";
 /// The variable naming the runners a board starts and the modules they run, which errors about them name.

@@ -2,22 +2,39 @@
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(all(feature = "board", not(feature = "std")))]
+extern crate alloc;
+
+#[cfg(feature = "std")]
 use std::path::PathBuf;
 
+#[cfg(feature = "std")]
 use actix_files::Files;
+#[cfg(feature = "std")]
 use actix_web::web;
+#[cfg(feature = "std")]
 use edge_toolkit::config::default_modules_folders;
+#[cfg(feature = "std")]
 use fs_err as fs;
+#[cfg(feature = "std")]
 use serde::Deserialize;
+#[cfg(feature = "std")]
 use serde_default::DefaultFromSerde;
+#[cfg(feature = "std")]
 use serde_inline_default::serde_inline_default;
 
+#[cfg(feature = "board")]
+pub mod picoserve;
+#[cfg(feature = "std")]
 pub mod routes;
 
+#[cfg(feature = "std")]
 pub use self::routes::list_modules_handler;
 
 /// Modules config.
+#[cfg(feature = "std")]
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
 #[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
@@ -55,6 +72,7 @@ pub struct ModulesConfig {
     pub mise_discover: bool,
 }
 
+#[cfg(feature = "std")]
 impl ModulesConfig {
     /// Config that serves exactly `paths`, which is what a caller naming directories outright wants.
     #[must_use]
@@ -68,6 +86,7 @@ impl ModulesConfig {
 }
 
 /// The package name a `package.json` declares, exactly as written.
+#[cfg(feature = "std")]
 fn read_package_name(package_json: &std::path::Path) -> Option<String> {
     let content = fs::read_to_string(package_json).ok()?;
     let value: serde_json::Value = serde_json::from_str(&content).ok()?;
@@ -75,6 +94,7 @@ fn read_package_name(package_json: &std::path::Path) -> Option<String> {
 }
 
 /// Scan all configured module paths and return a sorted list of `(name, pkg_dir)` pairs.
+#[cfg(feature = "std")]
 #[must_use]
 pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     let mut modules: Vec<(String, PathBuf)> = Vec::new();
@@ -141,6 +161,7 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
 /// Panics if `config.root` names a module none of the scanned `config.paths` provides -- naming a front page
 /// that isn't there is a config error, and it is fatal early so the operator sees it at startup rather than
 /// as a 404 much later.
+#[cfg(feature = "std")]
 #[expect(
     clippy::panic,
     reason = "a root module named but absent is a config error; failing fast at startup is intentional"

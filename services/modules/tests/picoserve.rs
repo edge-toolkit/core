@@ -1,27 +1,16 @@
-//! The `no_std` ws-server over real TCP sockets, with tokio standing in for an embedded executor and network stack:
-//! `/health` and `/favicon.ico` answer as the `std` server's do, `/ws` is the hub, and the modules built into the
-//! binary are served from `/modules` and `/`.
+//! Modules built into the binary, served through picoserve over real TCP sockets, with tokio standing in for an
+//! embedded executor and network stack: listed under `/modules/`, each file under `/modules/{name}/`, the root module's
+//! from `/`, and a module served elsewhere redirected there.
 #![cfg(test)]
-#![recursion_limit = "256"]
 
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::Arc;
 use std::time::Duration;
 
-use edge_toolkit::ws::{ClientMessage, ConnectStatus, ServerMessage};
-use edge_toolkit::ws_server::MessageRetention;
-use et_ws_server::picoserve_modules::{Module, ModuleFile, Modules};
-use et_ws_server::picoserve_server::serve;
-use et_ws_server::routes::HealthResponse;
-use et_ws_service::hub::Stamps;
-use et_ws_service::picoserve_hub::{Hub, config};
-use futures_util::{SinkExt as _, StreamExt as _};
-use picoserve::time::TokioTimer;
+use et_modules_service::picoserve::{Module, ModuleFile, ModuleRoutes, Modules};
+use picoserve::{Config, Router, Server};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::LocalSet;
-use tokio_tungstenite::connect_async;
-use tokio_tungstenite::tungstenite::Message;
 
 /// How long a test waits for an answer before failing rather than hanging.
 const PATIENCE: Duration = Duration::from_secs(5);
@@ -49,56 +38,20 @@ static MODULES: Modules = Modules::new(
     "https://cdn.example/npm",
 );
 
-/// Ids `id-1`, `id-2`, ... in turn, and a fixed time.
-#[derive(Default)]
-struct Counter(u32);
-
-impl Stamps for Counter {
-    fn new_id(&mut self) -> String {
-        self.0 = self.0.saturating_add(1);
-        format!("id-{}", self.0)
-    }
-
-    fn now(&mut self) -> String {
-        "2026-10-30T00:00:00Z".to_owned()
-    }
-}
-
-/// The server of `modules` on a fresh loopback port, one task per connection as an embedder would, and its address.
+/// `modules` served on a fresh loopback port, one task per connection as an embedder would, and its address.
 async fn served(modules: &'static Modules) -> SocketAddr {
-    let hub = Arc::new(Hub::new(Counter::default(), MessageRetention::All, 1024, 16));
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let address = listener.local_addr().unwrap();
     let _accepting = tokio::task::spawn_local(async move {
+        let app = Router::from_service(ModuleRoutes::new(modules));
+        let config = Config::const_default();
         loop {
-            let (socket, peer) = listener.accept().await.unwrap();
-            let hub = Arc::clone(&hub);
-            let _serving = tokio::task::spawn_local(async move {
-                let mut http_buffer = [0; 2048];
-                let _served = serve(
-                    &hub,
-                    modules,
-                    socket,
-                    peer.ip(),
-                    TokioTimer,
-                    &config(),
-                    &mut http_buffer,
-                )
-                .await;
-            });
+            let (socket, _peer) = listener.accept().await.unwrap();
+            let mut http_buffer = [0; 2048];
+            let _served = Server::new_tokio(&app, &config, &mut http_buffer).serve(socket).await;
         }
     });
     address
-}
-
-/// The whole response to a bodiless `GET path`, headers and body, as text.
-async fn get(address: SocketAddr, path: &str) -> String {
-    request(address, "GET", path).await
-}
-
-/// The whole response to a bodiless `method path`, headers and body, as text.
-async fn request(address: SocketAddr, method: &str, path: &str) -> String {
-    send(address, &format!("{method} {path} HTTP/1.1\r\nHost: hub\r\n")).await
 }
 
 /// The whole response to `head`, a request line and headers to which the closing ones are added.
@@ -114,39 +67,14 @@ async fn send(address: SocketAddr, head: &str) -> String {
     response
 }
 
-#[tokio::test]
-async fn it_serves_health_favicon_and_the_hub() {
-    // Boxed because its size depends on how the build unifies features: over 16 KiB with the whole workspace, under it
-    // alone, so an expectation of `clippy::large_futures` could hold in only one of the two.
-    LocalSet::new()
-        .run_until(Box::pin(async {
-            let address = served(&MODULES).await;
+/// The whole response to a bodiless `method path`.
+async fn request(address: SocketAddr, method: &str, path: &str) -> String {
+    send(address, &format!("{method} {path} HTTP/1.1\r\nHost: hub\r\n")).await
+}
 
-            let health = get(address, "/health").await;
-            assert!(health.starts_with("HTTP/1.1 200"));
-            assert!(health.contains("Content-Type: application/json"));
-            let (_head, body) = health.split_once("\r\n\r\n").unwrap();
-            let body: HealthResponse = serde_json::from_str(body).unwrap();
-            assert_eq!((body.status.as_str(), body.service.as_str()), ("healthy", "ws-server"));
-
-            assert!(get(address, "/favicon.ico").await.starts_with("HTTP/1.1 204"));
-            assert!(get(address, "/elsewhere").await.starts_with("HTTP/1.1 404"));
-
-            let (mut agent, _response) = connect_async(format!("ws://{address}/ws")).await.unwrap();
-            let connect = ClientMessage::Connect { agent_id: None };
-            let frame = Message::text(serde_json::to_string(&connect).unwrap());
-            agent.send(frame).await.unwrap();
-            let ack = tokio::time::timeout(PATIENCE, agent.next())
-                .await
-                .unwrap()
-                .unwrap()
-                .unwrap();
-            assert!(matches!(
-                ServerMessage::from_text_frame(ack.to_text().unwrap()).unwrap(),
-                ServerMessage::ConnectAck { status: ConnectStatus::Assigned, agent_id } if agent_id == "id-1"
-            ));
-        }))
-        .await;
+/// The whole response to a `GET path`.
+async fn get(address: SocketAddr, path: &str) -> String {
+    request(address, "GET", path).await
 }
 
 /// The body of `response`, after its head.
@@ -186,22 +114,18 @@ async fn it_serves_the_embedded_modules() {
             assert_eq!(body(&changed), "\0asm");
             let encoded = get(address, "/modules/%40scope/math/package.json").await;
             assert_eq!(body(&encoded), "{}");
-            assert!(
-                get(address, "/modules/@scope/math/missing.js")
-                    .await
-                    .starts_with("HTTP/1.1 404")
-            );
-            assert!(
-                get(address, "/modules/@scope/mathematics/x")
-                    .await
-                    .starts_with("HTTP/1.1 404")
-            );
-            assert!(get(address, "/modulesx").await.starts_with("HTTP/1.1 404"));
+            for missing in [
+                "/modules/@scope/math/missing.js",
+                "/modules/@scope/mathematics/x",
+                "/modulesx",
+                "/modules/bigger/x.js",
+            ] {
+                assert!(get(address, missing).await.starts_with("HTTP/1.1 404"));
+            }
 
             let redirect = get(address, "/modules/big/dist/big.js").await;
             assert!(redirect.starts_with("HTTP/1.1 307"));
             assert!(redirect.contains("Location: https://cdn.example/npm/big/dist/big.js\r\n"));
-            assert!(get(address, "/modules/bigger/x.js").await.starts_with("HTTP/1.1 404"));
 
             assert!(request(address, "POST", "/app.js").await.starts_with("HTTP/1.1 405"));
             assert!(request(address, "POST", "/missing").await.starts_with("HTTP/1.1 404"));
@@ -227,4 +151,9 @@ async fn modules_assembled_at_run_time_serve_as_built_in_ones_do() {
             assert_eq!(names, ["assembled", "far"]);
         }))
         .await;
+}
+
+#[test]
+fn no_modules_serve_nothing() {
+    assert!(Modules::NONE.embedded.is_empty() && Modules::NONE.root.is_empty());
 }

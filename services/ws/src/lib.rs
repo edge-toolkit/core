@@ -3,7 +3,7 @@
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(not(feature = "std"), feature = "picoserve-hub"))]
+#[cfg(any(not(feature = "std"), feature = "board"))]
 extern crate alloc;
 
 #[cfg(feature = "std")]
@@ -12,8 +12,9 @@ pub mod admin;
 mod backplane;
 #[cfg(feature = "std")]
 mod connection;
+pub mod health;
 pub mod hub;
-#[cfg(feature = "picoserve-hub")]
+#[cfg(feature = "board")]
 pub mod picoserve_hub;
 #[cfg(feature = "std")]
 mod server;

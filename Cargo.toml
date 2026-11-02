@@ -90,6 +90,7 @@ cloudevents-sdk = "0.9"
 command-error = "0.8"
 const-hex = "1.19"
 cortex-m-rt = "0.7"
+critical-section = "1"
 croner = "4"
 cyw43 = "0.7"
 cyw43-pio = "0.10"
@@ -105,11 +106,14 @@ deno_resolver = "0.91"
 deno_runtime = { version = "0.268", features = ["transpile", "hmr"] }
 document-features = "0.2"
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0", default-features = false }
+edge-ws = { version = "0.8", default-features = false, features = ["io"] }
 embassy-executor = "0.10"
 embassy-net = "0.9"
 embassy-rp = "0.10"
+embassy-sync = "0.8"
 embassy-time = "0.5"
 embedded-alloc = { version = "0.7", default-features = false, features = ["llff"] }
+embedded-io-async = "0.7"
 esp-alloc = "0.11"
 esp-backtrace = "0.20"
 esp-bootloader-esp-idf = "0.6"
@@ -122,7 +126,7 @@ et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
 et-firmware-modules = { path = "services/firmware-modules", version = "0.1.0" }
 et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
-et-modules-service = { path = "services/modules", version = "0.3.0" }
+et-modules-service = { path = "services/modules", version = "0.3.0", default-features = false }
 et-onnx = { path = "utilities/onnx", version = "0.2.0" }
 et-org = { path = "libs/org", version = "0.2.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.3.0" }

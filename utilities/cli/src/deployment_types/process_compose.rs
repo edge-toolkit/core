@@ -9,10 +9,10 @@ use super::mise::container;
 use super::yaml::{document, insert};
 use super::{COLLECTOR_TASK, OPENER_TASK};
 use crate::error::CliError;
-use crate::input::ClusterInput;
-use crate::placement::{Site, hub_site, hubs, shares_hubs};
+use crate::input::{ClusterInput, Delivery};
+use crate::placement::{Site, hub_site, hubs, server_delivery};
 use crate::schedule::Schedule;
-use crate::{OutputType, scenario_runners};
+use crate::{OutputType, task_runners};
 
 /// The mise tool that installs process-compose, which the `mise.toml` written alongside declares.
 pub(crate) const PROCESS_COMPOSE_TOOL: &str = "aqua:F1bonacc1/process-compose";
@@ -46,11 +46,14 @@ const READINESS_FAILURE_THRESHOLD: u16 = 1800;
 /// A multi-machine cluster puts each process in the namespace of its machine, so `-n <machine>` starts one machine's
 /// share.
 pub fn generate_process_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
-    let runners = scenario_runners(cluster)?;
+    let runners = task_runners(cluster)?;
     let server = hub_site(cluster);
+    // A server that is a board runs the hub as firmware, with no collector: every process here is then a runner
+    // elsewhere.
+    let server_processes = server_delivery(cluster) == Delivery::Tasks;
 
     let mut processes = Mapping::new();
-    let containers = server_containers(shares_hubs(cluster));
+    let containers = server_containers(cluster);
     let server_hub_deps: Vec<&str> = containers.iter().map(|(name, ..)| *name).collect();
     for (name, port, path) in containers {
         let mut service = process(name, &[], &server);
@@ -64,7 +67,9 @@ pub fn generate_process_compose_deployment(cluster: &ClusterInput, output_dir: &
         }
         insert(&mut processes, name, Value::Mapping(service));
     }
-    insert_hub_processes(&mut processes, cluster, &server_hub_deps);
+    if server_processes {
+        insert_hub_processes(&mut processes, cluster, &server_hub_deps);
+    }
 
     for runner in runners {
         // A runner on a machine without a hub cannot wait on a hub process this one does not hold, so it restarts until
@@ -85,9 +90,11 @@ pub fn generate_process_compose_deployment(cluster: &ClusterInput, output_dir: &
 
     // Disabled, since it opens the browser and exits: it is there to be started once the collector is up, which its
     // dependency then waits for.
-    let mut opener = process(OPENER_TASK, &[COLLECTOR_TASK], &server);
-    insert(&mut opener, "disabled", Value::Bool(true));
-    insert(&mut processes, OPENER_TASK, Value::Mapping(opener));
+    if server_processes {
+        let mut opener = process(OPENER_TASK, &[COLLECTOR_TASK], &server);
+        insert(&mut opener, "disabled", Value::Bool(true));
+        insert(&mut processes, OPENER_TASK, Value::Mapping(opener));
+    }
 
     let mut config = Mapping::new();
     insert(&mut config, "version", Value::from(SCHEMA_VERSION));

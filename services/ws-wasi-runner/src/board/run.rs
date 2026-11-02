@@ -3,7 +3,7 @@
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Engine, Store};
 
-use super::host::{BoardHost, Buckets};
+use super::host::BoardHost;
 use super::memory::MemoryBudget;
 use super::platform::{Platform, Transport};
 use super::wasi;
@@ -31,8 +31,8 @@ impl From<wasmtime::Error> for BoardError {
 /// Run `component` on `engine` until its `entry.run` returns, hosting it on what the board hands it.
 ///
 /// `engine` is [`crate::engine::board_engine`]'s, and `component` what `engine::precompile` compiled for it: a firmware
-/// builds its guest in, compiled by its build script. The guest runs on `platform` and `transport`, and every guest a
-/// board runs is handed the same `buckets` for its storage and the same `memory` for its memories and tables.
+/// builds its guest in, compiled by its build script. The guest runs on `platform`, reaches the hub and its storage
+/// through `transport`, and every guest a board runs is handed the same `memory` for its memories and tables.
 ///
 /// # Errors
 ///
@@ -43,7 +43,6 @@ pub async fn run<P, T>(
     component: &[u8],
     platform: P,
     transport: T,
-    buckets: Buckets,
     memory: MemoryBudget,
 ) -> Result<(), BoardError>
 where
@@ -60,7 +59,7 @@ where
     let mut linker = Linker::new(engine);
     wasi::add_to_linker(&mut linker)?;
     bindings::Runner::add_to_linker::<BoardHost<P, T>, HasSelf<BoardHost<P, T>>>(&mut linker, |host| host)?;
-    let mut store = Store::new(engine, BoardHost::new(platform, transport, buckets, memory));
+    let mut store = Store::new(engine, BoardHost::new(platform, transport, memory));
     store.limiter(|host| host.allowance());
     let runner = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
     // `entry.run` is an async export, which only the concurrent API can call.
