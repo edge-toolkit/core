@@ -172,7 +172,7 @@ ls-lint = "latest"
 #   aqua:pvolok/dekit@0.10.0: no asset found: mprocs-0.10.0-darwin-aarch64.tar.gz, mprocs-0.10.0-darwin-universal.tar.gz
 # on mise 2026.9.18. Return to the registry name once its aqua entry knows the `dekit-<triple>` assets.
 "github:pvolok/dekit" = "latest"
-node = "22"
+node = "24"
 osv-scanner = "latest"
 # Aqua has no pipx build for windows/amd64.
 # On Windows the workflow runs `python -m pip install pipx` separately so the
@@ -315,6 +315,15 @@ version = "0.10.0"
 # lychee takes its musl build on Linux for the same reason as coreutils above: the gnu one needs GLIBC_2.39.
 [tools."github:lycheeverse/lychee"]
 asset_pattern = "{{ vars.musl_pattern }}"
+version = "latest"
+
+# The Markdown linter behind rumdl-check; musl on Linux so the older-glibc image bases can run it.
+[tools."github:rvben/rumdl"]
+asset_pattern = "{{ vars.musl_pattern }}"
+version = "latest"
+
+# Renders generated/specs/rest.yaml as the Markdown reference generated/specs/rest.md.
+[tools."github:noemaforge/vimanam"]
 version = "latest"
 
 # espflash writes ESP32 firmware to a board over USB and shows its defmt log, for a firmware-esp32c6 deployment.
@@ -929,6 +938,7 @@ depends = [
   "readme-mise-version-check",
   "regal-check",
   "repo-check",
+  "rumdl-check",
   "ryl-check",
   "semgrep-check",
   "semgrep-check-rule-tests",
@@ -956,7 +966,7 @@ description = "Run all checks: check:rust + any loaded guest check:<lang>"
 # Rust + universal lint-fix passes.
 # Distinct from fmt:rust (style/whitespace
 # formatters) -- these apply auto-rewrites for actual lint violations.
-depends = ["ast-grep-fix", "cargo-clippy-fix", "cargo-shear-fix", "regal-fix", "semgrep-fix", "typos-fix"]
+depends = ["ast-grep-fix", "cargo-clippy-fix", "cargo-shear-fix", "regal-fix", "rumdl-fix", "semgrep-fix", "typos-fix"]
 description = "Apply Rust + universal lint-fix passes"
 
 [tasks.fix]
@@ -1732,6 +1742,16 @@ if [ "$config_version" != "$readme_version" ]; then
 fi
 """
 shell = "{{ vars.task_shell }}"
+
+[tasks.rumdl-check]
+description = "Lint every tracked Markdown file (rumdl)"
+env = { RUMDL_CACHE_DIR = "{{ config_root }}/target/rumdl-cache" }
+run = "rumdl check --config config/rumdl.toml ."
+
+[tasks.rumdl-fix]
+description = "Apply rumdl's fixes to every tracked Markdown file"
+env = { RUMDL_CACHE_DIR = "{{ config_root }}/target/rumdl-cache" }
+run = "rumdl check --fix --config config/rumdl.toml ."
 
 [tasks.typos-check]
 alias = "typos"
@@ -2718,7 +2738,7 @@ description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pin
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- fetch-deps"
 
 [tasks."gen:ws-spec"]
-description = "Run et-int-gen: emit the language-agnostic WS specs (YAML/WIT/KDL/JSON) + the Rust REST client"
+description = "Run et-int-gen: emit the language-agnostic WS specs (YAML/Markdown/WIT/KDL/JSON) + the Rust REST client"
 # et-int-gen runs progenitor + prettyplease to produce generated/rust-rest/src/lib.rs.
 # prettyplease's style disagrees with our nightly rustfmt (different import grouping + line width), so
 # the workspace `mise run fmt` would reformat it and `mise run gen-specs-check` would see drift on the
@@ -2747,6 +2767,31 @@ description = "Run et-int-gen: emit the ws-wasi-runner host bindings for the `ru
 # Depends on gen:ws-spec for the `et:ws-messages` WIT its `generate core` step emits.
 # Unlike gen:ws-spec there is no rustfmt post-process; refer to int-gen bindings.rs for details.
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- generate bindings"
+
+[tasks."gen:rest-md"]
+depends = ["gen:ws-spec"]
+description = "Render generated/specs/rest.yaml as the Markdown reference generated/specs/rest.md (vimanam)"
+env = { RUMDL_CACHE_DIR = "{{ config_root }}/target/rumdl-cache" }
+# Two constructs in vimanam's output that the Markdown rules reject are rewritten before formatting.
+# It writes `<br/>` between the paragraphs of a table cell, and an emphasis-only line where an operation has no request
+# or response schema; they become a space and a plain sentence. rumdl's fixes and the Markdown formatter then settle
+# the layout, so the committed file is already what both checks want. The work is staged under target/ and lands in
+# one rename, leaving the committed file whole if any step fails.
+run = """
+stage=target/int-gen/rest-md
+out=generated/specs/rest.md
+coreutils mkdir -p "$stage"
+vimanam generated/specs/rest.yaml --detail full --include-schemas --include-auth --no-report -o "$stage/raw.md"
+goawk '
+{ gsub("<br/>", " ") }
+/^[*]No (request|response) schema available[*]$/ { gsub("[*]", ""); $0 = $0 "." }
+{ print }
+' "$stage/raw.md" >"$stage/tidy.md"
+rumdl check --fix --fail-on never --silent --config config/rumdl.toml "$stage/tidy.md"
+dprint fmt --stdin "$out" <"$stage/tidy.md" >"$stage/rest.md"
+coreutils mv -f "$stage/rest.md" "$out"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.gen-specs]
 # Native `depends` glob anchored by gen:ws-spec (core + Rust client, always loaded).

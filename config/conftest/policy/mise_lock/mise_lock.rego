@@ -23,6 +23,7 @@ gnu_allowed := {
 	"github:caldempsey/parfit": "GLIBC_2.34",
 	"github:grok-rs/waitup": "GLIBC_2.39 on x64, above the 2.35 floor",
 	"github:nextest-rs/nextest": "GLIBC_2.27",
+	"github:noemaforge/vimanam": "GLIBC_2.34",
 	"github:owenlamont/ryl": "GLIBC_2.34",
 	"github:wasm-bindgen/wasm-bindgen": "GLIBC_2.39 on arm64, above the 2.35 floor",
 	"http:augeas": "GLIBC_2.38, above the 2.35 floor; the upstream-cache mirror builds no musl variant",

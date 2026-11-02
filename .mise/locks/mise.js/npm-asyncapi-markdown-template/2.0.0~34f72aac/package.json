@@ -1,0 +1,7 @@
+{
+  "name": "mise-npm-install",
+  "private": true,
+  "dependencies": {
+    "@asyncapi/markdown-template": "2.0.0"
+  }
+}

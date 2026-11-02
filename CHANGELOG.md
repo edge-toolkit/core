@@ -7,6 +7,11 @@ Changelog 1.1.0.
 
 ### Added
 
+- `generated/specs/rest.md` and `generated/specs/ws.md` document the REST API and the WebSocket protocol in Markdown:
+  every operation, message and shared schema, with the side of the hub that sends each message. They are rendered
+  from `rest.yaml` and `ws.yaml` and regenerated with them.
+- `ws.yaml`'s `sendWsMessage` and `receiveWsMessage` operations list the messages each carries, and its `ws` channel
+  lists all of them, so AsyncAPI tools see which side sends what.
 - `edge-toolkit` builds as `no_std` + `alloc` with `default-features = false`, keeping the WebSocket protocol types
   in `ws`, `ports`, the `BasicAuth` struct and the in-memory agent registry of `ws_server`. The new default `std`
   feature restores everything else, the registry file included. `et-org` is `no_std` unconditionally.
@@ -95,12 +100,10 @@ Changelog 1.1.0.
 - **Breaking:** `et-ws-server`'s actix server, its binary and its environment config are behind the new default `std`
   feature. A build with `default-features = false` and none of the features that imply `std` -- `modules`, `otlp`,
   `qr`, `storage`, `tls`, `websockify` -- now gets the `no_std` library and no binary; add `std` to keep the server.
-
 - **Breaking:** `et-cli` refuses a scenario whose `module_paths:` entry, or a module directory found under one, has a
   name a shell would need quoted or that some filesystem could not hold, such as `my mod`, `mod$(id)` or `con`; rename
   the directory. Generated deployments no longer escape these paths. The check is the new `et-sanitise` crate, which
   accepts a name only when both sanitize-filename, with its Windows rules, and shlex leave it unchanged.
-
 - The workspace requires actix-web 4.17.
 - **Breaking:** the minimum supported Rust version is 1.99.0, up from 1.91.1, for every published crate.
 - **Breaking:** an agent's IP address is always known. `AgentSummary::last_known_ip` and

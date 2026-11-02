@@ -115,7 +115,7 @@ decide which module directories to expose through `MODULES_PATHS`. It only
 serves `ws-wasm-agent` and the selected workflow modules for that scenario,
 without adding any module build tasks.
 
-#### Notes on deployment_type
+### Notes on deployment_type
 
 The input YAML can also choose the output type with `deployment_type`.
 

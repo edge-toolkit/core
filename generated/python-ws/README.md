@@ -22,7 +22,7 @@ parsed = ClientMessage.model_validate_json(frame)
 ```
 
 The full message catalogue, including the hub's replies, is the
-[AsyncAPI specification](https://github.com/edge-toolkit/core/blob/main/generated/specs/ws.yaml).
+[protocol reference](https://github.com/edge-toolkit/core/blob/main/generated/specs/ws.md).
 
 ## Regenerating
 

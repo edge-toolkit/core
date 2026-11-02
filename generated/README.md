@@ -55,6 +55,10 @@ directly:
 - `specs/rest.yaml` -- OpenAPI 3.0 description of the ws-server's REST
   surface. Source: `#[utoipa::path]` annotations on handlers in
   `services/{ws,ws-server,modules,storage}`, aggregated by `utilities/int-gen`.
+- `specs/rest.md` -- Markdown reference rendered from `specs/rest.yaml` by
+  `vimanam`.
+- `specs/ws.md` -- Markdown reference rendered from `specs/ws.yaml` by the
+  AsyncAPI generator's `@asyncapi/markdown-template`.
 - `specs/wit/deps/et-ws-messages/messages.wit` -- Typed WIT mirror of
   `ClientMessage` + `ServerMessage` (records + two tagged unions).
   Built with `wit-encoder` in `utilities/int-gen/src/wit/messages.rs`.

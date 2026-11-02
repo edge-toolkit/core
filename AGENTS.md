@@ -527,7 +527,6 @@ Languages:
 - **R (webR -> WASM)**: rdata1, rcomm1, rmath1 -- browser-only (webR spawns a classic Worker, unsupported by Deno's
   ws-web-runner). Their JS shims are linted by the `js` env; `MISE_ENV=r` supplies webR + the vendoring build tasks.
 - **Zig -> WASM**: zig-data1, zig-except1 (C++ wasm-exception-handling demo), zig-math1
-
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
   `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is
   `generated/specs/wit/world.wit`.
@@ -604,14 +603,16 @@ Every file under `<crate>/tests/` carries `#![cfg(test)]`, and the preamble orde
 a language rule, and it exists so the file opens by saying what it covers rather than with a cfg gate. A file
 with no module doc simply opens with the attribute. The two shapes, in full:
 
-    //! What this file covers, in one line.
-    //!
-    //! Any elaboration.
-    #![cfg(test)]
+```text
+//! What this file covers, in one line.
+//!
+//! Any elaboration.
+#![cfg(test)]
 
-    #![cfg(test)]
+#![cfg(test)]
 
-    use std::process::Command;
+use std::process::Command;
+```
 
 Read "starts with `#![cfg(test)]`" as "the attribute precedes the first item", not "the attribute is line 1" --
 a `//!` block above it is required, not a violation. As of this writing every one of the 45 test files that has
@@ -694,7 +695,9 @@ because the failure line is what a future reader will grep for.
 `et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on the Linux, Windows, and macOS lanes
 of test.yaml and build.yaml with the literal failure line
 
-    Error: "runner never registered"
+```text
+Error: "runner never registered"
+```
 
 arriving a few seconds after torch's cold first import prints
 `UserWarning: Failed to initialize NumPy: No module named 'numpy'` (from
@@ -702,13 +705,13 @@ arriving a few seconds after torch's cold first import prints
 `cpu = _conversion_method_template(device=torch.device("cpu"))` line -- i.e. the spawned runner was still inside
 torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
-https://github.com/edge-toolkit/core/commit/6479913bdc288dd680fbe0520f63054e8c71fe6c at
+<https://github.com/edge-toolkit/core/commit/6479913bdc288dd680fbe0520f63054e8c71fe6c> at
 `https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
 merged), and on the `default (macos-latest, 45)` job -- same signature, unix-form
 `torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
-https://github.com/edge-toolkit/core/commit/f2a85307a2415f4a50625627795e02c84f1c8e5d at
+<https://github.com/edge-toolkit/core/commit/f2a85307a2415f4a50625627795e02c84f1c8e5d> at
 `https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
-run. Recurred at commit https://github.com/edge-toolkit/core/commit/1e323acb7fc433b66efed904b3b30ab3216dbf90
+run. Recurred at commit <https://github.com/edge-toolkit/core/commit/1e323acb7fc433b66efed904b3b30ab3216dbf90>
 (PR #76) on three lanes of one run at once -- the first Linux sighting, and the first time it took more than a
 single lane of a commit: build.yaml's
 `build (ubuntu:22.04)` (~15.76s) at
@@ -720,7 +723,7 @@ failures read as the cold torch import consistently overrunning the timeout rath
 the root-cause fix below is now due, not optional.
 
 Recurred once more on the `override (mingw)` lane at commit
-https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559,
+<https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559>,
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, failing at **122.2s** -- and
 that figure is the diagnosis. The test had two nested deadlines: a 2-minute `PEER_REGISTER_TIMEOUT` around the
 peer wait, inside a 3-minute `TORCH_EXCHANGE_BUDGET` around the whole exchange. The inner one decided every
@@ -743,12 +746,14 @@ Not intermittent -- `et-ws-wasi-runner` fails every time on `x86_64-pc-windows-g
 lane, `MISE_ENV=mingw`). The component instantiates and logs `entered run()`, then the process aborts while
 connecting:
 
-    thread 'main' panicked at libs\ws-runner-common\src\lib.rs:206:5:
-    there is no reactor running, must be called from the context of a Tokio 1.x runtime
-    thread 'main' panicked at tokio-1.53.1\src\runtime\context\runtime.rs:85:13:
-    assertion failed: c.runtime.get().is_entered()
-    panic in a destructor during cleanup / thread caused non-unwinding panic. aborting.
-    cargo.exe: The system detected an overrun of a stack-based buffer in this application. Error 0xc0000409
+```text
+thread 'main' panicked at libs\ws-runner-common\src\lib.rs:206:5:
+there is no reactor running, must be called from the context of a Tokio 1.x runtime
+thread 'main' panicked at tokio-1.53.1\src\runtime\context\runtime.rs:85:13:
+assertion failed: c.runtime.get().is_entered()
+panic in a destructor during cleanup / thread caused non-unwinding panic. aborting.
+cargo.exe: The system detected an overrun of a stack-based buffer in this application. Error 0xc0000409
+```
 
 That line is `tokio::time::timeout` inside `connect_and_register`, reached from the `ws::connect` host import --
 an async host call awaited on a wasmtime fiber. The reading that fits is tokio's thread-local runtime context
@@ -762,7 +767,7 @@ and the default `x86_64-pc-windows-gnullvm` both report `target_env = "gnu"`, an
 `all(windows, target_env = "gnu", not(target_abi = "llvm"))`; written without that last clause it silently takes
 the default Windows lane with it.
 
-On commit https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559 the same
+On commit <https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559> the same
 workload passed on `gnullvm` (the default the Windows Dockerfiles and CI build) in 426s and on `msvc` in 443s,
 while `gnu` failed twice with the identical signature -- 644s at
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
@@ -777,7 +782,7 @@ unrelated `<module>/pkg/package.json` 404, so the runner had never executed on a
 Every scenario whose trigger is `wasi-math1-sender` hits it, which is both of them. `pyo3-math1` was left
 ungated on the first pass because fail-fast had cancelled it before it ever ran on `gnu`; it then failed there
 with the identical signature at 579s on commit
-https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e
+<https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e>
 (`https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776`) while passing on `gnullvm`
 in 472s and `msvc` in 458s. Its pyo3 twin registers and idles cleanly throughout -- what aborts is the wasi
 trigger, so the scenario fails for the reason above and not for anything to do with the pyo3 runner.
@@ -788,15 +793,17 @@ trigger, so the scenario fails for the reason above and not for anything to do w
 calls to `https://api.github.com` -- GitHub artifact-attestation verification and release-metadata lookups -- get
 rate-limited or time out. The captured signature is a tool install aborting on the attestation endpoint, e.g.
 
-    mise ERROR Failed to install github:uutils/findutils@0.8.0: GitHub artifact attestations verification
-    error ...: HTTP error: error sending request for url
-    (https://api.github.com/repos/uutils/findutils/attestations/sha256:...)
+```text
+mise ERROR Failed to install github:uutils/findutils@0.8.0: GitHub artifact attestations verification
+error ...: HTTP error: error sending request for url
+(https://api.github.com/repos/uutils/findutils/attestations/sha256:...)
+```
 
 usually preceded by several retried `mise WARN HTTP GET https://api.github.com/repos/<owner>/<repo>/releases...`
 lines. When it strands the install, the composite's retry step can then trip the separate busybox/Git-Bash
 `cygheap read copy failed` fork pathology and the job hits its action timeout instead of a clean error. Observed on
 the `override (mingw)` job at commit
-https://github.com/edge-toolkit/core/commit/396aa98d24e4a945528cdbac33fbc61b66831e8a,
+<https://github.com/edge-toolkit/core/commit/396aa98d24e4a945528cdbac33fbc61b66831e8a>,
 `https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237` (a rerun of the same commit
 installed cleanly). This is an api.github.com rate-limit/transient-network flake, not a repo defect -- a
 `GITHUB_TOKEN` is already forwarded to raise the ceiling. If it becomes frequent rather than occasional, the
@@ -812,13 +819,15 @@ never ran either. There is nothing to grep for, because nothing was written; the
 It is the GitHub-hosted runner being reclaimed, not anything in the build. The one sighting that did retain its
 log said so outright --
 
-    ##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped,
-    or a manually started runner is canceled.
-    [cargo-test] ERROR sh exited with non-zero status: killed by SIGTERM
+```text
+##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped,
+or a manually started runner is canceled.
+[cargo-test] ERROR sh exited with non-zero status: killed by SIGTERM
+```
 
 -- on `default (ubuntu-24.04-arm, 50)` at
 `https://github.com/edge-toolkit/core/actions/runs/35083902481/job/104754130780`. Three later sightings on
-commit https://github.com/edge-toolkit/core/commit/cf33e2c0f573 lost their logs entirely: `build (fedora:42)`
+commit <https://github.com/edge-toolkit/core/commit/cf33e2c0f573> lost their logs entirely: `build (fedora:42)`
 at 71 minutes, `build (ubuntu:24.04)` at 80, and `build (debian:bookworm)` at 90, each well inside the 150-minute
 job budget and each in a different run.
 
@@ -849,7 +858,9 @@ lane at 133s, against the 120s poll described below. The history below is left f
 `et-ws-wasi-runner`'s `vector_otlp_relay::vector_relays_buffered_otlp_after_backend_comes_online` intermittently
 fails with the literal panic line
 
-    mock never received the relayed `relay-probe` span -- store-and-forward failed
+```text
+mock never received the relayed `relay-probe` span -- store-and-forward failed
+```
 
 from `services/ws-wasi-runner/tests/vector_otlp_relay.rs`. The test pushes one OTLP trace into Vector while the
 sink target is dead, brings a mock collector up on the sink port, then polls the mock for the redelivered span.
@@ -859,7 +870,7 @@ exponential backoff (`retry_initial_backoff_secs=1`, doubling; `retry_max_durati
 and its listener actually accepting, the next retry can be tens of seconds out -- and at the original 30s poll
 ceiling that occasionally overran, so the span arrived just after the test gave up. Observed on the `default
 (windows-latest)` lane at commit
-https://github.com/edge-toolkit/core/commit/71e70e56946abefcea6daf47a7745e5f8f186dad,
+<https://github.com/edge-toolkit/core/commit/71e70e56946abefcea6daf47a7745e5f8f186dad>,
 `https://github.com/edge-toolkit/core/actions/runs/28923326008/job/85829470834` (the failure is OS-agnostic --
 any cold/contended runner, macOS included, can hit it). Fix applied: `wait_for_relayed_span` now polls ~120s
 (`Fixed::from_millis(250).take(480)`) instead of ~30s, which the poll exits the instant the span lands so the
@@ -965,7 +976,9 @@ When adding a `cargo:` tool that must work on Windows, declare it in `.mise/conf
 msvc override so binstall fetches the msvc prebuilt (an msvc binary runs fine on the gnullvm host -- the target only
 affects what the tool links, not what executes it):
 
-    "cargo:<name>" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+```text
+"cargo:<name>" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+```
 
 First confirm an msvc prebuilt actually exists for that `<name>@<version>` -- check cargo-quickinstall's release
 tags for `<name>-<version>-x86_64-pc-windows-msvc.tar.gz` -- then add the tool to
@@ -978,8 +991,10 @@ As of mise 2026.7.1 the `cargo:` backend is broken on the Windows lane in a furt
 fails to execute, so the source-build fallbacks above never even get a chance. `cargo:open` (a low-dep pure-Rust
 opener with no prebuilt anywhere) surfaced it:
 
-    mise ERROR Failed to install cargo:open@latest: failed to execute command: <mise>\shims\cargo-binstall
-    -y open@5.3.6 --locked --root <mise>\installs\cargo-open\5.3.6: %1 is not a valid Win32 application. (os error 193)
+```text
+mise ERROR Failed to install cargo:open@latest: failed to execute command: <mise>\shims\cargo-binstall
+-y open@5.3.6 --locked --root <mise>\installs\cargo-open\5.3.6: %1 is not a valid Win32 application. (os error 193)
+```
 
 os error 193 is ERROR_BAD_EXE_FORMAT -- the staged cargo-binstall is not a runnable Win32 image (a mise
 install-path / shim fault, not an `open`-specific one), so right now no `cargo:` tool installs on Windows at all.
@@ -1060,6 +1075,7 @@ pattern is the same for every cache entry; copy the `rustpython` / `augeas` / `d
 5. **Asset metadata source of truth: `config/upstream-cache/data.toml`.**
    Every tarball / wheel / model file fetched from one of our releases
    (or from any upstream URL) gets an `[asset."<filename>"]` table:
+
    ```toml
    [asset."<asset-filename>"]
    sha256   = "<sha256-hex>"   # may be "" while bootstrapping a new entry
@@ -1067,6 +1083,7 @@ pattern is the same for every cache entry; copy the `rustpython` / `augeas` / `d
    upstream = "<upstream project URL>"
    license  = "<SPDX expression>"
    ```
+
    The matching `.mise/config*.toml` `[vars]` block defines a
    `<name>_asset` var pointing at the same filename (so the fetch
    command, the integrity check, and the metadata table share one
@@ -1119,7 +1136,7 @@ not as a repo-wide var-prefix.
 One transient class that hits the `cargo fetch` path specifically: libcurl's `[16] Error in the HTTP2 framing layer`
 during a `https://crates.io` download. Captured example:
 `https://github.com/edge-toolkit/core/actions/runs/27900771461/job/82560594632`
-on commit https://github.com/edge-toolkit/core/commit/6e4c0030a830e4f8e6b15381cb5c2fbf481af704 --
+on commit <https://github.com/edge-toolkit/core/commit/6e4c0030a830e4f8e6b15381cb5c2fbf481af704> --
 `asyncapi-rust-codegen` download bailed with `curl failed` ->
 `[16] Error in the HTTP2 framing layer`.
 

@@ -91,6 +91,12 @@ max_line_length = unset
 [generated/dart-rest/**]
 max_line_length = unset
 
+# vimanam and the AsyncAPI markdown template render each spec's fields, parameters and payloads as Markdown table
+# rows, and a table row cannot wrap: the Markdown formatter then pads every column to its widest cell. Only the two
+# rendered spec references are exempt; everything else under generated/specs/ keeps the limit.
+[generated/specs/{rest,ws}.md]
+max_line_length = unset
+
 [config/upstream-cache/data.toml]
 max_line_length = 200
 
