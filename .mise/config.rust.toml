@@ -69,7 +69,7 @@ shell = "{{ vars.task_shell }}"
 description = "Build the no_std crates for a bare-metal target"
 run = """
 features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server
-set -- -p et-org -p edge-toolkit -p et-ws-service -p et-ws-server
+set -- -p et-org -p edge-toolkit -p et-ws-service -p et-ws-server -p et-ws-wasi-runner
 cargo build --lib --target thumbv8m.main-none-eabihf --no-default-features --features "$features" "$@"
 """
 shell = "{{ vars.task_shell }}"

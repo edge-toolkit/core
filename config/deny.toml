@@ -199,6 +199,40 @@ ignore = [
   # newest release. It runs at compile time inside that macro and reports its errors; none of it is in the firmware.
   # Drop this when pio-proc leaves it.
   { id = "RUSTSEC-2026-0173", reason = "expires 2026-11-13" },
+  # The npm: AsyncAPI generator tools -- the entries below share one setting, so it is described once, here.
+  # @asyncapi/generator 3.5.0 and @asyncapi/markdown-template 2.0.0 are the newest releases, and every fix is a major
+  # version past a range one of them or their dependencies requires, so no reinstall reaches any of them. They run
+  # only in `gen:ws-md`, a developer-time render of generated/specs/ws.yaml -- a spec this repo generates from its
+  # own Rust types -- through the template's local install path, so every input is ours, nothing is fetched or
+  # cloned, and neither tool is shipped or reachable from a deployment.
+  #
+  # @babel/core 7.12.9 reads any source map named by a sourceMappingURL in the code it compiles, fixed in 7.29.6.
+  # @asyncapi/generator-react-sdk 1.1.3 pins it by equality. It compiles only the template's own JSX.
+  { id = "GHSA-4x5r-pxfx-6jf8", reason = "expires 2026-11-13" },
+  # simple-git 3.36.0 and its @simple-git/argv-parser 1.1.1 have gaps in their unsafe-operations guard.
+  # It misses `VISUAL`, abbreviated long options, `include.path` and `trailer.<token>.cmd`, fixed in simple-git 4,
+  # and the generator requires ^3.36.0. All four need attacker-controlled git arguments or config, and the generator
+  # reaches git only to clone a template named by a remote URL, which `gen:ws-md` never passes.
+  { id = "GHSA-858h-whjf-mvg5", reason = "expires 2026-11-13" },
+  { id = "GHSA-g4wm-2vf7-vfgr", reason = "expires 2026-11-13" },
+  { id = "GHSA-v5rq-49vh-5v5c", reason = "expires 2026-11-13" },
+  { id = "GHSA-x6jw-m9v5-85vh", reason = "expires 2026-11-13" },
+  # ajv 5.5.2 and 6.5.2: ReDoS through a `$data` pattern, and prototype pollution from a crafted schema.
+  # Pulled by json-schema-migrate 0.2.0 and webapi-parser 0.5.0 under the generator's parser stack; both need an
+  # attacker-supplied schema or instance, and the only schema validated here is our own spec.
+  { id = "GHSA-2g4f-4pwh-qvx6", reason = "expires 2026-11-13" },
+  { id = "GHSA-v88g-cgmw-v5xw", reason = "expires 2026-11-13" },
+  # jsonpath-plus 7.2.0 code execution through a crafted JSONPath expression, fixed in 10.3.0.
+  # Pulled by the parser 1.x and 2.x copies @asyncapi/multi-parser bundles for old spec versions. The expressions
+  # come from the parser's own rulesets and our spec, never from an untrusted source.
+  { id = "GHSA-hw8r-x6gr-5gjp", reason = "expires 2026-11-13" },
+  { id = "GHSA-pppg-cpfq-h7wr", reason = "expires 2026-11-13" },
+  # glob 10.5.0 / 13.0.6 and minimatch 3.1.5 / 9.0.9 / 10.2.6 can be made to do excess work.
+  # glob keeps walking after its AbortSignal fires, and minimatch amplifies a crafted pattern. Both are fixed only in
+  # new majors that @npmcli and @stoplight require below. Each costs time only, and only for a caller that aborts a
+  # walk or matches an attacker's pattern; the patterns here are fixed.
+  { id = "GHSA-3g3m-2fjr-6pw4", reason = "expires 2026-11-13" },
+  { id = "GHSA-g3hv-75wg-m249", reason = "expires 2026-11-13" },
 ]
 
 [licenses]

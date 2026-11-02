@@ -1,18 +1,12 @@
-//! Error conversions for the runner's host impls.
+//! Error conversions for the runner's std host impls: from its HTTP client and its websocket.
 
 use crate::bindings::et::ws_wasi::ws::WsError;
 use crate::bindings::wasi::keyvalue::store::Error as KvError;
 
 /// Conversions into `wasi:keyvalue/store`'s `error.other(message)` variant.
 ///
-/// One impl per concrete source type: the resource table, the REST client's byte stream, and its
-/// request errors are the only things the `keyvalue` host impls can fail on.
-impl From<wasmtime::component::ResourceTableError> for KvError {
-    fn from(err: wasmtime::component::ResourceTableError) -> Self {
-        Self::Other(err.to_string())
-    }
-}
-
+/// One impl per concrete source type: the REST client's byte stream and its request errors are what the
+/// `keyvalue` host impls can fail on besides the resource table.
 impl From<reqwest::Error> for KvError {
     fn from(err: reqwest::Error) -> Self {
         Self::Other(err.to_string())
@@ -23,13 +17,6 @@ impl From<et_rest_client::Error<()>> for KvError {
     fn from(err: et_rest_client::Error<()>) -> Self {
         Self::Other(err.to_string())
     }
-}
-
-/// Build a `wasi:keyvalue/store.error.other("<op> not implemented")`.
-/// That is the closest thing the WIT-spec enum has to a `NotImplemented` variant.
-#[must_use]
-pub fn kv_not_implemented(operation: &str) -> KvError {
-    KvError::Other(format!("{operation} not implemented"))
 }
 
 /// Maps a `tokio_tungstenite::tungstenite::Error` into a typed `WsError`.
@@ -52,25 +39,6 @@ impl From<tokio_tungstenite::tungstenite::Error> for WsError {
             Tungstenite::ConnectionClosed | Tungstenite::AlreadyClosed => Self::NotConnected,
             _ => Self::Transport(err.to_string()),
         }
-    }
-}
-
-impl From<serde_json::Error> for WsError {
-    fn from(err: serde_json::Error) -> Self {
-        Self::Decode(err.to_string())
-    }
-}
-
-impl From<serde_path_to_error::Error<serde_json::Error>> for WsError {
-    fn from(err: serde_path_to_error::Error<serde_json::Error>) -> Self {
-        Self::Decode(err.to_string())
-    }
-}
-
-/// A guest event `time` that is not an RFC 3339 timestamp cannot be encoded onto the wire.
-impl From<chrono::ParseError> for WsError {
-    fn from(err: chrono::ParseError) -> Self {
-        Self::Decode(err.to_string())
     }
 }
 
