@@ -320,32 +320,6 @@ subjects:
     namespace: et-pyo3-math1-recovery
 ---
 apiVersion: v1
-kind: ConfigMap
-data:
-  kubeconfig: |
-    apiVersion: v1
-    clusters:
-    - cluster:
-        certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        server: https://kubernetes.default.svc
-      name: cluster
-    contexts:
-    - context:
-        cluster: cluster
-        namespace: et-pyo3-math1-recovery
-        user: supervisor
-      name: in-cluster
-    current-context: in-cluster
-    kind: Config
-    users:
-    - name: supervisor
-      user:
-        tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-metadata:
-  name: recovery-credentials
-  namespace: et-pyo3-math1-recovery
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: recovery-state
@@ -379,14 +353,10 @@ spec:
       automountServiceAccountToken: true
       containers:
         - env:
-            - name: KUBECONFIG
-              value: /app/credentials/kubeconfig
             - name: RECOVERY_AGENT_ID
               value: recovery-supervisor
             - name: RECOVERY_COMMAND_TIMEOUT_SECONDS
               value: "10"
-            - name: RECOVERY_CONTEXT
-              value: in-cluster
             - name: RECOVERY_JOB_ID
               value: example-job
             - name: RECOVERY_MODE
@@ -458,8 +428,6 @@ spec:
               name: recovery-state
             - mountPath: /app/runtime
               name: recovery-runtime
-            - mountPath: /app/credentials
-              name: recovery-credentials
       securityContext:
         fsGroup: 10001
         runAsGroup: 10001
@@ -474,6 +442,3 @@ spec:
             claimName: recovery-state
         - emptyDir: {}
           name: recovery-runtime
-        - configMap:
-            name: recovery-credentials
-          name: recovery-credentials

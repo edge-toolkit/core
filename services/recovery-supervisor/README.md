@@ -43,8 +43,8 @@ recovery:
 ```
 
 Generate and deploy the scenario using the normal CLI workflow. The output includes the supervisor Deployment,
-`RECOVERY_*` settings, ServiceAccount, named-Deployment Role and RoleBinding, projected-token kubeconfig and persistent
-state claim. Observe-only grants `get`; controller-assisted also grants `patch`. No host kubeconfig is mounted.
+`RECOVERY_*` settings, ServiceAccount, named-Deployment Role and RoleBinding, and persistent state claim. Observe-only
+grants `get`; controller-assisted also grants `patch`. No kubeconfig is mounted: kubectl uses the pod's service account.
 The generated README includes image preparation and deployment commands. Recovery currently requires k3s output;
 other formats are rejected rather than silently omitting supervision. Optional `recovery.limits` uses the standard
 scenario resource-limit fields.
@@ -88,16 +88,15 @@ health check. A replacement restores recovery context, retaining an explicit gap
 ## Standalone example
 
 The binary reads environment settings through serde-env and takes no configuration-file argument. Supply real identities
-and a surviving state directory, then start it separately from the application:
+and a surviving state directory, then start it in its own pod, separately from the application:
 
 ```sh
 export RECOVERY_AGENT_ID=recovery-supervisor
-export RECOVERY_WS_URL=ws://127.0.0.1:8080/ws
-export RECOVERY_CONTEXT=k3d-example
+export RECOVERY_WS_URL=ws://ws-server:8080/ws
 export RECOVERY_NAMESPACE=example
 export RECOVERY_JOB_ID=example-job
 export RECOVERY_MODE=observe-only
-export RECOVERY_STATE_FILE=target/recovery-state.json
+export RECOVERY_STATE_FILE=/app/state/recovery.json
 export RECOVERY_POLL_SECONDS=2
 export RECOVERY_COMMAND_TIMEOUT_SECONDS=10
 export RECOVERY_POLICY_DETECTION_GRACE_SECONDS=3
@@ -108,11 +107,14 @@ export RECOVERY_POLICY_MAX_RESTARTS=2
 export RECOVERY_WORKLOADS='[
   {"deployment":"example-worker","agent_id":"example-worker","source":"/modules/example-worker"}
 ]'
-mise run recovery-supervisor
+et-recovery-supervisor
 ```
 
-`kubectl` must be on PATH with credentials for the explicitly configured context. Standalone startup does not apply
-deployment manifests. The state directory must already exist and survive supervisor restarts.
+`kubectl` must be on PATH. The supervisor passes it no context, so kubectl uses its in-cluster service-account
+credentials: run the supervisor in a pod whose ServiceAccount has the permissions below. Startup is refused unless
+`KUBERNETES_SERVICE_HOST` and `KUBERNETES_SERVICE_PORT` are set, as kubelet sets them in every pod, and refused when
+`KUBECONFIG` is set or `$HOME/.kube/config` exists, since kubectl would prefer either to the service account. Standalone
+startup does not apply deployment manifests. The state directory must already exist and survive supervisor restarts.
 
 `RECOVERY_WORKLOADS` is a JSON array of objects with `deployment`, `agent_id`, and `source` fields. It remains an array
 for a single workload. The loader explicitly decodes this JSON; malformed entries and unknown workload fields fail

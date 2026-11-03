@@ -93,7 +93,6 @@ fn generates_valid_supervisor_settings_and_scoped_in_cluster_credentials() {
     let env = environment(deployment);
     let config: EnvConfig = serde_env::from_iter(env).unwrap();
     config.recovery.validate().unwrap();
-    assert_eq!(config.recovery.context, "in-cluster");
     assert_eq!(config.recovery.mode, Mode::ObserveOnly);
     assert_eq!(config.recovery.namespace, "et-pyo3-math1-recovery");
     assert_eq!(config.recovery.workloads[0].deployment, "example-worker");
@@ -108,16 +107,29 @@ fn generates_valid_supervisor_settings_and_scoped_in_cluster_credentials() {
     let binding = object(&objects, "RoleBinding", "recovery-supervisor");
     assert_eq!(binding["roleRef"]["kind"], "Role");
     assert_eq!(binding["subjects"][0]["namespace"], "et-pyo3-math1-recovery");
-    let credentials = object(&objects, "ConfigMap", "recovery-credentials")["data"]["kubeconfig"]
-        .as_str()
-        .unwrap();
-    let kubeconfig: Value = serde_yaml::from_str(credentials).unwrap();
-    assert_eq!(kubeconfig["current-context"], "in-cluster");
-    assert_eq!(
-        kubeconfig["users"][0]["user"]["tokenFile"],
-        "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    assert!(
+        !objects
+            .iter()
+            .any(|object| object_name(object).starts_with("recovery-") && object["kind"] == "ConfigMap")
     );
-    assert!(kubeconfig["users"][0]["user"]["token"].is_null());
+    let pod = &deployment["spec"]["template"]["spec"];
+    assert_eq!(pod["automountServiceAccountToken"].as_bool(), Some(true));
+    assert!(
+        pod["containers"][0]["env"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|item| item["name"] != "KUBECONFIG")
+    );
+    assert_eq!(
+        pod["containers"][0]["volumeMounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["mountPath"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["/app/state", "/app/runtime"]
+    );
     assert!(
         !objects
             .iter()

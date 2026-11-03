@@ -1,5 +1,6 @@
 //! Namespace-scoped Kubernetes operations; targets come only from validated operator configuration.
 
+use std::path::Path;
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -17,7 +18,54 @@ pub trait Backend: Send {
     fn restart(&mut self, workload: &Workload) -> impl Future<Output = Result<(), RecoveryError>> + Send;
 }
 
-/// Kubernetes backend using the installed kubectl credentials and an explicit context and namespace.
+/// The environment that decides whether kubectl uses the pod's service account or a kubeconfig.
+#[derive(Debug, Deserialize)]
+#[non_exhaustive]
+pub struct Pod {
+    /// `HOME`, whose `.kube/config` kubectl reads when `KUBECONFIG` is unset.
+    #[serde(default)]
+    home: String,
+    /// `KUBECONFIG`, which kubectl reads in preference to the service account.
+    #[serde(default)]
+    kubeconfig: String,
+    /// `KUBERNETES_SERVICE_HOST`, unset outside a pod.
+    #[serde(default)]
+    kubernetes_service_host: String,
+    /// `KUBERNETES_SERVICE_PORT`, unset outside a pod.
+    #[serde(default)]
+    kubernetes_service_port: String,
+}
+
+impl Pod {
+    /// Refuse to supervise unless kubectl will use the pod's service account, as no context pins it to one cluster.
+    pub fn validate(&self) -> Result<(), RecoveryError> {
+        if self.kubernetes_service_host.is_empty() || self.kubernetes_service_port.is_empty() {
+            return Err(RecoveryError::Invalid(
+                concat!(
+                    "refusing to start outside a pod: KUBERNETES_SERVICE_HOST or KUBERNETES_SERVICE_PORT is unset, ",
+                    "so kubectl would use the current kubeconfig context rather than the pod's service account",
+                )
+                .into(),
+            ));
+        }
+        if !self.kubeconfig.is_empty() {
+            return Err(RecoveryError::Invalid(
+                "refusing to start: kubectl would use KUBECONFIG rather than the pod's service account".into(),
+            ));
+        }
+        // A path that cannot be checked is let through: kubectl then fails to read it rather than reaching a cluster.
+        let home_kubeconfig = Path::new(&self.home).join(".kube").join("config");
+        if home_kubeconfig.exists() {
+            return Err(RecoveryError::Invalid(format!(
+                "refusing to start: kubectl would use {} rather than the pod's service account",
+                home_kubeconfig.display()
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Kubernetes backend using kubectl's in-cluster service-account credentials and the configured namespace.
 #[derive(Debug)]
 pub struct Kubernetes {
     config: Config,
@@ -30,7 +78,7 @@ impl Kubernetes {
         Ok(Self { config })
     }
 
-    /// Execute kubectl directly, without shell interpolation, bounding both the API request and child lifetime.
+    /// Execute kubectl directly, without shell interpolation, bounding the child's lifetime.
     pub async fn execute(&self, workload: &Workload, arguments: &[&str]) -> Result<Vec<u8>, RecoveryError> {
         let supervised = self
             .config
@@ -44,14 +92,12 @@ impl Kubernetes {
         }
         let target = format!("deployment/{}", workload.deployment);
         let mut command = Command::new("kubectl");
+        // Only the namespace is overridden; the process deadline below bounds the request instead of a flag.
+        // kubectl falls back to its in-cluster credentials only while the client config it built equals the bare
+        // default, and `--request-timeout` is part of that config, so with it every request in a pod went to
+        //   The connection to the server localhost:8080 was refused - did you specify the right host or port?
         let _command = command
-            .args([
-                "--context",
-                &self.config.context,
-                "--namespace",
-                &self.config.namespace,
-                "--request-timeout=5s",
-            ])
+            .args(["--namespace", &self.config.namespace])
             .args(arguments)
             .arg(target);
         let output =

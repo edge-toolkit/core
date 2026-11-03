@@ -17,6 +17,7 @@ name: k3s
       - .github/actions/add-swap/**
       - .github/actions/free-disk-space/**
       - .github/actions/install-mise-tools/**
+      - .github/actions/k3s-scenario/**
       - .github/workflows/k3s.yaml
       # The `k3s-verify` task itself lives here.
       # A change to it must re-trigger this job rather than letting an edit to the verification steps ship
@@ -52,6 +53,13 @@ name: k3s
       - verification/published/input/math1-multi.yaml
       - verification/published/output/math1-multi/Dockerfile
       - verification/published/output/math1-multi/k3s.yaml
+      # What the `recovery` job builds and applies: the supervisor and how it reaches the API, its runner target.
+      - services/recovery-supervisor/**
+      - services/ws-pyo3-runner/Dockerfile
+      - utilities/cli/src/recovery.rs
+      - verification/local/input/pyo3-math1-recovery.yaml
+      - verification/local/output/pyo3-math1-recovery/Dockerfile
+      - verification/local/output/pyo3-math1-recovery/k3s.yaml
   workflow_dispatch:
 
 permissions:
@@ -175,6 +183,29 @@ jobs:
         env:
           CARGO_NET_RETRY: "5"
         run: mise run compose-verify --scenario math1-limits
+
+  # The recovery supervisor reaching the Kubernetes API through its pod's service account, with no kubeconfig.
+  # Only a live pod has that service account, so no unit test can show it. Its own job, so its three release image
+  # builds -- the hub, the native-Python runner and the supervisor -- run beside `verify` rather than after it.
+  # The scenario's one module is committed Python source, so nothing is built before the images.
+  recovery:
+    runs-on: ubuntu-latest
+    # Read-only pull of the maintainer-published ghcr.io mise-tools store, as in `verify`.
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify the recovery scenario
+        uses: $/.github/actions/k3s-scenario
+        with:
+          scenario: pyo3-math1-recovery
 
   # Whether what is on crates.io and GitHub Packages actually runs, which no other job asks.
   # Every sibling check reads this working tree; this one installs the released hub, runner and module packages

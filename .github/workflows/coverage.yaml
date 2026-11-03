@@ -42,12 +42,12 @@ jobs:
           - os: ubuntu-latest
             os_flag: linux
             timeout: 150
-          # Longer than the Linux lane, despite doing less.
+          # As long as the Linux lane, despite doing less.
           # The macOS runners are slower per-core, and this one still pays the full instrumented rebuild even
           # though it skips the wasm/browser steps.
           - os: macos-latest
             os_flag: macos
-            timeout: 180
+            timeout: 150
     env:
       MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig,coverage
       ET_TEST_COVERAGE: "true"

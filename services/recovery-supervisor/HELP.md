@@ -16,12 +16,6 @@ Type: integer. Required.
 
 Bound on each kubectl process, including credential-plugin execution.
 
-### `RECOVERY_CONTEXT`
-
-Type: string. Required.
-
-Explicit Kubernetes context; never relies on the operator's current context.
-
 ### `RECOVERY_JOB_ID`
 
 Type: string. Required.

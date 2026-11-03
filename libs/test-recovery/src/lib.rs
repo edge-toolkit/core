@@ -24,9 +24,12 @@ pub fn config() -> Config {
 #[must_use]
 pub fn environment() -> BTreeMap<String, String> {
     let values = [
+        // Kubelet sets these in every pod, and the supervisor refuses to start without them.
+        ("KUBERNETES_SERVICE_HOST", "10.43.0.1"),
+        ("KUBERNETES_SERVICE_PORT", "443"),
+        ("KUBERNETES_SERVICE_PORT_HTTPS", "443"),
         ("RECOVERY_AGENT_ID", "recovery-supervisor"),
         ("RECOVERY_COMMAND_TIMEOUT_SECONDS", "10"),
-        ("RECOVERY_CONTEXT", "k3d-example"),
         ("RECOVERY_JOB_ID", "example-job"),
         ("RECOVERY_MODE", "observe-only"),
         ("RECOVERY_NAMESPACE", "example"),

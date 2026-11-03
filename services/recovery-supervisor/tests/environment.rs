@@ -2,7 +2,9 @@
 #![cfg(test)]
 
 use et_recovery_supervisor::config::{Config, EnvConfig, Mode};
+use et_recovery_supervisor::kubernetes::Pod;
 use et_test_recovery::environment;
+use fs_err as fs;
 
 /// Keep recovery opt-in while allowing unrelated service settings in the process environment.
 #[test]
@@ -79,7 +81,7 @@ fn malformed_environment_values_and_missing_fields_fail_deserialization() {
 fn parsed_environment_still_requires_semantic_validation() {
     for (key, value) in [
         ("RECOVERY_WORKLOADS", "[]"),
-        ("RECOVERY_CONTEXT", "-unsafe"),
+        ("RECOVERY_NAMESPACE", "-unsafe"),
         ("RECOVERY_POLICY_DEADLINE_SECONDS", "1"),
         ("RECOVERY_POLL_SECONDS", "0"),
     ] {
@@ -88,6 +90,55 @@ fn parsed_environment_still_requires_semantic_validation() {
         let parsed: EnvConfig = serde_env::from_iter(values).unwrap();
         assert!(parsed.recovery.validate().is_err(), "{key}");
     }
+}
+
+/// Accept the API-service variables kubelet sets in a pod, and refuse to supervise when either is missing.
+#[test]
+fn supervision_requires_both_api_service_variables_a_pod_has() {
+    let pod: Pod = serde_env::from_iter(environment()).unwrap();
+    pod.validate().unwrap();
+    for key in ["KUBERNETES_SERVICE_HOST", "KUBERNETES_SERVICE_PORT"] {
+        let mut values = environment();
+        let _removed = values.remove(key);
+        let pod: Pod = serde_env::from_iter(values).unwrap();
+        assert!(pod.validate().unwrap_err().to_string().contains("outside a pod"));
+    }
+}
+
+/// Refuse a kubeconfig kubectl would prefer to the service account, whether named or in the home directory.
+#[test]
+fn supervision_refuses_a_kubeconfig_that_kubectl_would_prefer() {
+    let home = tempfile::tempdir().unwrap();
+    let mut values = environment();
+    let _previous = values.insert("HOME".into(), home.path().to_str().unwrap().into());
+    let pod: Pod = serde_env::from_iter(values.clone()).unwrap();
+    pod.validate().unwrap();
+    let mut named = values.clone();
+    let _previous = named.insert("KUBECONFIG".into(), "kubeconfig.yaml".into());
+    let pod: Pod = serde_env::from_iter(named).unwrap();
+    assert!(pod.validate().unwrap_err().to_string().contains("KUBECONFIG"));
+    let directory = home.path().join(".kube");
+    fs::create_dir(&directory).unwrap();
+    fs::write(directory.join("config"), "").unwrap();
+    let pod: Pod = serde_env::from_iter(values).unwrap();
+    assert!(pod.validate().unwrap_err().to_string().contains(".kube"));
+}
+
+/// Refuse to start outside a pod before creating state, even when every recovery setting is valid.
+#[test]
+fn binary_refuses_to_start_outside_a_pod() {
+    let directory = tempfile::tempdir().unwrap();
+    let state = directory.path().join("state.json");
+    // Raw output is intentional: rejection before any external action is the outcome under test.
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_et-recovery-supervisor"))
+        .envs(environment())
+        .env("RECOVERY_STATE_FILE", &state)
+        .env_remove("KUBERNETES_SERVICE_HOST")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stderr).unwrap().contains("outside a pod"));
+    assert!(!state.exists());
 }
 
 /// Fail startup before writing state when environment configuration is incomplete.

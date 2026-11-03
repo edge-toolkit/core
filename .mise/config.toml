@@ -804,6 +804,8 @@ toml_files = "git ls-files -z --cached --others --exclude-standard '*.toml'"
 task_shell_trace = 'bash -xeuo pipefail "{{ config_root }}/.mise/task-shell.sh"'
 # Unguarded variant, for a body that checks its own exit codes and must not abort on the first failure.
 task_shell_plain = 'bash "{{ config_root }}/.mise/task-shell.sh"'
+# A yq program printing every image a k3s manifest names without a registry: the ones this repository builds.
+k3s_local_images = '.. | select(tag == "!!map" and has("image")) | .image | select(test("/") | not)'
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
 o2_image = "openobserve/openobserve:v1.1.2"
 # Port publish spec for that task, bound to loopback rather than every interface.
@@ -1906,17 +1908,22 @@ shell = "{{ vars.task_shell }}"
 # stands up a throwaway k3s cluster (k3d runs one in Docker, so no root and no systemd), applies the scenario,
 # and asserts the twin stored the same model the mise and compose deployments are held to.
 #
-# The images are the caller's to build: they come from this repository rather than a registry, and building
-# them dwarfs the run itself, so a missing one fails immediately rather than starting a deployment whose pods
-# can only sit in ErrImagePull. Deliberately not part of the `check` aggregate -- it needs Docker and those
-# images, which no other check does.
+# The images are the caller's to build, with `k3s-images`: they come from this repository rather than a
+# registry, and building them dwarfs the run itself, so a missing one fails immediately rather than starting a
+# deployment whose pods can only sit in ErrImagePull. Deliberately not part of the `check` aggregate -- it needs
+# Docker and those images, which no other check does.
+#
+# A scenario with a `recovery:` block has no math1 exchange, so what it is held to instead is the supervisor's
+# own access to the cluster. Its rollout completes only once a supervision cycle has, and every cycle asks the
+# API about each workload through the pod's service account. A refused or unreachable request does not stop the
+# cycle; it is counted in the report's `unknown_observations`, so that count staying at zero is the assertion.
 #
 # `--scenario` picks another math1-shaped scenario. One that names machines gets a k3d node per machine, the
 # first as the server and the rest as agents, each carrying the node label the manifests pin its pods to, and
 # the run then checks every pod landed on its own machine's node. k3d's nodes are full k3s nodes joined to the
 # server by token, so the scheduling and the cross-node traffic are real even though one host runs them all.
 [tasks.k3s-verify]
-description = "Apply a generated math1 scenario's k3s manifests to a throwaway cluster and verify the stored model"
+description = "Apply a generated scenario's k3s manifests to a throwaway cluster and verify the deployment works"
 run = """
 scenario="${usage_scenario:-math1}"
 source="${usage_source:-local}"
@@ -1925,6 +1932,7 @@ cluster="et-$scenario-verify"
 out="verification/$source/output/$scenario"
 input="verification/$source/input/$scenario.yaml"
 hub_image="et-ws-server-$scenario:latest"
+recovery=$(yq '.recovery != null' "$input")
 manifest_wait=300s
 machine_label=edge-toolkit/machine
 # One name per line; each is an RFC 1123 label, so the unquoted word-splitting loops over it below are safe.
@@ -1950,13 +1958,16 @@ if [ "$source" = "published" ]; then
   # on https://github.com/edge-toolkit/core/commit/bf8e71a0565e58c8fabb4d53640970eb181c5726 at
   # https://github.com/edge-toolkit/core/actions/runs/41288288633/job/124794004602, the first ubuntu-26.04 runners.
   printf 'FROM %s\\n' "$runner_image" | docker build --provenance=false -t "$runner_image" -
+  images="$hub_image $runner_image"
 else
-  runner_image="et-ws-web-runner:latest"
+  # The hub, each runner kind and a recovery supervisor are whichever the manifest names, so none is assumed.
+  images=$(yq -N '{{ vars.k3s_local_images }}' "$out/k3s.yaml" | coreutils sort -u)
 fi
 
-for image in "$hub_image" "$runner_image"; do
+# Word-split on purpose: an image reference holds no whitespace.
+for image in $images; do
   if ! docker image inspect "$image" >/dev/null 2>&1; then
-    echo "k3s-verify: $image is not built; $out/README.md has the build and import steps" >&2
+    echo "k3s-verify: $image is not built; $out/README.md has the steps, or for a local scenario, k3s-images" >&2
     exit 1
   fi
 done
@@ -1995,7 +2006,7 @@ trap 'status=$?;
   k3d cluster delete "$cluster" >/dev/null 2>&1 || true
   coreutils rm -rf "$secrets_dir"' EXIT
 
-cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir"
+cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir" --output-type k3s
 
 # The first machine is the server node and every other one an agent.
 # Each is labelled as the README's join commands label them. A scenario naming no machines gets no flags, which
@@ -2042,13 +2053,15 @@ for _ in $(coreutils seq 1 60); do
 done
 kubectl wait --for=condition=Ready node --all --timeout="$manifest_wait"
 # `k3d image import` loads every node, so a pod finds its image whichever machine it is pinned to.
-k3d image import -c "$cluster" "$hub_image" "$runner_image"
-# Every node is checked for both, since the import reports success even when a node's containerd drops an image.
+# $images is a word-split list of references by design; do not quote it.
+# shellcheck disable=SC2086
+k3d image import -c "$cluster" $images
+# Every node is checked for each, since the import reports success even when a node's containerd drops an image.
 # k3d names each node's container as Kubernetes names the node, and a bare image name is docker.io's library one.
 for node in $(kubectl get nodes -o name); do
   node=${node#node/}
   held=$(docker exec "$node" ctr -n k8s.io images ls -q)
-  for image in "$hub_image" "$runner_image"; do
+  for image in $images; do
     case "$image" in
       */*) ref=$image ;;
       *) ref="docker.io/library/$image" ;;
@@ -2071,9 +2084,26 @@ if [ -n "$other_hubs" ]; then
     deployments="$deployments ws-server-$machine"
   done
 fi
+if [ "$recovery" = true ]; then
+  # The supervisor's report counts failed API requests, not unready workloads, so each workload is rolled out too.
+  deployments="$deployments recovery-supervisor $(yq '.recovery.workloads[].deployment' "$input")"
+fi
 for deployment in $deployments; do
   kubectl rollout status "deploy/$deployment" -n "$ns" --timeout="$manifest_wait"
 done
+
+if [ "$recovery" = true ]; then
+  # The supervisor image's own `cat` reads its state file; no mise-managed coreutils exists there.
+  # nosemgrep: config.semgrep.mise-task-coreutils-prefix
+  report=$(kubectl exec -n "$ns" deploy/recovery-supervisor -- cat /app/state/recovery.json)
+  unknown=$(printf '%s' "$report" | jaq '.unknown_observations')
+  if [ "$unknown" != 0 ]; then
+    echo "k3s-verify: $unknown supervisor requests to the Kubernetes API failed" >&2
+    kubectl logs -n "$ns" deploy/recovery-supervisor --tail=40 >&2 || true
+    exit 1
+  fi
+  exit 0
+fi
 
 # The runners restart until the hub answers, so the model is what says the exchange ran -- not pod readiness.
 #
@@ -2153,7 +2183,34 @@ done
 shell = "{{ vars.task_shell }}"
 usage = """
 arg "[source]" help="Which verification tree to apply: local (default) or published"
-flag "--scenario <scenario>" help="Which math1-shaped scenario to apply" default="math1"
+flag "--scenario <scenario>" help="Which math1-shaped or recovery scenario to apply" default="math1"
+"""
+
+# Build every image a local scenario's k3s manifest names from this repository, so `k3s-verify` can apply it.
+# The hub image comes first because the scenario image takes it as the `hub` named build context. Every other
+# image is `et-<service>`, built from `services/<service>/Dockerfile`. The scenario image stages its modules'
+# built `pkg/` directories, so a module that needs building must be built beforehand.
+[tasks.k3s-images]
+description = "Build the images a local scenario's k3s manifests name"
+# docker is a host daemon rather than a mise tool, and these images install nothing through mise.
+run = """
+scenario="${usage_scenario:-math1}"
+out="verification/local/output/$scenario"
+hub=et-ws-server-hub:latest
+scenario_image="et-ws-server-$scenario:latest"
+docker build -t "$hub" -f services/ws-server/Dockerfile .
+for image in $(yq -N '{{ vars.k3s_local_images }}' "$out/k3s.yaml" | coreutils sort -u); do
+  if [ "$image" = "$scenario_image" ]; then
+    docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$out/Dockerfile" .
+  else
+    name=${image%:*}
+    docker build -t "$image" -f "services/${name#et-}/Dockerfile" .
+  fi
+done
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+flag "--scenario <scenario>" help="Which local scenario's images to build" default="math1"
 """
 
 # End-to-end check that a generated compose deployment runs the math1 exchange, one machine at a time.

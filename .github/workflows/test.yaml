@@ -96,7 +96,7 @@ jobs:
           '{"os":"ubuntu-26.04","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":50}',
           '{"os":"macos-latest","timeout":75}',
-          '{"os":"macos-26-intel","timeout":225,"install_timeout":120}',
+          '{"os":"macos-26-intel","timeout":150,"install_timeout":120}',
           '{"os":"windows-latest","timeout":120}',
           '{"os":"windows-11-arm","timeout":60}'
           )
@@ -105,7 +105,7 @@ jobs:
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":50}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":75}]'
           || github.event.inputs.os == 'macos-26-intel'
-          && '[{"os":"macos-26-intel","timeout":225,"install_timeout":120}]'
+          && '[{"os":"macos-26-intel","timeout":150,"install_timeout":120}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
@@ -199,11 +199,11 @@ jobs:
       packages: read
       id-token: write
     runs-on: windows-latest
-    # Covers the step ceilings this job declares, which now sum past the old 120.
-    # Install 60 + prefetch 20 + build-modules 25 + tests 55 is 160, so at 120 a slow setup could have the
-    # job cancelled while the test step still had budget left -- the test step's own limit would never apply.
-    # In practice msvc runs ~68m end to end; this only binds when something is already pathological.
-    timeout-minutes: 165
+    # Covers every step ceiling this job declares.
+    # Install 60 + prefetch 15 + build-modules 20 + tests 55 is 150, so a slow setup cannot have the job cancelled
+    # while the test step still has budget left. In practice msvc runs ~68m end to end; this only binds when
+    # something is already pathological.
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -245,7 +245,7 @@ jobs:
           key: portable-msvc-${{ hashFiles('.mise/config.msvc.toml') }}
 
       - name: Prefetch dependencies
-        timeout-minutes: 20
+        timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
@@ -255,7 +255,7 @@ jobs:
         run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
 
       - name: Build WASM modules
-        timeout-minutes: 25
+        timeout-minutes: 20
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules

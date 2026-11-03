@@ -1,0 +1,17 @@
+code: |
+  # Scenario
+
+  <!-- ruleid: no-repo-mentions-in-verification -->
+  Copy this directory into a checkout of the repository.
+
+  <!-- ruleid: no-repo-mentions-in-verification -->
+  Run git pull on each machine first.
+
+  <!-- ruleid: no-repo-mentions-in-verification -->
+  Keep both Checkouts at the same path.
+
+  <!-- ok: no-repo-mentions-in-verification -->
+  The modules are published on GitHub, and `.gitignore` keeps the build output out.
+
+  <!-- ok: no-repo-mentions-in-verification -->
+  Copy this directory to each machine and start that machine's share there.

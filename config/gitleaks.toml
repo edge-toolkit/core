@@ -59,6 +59,7 @@ paths = [
 description = "Untracked artifacts matched by extension rather than location, per .gitignore's file patterns."
 paths = [
   '''\.coverage$''',
+  '''\.local\.md$''',
   '''\.o$''',
   '''\.onnx$''',
   '''\.pem$''',

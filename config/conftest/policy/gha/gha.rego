@@ -217,3 +217,64 @@ deny contains msg if {
 		[name, value, key, count(value), max_matrix_value_len],
 	)
 }
+
+# The longest a job may be given, in minutes.
+max_job_timeout := 150
+
+# Every job must say how long it gets.
+# GitHub's own default for a job with no `timeout-minutes` is 360, so leaving it unset is the longest bound of all.
+# A job that calls a reusable workflow (`uses:`) cannot set one, and is bounded by the jobs inside that workflow.
+deny contains msg if {
+	some name, job in input.jobs
+	not job.uses
+	not job["timeout-minutes"]
+	msg := $"job \"{name}\" sets no timeout-minutes; GitHub would give it 360 (max {max_job_timeout})"
+}
+
+# No job may be given more than 150 minutes.
+# A job past that bound is doing too much for one lane: split it into jobs, which also run in parallel.
+deny contains msg if {
+	some name, job in input.jobs
+	some minutes in job_timeouts(job)
+	minutes > max_job_timeout
+	msg := $"job \"{name}\": timeout-minutes can be {minutes} (max {max_job_timeout}); split the job"
+}
+
+# Every value a job's `timeout-minutes` can take.
+# A literal is itself. An expression is every number literal in it, such as codeql's `&& 60 || 15`; digits inside a
+# quoted string such as `'windows-2022'` or a name such as `matrix.node-18` are not ones it can return. When it
+# reads `matrix.timeout` (or `matrix['timeout']`), it is also every `timeout` the matrix declares at the top level
+# or on an `include` entry: as a scalar or list under that key, or inside a JSON string, as test.yaml's `fromJSON`
+# include is written. `install_timeout` and keys nested deeper are not the job's `timeout`.
+job_timeouts(job) := ({job["timeout-minutes"] |
+	is_number(job["timeout-minutes"])
+} | {to_number(match[1]) |
+	is_string(job["timeout-minutes"])
+	unquoted := regex.replace(job["timeout-minutes"], `'[^']*'`, "''")
+	some match in regex.find_all_string_submatch_n(`(?:^|[^\w.-])(\d+)(?:[^\w.-]|$)`, unquoted, -1)
+}) | matrix_timeouts(job)
+
+matrix_timeouts(job) := {minutes |
+	reads_matrix_timeout(job)
+	walk(object.get(job, ["strategy", "matrix"], {}), [path, value])
+	matrix_timeout_path(path)
+	some minutes in scalar_or_list(value)
+} | {to_number(match[1]) |
+	reads_matrix_timeout(job)
+	walk(object.get(job, ["strategy", "matrix"], {}), [_, value])
+	is_string(value)
+	some match in regex.find_all_string_submatch_n(`"timeout"\s*:\s*(\d+)`, value, -1)
+}
+
+matrix_timeout_path(["timeout"])
+
+matrix_timeout_path(["include", _, "timeout"])
+
+reads_matrix_timeout(job) if {
+	is_string(job["timeout-minutes"])
+	regex.match(`matrix(\.timeout\b|\[\s*'timeout'\s*\])`, job["timeout-minutes"])
+}
+
+scalar_or_list(value) := value if is_array(value)
+
+else := [value]

@@ -1,0 +1,14 @@
+rules:
+  - id: no-repo-mentions-in-verification
+    languages: [generic]
+    paths:
+      include:
+        - "/verification/**/*.md"
+    # Whole words only, so `GitHub` and `.gitignore` are left alone.
+    # Check-only: dropping the word leaves a sentence to be rewritten around it, in the generator that wrote it.
+    pattern-regex: '(?i)\b(?:git|checkouts?)\b'
+    message: >-
+      A scenario's generated docs must not mention git or a checkout. They are read by whoever deploys the
+      scenario, on machines that hold the generated directory and nothing else, so an instruction that assumes the
+      source repository is there is one that reader cannot follow. Change the et-cli text that renders it.
+    severity: ERROR
