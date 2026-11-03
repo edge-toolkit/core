@@ -145,6 +145,55 @@ impl Board {
     }
 }
 
+/// The hardware one machine of a scenario is, which decides what it can run and how its share reaches it.
+///
+/// A board's firmware holds what its build put in it, so a machine naming one takes only the parts that firmware has:
+/// the hub, and the runner kinds that board's firmware hosts. `Unspecified` names no hardware, and is any machine
+/// with mise and this repository's toolchain on it, running its share as the format's own tasks.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
+pub enum Device {
+    /// No hardware named: a machine that runs its share as the format's tasks, as every machine did before devices.
+    #[default]
+    Unspecified,
+    /// The Raspberry Pi Pico 2 W, running the hub as firmware.
+    Pico2,
+    /// An ESP32-C6 board, running the hub as firmware.
+    Esp32c6,
+    /// The Pimoroni Pico Plus 2 W, running the hub and the wasi runners beside it as firmware.
+    #[serde(alias = "pico_plus2")]
+    PicoPlus2,
+}
+
+/// How a machine's share of the scenario is delivered to it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Delivery {
+    /// As the tasks of the deployment format, which the machine runs itself.
+    Tasks,
+    /// As firmware built for the board, loaded onto it.
+    Firmware(Board),
+}
+
+impl Device {
+    /// Whether no hardware is named, which is what a scenario leaving `device:` out means.
+    #[must_use]
+    pub const fn is_unspecified(&self) -> bool {
+        matches!(self, Self::Unspecified)
+    }
+
+    /// How a machine of this device gets its share.
+    #[must_use]
+    pub(crate) const fn delivery(self) -> Delivery {
+        match self {
+            Self::Unspecified => Delivery::Tasks,
+            Self::Pico2 => Delivery::Firmware(Board::Pico2),
+            Self::Esp32c6 => Delivery::Firmware(Board::Esp32c6),
+            Self::PicoPlus2 => Delivery::Firmware(Board::PicoPlus2),
+        }
+    }
+}
+
 impl OutputType {
     /// Every format, in the order a generated README lists their files and run sections.
     ///
@@ -407,6 +456,9 @@ pub struct Machine {
     pub name: String,
     /// The host name or IPv4 address the other machines reach this one at.
     pub address: String,
+    /// The hardware the machine is, from `device:`; unstated, a machine running its share as the format's tasks.
+    #[serde(default, skip_serializing_if = "Device::is_unspecified")]
+    pub device: Device,
     /// Names of the agents that run on this machine.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agents: Vec<String>,

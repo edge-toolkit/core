@@ -1,0 +1,34 @@
+cluster_name: "mixed-hardware"
+deployment_type: "mise"
+
+# The pyo3-math1 exchange split across three kinds of hardware. The server is a Raspberry Pi Pico 2 W, whose firmware
+# runs the hub alone: it has no memory for a runner. The WASI trigger runs on a Pimoroni Pico Plus 2 W, compiled into
+# that board's firmware from its module's component, and reaches the hub across the network. The pyo3 twin needs real
+# CPython, which no board has, so it runs on `edge`, a machine with mise on it. Every exchange goes through the hub's
+# storage, which the Pico 2 W keeps in memory. The boards are named as the hosts they answer to on the network they
+# join, since no board can be loopback.
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+
+  - name: "pyo3-math1-twin"
+    runner: "pyo3"
+    resources:
+      - type: "pyo3-math1"
+
+machines:
+  - name: "hub-board"
+    address: "et-hub-board.local"
+    device: "pico2"
+
+  # Before the trigger's board, so the README starts the twin first: the trigger broadcasts for only a minute.
+  - name: "edge"
+    address: "10.0.0.2"
+    agents: ["pyo3-math1-twin"]
+
+  - name: "runner-board"
+    address: "et-runner-board.local"
+    device: "pico-plus2"
+    agents: ["math1-trigger"]

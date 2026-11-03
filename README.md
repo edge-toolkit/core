@@ -443,7 +443,9 @@ MISE_ENV=firmware-pico2 mise run firmware-flash
 A board has no filesystem, so each module from this repository, or from the scenario's `module_paths:`, is built
 into the firmware from its built package, and the modules have to be built first. The npm packages they use, such as
 onnxruntime-web, are bigger than a board's flash: those are redirected to jsDelivr instead. A scenario with more than
-one machine or published artifacts is refused.
+one machine or published artifacts is refused; one spanning a board and other machines names the board as a machine's
+`device:` instead. The board serves agent storage from memory, files of up to 64 KiB, and its own runners' storage is
+that same memory, so an agent elsewhere reads what a runner on the board stored. It is lost when the board restarts.
 
 The board's firmware decides which runners it can run. Only `firmware-pico-plus2`, for the Pimoroni Pico Plus 2 W,
 runs any: its 8 MiB of PSRAM holds the memory a guest needs, so it runs each `wasi` runner beside the hub, its guest
@@ -465,6 +467,30 @@ machines:
   - name: "edge"
     address: "10.0.0.2"
     agents: ["math1-twin"]
+```
+
+### Machines on different hardware
+
+A machine's `device:` names the hardware it is, and that hardware decides what the machine may run. Left out, the
+machine runs its share as the format's own tasks, with mise and this repository's toolchain on it. Naming a board
+(`pico2`, `esp32c6` or `pico-plus2`) makes the machine that board's firmware, which runs only the runners its firmware
+hosts. As the first machine, the server, the board also runs the hub, serving every module of the scenario so the
+runners elsewhere can fetch theirs, and its agents' storage from memory. On any other machine it serves nothing, and
+its runners reach the server's hub at the server's `address`, so a board there needs a runner placed on it. Only
+`mise`, `dekit` and `process-compose` deliver a scenario naming a board, since the others ship container images:
+
+```yaml
+machines:
+  - name: "hub-board"
+    address: "et-hub-board.local"
+    device: "pico2"
+  - name: "runner-board"
+    address: "et-runner-board.local"
+    device: "pico-plus2"
+    agents: ["math1-trigger"]
+  - name: "edge"
+    address: "10.0.0.2"
+    agents: ["pyo3-math1-twin"]
 ```
 
 ### Several hubs

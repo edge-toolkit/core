@@ -1,10 +1,10 @@
-//! ws-module packages built into the binary, served through picoserve where the `std` server serves them from disk.
+//! ws-module packages built into the binary, served through picoserve where the `std` service serves them from disk.
 //!
-//! A board has no filesystem to scan, so its embedder hands [`serve`](crate::picoserve_server::serve) a [`Modules`]
-//! whose every file is a `&'static [u8]`, usually through `include_bytes!` in generated code. Each answers a matching
-//! `If-None-Match` with a 304, so a browser reloading the page does not fetch its wasm from the board again. The routes
-//! are the `std` server's: `GET /modules/` lists the module names, `GET /modules/{name}/{path}` is one file of one
-//! module, and the root module's files are served from `/`, `index.html` answering `/` itself.
+//! A board has no filesystem to scan, so its embedder mounts [`ModuleRoutes`] over a [`Modules`] whose every file is a
+//! `&'static [u8]`, usually through `include_bytes!` in generated code. Each answers a matching `If-None-Match` with a
+//! 304, so a browser reloading the page does not fetch its wasm from the board again. The routes are the `std`
+//! service's: `GET /modules/` lists the module names, `GET /modules/{name}/{path}` is one file of one module, and the
+//! root module's files are served from `/`, `index.html` answering `/` itself.
 //!
 //! A package too big for the board's flash can be listed as served [`elsewhere`](Modules::elsewhere) instead: a request
 //! for one of its files is redirected to the same path under [`elsewhere_url`](Modules::elsewhere_url), such as a CDN
@@ -20,7 +20,7 @@ use picoserve::response::{Content, IntoResponse as _, Json, Response, ResponseWr
 use picoserve::routing::{MethodNotAllowed, NotFound, PathRouter as _, PathRouterService, RequestHandler as _};
 use picoserve::url_encoded::UrlEncodedString;
 
-/// Where module files are served under, as the `std` server's modules service mounts them.
+/// Where module files are served under, as the `std` service mounts them.
 const MODULES_PREFIX: &str = "/modules";
 /// The file that answers a request for the root module's `/`.
 const INDEX_FILE: &str = "index.html";
@@ -147,7 +147,7 @@ impl Modules {
         }
     }
 
-    /// Every module name, embedded or not, sorted as the `std` server lists them.
+    /// Every module name, embedded or not, sorted as the `std` service lists them.
     fn names(&self) -> Vec<&'static str> {
         let mut names: Vec<&'static str> = self.embedded.iter().map(|module| module.name).collect();
         names.extend_from_slice(self.elsewhere);
@@ -183,16 +183,14 @@ impl Modules {
     }
 }
 
-/// The routes [`Modules`] answers, as the fallback of a server's other routes: a request none of them matched.
-pub(crate) struct ModuleRoutes<'modules>(&'modules Modules);
+/// The routes [`Modules`] answers, mounted as the fallback of a server's other routes: a request none of them matched.
+#[derive(Clone, Copy, Debug)]
+pub struct ModuleRoutes<'modules>(&'modules Modules);
 
 impl<'modules> ModuleRoutes<'modules> {
     /// The routes `modules` answers.
-    #[expect(
-        clippy::single_call_fn,
-        reason = "the constructor that keeps the field private to this module, for the one server that mounts it"
-    )]
-    pub(crate) const fn new(modules: &'modules Modules) -> Self {
+    #[must_use]
+    pub const fn new(modules: &'modules Modules) -> Self {
         Self(modules)
     }
 }

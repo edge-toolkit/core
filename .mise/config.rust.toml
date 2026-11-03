@@ -105,8 +105,8 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-no-std]
 description = "Build the no_std crates for a bare-metal target"
 run = """
-features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server,et-ws-wasi-runner/board
-set -- -p et-org -p edge-toolkit -p et-ws-service -p et-ws-server -p et-ws-wasi-runner
+features=et-modules-service/board,et-storage-service/board,et-ws-service/board,et-ws-wasi-runner/board
+set -- -p et-org -p edge-toolkit -p et-modules-service -p et-storage-service -p et-ws-service -p et-ws-wasi-runner
 cargo build --lib --target thumbv8m.main-none-eabihf --no-default-features --features "$features" "$@"
 """
 shell = "{{ vars.task_shell }}"
@@ -115,8 +115,8 @@ shell = "{{ vars.task_shell }}"
 [tasks.test-no-std]
 description = "Test the no_std crates built without std"
 run = """
-features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server
-set -- -p edge-toolkit -p et-ws-service -p et-ws-server
+features=et-modules-service/board,et-storage-service/board,et-ws-service/board
+set -- -p edge-toolkit -p et-modules-service -p et-storage-service -p et-ws-service
 cargo nextest run --config-file config/nextest.toml --no-default-features --features "$features" "$@"
 """
 shell = "{{ vars.task_shell }}"

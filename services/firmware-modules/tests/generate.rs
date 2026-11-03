@@ -90,11 +90,10 @@ fn it_builds_in_what_each_package_publishes() {
     let source = &generated.source;
     assert!(source.contains(r#"Module::new("@scope/built", &["#));
     assert!(
-        source.contains(r#"("assets/model.wasm", et_ws_server::picoserve_modules::ModuleFile::new("application/wasm""#)
+        source.contains(r#"("assets/model.wasm", et_modules_service::picoserve::ModuleFile::new("application/wasm""#)
     );
     assert!(
-        source
-            .contains(r#"("index.html", et_ws_server::picoserve_modules::ModuleFile::new("text/html; charset=utf-8""#)
+        source.contains(r#"("index.html", et_modules_service::picoserve::ModuleFile::new("text/html; charset=utf-8""#)
     );
     assert!(source.contains(r#"Module::new("plain", &["#));
     assert!(source.contains("    \"@scope/built\",\n"));
@@ -145,11 +144,11 @@ fn each_file_is_served_as_its_extension_says() {
     let source = generated(&root.path().join("m").display().to_string(), "", "", "").source;
     for (extension, content_type) in extensions {
         assert!(source.contains(&format!(
-            r#"("file.{extension}", et_ws_server::picoserve_modules::ModuleFile::new("{content_type}""#
+            r#"("file.{extension}", et_modules_service::picoserve::ModuleFile::new("{content_type}""#
         )));
     }
     assert!(
-        source.contains(r#"("LICENSE", et_ws_server::picoserve_modules::ModuleFile::new("application/octet-stream""#)
+        source.contains(r#"("LICENSE", et_modules_service::picoserve::ModuleFile::new("application/octet-stream""#)
     );
 }
 

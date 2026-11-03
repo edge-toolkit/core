@@ -183,6 +183,14 @@ pub enum CliError {
         supported: String,
     },
 
+    #[error("Machine {machine:?} names a device, which {output_type} cannot deliver; only mise-task formats can")]
+    DeviceFormatUnsupported { machine: String, output_type: String },
+
+    #[error(
+        "Machine {machine:?} is a {board} with no runner placed on it, and off the hub's machine it runs only those"
+    )]
+    BoardWithoutRunners { machine: String, board: &'static str },
+
     #[error("Module path {0:?} has a name a shell would interpret or a filesystem would not hold; rename it")]
     UnsafeModulePath(PathBuf),
 

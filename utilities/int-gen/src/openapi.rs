@@ -37,7 +37,7 @@ the hub has blocked is refused by them with 403. The admin routes take the hub's
         et_ws_service::admin::block_ip,
         et_ws_service::admin::evict_agent,
     ),
-    components(schemas(et_ws_server::routes::HealthResponse, et_ws_service::admin::EvictedAgent)),
+    components(schemas(et_ws_service::health::HealthResponse, et_ws_service::admin::EvictedAgent)),
     modifiers(&AdminTokenScheme)
 )]
 struct ApiDoc;

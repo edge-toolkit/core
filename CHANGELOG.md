@@ -19,7 +19,7 @@ Changelog 1.1.0.
   frames through the registry and hands back what to send where, leaving the transport, ids and clock to the
   embedder. Its features `std` (the actix-web hub), `nats` (the backplane) and `otel` (spans and metrics) are
   separate. Without `nats`, `WsConfig` has no `backplane`.
-- `et-ws-service`'s `picoserve-hub` feature, on by default, adds `picoserve_hub::Hub`: a `no_std` hub serving
+- `et-ws-service`'s `board` feature, on by default, adds `picoserve_hub::Hub`: a `no_std` hub serving
   `GET /ws` over HTTP and WebSocket through picoserve on any socket the embedder accepts, such as an `embassy-net`
   `TcpSocket`. It is a local hub, with no backplane, admin API, idle timeout or registry file. A crate awaiting
   `Hub::serve` needs `#![recursion_limit = "256"]`.
@@ -27,16 +27,23 @@ Changelog 1.1.0.
   `LocalLink` routes what it sends as a connection's frames are, queues what others send it, and disconnects the agent
   when dropped. It is how a board's own runner reaches the hub beside it. Its `send_text` and `send_binary` refuse a
   frame larger than the hub reads from a socket with `FrameTooLarge`.
-- `et-ws-server` builds as `no_std` + `alloc` without its new `std` feature. Its `picoserve-server` feature, on by
-  default, adds `picoserve_server::serve`: the hub's `/ws` with `/health` and `/favicon.ico` beside it, over picoserve,
-  and the modules a `picoserve_modules::Modules` builds into the binary under `/modules` and `/`, as the `std` server
-  serves them from disk. A module listed as served elsewhere is redirected to a base URL instead.
-- The `et-ws-server-firmware` firmware runs et-ws-server on a Raspberry Pi Pico 2 W, an ESP32-C6 or a Pimoroni Pico
+- `et-modules-service` and `et-storage-service` build as `no_std` + `alloc` without their new default `std` feature,
+  and each serves through picoserve under its new `board` feature. `et_modules_service::picoserve::ModuleRoutes`
+  serves the modules a `Modules` builds into the binary under `/modules` and `/`, as the `std` service serves them
+  from disk, redirecting a module listed as served elsewhere to a base URL. `et_storage_service::picoserve`'s
+  `StorageRoutes`, mounted at its `path()`, serves agent storage at `/storage/{agent_id}/{filename}`, held to the `std`
+  service's ownership rule against an `AgentRegistry` and kept in the embedder's `Storage`, each file at most
+  `MAX_STORED` bytes. Both are used with `default-features = false` from the workspace, so a consumer of the `std`
+  service now names the `std` feature.
+- The `et-ws-server-firmware` firmware runs the hub on a Raspberry Pi Pico 2 W, an ESP32-C6 or a Pimoroni Pico
   Plus 2 W, over the board's Wi-Fi. `MISE_ENV=rust mise run build-firmware-pico2w` fetches the Pico's radio blobs and
   builds it for the Pico, `build-firmware-esp32c6` for the ESP32-C6, and `build-firmware-pico-plus2w` for the Pico Plus
   2 W, each for the network `WIFI_NETWORK` and `WIFI_PASSWORD` name, embedding the modules `MODULES_PATHS` names and
   serving `MODULES_ROOT` at `/`. The Pico Plus 2 W makes its 8 MiB of PSRAM the heap, and also runs each wasi runner
   `RUNNER_GUESTS` names beside the hub, its guest compiled into the firmware and its websocket a link into the hub.
+  Every board serves agent storage from memory, and the guests' storage buckets are that same storage, so an agent on
+  another machine reads what a guest wrote. Built with `HUB_ADDRESS` naming a hub elsewhere, `address:port`, the
+  firmware serves nothing and runs its wasi runners against that hub instead, over the board's own sockets.
 - `et-cli generate-deployment --output-type firmware-pico2` writes a `mise.firmware-pico2.toml`, `firmware-esp32c6` a
   `mise.firmware-esp32c6.toml`, and `firmware-pico-plus2` a `mise.firmware-pico-plus2.toml`, whose `firmware-flash`
   task builds that firmware with the scenario's modules in it and loads it onto a board, with picotool or espflash.
@@ -46,14 +53,19 @@ Changelog 1.1.0.
   published artifacts is refused on every board. Its `firmware-host-test` task serves the same modules from the host,
   and runs the same runners, as the firmware's host build does, and fetches every module it lists, with no board
   needed.
+- A scenario's machine names the hardware it is with `device:`. A board (`pico2`, `esp32c6` or `pico-plus2`) as the
+  first machine runs the hub as that board's firmware, serving every module of the scenario, with the runners its
+  firmware hosts beside it, while each other machine runs its share as the format's tasks and reaches the board's hub
+  at its `address`. A board on any other machine runs only the runners placed on it, built as firmware that serves
+  nothing and reaches the server's hub at `HUB_ADDRESS`. The `mise.toml` gains `firmware-build-<machine>` and
+  `firmware-flash-<machine>` tasks for each board, each built in a target directory of its own, a
+  `firmware-host-test-<machine>` for a board running the hub, and no collector when the server is a board. Only
+  `mise`, `dekit` and `process-compose` deliver such a scenario.
 - `et-firmware-modules` generates the source a firmware's build script writes to build ws-modules into its image,
   from the same `MODULES_*` variables, so every board's firmware embeds modules the same way. Its `board` writes what
   the board a target picks bakes in -- the Wi-Fi network, and the Pico 2 W's radio blobs and memory layout -- and
   returns the directives that link it. Its `guests` compiles each runner's guest for the board, refusing one that
   imports what a board does not host, or guests needing more memory than the board holds for them.
-- `et-ws-wasi-runner` builds as `no_std` + `alloc` without its new default `std` feature, and its `board` module
-  runs a guest on a microcontroller: compiled ahead of time with `engine::precompile` for the board's Pulley target,
-  and hosted through the firmware's `board::Platform` and `board::Transport`.
 - Native REST requests retry transient HTTP 408/429/500/502/503/504 responses as well as transport failures, using a
   bounded backoff policy for replayable idempotent operations. Permission errors, non-idempotent methods and streaming
   request bodies are not retried. Storage-call timings include the retry/backoff interval; retry attempts are logged.
@@ -65,7 +77,10 @@ Changelog 1.1.0.
 - `et-ws-wasi-runner` builds as `no_std` + `alloc` without its new default `std` feature, and with its new `board`
   feature its `board` module runs a guest on a microcontroller: compiled ahead of time with `engine::precompile` (the
   `precompile` feature) for the board's Pulley target, and hosted through the firmware's `board::Platform` and
-  `board::Transport`. Every guest on a board shares its storage in `board::Buckets`, and draws its memories and
+  `board::Transport`. The transport is the hub as the guest reaches it, its storage included: a board running the hub
+  answers from `board::Buckets`, and `board::net::NetTransport` reaches a hub on another machine over the board's own
+  sockets, its websocket framed by `edge-ws` and its storage over HTTP, while a task of the board's runs
+  `board::net::drive`; `board::net_tokio` gives it tokio's sockets on a host. Every guest draws its memories and
   tables from one `board::MemoryBudget`, which refuses growth past what the board holds for them.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
@@ -122,9 +137,8 @@ Changelog 1.1.0.
 
 ### Changed
 
-- **Breaking:** `et-ws-server`'s actix server, its binary and its environment config are behind the new default `std`
-  feature. A build with `default-features = false` and none of the features that imply `std` -- `modules`, `otlp`,
-  `qr`, `storage`, `tls`, `websockify` -- now gets the `no_std` library and no binary; add `std` to keep the server.
+- **Breaking:** `et_ws_server::routes::HealthResponse`, the answer to `GET /health`, is now
+  `et_ws_service::health::HealthResponse`, since a board's hub gives the same answer; import it from there.
 - **Breaking:** `et-ws-wasi-runner`'s host runner, its binary and `run_module` are behind the new default `std`
   feature, which `nn`, `webgpu` and `coverage` imply. A build with `default-features = false` and none of them now
   gets the `no_std` board runner and no binary; add `std` to keep the host runner. `server_message_to_wit` moved from

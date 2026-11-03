@@ -4,7 +4,7 @@
 use actix_web::http::header;
 use actix_web::{App, test, web};
 use et_ws_server::health;
-use et_ws_server::routes::HealthResponse;
+use et_ws_service::health::HealthResponse;
 
 #[actix_rt::test]
 async fn health_returns_200_with_healthy_status() {

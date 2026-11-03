@@ -32,10 +32,10 @@ required-features = ["std"]
 
 [[test]]
 name = "picoserve_hub"
-required-features = ["picoserve-hub"]
+required-features = ["board"]
 
 [features]
-default = ["nats", "otel", "picoserve-hub"]
+default = ["board", "nats", "otel"]
 ## The actix-web hub: the `/ws` endpoint, the admin API, idle timeouts and the registry file.
 ## Without it the crate is `no_std` + `alloc` and holds only `hub`, the routing an embedder drives over its own
 ## transport.
@@ -47,7 +47,6 @@ std = [
   "dep:chrono",
   "dep:futures-util",
   "dep:secrecy",
-  "dep:serde",
   "dep:serde-inline-default",
   "dep:serde_default",
   "dep:subtle",
@@ -55,11 +54,12 @@ std = [
   "dep:tokio",
   "dep:uuid",
   "edge-toolkit/std",
+  "serde/std",
   "serde_json/std",
   "tracing/std",
 ]
 ## A `no_std` hub serving `/ws` over HTTP and WebSocket through picoserve, on any socket the embedder accepts.
-picoserve-hub = ["dep:picoserve", "dep:spin"]
+board = ["dep:picoserve", "dep:spin"]
 ## Shares agents between hubs through the NATS JetStream backplane `WS_BACKPLANE` names.
 ## Without it every hub is local, keeping its agents in its own registry.
 nats = ["dep:et-hub-backplane", "std"]
@@ -86,7 +86,7 @@ opentelemetry = { workspace = true, optional = true }
 picoserve = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 secrecy = { workspace = true, optional = true }
-serde = { workspace = true, features = ["std"], optional = true }
+serde.workspace = true
 serde-inline-default = { workspace = true, optional = true }
 serde_default = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["alloc"] }

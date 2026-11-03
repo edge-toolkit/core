@@ -34,6 +34,10 @@ name = "board"
 required-features = ["board", "precompile", "std"]
 
 [[test]]
+name = "board_net"
+required-features = ["board", "precompile", "std"]
+
+[[test]]
 name = "modules"
 required-features = ["std"]
 
@@ -75,6 +79,7 @@ std = [
   "dep:tracing",
   "dep:wasmtime-wasi",
   "edge-toolkit/std",
+  "embedded-io-async?/std",
   "serde_json/std",
   "thiserror/std",
   "wasmtime/default",
@@ -85,7 +90,8 @@ precompile = ["wasmtime/cranelift", "wasmtime/pulley", "wasmtime/std"]
 ## The runner for a board with no operating system, `board::run`, which a firmware runs its guests on.
 ## It hosts a component compiled ahead of time on the clock, log and websocket the firmware provides, interpreting its
 ## Pulley bytecode, and keeps the board's storage buckets under a spin lock, since a board has no `std::sync::Mutex`.
-board = ["dep:spin", "wasmtime/pulley"]
+## Its `board::net` reaches a hub on another machine over the board's own sockets.
+board = ["dep:edge-ws", "dep:embassy-sync", "dep:embedded-io-async", "dep:spin", "wasmtime/pulley"]
 ## Hosts `wasi:nn` (graph, tensor, inference) on ONNX Runtime through `wasmtime-wasi-nn`.
 ## Guests can then load an ONNX model and run inference on it.
 nn = ["dep:ort", "dep:wasmtime-wasi-nn", "std"]
@@ -110,6 +116,10 @@ docs = ["dep:document-features"]
 chrono = { workspace = true, features = ["alloc"] }
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
+# A board's websocket to a hub elsewhere: the frames, the bytes they cross a socket as, and the queues between them.
+edge-ws = { workspace = true, optional = true }
+embassy-sync = { workspace = true, optional = true }
+embedded-io-async = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["alloc"] }
 serde_path_to_error.workspace = true
 # The lock a board's guests share their buckets under, when there is no `std::sync::Mutex`.
@@ -150,6 +160,7 @@ libc = { workspace = true, optional = true }
 
 [dev-dependencies]
 command-error.workspace = true
+critical-section = { workspace = true, features = ["std"] }
 et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true

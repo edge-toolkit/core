@@ -1,0 +1,9 @@
+version: "0.5"
+processes:
+  pyo3-math1-twin:
+    command: mise run pyo3-math1-twin
+    namespace: edge
+    shutdown:
+      signal: 2
+    availability:
+      restart: on_failure

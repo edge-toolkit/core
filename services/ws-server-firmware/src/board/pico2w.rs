@@ -26,8 +26,8 @@ use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
 #[cfg(not(feature = "pico-plus2w"))]
-use super::hub::HEAP_SIZE;
-use super::hub::{serve, stack_resources};
+use super::platform::HEAP_SIZE;
+use super::role::{serve, stack_resources};
 
 include!(concat!(env!("OUT_DIR"), "/wifi.rs"));
 include!(concat!(env!("OUT_DIR"), "/cyw43.rs"));

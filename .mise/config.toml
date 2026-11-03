@@ -1343,7 +1343,7 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # combined TOML input.
 run = """
 ns_list="cross cargo mise mise_lock pyproject checksums advisories"
-named="Cargo.lock config/upstream-cache/data.toml config/deny.toml config/pyrefly.toml"
+named="Cargo.lock config/cargo-features.toml config/upstream-cache/data.toml config/deny.toml config/pyrefly.toml"
 # Both lists rely on word-splitting when they expand.
 # $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086

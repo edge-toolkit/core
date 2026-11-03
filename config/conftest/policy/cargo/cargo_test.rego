@@ -292,3 +292,34 @@ test_generated_rest_client_is_exempt if {
 	msgs := cargo.deny with input as member("generated/rust-rest/Cargo.toml", {"features": {"tracing": []}})
 	feature_docs_clean(msgs)
 }
+
+# A member declaring `features`, beside an allowlist naming `allowed`.
+with_allowlist(features, allowed) := [
+	{"path": "libs/a/Cargo.toml", "contents": {"features": features}},
+	{"path": "config/cargo-features.toml", "contents": {"features": allowed}},
+]
+
+test_unlisted_feature_is_rejected if {
+	msgs := cargo.deny with input as with_allowlist({"board": []}, {"std": "x"})
+	some msg in msgs
+	startswith(msg, "libs/a/Cargo.toml: feature \"board\" is not in config/cargo-features.toml; reuse a listed name")
+}
+
+test_listed_feature_is_accepted if {
+	msgs := cargo.deny with input as with_allowlist({"board": []}, {"board": "x"})
+	every msg in msgs {
+		not contains(msg, "cargo-features.toml")
+	}
+}
+
+test_stale_allowlist_entry_is_rejected if {
+	msgs := cargo.deny with input as with_allowlist({"board": []}, {"board": "x", "std": "x"})
+	"config/cargo-features.toml: feature \"std\" is declared by no crate; remove it" in msgs
+}
+
+test_feature_named_for_a_dependency_is_rejected if {
+	contents := {"features": {"picoserve": ["dep:picoserve"]}, "dependencies": {"picoserve": {"optional": true}}}
+	msgs := cargo.deny with input as member("libs/a/Cargo.toml", contents)
+	some msg in msgs
+	contains(msg, "feature \"picoserve\" shares its name with a dependency; name it for what it gives")
+}

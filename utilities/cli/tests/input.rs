@@ -7,7 +7,7 @@
 #![cfg(test)]
 
 use et_cli::{
-    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, infer_artifact_source,
+    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, Device, OutputType, infer_artifact_source,
     manifest_declares_this_repository,
 };
 
@@ -150,6 +150,30 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
         );
     }
     assert_eq!(OutputType::ALL.len(), 8, "and the list of them is complete");
+}
+
+#[test]
+fn a_machine_s_device_is_named_by_its_hardware_and_left_out_when_unspecified() {
+    let machines = concat!(
+        "machines:\n",
+        "  - name: \"board\"\n    address: \"board.local\"\n    device: \"pico_plus2\"\n",
+        "  - name: \"edge\"\n    address: \"10.0.0.2\"\n",
+    );
+    let cluster = parse(&format!("{ONLY_A_NAME}{machines}"));
+    let devices = cluster
+        .machines
+        .iter()
+        .map(|machine| machine.device)
+        .collect::<Vec<_>>();
+    assert_eq!(devices, [Device::PicoPlus2, Device::Unspecified]);
+
+    let rendered = serde_yaml::to_string(&cluster).unwrap();
+    assert_eq!(rendered.matches("device:").count(), 1);
+    assert!(rendered.contains("device: pico-plus2"));
+
+    let unknown =
+        serde_yaml::from_str::<ClusterInput>(&format!("{ONLY_A_NAME}{}", machines.replace("pico_plus2", "pi")));
+    assert!(unknown.unwrap_err().to_string().contains("pi"));
 }
 
 #[test]

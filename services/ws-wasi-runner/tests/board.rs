@@ -82,6 +82,7 @@ struct Hub {
     closed: Arc<Mutex<bool>>,
     replies: VecDeque<Frame>,
     fault: Fault,
+    storage: Buckets,
 }
 
 impl Hub {
@@ -147,6 +148,15 @@ impl Transport for Hub {
     async fn close(&mut self) {
         *self.closed.lock().unwrap() = true;
     }
+
+    async fn load(&mut self, bucket: &str, key: &str) -> Result<Option<Vec<u8>>, &'static str> {
+        Ok(self.storage.get(bucket, key).ok())
+    }
+
+    async fn store(&mut self, bucket: &str, key: &str, value: Vec<u8>) -> Result<(), &'static str> {
+        self.storage.set(bucket, key, value);
+        Ok(())
+    }
 }
 
 /// `message` as the text frame the hub sends it in.
@@ -191,15 +201,7 @@ async fn ran_within(
         lines: Arc::clone(&lines),
     };
     let (sent, closed) = (Arc::clone(&hub.sent), Arc::clone(&hub.closed));
-    let outcome = run(
-        &board_engine().unwrap(),
-        component,
-        host,
-        hub,
-        Buckets::default(),
-        memory,
-    )
-    .await;
+    let outcome = run(&board_engine().unwrap(), component, host, hub, memory).await;
     let lines = lines.lock().unwrap().clone();
     let sent = sent.lock().unwrap().clone();
     let closed = *closed.lock().unwrap();

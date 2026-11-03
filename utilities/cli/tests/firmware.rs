@@ -1,6 +1,7 @@
 //! Covers the firmware formats, mostly through `firmware-pico2`: which modules a firmware build embeds and which it
 //! redirects, the scenarios a board refuses, what `firmware-esp32c6` builds and loads differently, and the wasi runners
-//! `firmware-pico-plus2` starts beside its hub.
+//! `firmware-pico-plus2` starts beside its hub. Also a board named as the server machine's `device:`, its hub reached
+//! by the runners on the other machines.
 #![cfg(test)]
 
 use std::path::PathBuf;
@@ -28,6 +29,27 @@ agents:
     runner: "wasi"
     resources:
       - type: "wasi-math1"
+"#;
+
+/// The pyo3 exchange with its wasi trigger on a Pico Plus 2 W serving the hub, and the twin on a machine with mise.
+const MIXED: &str = r#"cluster_name: "mixed"
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+  - name: "pyo3-math1-twin"
+    runner: "pyo3"
+    resources:
+      - type: "pyo3-math1"
+machines:
+  - name: "hub-board"
+    address: "et-hub-board.local"
+    device: "pico-plus2"
+    agents: ["math1-trigger"]
+  - name: "edge"
+    address: "10.0.0.2"
+    agents: ["pyo3-math1-twin"]
 "#;
 
 /// The file `firmware-pico2` writes.
@@ -191,7 +213,7 @@ fn a_pico_plus_2_w_starts_each_wasi_runner_beside_its_hub() {
     assert_eq!(config.tasks.host_test.env, build.env);
     assert!(config.tasks.flash.run.starts_with("picotool load"));
     assert!(readme.contains("## Run As Pimoroni Pico Plus 2 W Firmware"));
-    assert!(readme.contains("The board runs the hub, and beside it each wasi runner the scenario declares"));
+    assert!(readme.contains("The board runs the hub, and beside it each wasi runner the scenario places on it"));
     assert!(readme.contains("MISE_ENV=firmware-pico-plus2 mise run firmware-flash"));
 }
 
@@ -239,6 +261,7 @@ fn verification_renders_it_only_for_a_scenario_the_board_can_run() {
     fs::write(input_dir.join("headless.yaml"), headless).unwrap();
 
     fs::write(input_dir.join("wasi.yaml"), WASI).unwrap();
+    fs::write(input_dir.join("mixed.yaml"), MIXED).unwrap();
 
     let _regenerated = regenerate_verification(&verification_root, None).unwrap();
     let output = verification_root.join("local/output");
@@ -255,4 +278,186 @@ fn verification_renders_it_only_for_a_scenario_the_board_can_run() {
     assert!(!output.join("wasi").join(CONFIG_FILE).exists());
     assert!(!output.join("wasi").join(esp_file).exists());
     assert!(output.join("wasi").join(plus_file).is_file());
+    // A scenario naming a board as a machine's device, only in the formats that deliver one.
+    for format in OutputType::ALL {
+        let delivered = matches!(
+            format,
+            OutputType::Mise | OutputType::Dekit | OutputType::ProcessCompose
+        );
+        assert_eq!(
+            output.join("mixed").join(format.output_file_name()).is_file(),
+            delivered
+        );
+    }
+}
+
+#[test]
+fn a_board_as_the_server_runs_the_hub_and_its_guests_as_firmware() {
+    let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), MIXED, OutputType::Mise);
+    assert_eq!(outcome, "");
+    let config: toml::Table = toml::from_str(&fs::read_to_string(output_dir.join("mise.toml")).unwrap()).unwrap();
+    let tasks = config["tasks"].as_table().unwrap();
+    // No collector, no hub of its own and no guest as a task: the board runs those.
+    assert_eq!(
+        tasks.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "firmware-build-hub-board",
+            "firmware-flash-hub-board",
+            "firmware-host-test-hub-board",
+            "generated-scenario",
+            "machine-edge",
+            "machine-hub-board",
+            "pyo3-math1-twin",
+        ]
+    );
+    let build = &tasks["firmware-build-hub-board"];
+    assert_eq!(
+        build["env"]["RUNNER_GUESTS"].as_str(),
+        Some("math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender")
+    );
+    let run = build["run"].as_str().unwrap();
+    assert!(run.contains("mise -E rust run build-firmware-pico-plus2w"));
+    // The twin's module too, since it is fetched from the board's hub.
+    assert!(run.contains("$PWD/services/ws-modules/pyo3-math1"));
+    let flash = toml::Value::from("firmware-flash-hub-board");
+    assert_eq!(
+        tasks["machine-hub-board"]["depends"].as_array().unwrap(),
+        std::slice::from_ref(&flash)
+    );
+    assert_eq!(
+        tasks["pyo3-math1-twin"]["env"]["WS_SERVER_URL"].as_str(),
+        Some("ws://et-hub-board.local:8080/ws")
+    );
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+    assert!(readme.contains("## Load The Hub Onto `hub-board`"));
+    assert!(readme.contains("The board runs no OpenObserve"));
+}
+
+#[test]
+fn dekit_and_process_compose_supervise_only_the_runners_off_the_board() {
+    for (format, file, key) in [
+        (OutputType::Dekit, "dekit.yaml", "tasks"),
+        (OutputType::ProcessCompose, "process-compose.yaml", "processes"),
+    ] {
+        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), MIXED, format);
+        assert_eq!(outcome, "");
+        let written: serde_yaml::Value =
+            serde_yaml::from_str(&fs::read_to_string(output_dir.join(file)).unwrap()).unwrap();
+        let names = written[key].as_mapping().unwrap().keys().collect::<Vec<_>>();
+        assert_eq!(names, [&serde_yaml::Value::from("pyo3-math1-twin")]);
+        let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+        assert!(readme.contains("On `hub-board`:\n\n```bash\nmise run firmware-flash-hub-board\n```"));
+    }
+}
+
+#[test]
+fn a_format_that_ships_images_is_refused_a_device() {
+    for format in [OutputType::DockerCompose, OutputType::K3s] {
+        let (_root, _output_dir, outcome) = generate_in(tempdir().unwrap(), MIXED, format);
+        assert_eq!(
+            outcome,
+            format!(
+                r#"Machine "hub-board" names a device, which {} cannot deliver; only mise-task formats can"#,
+                format.name()
+            )
+        );
+    }
+}
+
+#[test]
+fn a_board_off_the_hub_s_machine_runs_its_runners_against_that_hub() {
+    // The hub on a machine with mise, and the wasi trigger on a board of its own.
+    let runner_board = concat!(
+        "  - name: \"runner-board\"\n    address: \"10.0.0.3\"\n    device: \"pico-plus2\"\n",
+        "    agents: [\"math1-trigger\"]\n  - name: \"edge\"",
+    );
+    let swapped = MIXED
+        .replace(r#"device: "pico-plus2""#, "")
+        .replace("  - name: \"edge\"", runner_board);
+    let swapped = swapped.replacen(r#"agents: ["math1-trigger"]"#, "agents: []", 1);
+    let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &swapped, OutputType::Mise);
+    assert_eq!(outcome, "");
+    let config: toml::Table = toml::from_str(&fs::read_to_string(output_dir.join("mise.toml")).unwrap()).unwrap();
+    let tasks = config["tasks"].as_table().unwrap();
+    let build = &tasks["firmware-build-runner-board"];
+    assert_eq!(build["env"]["HUB_ADDRESS"].as_str(), Some("et-hub-board.local:8080"));
+    assert_eq!(
+        build["env"]["CARGO_TARGET_DIR"].as_str(),
+        Some("target/firmware/runner-board")
+    );
+    assert_eq!(build["env"]["MODULES_ROOT"].as_str(), Some(""));
+    assert_eq!(
+        build["env"]["RUNNER_GUESTS"].as_str(),
+        Some("math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender")
+    );
+    // Only the runner's own module is built in, since the board serves nothing.
+    let run = build["run"].as_str().unwrap();
+    assert!(run.contains("$PWD/services/ws-modules/wasi-math1-sender"));
+    assert!(!run.contains("pyo3-math1"));
+    let flash = tasks["firmware-flash-runner-board"]["run"].as_str().unwrap();
+    assert!(flash.ends_with("target/firmware/runner-board/thumbv8m.main-none-eabihf/release/et-ws-server-firmware"));
+    assert!(!tasks.contains_key("firmware-host-test-runner-board"));
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+    assert!(readme.contains("## Load The Runners Onto `runner-board`"));
+    assert!(readme.contains("the runners join the one at `ws://et-hub-board.local:8080/ws`"));
+}
+
+#[test]
+fn a_board_off_the_hub_s_machine_with_no_runner_is_refused() {
+    let idle = MIXED
+        .replace(r#"device: "pico-plus2""#, "")
+        .replace(r#"address: "10.0.0.2""#, "address: \"10.0.0.2\"\n    device: \"pico2\"")
+        .replace(r#"agents: ["pyo3-math1-twin"]"#, "agents: []");
+    let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &idle, OutputType::Mise);
+    assert_eq!(
+        outcome,
+        concat!(
+            r#"Machine "edge" is a Raspberry Pi Pico 2 W with no runner placed on it, "#,
+            "and off the hub's machine it runs only those"
+        )
+    );
+    assert!(!output_dir.join("mise.toml").exists());
+}
+
+#[test]
+fn a_board_as_a_machine_refuses_what_its_firmware_cannot_run() {
+    let pico2 = MIXED.replace(r#"device: "pico-plus2""#, r#"device: "pico2""#);
+    let pyo3_on_board = MIXED
+        .replace(r#"["math1-trigger"]"#, "[swapped]")
+        .replace(r#"["pyo3-math1-twin"]"#, r#"["math1-trigger"]"#)
+        .replace("[swapped]", r#"["pyo3-math1-twin"]"#);
+    let limited = MIXED.replacen(
+        "    resources:",
+        "    limits:\n      memory: \"64m\"\n    resources:",
+        1,
+    );
+    let scheduled = MIXED.replacen(
+        "    resources:",
+        "    schedule:\n      cron: \"0 * * * *\"\n    resources:",
+        1,
+    );
+    let published = format!("{MIXED}artifact_source: \"published\"\n");
+    let shared = format!("{MIXED}services:\n  hub:\n    machines: [\"hub-board\", \"edge\"]\n");
+    let plus = "The Pimoroni Pico Plus 2 W firmware cannot deploy a scenario that";
+    for (input, format, refusal) in [
+        (
+            pico2,
+            OutputType::Mise,
+            "The Raspberry Pi Pico 2 W firmware cannot deploy a scenario that starts a runner".to_owned(),
+        ),
+        (
+            pyo3_on_board,
+            OutputType::Mise,
+            r#"Agent "pyo3-math1-twin" names the "pyo3" runner, but the Pimoroni Pico Plus 2 W firmware runs only wasi"#
+                .to_owned(),
+        ),
+        (limited, OutputType::Mise, format!("{plus} sets limits on a runner")),
+        (scheduled, OutputType::ProcessCompose, format!("{plus} schedules a runner")),
+        (published, OutputType::Mise, format!("{plus} uses published artifacts")),
+        (shared, OutputType::Mise, format!("{plus} runs a hub on another machine too")),
+    ] {
+        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &input, format);
+        assert!(outcome.starts_with(&refusal));
+        assert!(!output_dir.join("mise.toml").exists());
+    }
 }

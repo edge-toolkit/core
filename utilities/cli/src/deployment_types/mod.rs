@@ -15,7 +15,8 @@ pub(crate) use self::docker_compose::{HUB_IMAGE_BUILD, SCHEDULER_SERVICE, schedu
 pub use self::docker_compose::{docker_image_module_paths, generate_docker_compose_deployment};
 pub(crate) use self::firmware::{
     ELSEWHERE_URL as FIRMWARE_ELSEWHERE_URL, FLASH_TASK as FIRMWARE_FLASH_TASK,
-    HOST_TEST_TASK as FIRMWARE_HOST_TEST_TASK, generate_firmware_deployment, validate_firmware,
+    HOST_TEST_TASK as FIRMWARE_HOST_TEST_TASK, flash_task as firmware_flash_task, generate_firmware_deployment,
+    validate_devices, validate_firmware,
 };
 pub(crate) use self::hub::{hub_root_module, serves_a_page};
 pub(crate) use self::hub_sharing::{BACKPLANE_TASK, SHARED_STORAGE_TASK, STORAGE_SECRET_ENVS};

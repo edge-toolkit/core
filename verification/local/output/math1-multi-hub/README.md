@@ -45,8 +45,7 @@ mise run open-o2
 
 ### Run Across Machines With Mise
 
-Copy this directory to each machine -- for a scenario built from the repository, into a checkout
-of it at the same path -- and start that machine's share of the scenario there.
+Copy this directory to each machine and start that machine's share of the scenario there.
 `server` runs OpenObserve, `ws-server`, and the NATS server and object store the hubs share,
 which the other machines' hubs reach at `127.0.0.1`. Each runner joins the hub on its own
 machine, or the one on `server` when its machine runs none.
@@ -134,8 +133,7 @@ Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by
 
 ### Run Across Machines With process-compose
 
-Copy this directory to each machine -- for a scenario built from the repository, into a checkout
-of it at the same path -- and start only that machine's namespace there.
+Copy this directory to each machine and start only that machine's namespace there.
 `server` runs OpenObserve, `ws-server`, and the NATS server and object store the hubs share,
 which the other machines' hubs reach at `127.0.0.1`. Each runner joins the hub on its own
 machine, or the one on `server` when its machine runs none.
@@ -184,8 +182,7 @@ docker compose --profile server down
 
 ### Run Across Machines With Docker Compose
 
-Copy this directory to each machine -- for a scenario built from the repository, into a checkout
-of it at the same path -- and start only that machine's profile there.
+Copy this directory to each machine and start only that machine's profile there.
 `server` runs OpenObserve, `ws-server`, and the NATS server and object store the hubs share,
 which the other machines' hubs reach at `127.0.0.1`. Each runner joins the hub on its own
 machine, or the one on `server` when its machine runs none.

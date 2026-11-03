@@ -1,4 +1,7 @@
-//! What a board gives its runner: a clock and a log, and a websocket to the hub.
+//! What a board gives its runner: a clock and a log, and the hub.
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 use crate::bindings::wasi::logging::logging::Level;
 use crate::convert::Frame;
@@ -28,10 +31,11 @@ pub trait Platform: Send + Sync {
     fn write(&self, console: Console, bytes: &[u8]);
 }
 
-/// A websocket to the hub, opened on the guest's `connect`.
+/// The hub as the guest reaches it: a websocket, opened on the guest's `connect`, and the hub's agent storage.
 ///
 /// Keeping the connection alive is the transport's: the hub closes one it has heard nothing on for 15 seconds, so a
-/// transport pings it while the guest is busy elsewhere.
+/// transport pings it while the guest is busy elsewhere. The storage is the hub's `/storage/{bucket}/{key}`, which a
+/// transport with the hub beside it reads from memory, and one with the hub elsewhere over HTTP.
 pub trait Transport: Send {
     /// Why the websocket failed, which the guest is told as a `transport` error.
     type Error: core::fmt::Display;
@@ -61,4 +65,26 @@ pub trait Transport: Send {
 
     /// Close the websocket.
     fn close(&mut self) -> impl Future<Output = ()> + Send;
+
+    /// What the hub stores under `key` in `bucket`.
+    ///
+    /// `None` is a key the bucket holds nothing under, which is not a failure: it is what `wasi:keyvalue`'s `get`
+    /// tells the guest then.
+    ///
+    /// # Errors
+    ///
+    /// When the hub's storage could not be read.
+    fn load(&mut self, bucket: &str, key: &str) -> impl Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
+
+    /// Store `value` under `key` in `bucket` on the hub, replacing what was there.
+    ///
+    /// # Errors
+    ///
+    /// When the hub refused it, or could not be reached.
+    fn store(
+        &mut self,
+        bucket: &str,
+        key: &str,
+        value: Vec<u8>,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }

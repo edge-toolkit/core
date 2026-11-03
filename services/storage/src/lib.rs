@@ -2,25 +2,43 @@
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(all(feature = "board", not(feature = "std")))]
+extern crate alloc;
+
+#[cfg(feature = "std")]
 use std::path::PathBuf;
+#[cfg(feature = "std")]
 use std::sync::{Arc, PoisonError};
 
+#[cfg(feature = "std")]
 use actix_web::web;
+#[cfg(feature = "std")]
 use actix_web_thiserror::ResponseError;
+#[cfg(feature = "std")]
 use object_store::ObjectStore;
+#[cfg(feature = "std")]
 use object_store::local::LocalFileSystem;
+#[cfg(feature = "std")]
 use serde::Deserialize;
+#[cfg(feature = "std")]
 use serde_default::DefaultFromSerde;
+#[cfg(feature = "std")]
 use thiserror::Error;
 
+#[cfg(feature = "board")]
+pub mod picoserve;
+#[cfg(feature = "std")]
 pub mod routes;
 #[cfg(feature = "tty-image")]
 pub mod tty_image;
 
+#[cfg(feature = "std")]
 pub use self::routes::{get_file, head_file, put_file};
 
 /// Default storage directory.
+#[cfg(feature = "std")]
 #[must_use]
 pub fn default_storage_folder() -> PathBuf {
     let project_root = edge_toolkit::config::get_project_root();
@@ -31,6 +49,7 @@ pub fn default_storage_folder() -> PathBuf {
 ///
 /// This is the default baked into [`StorageConfig::url`], so the local-disk backend is expressed the same way
 /// as any other -- as a URL -- rather than being inferred later from an absent field.
+#[cfg(feature = "std")]
 #[must_use]
 pub fn default_storage_url() -> String {
     file_url(&default_storage_folder())
@@ -41,12 +60,14 @@ pub fn default_storage_url() -> String {
 /// `Url::from_directory_path` only fails for a non-absolute path, and every caller here passes an absolute one
 /// (the project root, or a tempdir). The fallback keeps this infallible rather than forcing a `Result` through
 /// serde's default hook, and is not reachable for an absolute input on any platform.
+#[cfg(feature = "std")]
 #[must_use]
 pub fn file_url(path: &std::path::Path) -> String {
     url::Url::from_directory_path(path).map_or_else(|()| format!("file://{}", path.display()), String::from)
 }
 
 /// Storage config.
+#[cfg(feature = "std")]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
 #[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
@@ -64,6 +85,7 @@ pub struct StorageConfig {
     pub url: String,
 }
 
+#[cfg(feature = "std")]
 impl StorageConfig {
     /// Build a config for an explicit backend URL.
     #[must_use]
@@ -79,8 +101,10 @@ impl StorageConfig {
 }
 
 /// Shared handle to the configured backend, held in actix app data and by the routes.
+#[cfg(feature = "std")]
 pub type SharedStore = Arc<dyn ObjectStore>;
 
+#[cfg(feature = "std")]
 #[derive(Debug, Error, ResponseError)]
 #[non_exhaustive]
 pub enum StorageError {
@@ -134,6 +158,7 @@ pub enum StorageError {
 
 // `PoisonError<T>` is generic over the guard type; a generic `From` impl
 // lets `?` drop the `T` and surface the variant directly.
+#[cfg(feature = "std")]
 impl<T> From<PoisonError<T>> for StorageError {
     fn from(_source: PoisonError<T>) -> Self {
         Self::AgentRegistryPoisoned
@@ -146,6 +171,7 @@ impl<T> From<PoisonError<T>> for StorageError {
 /// environment variables (a mounted Kubernetes secret, say) instead of being embedded in the URL. `object_store`
 /// errors clearly if the URL names a backend whose feature is not compiled in -- currently only `aws`, plus the
 /// always-present `file` and `memory`.
+#[cfg(feature = "std")]
 pub fn build_store(config: &StorageConfig) -> Result<SharedStore, StorageError> {
     let parsed = url::Url::parse(&config.url)?;
 
@@ -179,6 +205,7 @@ pub fn build_store(config: &StorageConfig) -> Result<SharedStore, StorageError> 
 /// Panics if `config` describes a backend that cannot be constructed (an unparsable URL, a scheme whose
 /// backend is not compiled in, or an unusable local path). That is a misconfigured deployment rather than a
 /// runtime condition, so it fails at startup instead of turning every later request into a 500.
+#[cfg(feature = "std")]
 #[expect(
     clippy::panic,
     reason = "an unbuildable backend is a misconfigured deployment; fail at startup, not on every request"

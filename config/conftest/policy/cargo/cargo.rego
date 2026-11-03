@@ -327,7 +327,41 @@ deny contains msg if {
 	file.path != "generated/rust-rest/Cargo.toml"
 	some feat, _ in file.contents.features
 	is_dep_name(file, feat)
-	msg := sprintf("%s: feature %q shares its name with a dependency; rename it", [file.path, feat])
+	msg := sprintf("%s: feature %q shares its name with a dependency; %s", [file.path, feat, dep_feature_hint])
+}
+
+dep_feature_hint := "name it for what it gives the crate's user (where it runs, what it serves), not a dependency"
+
+# The feature names config/cargo-features.toml allows, which a human keeps.
+allowed_features contains name if {
+	some file in input
+	file.path == "config/cargo-features.toml"
+	some name, _ in file.contents.features
+}
+
+# Every feature name a member crate declares.
+declared_features contains name if {
+	some file in input
+	is_member(file)
+	some name, _ in file.contents.features
+}
+
+# A member crate's feature must be one config/cargo-features.toml lists.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	some feat, _ in file.contents.features
+	not allowed_features[feat]
+	msg := sprintf("%s: feature %q is not in config/cargo-features.toml; %s", [file.path, feat, unlisted_feature_hint])
+}
+
+unlisted_feature_hint := "reuse a listed name, or ask a maintainer to add this one with its meaning"
+
+# config/cargo-features.toml lists no feature that no crate declares any longer.
+deny contains msg if {
+	some name in allowed_features
+	not declared_features[name]
+	msg := $"config/cargo-features.toml: feature \"{name}\" is declared by no crate; remove it"
 }
 
 # No manifest may depend on a `cargo_*` / `cargo-*` crate (`cargo_metadata`, `cargo_toml`, ...).

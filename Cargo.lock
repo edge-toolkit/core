@@ -4677,6 +4677,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-ws"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b0540ed0af1b8e98c055b74d87aec4ebd22c1bddb447bb625f5a86559f268bf"
+dependencies = [
+ "embedded-io-async 0.7.0",
+]
+
+[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5841,6 +5850,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "cortex-m-rt",
+ "critical-section",
  "cyw43",
  "cyw43-pio",
  "defmt 1.2.0",
@@ -5852,6 +5862,7 @@ dependencies = [
  "embassy-rp",
  "embassy-time",
  "embedded-alloc",
+ "embedded-io-async 0.7.0",
  "esp-alloc",
  "esp-backtrace",
  "esp-bootloader-esp-idf",
@@ -5860,7 +5871,8 @@ dependencies = [
  "esp-radio",
  "esp-rtos",
  "et-firmware-modules",
- "et-ws-server",
+ "et-modules-service",
+ "et-storage-service",
  "et-ws-service",
  "et-ws-wasi-runner",
  "fs-err",
@@ -5882,12 +5894,14 @@ dependencies = [
  "document-features",
  "edge-toolkit",
  "fs-err",
+ "picoserve",
  "schemars 1.2.3",
  "serde",
  "serde-inline-default",
  "serde_default",
  "serde_json",
  "tempfile",
+ "tokio",
  "utoipa",
 ]
 
@@ -6004,6 +6018,7 @@ dependencies = [
  "image",
  "log",
  "object_store",
+ "picoserve",
  "reqwest",
  "schemars 1.2.3",
  "serde",
@@ -6012,6 +6027,7 @@ dependencies = [
  "temp-env",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
  "tracing",
  "url",
  "utoipa",
@@ -6413,9 +6429,7 @@ dependencies = [
  "et-websockify-service",
  "et-ws-service",
  "fs-err",
- "futures-util",
  "local-ip-address",
- "picoserve",
  "qr2term",
  "rcgen",
  "rustls",
@@ -6424,11 +6438,8 @@ dependencies = [
  "serde-env",
  "serde-inline-default",
  "serde_default",
- "serde_json",
  "tempfile",
  "thiserror 2.0.21",
- "tokio",
- "tokio-tungstenite",
  "tracing",
  "tracing-actix-web",
  "tracing-subscriber",
@@ -6571,8 +6582,12 @@ version = "0.3.0"
 dependencies = [
  "chrono",
  "command-error",
+ "critical-section",
  "document-features",
  "edge-toolkit",
+ "edge-ws",
+ "embassy-sync 0.8.0",
+ "embedded-io-async 0.7.0",
  "et-org",
  "et-otlp",
  "et-rest-client",

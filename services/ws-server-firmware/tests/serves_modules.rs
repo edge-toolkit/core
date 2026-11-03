@@ -13,6 +13,9 @@ use std::process::{Child, Stdio};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use tungstenite::Message;
 
+/// A WebSocket to the hub.
+type Socket = tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<TcpStream>>;
+
 /// The host binary, serving on a port of its choosing, killed when dropped.
 struct Server {
     child: Child,
@@ -47,11 +50,34 @@ impl Server {
         }
     }
 
+    /// An agent connected to the hub, and the id it was given.
+    fn connected(&self) -> (Socket, String) {
+        let (mut socket, _response) = tungstenite::connect(format!("ws://{}/ws", self.address)).unwrap();
+        let ServerMessage::ConnectAck { agent_id, .. } =
+            exchange(&mut socket, &ClientMessage::Connect { agent_id: None })
+        else {
+            panic!("the connect was not acknowledged");
+        };
+        (socket, agent_id)
+    }
+
     /// The response to a `GET path` carrying `headers`, each a whole `Name: value\r\n` line.
     fn get(&self, path: &str, headers: &str) -> Response {
+        self.request(&format!("GET {path}"), headers, b"")
+    }
+
+    /// The response to a `PUT path` of `body`.
+    fn put(&self, path: &str, body: &[u8]) -> Response {
+        let length = format!("Content-Length: {}\r\n", body.len());
+        self.request(&format!("PUT {path}"), &length, body)
+    }
+
+    /// The response to `method_path`, a method and a path, carrying `headers` and then `body`.
+    fn request(&self, method_path: &str, headers: &str, body: &[u8]) -> Response {
         let mut socket = TcpStream::connect(self.address).unwrap();
-        let request = format!("GET {path} HTTP/1.1\r\nHost: board\r\n{headers}Connection: close\r\n\r\n");
+        let request = format!("{method_path} HTTP/1.1\r\nHost: board\r\n{headers}Connection: close\r\n\r\n");
         socket.write_all(request.as_bytes()).unwrap();
+        socket.write_all(body).unwrap();
         let mut raw = Vec::new();
         let _read = socket.read_to_end(&mut raw).unwrap();
         let split = raw.windows(4).position(|window| window == b"\r\n\r\n").unwrap();
@@ -142,10 +168,7 @@ fn it_serves_every_module_it_lists() {
 /// Send `message` to the hub over `socket`, and decode its reply.
 ///
 /// What other agents send in the meantime is passed over: a runner the build compiled in may be broadcasting.
-fn exchange(
-    socket: &mut tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<TcpStream>>,
-    message: &ClientMessage,
-) -> ServerMessage {
+fn exchange(socket: &mut Socket, message: &ClientMessage) -> ServerMessage {
     socket
         .send(Message::text(serde_json::to_string(message).unwrap()))
         .unwrap();
@@ -161,11 +184,7 @@ fn exchange(
 fn every_runner_the_build_compiled_in_joins_the_hub() {
     let server = Server::start();
     let runners = server.runners;
-    let (mut socket, _response) = tungstenite::connect(format!("ws://{}/ws", server.address)).unwrap();
-    let ServerMessage::ConnectAck { agent_id, .. } = exchange(&mut socket, &ClientMessage::Connect { agent_id: None })
-    else {
-        panic!("the connect was not acknowledged");
-    };
+    let (mut socket, agent_id) = server.connected();
     let mut joined = || {
         let ServerMessage::ListAgentsResponse { agents } = exchange(&mut socket, &ClientMessage::ListAgents) else {
             panic!("the agents were not listed");
@@ -181,6 +200,20 @@ fn every_runner_the_build_compiled_in_joins_the_hub() {
         others = joined();
     }
     assert_eq!(others, runners);
+}
+
+#[test]
+fn an_agent_stores_files_the_hub_serves_back() {
+    // The storage a runner elsewhere reads what the board's own guests wrote from, and writes what they read.
+    let server = Server::start();
+    let (_socket, agent_id) = server.connected();
+    let path = format!("/storage/{agent_id}/input.json");
+    assert_eq!(server.get(&path, "").status, 404);
+    assert_eq!(server.put(&path, b"[1, 2]").status, 200);
+    let stored = server.get(&path, "");
+    assert_eq!(stored.status, 200);
+    assert_eq!(stored.body, b"[1, 2]");
+    assert_eq!(server.put("/storage/nobody/input.json", b"[]").status, 404);
 }
 
 #[test]
