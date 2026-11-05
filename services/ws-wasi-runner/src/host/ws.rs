@@ -23,6 +23,47 @@ use crate::bindings::et::ws_messages::messages::{
 use crate::bindings::et::ws_wasi::ws::{Host, State, WsError};
 use crate::convert::{Frame, client_frame, server_message, server_message_to_wit};
 
+/// Send `frame` on the websocket open in `ws`.
+///
+/// # Errors
+///
+/// When the websocket is not open, or the frame could not be sent.
+pub async fn send_frame(ws: &Mutex<Option<WsBackend>>, frame: Frame) -> Result<(), WsError> {
+    let outgoing = match frame {
+        Frame::Text(text) => tungstenite::Message::text(text),
+        Frame::Binary(bytes) => tungstenite::Message::binary(bytes),
+    };
+    // Clone the sink Arc and release the outer lock before awaiting the inner send -- keeping `ws` locked across the
+    // await would block every other ws-method call.
+    let sink = ws
+        .lock()
+        .await
+        .as_ref()
+        .map(|backend| Arc::clone(&backend.sink))
+        .ok_or(WsError::NotConnected)?;
+    Ok(sink.lock().await.send(outgoing).await?)
+}
+
+/// The next message the hub sent on the websocket open in `ws`, waiting up to `timeout_ms`.
+///
+/// `None` when none arrived in that time.
+///
+/// # Errors
+///
+/// When the websocket is not open.
+pub async fn next_message(ws: &Mutex<Option<WsBackend>>, timeout_ms: u32) -> Result<Option<ServerMessage>, WsError> {
+    // Same lock-handoff pattern as `send_frame`: grab the inbox Arc, drop the outer lock, then await.
+    let inbox = ws
+        .lock()
+        .await
+        .as_ref()
+        .map(|backend| Arc::clone(&backend.inbox))
+        .ok_or(WsError::NotConnected)?;
+    let mut rx = inbox.lock().await;
+    let timeout = Duration::from_millis(u64::from(timeout_ms));
+    Ok(tokio::time::timeout(timeout, rx.recv()).await.ok().flatten())
+}
+
 // The `et:ws-messages/messages` interface only declares types -- no functions. wasmtime-bindgen still requires a `Host`
 // impl so the linker has somewhere to anchor the interface. The trait body is empty.
 impl crate::bindings::et::ws_messages::messages::Host for HostState {}
@@ -192,40 +233,17 @@ impl Host for HostState {
         }
     }
 
+    /// Send the guest's `message` as the frame it goes out as.
     async fn send(&mut self, message: WitClientMessage) -> Result<(), WsError> {
-        let outgoing = match client_frame(message)? {
-            Frame::Text(text) => tungstenite::Message::text(text),
-            Frame::Binary(bytes) => tungstenite::Message::binary(bytes),
-        };
-        // Clone the sink Arc and release the outer lock before awaiting the inner send -- keeping `self.ws` locked
-        // across the await would block every other ws-method call.
-        let sink = self
-            .ws
-            .lock()
-            .await
-            .as_ref()
-            .map(|backend| Arc::clone(&backend.sink))
-            .ok_or(WsError::NotConnected)?;
-        Ok(sink.lock().await.send(outgoing).await?)
+        send_frame(&self.ws, client_frame(message)?).await
     }
 
+    /// The next message, waiting up to `timeout_ms`, in the world's types.
     async fn recv(&mut self, timeout_ms: u32) -> Result<Option<WitServerMessage>, WsError> {
-        // Same lock-handoff pattern as `send`: grab the inbox Arc, drop the outer lock, then await.
-        let inbox = self
-            .ws
-            .lock()
-            .await
-            .as_ref()
-            .map(|backend| Arc::clone(&backend.inbox))
-            .ok_or(WsError::NotConnected)?;
-        let parsed = {
-            let mut rx = inbox.lock().await;
-            match tokio::time::timeout(Duration::from_millis(u64::from(timeout_ms)), rx.recv()).await {
-                Ok(Some(value)) => value,
-                Ok(None) | Err(_) => return Ok(None),
-            }
-        };
-        Ok(Some(server_message_to_wit(parsed)?))
+        match next_message(&self.ws, timeout_ms).await? {
+            Some(message) => Ok(Some(server_message_to_wit(message)?)),
+            None => Ok(None),
+        }
     }
 
     async fn disconnect(&mut self) {

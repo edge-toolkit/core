@@ -53,25 +53,29 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
         .unwrap_or_else(|error| panic!("{module} runner failed: {error}"));
 }
 
-/// Run wasi-math1 through the storage-driven exchange and verify its stored model.
+/// Run a math1 twin through the storage-driven exchange and verify its stored model.
 ///
 /// The fake-agent side lives in `et_ws_test_server::math1`: it injects the canonical input JSON
-/// into storage, broadcasts the `math1-input` pointer, and reads back the component's
+/// into storage, broadcasts the `math1-input` pointer, and reads back the twin's
 /// `math1-output.json`, which is verified against the expected weights for that input. The
-/// runner's own exit status is asserted too.
+/// runner's own exit status is asserted too. wasi-math1 is a component the runner runs on wasmtime;
+/// core-math1 is a Wasm 1.0 core module it runs on `SpaceWasm`.
+#[rstest]
+#[case::wasi("et-ws-wasi-math1")]
+#[cfg_attr(feature = "core-modules", case::core("et-ws-core-math1"))]
 #[tokio::test(flavor = "current_thread")]
 #[cfg_attr(
     windows,
     ignore = "pkg/package.json 404 on Windows -- see module_runs_successfully's comment"
 )]
-async fn wasi_math1_stores_verified_model() {
+async fn math1_twin_stores_verified_model(#[case] module: &str) {
     if !mise_env_includes(Language::Rust) {
         return;
     }
     let server = et_ws_test_server::start();
     let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");
     let mut runner = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", served("et-ws-wasi-math1"))
+        .env("RUNNER_MODULE", served(module))
         .env("WS_SERVER_URL", &server.ws_url)
         .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
         .spawn()
@@ -85,9 +89,9 @@ async fn wasi_math1_stores_verified_model() {
     // Reap the runner regardless of the exchange outcome; it exits on its own once the component
     // completes.
     let status = wait_for_runner_exit(&mut runner);
-    let (weight, bias) = outcome.unwrap_or_else(|err| panic!("wasi-math1: {err}"));
-    et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap_or_else(|err| panic!("wasi-math1: {err}"));
-    assert!(status.success(), "wasi-math1 runner exited {status:?}");
+    let (weight, bias) = outcome.unwrap_or_else(|err| panic!("{module}: {err}"));
+    et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap_or_else(|err| panic!("{module}: {err}"));
+    assert!(status.success(), "{module} runner exited {status:?}");
 }
 
 /// Poll the spawned runner until it exits, killing it if it overstays the bound.

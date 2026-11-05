@@ -153,6 +153,26 @@ et-wasi-guest = { workspace = true }
     assert_eq!(package["main"], "et_ws_wasi_shared.wasm");
 }
 
+/// A Wasm 1.0 core module, which imports the `et` functions through `et-core-guest`, is a `.wasm` guest too.
+#[test]
+fn module_package_json_derives_core_module_main_via_the_core_guest_crate() {
+    let package = generated_package(
+        "Cargo.toml",
+        r#"[package]
+name = "et-ws-core-demo"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "none"))'.dependencies]
+et-core-guest = { workspace = true }
+"#,
+        "et_ws_core_demo.wasm",
+        &[],
+    );
+
+    assert_eq!(package["main"], "et_ws_core_demo.wasm");
+}
+
 /// A browser module stays a browser module however often the guest markers appear outside its runtime deps.
 ///
 /// Detection reads the parsed dependency tables, not the manifest text, so none of the spellings below is a

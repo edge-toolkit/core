@@ -1,0 +1,21 @@
+id: no-unwrap-or-call
+valid:
+  - |
+    let value = option.unwrap_or(0);
+  - |
+    let value = option.unwrap_or(usize::MAX);
+  - |
+    let value = option.unwrap_or(fallback);
+  - |
+    let value = option.unwrap_or_else(|| compute());
+  - |
+    let value = option.unwrap_or_default();
+  - |
+    let value = option.map_or(compute(), |found| found);
+invalid:
+  - |
+    let value = inbox.pop_front().unwrap_or(Ok(None));
+  - |
+    let value = option.unwrap_or(String::new());
+  - |
+    let value = option.unwrap_or(compute());

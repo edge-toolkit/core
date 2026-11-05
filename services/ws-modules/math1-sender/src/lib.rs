@@ -13,6 +13,7 @@
     reason = "browser WASM module: JsFuture is !Send; module-local helpers are single-use by design"
 )]
 
+use et_math1::{INPUT_FILENAME, pointer_frame};
 use et_web::{JsResultExt as _, sleep_ms, websocket_url};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea, wait_for_connected};
 use tracing::info;
@@ -20,8 +21,6 @@ use wasm_bindgen::prelude::*;
 
 /// The canonical input bytes, embedded from the committed file so there is one source of truth.
 const MATH1_INPUT_JSON: &str = include_str!(env!("ET_MATH1_INPUT_PATH"));
-/// Storage object name the twins' broadcast pointer names, matching the harnesses.
-const INPUT_FILENAME: &str = "math1-input.json";
 /// How many one-second-spaced pointer broadcasts to send before completing.
 const BROADCASTS: u32 = 60;
 
@@ -31,6 +30,7 @@ pub fn init() {
     info!("math1-sender module initialized");
 }
 
+/// Store the canonical input in this agent's bucket, then broadcast the pointer naming it once a second.
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     let msg = "math1-sender: entered run()";
@@ -64,7 +64,7 @@ pub async fn run() -> Result<(), JsValue> {
     log(&msg);
     set_module_status(&msg)?;
 
-    let pointer = format!(r#"{{"type":"math1-input","bucket":"{agent_id}","filename":"{INPUT_FILENAME}"}}"#);
+    let pointer = pointer_frame(&agent_id);
     let msg = format!("math1-sender: broadcasting the math1-input pointer every second, {BROADCASTS} times");
     log(&msg);
     set_module_status(&msg)?;

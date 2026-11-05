@@ -1,0 +1,27 @@
+[package]
+name = "et-core-guest"
+publish = true
+description = "The `et` imports through which a Wasm 1.0 core module reaches its hub, and a typed guest API over them"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Built for the guests' own target, so the docs show the imports, heap and `export!` a guest links.
+[package.metadata.docs.rs]
+default-target = "wasm32v1-none"
+
+[lib]
+doctest = false
+
+[dependencies]
+edge-toolkit.workspace = true
+serde_json = { workspace = true, features = ["alloc"] }
+thiserror.workspace = true
+
+# What only a guest built for a Wasm 1.0 target links: its heap, which grows the guest's linear memory as it needs.
+[target.'cfg(all(target_arch = "wasm32", target_os = "none"))'.dependencies]
+dlmalloc.workspace = true
+
+[lints]
+workspace = true

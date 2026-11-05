@@ -34,13 +34,13 @@ version = "16.1.0posix-14.0.0-msvcrt-r3"
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-gnu"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none,x86_64-pc-windows-gnu"
 version = "stable-x86_64-pc-windows-gnullvm"
 
 [[tools.rust]]
 components = "rust-src,rustfmt"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-gnu"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none,x86_64-pc-windows-gnu"
 version = "{{ vars.rust_nightly }}-x86_64-pc-windows-gnullvm"
 
 [vars]

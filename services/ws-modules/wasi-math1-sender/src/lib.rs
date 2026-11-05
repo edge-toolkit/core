@@ -23,6 +23,7 @@
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
+use et_math1::{INPUT_FILENAME, pointer_frame};
 use et_wasi_guest::et::ws_messages::messages::{ClientMessage, RelayTextPayload};
 use et_wasi_guest::et::ws_wasi::ws;
 use et_wasi_guest::exports::et::ws_wasi::entry::{EntryError, Guest};
@@ -33,9 +34,6 @@ const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 
 /// The canonical input bytes, embedded from the committed file so there is one source of truth.
 const MATH1_INPUT_JSON: &str = include_str!(env!("ET_MATH1_INPUT_PATH"));
-
-/// Storage object name the twins' broadcast pointer names, matching the harnesses.
-const INPUT_FILENAME: &str = "math1-input.json";
 
 /// How many one-second-spaced pointer broadcasts to send before completing.
 ///
@@ -50,6 +48,7 @@ const BROADCAST_INTERVAL_MS: u64 = 1_000;
 struct Component;
 
 impl Guest for Component {
+    /// Store the canonical input in this agent's bucket, then broadcast the pointer naming it once a second.
     #[expect(
         clippy::unused_async_trait_impl,
         reason = "entry.run is an async export of the WIT world, so the generated trait fixes the signature"
@@ -60,9 +59,7 @@ impl Guest for Component {
         own_bucket.set(INPUT_FILENAME, MATH1_INPUT_JSON.as_bytes())?;
         info(&format!("uploaded {INPUT_FILENAME} to bucket={agent_id}"));
 
-        // Built by hand rather than through serde_json, as the browser sender's identical pointer is: one
-        // fixed-shape object with no parsing anywhere in this module, so a JSON dependency would earn nothing.
-        let pointer = format!(r#"{{"type":"math1-input","bucket":"{agent_id}","filename":"{INPUT_FILENAME}"}}"#);
+        let pointer = pointer_frame(&agent_id);
 
         info(&format!(
             "broadcasting the math1-input pointer every {BROADCAST_INTERVAL_MS}ms, {BROADCASTS} times"

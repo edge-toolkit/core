@@ -18,8 +18,11 @@ use crate::error::{CliError, parse_json, parse_toml, serialize_json_pretty};
 /// The crate prefix, or the organisation name itself, as `edge-toolkit` is named like its Rust crate.
 const OWN_MODULE_PREFIXES: [&str; 2] = [et_org::CRATE_PREFIX, et_org::ORG];
 
-/// The runtime dependency names that identify a WASI component guest.
-const WASI_GUEST_MARKERS: [&str; 2] = ["et-wasi-guest", "wit-bindgen"];
+/// The runtime dependency names that identify a guest a runner loads as `.wasm`.
+///
+/// A WASI component reaches its bindings through `et-wasi-guest` or `wit-bindgen`; a Wasm 1.0 core module imports the
+/// `et` functions through `et-core-guest`.
+const WASM_GUEST_MARKERS: [&str; 3] = ["et-core-guest", "et-wasi-guest", "wit-bindgen"];
 
 /// The name a module publishes under, given the name its crate or project declares.
 ///
@@ -324,7 +327,9 @@ fn repository_json(url: &str) -> Value {
     json!({ "type": "git", "url": url })
 }
 
-/// Whether a module is built as a WASI Preview 2 component or as JS that browser/Pyodide loads.
+/// Whether a module is built as `.wasm` the WASI runner loads, or as JS that browser/Pyodide loads.
+///
+/// The WASI runner loads a WASI Preview 2 component or a Wasm 1.0 core module.
 #[derive(Clone, Copy)]
 enum ModuleKind {
     Wasi,
@@ -352,13 +357,14 @@ fn detect_python_kind(module_dir: &Path) -> ModuleKind {
     }
 }
 
-/// WASI Rust modules reach the component bindings one of two ways; wasm-pack browser modules do neither.
+/// Whether a Rust module's runtime dependencies make it a `.wasm` guest rather than a wasm-pack browser module.
 ///
-/// `et-wasi-guest` generates the bindings once and shares them, so a guest that depends on it names no
-/// `wit-bindgen` of its own -- and a guest predating that crate, or generating its own for some reason, still
-/// names `wit-bindgen` directly. Either marker identifies a component, and missing one is not cosmetic: the kind
-/// picks the extension the entry file is looked up by, so a component read as a browser module goes looking for a
-/// `.js` that was never built and the module's `package.json` cannot be written at all.
+/// WASI Rust modules reach the component bindings one of two ways, core modules reach the `et` imports a third way,
+/// and wasm-pack browser modules take none of them. `et-wasi-guest` generates the bindings once and shares them, so a
+/// guest that depends on it names no `wit-bindgen` of its own -- and a guest predating that crate, or generating its
+/// own for some reason, still names `wit-bindgen` directly. Each marker identifies a `.wasm` guest, and missing one is
+/// not cosmetic: the kind picks the extension the entry file is looked up by, so a guest read as a browser module goes
+/// looking for a `.js` that was never built and the module's `package.json` cannot be written at all.
 ///
 /// Only a runtime dependency counts -- `[dependencies]` or `[target.<cfg>.dependencies]`. The name turning up in
 /// a comment, in `[package.metadata]`, in a `[patch]` pin, or under `dev-`/`build-dependencies` says nothing
@@ -370,7 +376,7 @@ fn detect_cargo_kind(cargo_toml: &CargoToml) -> ModuleKind {
         .dependencies
         .keys()
         .chain(target_deps)
-        .any(|name| WASI_GUEST_MARKERS.contains(&name.as_str()))
+        .any(|name| WASM_GUEST_MARKERS.contains(&name.as_str()))
     {
         ModuleKind::Wasi
     } else {

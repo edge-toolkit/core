@@ -7,8 +7,10 @@ rust-version = "1.99.0"
 [workspace]
 members = [
   "libs/actix-web-config",
+  "libs/core-guest",
   "libs/edge-toolkit",
   "libs/et-otlp",
+  "libs/math1",
   "libs/org",
   "libs/path",
   "libs/sanitise",
@@ -22,6 +24,7 @@ members = [
   "services/ws-modules/audio1",
   "services/ws-modules/bluetooth",
   "services/ws-modules/comm1",
+  "services/ws-modules/core-math1",
   "services/ws-modules/data1",
   "services/ws-modules/except1",
   "services/ws-modules/face-detection",
@@ -104,6 +107,7 @@ deno_resolver = "0.91"
 # instead of panicking when no SnapshotOptions struct is in OpState -- without
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.268", features = ["transpile", "hmr"] }
+dlmalloc = { version = "0.2", features = ["global"] }
 document-features = "0.2"
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0", default-features = false }
 edge-ws = { version = "0.8", default-features = false, features = ["io"] }
@@ -124,8 +128,10 @@ esp-radio = "1.0.0-beta.1"
 esp-rtos = "0.4"
 et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
+et-core-guest = { path = "libs/core-guest", version = "0.1.0" }
 et-firmware-modules = { path = "services/firmware-modules", version = "0.1.0" }
 et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
+et-math1 = { path = "libs/math1", version = "0.1.0" }
 et-modules-service = { path = "services/modules", version = "0.3.0", default-features = false }
 et-onnx = { path = "utilities/onnx", version = "0.2.0" }
 et-org = { path = "libs/org", version = "0.2.0" }
@@ -270,6 +276,8 @@ serde_with = { version = "3.24", default-features = false, features = ["macros"]
 serde_yaml = "0.9"
 sha2 = { version = "0.11", default-features = false }
 shlex = "2"
+# NASA JPL's Wasm 1.0 interpreter, which et-ws-wasi-runner runs core modules on.
+spacewasm = { version = "0.7", default-features = false }
 spin = { version = "0.12", default-features = false, features = ["spin_mutex"] }
 static_cell = "2"
 strum = { version = "0.28", features = ["derive"] }
@@ -548,12 +556,20 @@ ignore = [
   # jni-sys requirement ^0.3.0 (used 0.3.1, latest 0.4.1); pulled by ndk-sys, an Android-only dep.
   # Reached via wgpu-hal (deno_webgpu -> wgpu); never compiled on our target platforms.
   "jni-sys",
+  # Upstream timothee-haudebourg/khronos-egl has been quiet three years; 6.0.0 still requires libloading ^0.8.
+  # Pulled by wgpu-hal's GLES backend, Linux and Android only, through wgpu-core for deno_webgpu and the wasi runner's
+  # wasi:webgpu host. wgpu-hal 30 still requires khronos-egl ^6, so no wgpu upgrade drops it either.
+  "khronos-egl",
   # Unmaintained upstream at rust-lang-nursery/lazy-static.rs.
   # Pulled by actix-web-thiserror-derive (build proc-macro).
   "lazy_static",
   # ndk-sys unmaintained upstream; Android-only, reached via wgpu-hal (deno_webgpu -> wgpu).
   # Never compiled on our target platforms.
   "ndk-sys",
+  # Upstream dignifiedquire/num-bigint reached a year without a commit on 2026-11-06; 0.8.6 still requires rand ^0.8.
+  # Pulled by rsa 0.9 (deno_crypto, deno_node_crypto), dsa and deno_node_crypto, all under et-ws-web-runner's Deno.
+  # rsa 0.10, still a release candidate, drops it for crypto-bigint; this goes once deno_crypto moves to rsa 0.10.
+  "num-bigint-dig",
   # Unmaintained upstream at rust-num/num-complex.
   # Pulled by nalgebra (via wgpu / naga). Stable foundational math crate.
   "num-complex",

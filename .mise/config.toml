@@ -230,7 +230,7 @@ zizmor = "latest"
 components = "clippy,rust-analyzer"
 os = ["linux", "macos"]
 profile = "minimal"
-targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
+targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
 # Use `stable`, not `latest`, so every lane resolves through the same rustup channel.
 # mise's `latest` picks the max of rust-lang/rust's GitHub Releases, which are published by separate
 # automation that lags the `stable` rustup channel the Windows [[tools.rust]] entries resolve through. That
@@ -244,7 +244,7 @@ version = "stable"
 components = "rust-src,rustfmt,llvm-tools"
 os = ["linux", "macos"]
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
 version = "{{ vars.rust_nightly }}"
 
 # The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
@@ -1263,12 +1263,19 @@ meta="$(cargo metadata --format-version 1 --no-deps)"
 pick='.packages[] | select(any(.dependencies[].name; . as $dep | any($names[]; . == $dep))) | "-p", .name'
 browser="$(printf '%s' "$meta" | jaq -r --argjson names '["wasm-bindgen"]' "$pick")"
 wasi="$(printf '%s' "$meta" | jaq -r --argjson names '["wit-bindgen", "et-wasi-guest"]' "$pick")"
+# The Wasm 1.0 guests, picked by the target their docs build for, as depending on et-core-guest picks the runner too.
+# shellcheck disable=SC2016
+core_pick='.packages[] | select(.metadata.docs.rs."default-target" == "wasm32v1-none") | "-p", .name'
+core="$(printf '%s' "$meta" | jaq -r "$core_pick")"
 rc=0
 # Both package lists are newline-separated `-p` / `<name>` words, and rely on word-splitting.
 # shellcheck disable=SC2086
 cargo clippy --keep-going --all-targets --target wasm32-unknown-unknown $browser || rc=1
 # shellcheck disable=SC2086
 cargo clippy --keep-going --all-targets --target wasm32-wasip2 $wasi || rc=1
+# Only the libraries: a test needs std, which wasm32v1-none does not have.
+# shellcheck disable=SC2086
+cargo clippy --keep-going --lib --target wasm32v1-none $core || rc=1
 exit "$rc"
 """
 shell = "{{ vars.task_shell }}"

@@ -19,13 +19,13 @@
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-msvc"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none,x86_64-pc-windows-msvc"
 version = "stable-x86_64-pc-windows-gnullvm"
 
 [[tools.rust]]
 components = "rust-src,rustfmt"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-msvc"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none,x86_64-pc-windows-msvc"
 version = "{{ vars.rust_nightly }}-x86_64-pc-windows-gnullvm"
 
 [vars]

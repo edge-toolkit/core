@@ -17,6 +17,7 @@ doctest = false
 test = false
 
 [dependencies]
+et-math1.workspace = true
 et-rest-client.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true

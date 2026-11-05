@@ -141,6 +141,16 @@ fn a_component_that_is_not_webassembly_is_refused() {
 }
 
 #[test]
+fn a_core_module_is_refused() {
+    let (_root, path) = component_module(r#"(module (func (export "run") (result i32) (i32.const 0)))"#);
+    let out_dir = tempdir().unwrap();
+    let refused = one_guest(&path, ROOMY, out_dir.path()).unwrap_err();
+    let expected =
+        matches!(refused, ModulesError::CoreModule { runner, package } if runner == "runner-1" && package == "guest");
+    assert!(expected);
+}
+
+#[test]
 fn a_guest_importing_what_the_board_does_not_host_is_refused() {
     let (_root, path) = component_module(
         r#"(component

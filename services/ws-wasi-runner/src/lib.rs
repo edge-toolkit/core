@@ -3,7 +3,12 @@
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(not(feature = "std"), feature = "board", feature = "precompile"))]
+#[cfg(any(
+    feature = "board",
+    feature = "core-modules",
+    feature = "precompile",
+    not(feature = "std")
+))]
 extern crate alloc;
 
 pub mod bindings;
@@ -12,6 +17,8 @@ pub mod board;
 #[cfg(feature = "std")]
 pub mod config;
 pub mod convert;
+#[cfg(feature = "core-modules")]
+pub mod core_module;
 #[cfg(any(feature = "board", feature = "precompile"))]
 pub mod engine;
 #[cfg(feature = "std")]

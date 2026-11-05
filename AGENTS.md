@@ -561,6 +561,10 @@ Languages:
   from `pkg/` as a static asset; the guest fetches it via the `storage` host import because
   componentize-py 0.23 doesn't bundle non-Python data files), then runs inference through ONNX
   Runtime via `wasi:nn/graph.load` + `inference.compute` and verifies the predicted class.
+- **Rust -> Wasm 1.0 core module (`wasm32v1-none`)**: core-math1 -- runs in `et-ws-wasi-runner` on NASA's SpaceWasm
+  interpreter rather than wasmtime, which the runner picks from the module's header. It imports the `et` functions
+  `et-core-guest` defines in place of a WIT world, and is built by `cargo build --target wasm32v1-none`, whose
+  prebuilt `core` and `alloc` are already Wasm 1.0, then `et-cli module-package-json`.
 
 ### Libraries (`libs/`)
 

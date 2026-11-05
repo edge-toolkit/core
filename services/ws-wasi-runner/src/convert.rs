@@ -37,20 +37,29 @@ pub enum Frame {
     Binary(Vec<u8>),
 }
 
-/// The frame a guest's `client-message` goes out as.
+/// The frame a guest's `client-message` goes out as, which is the frame [`frame_of`] gives its message.
+///
+/// # Errors
+///
+/// When the message's opaque JSON or event time does not parse, or the message does not serialise.
+pub fn client_frame(message: WitClientMessage) -> Result<Frame, WsError> {
+    frame_of(wit_to_client_message(message)?)
+}
+
+/// The frame `message` goes out as.
 ///
 /// Relay variants travel as raw text / binary frames (no JSON envelope) -- that's what the ws-server hub forwards
 /// verbatim to other agents. Typed variants serialise through standard tagged JSON.
 ///
 /// # Errors
 ///
-/// When the message's opaque JSON or event time does not parse, or the message does not serialise.
-pub fn client_frame(message: WitClientMessage) -> Result<Frame, WsError> {
+/// When the message does not serialise.
+pub fn frame_of(message: ClientMessage) -> Result<Frame, WsError> {
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "every non-relay ClientMessage variant takes the standard tagged-JSON path"
     )]
-    Ok(match wit_to_client_message(message)? {
+    Ok(match message {
         ClientMessage::RelayText { content } => Frame::Text(content),
         ClientMessage::RelayBinary { content } => Frame::Binary(content),
         typed => Frame::Text(serde_json::to_string(&typed)?),

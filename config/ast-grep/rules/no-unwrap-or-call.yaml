@@ -1,0 +1,25 @@
+id: no-unwrap-or-call
+language: Rust
+severity: error
+message: |
+  `.unwrap_or(...)` evaluates its argument even when the value it stands in for is there, so a call written there runs
+  every time. Reach the fallback another way: `let Some(value) = option else { ... }` or a `match`, or
+  `.unwrap_or_else(...)` when the fallback is real work -- clippy's `unnecessary_lazy_evaluations` objects to a closure
+  around a plain constructor. This mirrors `DeepSource RS-W1031`. clippy's `or_fun_call` lets an enum or tuple-struct
+  constructor such as `Ok(None)` through as cheap, so a constructor here gets past clippy alone.
+# Check-only, because the rewrite depends on what the call is.
+# A constructor wants a `let`-`else` or a `match`, and real work a closure, which a syntax tree cannot tell apart.
+# Matched by node kind: a method call named `unwrap_or` whose argument is itself a call.
+rule:
+  kind: call_expression
+  all:
+    - has:
+        field: function
+        kind: field_expression
+        has:
+          field: field
+          regex: "^unwrap_or$"
+    - has:
+        field: arguments
+        has:
+          kind: call_expression
