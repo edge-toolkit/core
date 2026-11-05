@@ -97,7 +97,6 @@ fn resilience_configuration_round_trips_and_rejects_invalid_dependency_graphs() 
 #[test]
 fn typed_in_cluster_settings_match_the_expected_runtime_configuration() {
     let mut expected = config();
-    expected.context = "in-cluster".into();
     expected.state_file = "/app/state/recovery.json".into();
     let actual = Config::in_cluster(
         expected.ws_url.clone(),
@@ -147,7 +146,7 @@ fn targets_and_identities_are_explicit_and_unique() {
     }
     assert!(!valid_name(&"a".repeat(64)));
     assert!(valid_name("worker-1"));
-    for field in ["context", "namespace", "agent_id", "job_id", "state_file", "ws_url"] {
+    for field in ["namespace", "agent_id", "job_id", "state_file", "ws_url"] {
         let mut value = config_for_serialization();
         value[field] = serde_json::json!("");
         let invalid: et_recovery_supervisor::config::Config = serde_json::from_value(value).unwrap();

@@ -325,7 +325,7 @@ async fn full_evidence_queue_waits_for_capacity_without_requiring_a_resend() {
     assert!(error.to_string().contains("recovery evidence queue unavailable"));
 }
 
-/// Exercise real kubectl context errors using an isolated fixture without contacting a cluster.
+/// Exercise real kubectl errors using a fixture whose current context is undefined, so no cluster is contacted.
 #[tokio::test]
 async fn kubernetes_reports_command_errors_without_contacting_a_cluster() {
     let _logging = set_default(tracing_subscriber::fmt().with_test_writer().finish());
@@ -358,6 +358,8 @@ fn binary_fails_closed_on_an_unavailable_state_directory() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_et-recovery-supervisor"))
         .envs(environment())
         .env("RECOVERY_STATE_FILE", &config.state_file)
+        .env_remove("KUBECONFIG")
+        .env("HOME", directory.path())
         .output()
         .unwrap();
     assert!(!output.status.success());

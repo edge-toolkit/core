@@ -19,7 +19,7 @@
 # docker build -t et-ws-server -f services/ws-server/Dockerfile .
 # docker run --rm -p 8080:8080 et-ws-server        # then open http://localhost:8080
 
-FROM rust:1-bookworm AS builder
+FROM rust:1-trixie AS builder
 
 # clang and cmake are load-bearing here rather than conveniences.
 # rustls resolves to aws-lc-rs, and the aws-lc-sys build script drives cmake over the vendored C sources plus
@@ -98,7 +98,7 @@ cd services/ws-wasm-agent
 wasm-pack build . --target web
 EOF
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 

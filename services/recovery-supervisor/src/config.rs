@@ -64,8 +64,6 @@ pub struct Config {
     pub agent_id: String,
     /// Application job whose lifecycle events are eligible.
     pub job_id: String,
-    /// Explicit Kubernetes context; never relies on the operator's current context.
-    pub context: String,
     /// Namespace containing every allowlisted deployment.
     pub namespace: String,
     /// Observe-only unless explicitly enabled.
@@ -146,7 +144,6 @@ impl Config {
             ws_url,
             agent_id: "recovery-supervisor".into(),
             job_id,
-            context: "in-cluster".into(),
             namespace,
             mode: Mode::ObserveOnly,
             poll_seconds: 2,
@@ -183,15 +180,13 @@ impl Config {
 
     /// Reject ambiguous job, deployment namespace and durable-state identities before connecting.
     fn validate_identity(&self) -> Result<(), RecoveryError> {
-        if self.context.is_empty()
-            || self.context.starts_with('-')
-            || !valid_name(&self.namespace)
+        if !valid_name(&self.namespace)
             || self.agent_id.is_empty()
             || self.job_id.is_empty()
             || self.state_file.as_os_str().is_empty()
         {
             return Err(RecoveryError::Invalid(
-                "invalid hub, job, namespace, context, or state location".into(),
+                "invalid hub, job, namespace, or state location".into(),
             ));
         }
         validate_endpoint(&self.ws_url)

@@ -83,6 +83,23 @@ outside the tree on purpose), then simply never point at it from inside. Creatin
 repo is fine when the operator wants that -- this rule is **only** about never referring to out-of-repo files
 from within the repo.
 
+## Misc Markdown files are not committed
+
+Never create a `docs/` directory. When asked for a miscellaneous `.md` file related to this repo -- an email draft,
+notes, a write-up -- write it at the top level of the repo as `<topic>.local.md`. `.gitignore` covers that suffix, so
+it is never committed and no linter reads it. It needs no formatting either, and the line-length limit does not
+apply. Write it for its reader instead: text meant to be pasted elsewhere, such as an email, keeps each paragraph
+on one line so it pastes without hard breaks. Once it is written, offer to open it in a Markdown editor; on macOS,
+`open` on the file launches the default app for `.md`.
+
+## Finding a Curtin staff member's details
+
+A Curtin staff member's email address is `firstname.lastname@curtin.edu.au`, so build it from their name rather than
+searching for it. Their honorific, position and school are public in Curtin Profiles, which takes a surname at
+`https://profiles.curtin.edu.au/search?by=text&type=user&v=<surname>`; it renders client-side, so read it in the
+browser pane rather than fetching it. Web search finds neither, so do not spend searches on a name. The older
+`https://staffportal.curtin.edu.au/staff/profile/view/` profile URLs redirect to Curtin Profiles.
+
 ## On macOS: use homebrew bash for ad-hoc agent commands
 
 On macOS, every ad-hoc command the agent runs that is **not** a `mise run <task>` invocation -- investigations,
@@ -136,6 +153,14 @@ If you genuinely need a tool that is not installed (or is not mise-managed) to d
 back to the host binary -- surface it. Recommend to the user that the tool be added as a mise `[tools]` entry
 (prebuilt-binary backend, cross-platform, per the "Tools must work on every OS" rule), and let them decide. A tool
 worth using in this repo is worth pinning.
+
+## Only free tools with a GitHub repository
+
+When evaluating a tool -- for the repo, or to install on the operator's machine -- consider only free, open-source
+tools, and confirm each has a GitHub repository before recommending or installing it. Never install a paid or
+trial-licensed tool, even where it is the best of its kind; a free trial is still a non-free tool. Read the licence
+in the repository rather than inferring it from a package listing: a Homebrew cask or an app-store page says nothing
+about whether the tool is free -- the Marked Markdown viewer was installed that way and turned out to be paid.
 
 ## Kill any command past an hour unless it is visibly progressing
 

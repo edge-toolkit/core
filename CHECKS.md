@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-11-03
+- **Generated:** 2026-11-05
 - **Checks:** 82
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 363 custom local rules, or non-default strict linter settings
+- **Rules:** 366 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -672,6 +672,8 @@ Rules, from `config/conftest/policy`:
   - Every actions/upload-artifact step must set with.if-no-files-found: error.
   - Scalar lists: `matrix.<key>: [a, b, c]`.
   - `include:` entries, which is where the per-combination keys live.
+  - Every job must say how long it gets.
+  - No job may be given more than 150 minutes.
 - `gha_action` (`config/conftest/policy/gha_action/gha_action.rego`):
   - Composite-action `run:` steps require an explicit `shell:`.
   - Every actions/upload-artifact step must set with.if-no-files-found: error.
@@ -1046,6 +1048,9 @@ Rules, from `config/semgrep`:
   own directory under `utilities/` with a `README.md`.
 - `no-regal-mentions` -- Do not name the Rego linter outside its own config. A policy is written the way Rego reads
   best; if one of its idioms is deliberate, say what the idiom does rather than which linter asked for it.
+- `no-repo-mentions-in-verification` -- A scenario's generated docs must not mention git or a checkout. They are read by
+  whoever deploys the scenario, on machines that hold the generated directory and nothing else, so an instruction that
+  assumes the source repository is there is one that reader cannot follow. Change the et-cli text that renders it.
 - `no-roslynator-mentions` -- Do not name the C# analyzer outside the tasks and images that install it. A `#pragma
   warning disable` already names the diagnostic, which is the part a reader can look up.
 - `no-ruff-mentions` -- Do not name the Python linter/formatter outside its config and the configs that defer to it. A

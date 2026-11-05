@@ -2,6 +2,7 @@
 #![cfg(test)]
 #![cfg(unix)]
 
+use std::path::Path;
 use std::time::Duration;
 
 use edge_toolkit::ws::{ClientMessage, MessageDeliveryStatus, ServerMessage};
@@ -13,20 +14,22 @@ use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::process::{Child, Command};
 use tokio_tungstenite::tungstenite::Message;
 
-/// Launch the production executable with isolated state and a kubeconfig that cannot contact a cluster.
+/// Launch the production executable with isolated state and no way to reach a cluster.
+///
+/// With no kubeconfig and no kubectl on its PATH, every observation is unknown.
 #[expect(
     clippy::single_call_fn,
     reason = "keep subprocess setup separate from shutdown assertions"
 )]
-fn launch(config: &Config) -> Child {
-    let fixture =
-        edge_toolkit::config::get_project_root().join("services/recovery-supervisor/tests/fixtures/kubeconfig.yaml");
+fn launch(config: &Config, empty: &Path) -> Child {
     Command::new(env!("CARGO_BIN_EXE_et-recovery-supervisor"))
         .envs(environment())
         .env("RECOVERY_WS_URL", &config.ws_url)
         .env("RECOVERY_STATE_FILE", &config.state_file)
         .env("RECOVERY_POLL_SECONDS", config.poll_seconds.to_string())
-        .env("KUBECONFIG", fixture)
+        .env_remove("KUBECONFIG")
+        .env("HOME", empty)
+        .env("PATH", empty)
         .env("RUST_LOG", "warn")
         .stdout(std::process::Stdio::piped())
         .kill_on_drop(true)
@@ -105,12 +108,13 @@ async fn send(socket: &mut et_ws_runner_common::RegisteredSocket, kind: &str, pr
 #[tokio::test]
 async fn sigterm_saves_the_final_report_before_a_successful_exit() {
     let directory = tempfile::tempdir().unwrap();
+    let empty = tempfile::tempdir().unwrap();
     let server = et_ws_test_server::start();
     let mut config = config();
     config.ws_url.clone_from(&server.ws_url);
     config.state_file = directory.path().join("state.json");
     config.poll_seconds = 3600;
-    let mut child = launch(&config);
+    let mut child = launch(&config, empty.path());
     wait_for_initial_poll(&config, &mut child).await;
     let (mut producer, _) = et_ws_test_server::connect_agent_as(&server.ws_url, Some("example-worker")).await;
     send(&mut producer, "started", 0, 1).await;

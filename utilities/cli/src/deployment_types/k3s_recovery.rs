@@ -1,25 +1,21 @@
-//! Kubernetes recovery deployment: explicit credentials, named-target RBAC and a durable single-owner budget.
+//! Kubernetes recovery deployment: service-account credentials, named-target RBAC and a durable single-owner budget.
 
 use std::collections::BTreeMap;
 
 use et_recovery_supervisor::config::Mode;
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentStrategy};
-use k8s_openapi::api::core::v1::{
-    ConfigMap, ConfigMapVolumeSource, Container, ExecAction, Probe, ServiceAccount, Volume,
-};
+use k8s_openapi::api::core::v1::{Container, ExecAction, Probe, ServiceAccount};
 use k8s_openapi::api::rbac::v1::{PolicyRule, Role, RoleBinding, RoleRef, Subject};
 
 use super::document;
 use super::k3s::{
     IMAGE_PULL_POLICY, IMAGE_TAG, claim, deployment, env, hardened_container_context, meta, mount, plain_meta, scratch,
-    volume_mount,
 };
 use crate::placement::hub_site;
 use crate::recovery::{Recovery, RecoverySettings};
 use crate::{CliError, ClusterInput, RunnerInstance, image_prefix};
 
 const NAME: &str = "recovery-supervisor";
-const CONFIG: &str = "recovery-credentials";
 const STATE: &str = "recovery-state";
 
 /// Inject only the bindings of allowlisted native-Python workloads.
@@ -55,20 +51,13 @@ pub(super) fn documents(cluster: &ClusterInput, namespace: &str) -> Result<Vec<S
         metadata: plain_meta(namespace, NAME),
         ..ServiceAccount::default()
     };
-    let credentials = ConfigMap {
-        metadata: plain_meta(namespace, CONFIG),
-        data: Some(BTreeMap::from([("kubeconfig".into(), kubeconfig(namespace)?)])),
-        ..ConfigMap::default()
-    };
     let mut variables = settings.environment(namespace)?;
     let _previous = variables.insert("RUST_LOG".into(), "info".into());
-    let _previous = variables.insert("KUBECONFIG".into(), "/app/credentials/kubeconfig".into());
     let object = supervisor_deployment(cluster, namespace, variables, settings)?;
     Ok(vec![
         document(&account)?,
         document(&role(settings, namespace))?,
         document(&binding(namespace))?,
-        document(&credentials)?,
         document(&claim(namespace, STATE))?,
         document(&object)?,
     ])
@@ -135,22 +124,7 @@ fn binding(namespace: &str) -> RoleBinding {
     }
 }
 
-/// Use the projected, rotating `ServiceAccount` token and cluster CA, never the operator's host kubeconfig.
-fn kubeconfig(namespace: &str) -> Result<String, CliError> {
-    let service_account = "/var/run/secrets/kubernetes.io/serviceaccount";
-    Ok(serde_yaml::to_string(&serde_json::json!({
-        "apiVersion": "v1", "kind": "Config", "current-context": "in-cluster",
-        "clusters": [{"name": "cluster", "cluster": {
-            "server": "https://kubernetes.default.svc", "certificate-authority": format!("{service_account}/ca.crt")
-        }}],
-        "users": [{"name": "supervisor", "user": {"tokenFile": format!("{service_account}/token")}}],
-        "contexts": [{"name": "in-cluster", "context": {
-            "cluster": "cluster", "user": "supervisor", "namespace": namespace
-        }}]
-    }))?)
-}
-
-/// Mount persistent state separately from credentials and writable kubectl discovery caches.
+/// Mount persistent state separately from writable kubectl discovery caches.
 fn supervisor_deployment(
     cluster: &ClusterInput,
     namespace: &str,
@@ -159,7 +133,6 @@ fn supervisor_deployment(
 ) -> Result<Deployment, CliError> {
     let (state_mount, state_volume) = mount(STATE, "/app/state");
     let (runtime_mount, runtime_volume) = scratch("recovery-runtime", "/app/runtime");
-    let credentials = credentials_volume();
     let (probe, startup) = health_probes(&settings.config(namespace)?)?;
     let container = Container {
         name: NAME.into(),
@@ -173,18 +146,14 @@ fn supervisor_deployment(
         startup_probe: Some(startup),
         readiness_probe: Some(probe.clone()),
         liveness_probe: Some(probe),
-        volume_mounts: Some(vec![
-            state_mount,
-            runtime_mount,
-            volume_mount(CONFIG, "/app/credentials"),
-        ]),
+        volume_mounts: Some(vec![state_mount, runtime_mount]),
         ..Container::default()
     };
     let mut object = deployment(
         namespace,
         NAME,
         container,
-        vec![state_volume, runtime_volume, credentials],
+        vec![state_volume, runtime_volume],
         &hub_site(cluster),
         &settings.limits,
     );
@@ -195,22 +164,6 @@ fn supervisor_deployment(
     }
     object.metadata = meta(namespace, NAME);
     Ok(object)
-}
-
-/// Project the generated kubeconfig independently of writable state and runtime directories.
-#[expect(
-    clippy::single_call_fn,
-    reason = "the read-only credential volume is a distinct deployment resource"
-)]
-fn credentials_volume() -> Volume {
-    Volume {
-        name: CONFIG.into(),
-        config_map: Some(ConfigMapVolumeSource {
-            name: CONFIG.into(),
-            ..ConfigMapVolumeSource::default()
-        }),
-        ..Volume::default()
-    }
 }
 
 /// Allow registration and a full bounded cycle before liveness checks can restart a starting supervisor.

@@ -1,0 +1,33 @@
+---
+name: Verify a k3s scenario
+description: >-
+  Installs the mise tools, builds every image a local scenario's k3s manifests name, and applies them to a
+  throwaway k3d cluster with `k3s-verify`. One job per scenario calls it after `actions/checkout`, which a local
+  action cannot do itself: GitHub reads this file from the checked-out tree. The calling job's `timeout-minutes`
+  bounds the whole of it, since a composite action's steps take no timeout of their own.
+
+inputs:
+  scenario:
+    description: >-
+      The scenario under verification/local/output to build and apply. Its module packages must already be built
+      when they are wasm-pack artifacts; committed module sources need nothing.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install mise + tools
+      uses: $/.github/actions/install-mise-tools
+
+    - name: Build the scenario's images
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        SCENARIO: ${{ inputs.scenario }}
+      run: mise run k3s-images --scenario "$SCENARIO"
+
+    - name: Apply the manifests and verify the deployment
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        CARGO_NET_RETRY: "5"
+        SCENARIO: ${{ inputs.scenario }}
+      run: mise run k3s-verify --scenario "$SCENARIO"
