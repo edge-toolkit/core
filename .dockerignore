@@ -71,4 +71,4 @@ verification/**/.mise/locks/
 # `.gitignore` written beside it by `et-cli`, which is what keeps a real credential out of a real repository.
 **/.git/
 **/Dockerfile*
-README.md
+*.md

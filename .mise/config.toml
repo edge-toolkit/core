@@ -1000,6 +1000,13 @@ if [ "$(coreutils uname -s)" = "Darwin" ] && [ "$(coreutils uname -m)" != "arm64
   echo "agent-lint-check: upstream publishes no macOS x86_64 binary; nothing to check on this host"
   exit 0
 fi
+# Skip where AGENTS.md is absent, as it is when `check` runs inside an image.
+# AGENTS.md is a top-level Markdown file, which the docker build context excludes; the native check lanes, which
+# have it, enforce it.
+if [ ! -f AGENTS.md ]; then
+  echo "agent-lint-check: AGENTS.md absent (docker build context); skipping -- native lanes enforce it"
+  exit 0
+fi
 agent-lint .
 """
 shell = "{{ vars.task_shell }}"
@@ -1408,6 +1415,12 @@ find config/conftest/policy -name '*.rego' -print0 |
 """
 shell = "{{ vars.task_shell }}"
 
+# The Docker build context, held to keeping every top-level Markdown file out of it.
+# `--parser ignore` reads .dockerignore as the ignore file it is, handing the policy its lines.
+[tasks.conftest-check-dockerignore]
+description = "Check .dockerignore keeps every top-level Markdown file out of the Docker build context (conftest)"
+run = "conftest test --combine --parser ignore --namespace dockerignore -p config/conftest/policy .dockerignore"
+
 [tasks.conftest-check-generated-trees]
 description = "Cross-check config/generated-trees.toml against the linter configs it governs (conftest)"
 # --combine over a deliberately mixed file set, with conftest auto-detecting each parser (TOML, YAML, JSON).
@@ -1734,7 +1747,7 @@ shell = "{{ vars.task_shell }}"
 description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
 run = """
 # README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.
-# gen:dockerignore adds /README.md. Skip there -- the native check lanes (which have README.md) enforce the sync.
+# gen:dockerignore adds /*.md. Skip there -- the native check lanes (which have README.md) enforce the sync.
 if [ ! -f README.md ]; then
   echo "readme-mise-version-check: README.md absent (docker build context); skipping -- native lanes enforce it"
   exit 0
@@ -2618,8 +2631,8 @@ usage = 'arg "<package>" help="Dependency package name as it appears in Cargo.lo
 description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
 # Docker reads only the root .dockerignore (never .gitignore or nested ignore files).
 # A bare pattern there is root-anchored -- whereas a slash-less .gitignore pattern matches at any depth.
-# So mirror .gitignore, add the Docker-only excludes (`.git/`, plus the build recipe + docs so editing
-# them doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
+# So mirror .gitignore, add the Docker-only excludes (`.git/`, plus the build recipe and every top-level Markdown
+# file, so editing them doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
 # `.dockerignore` itself is deliberately NOT excluded any more. Excluding it saved nothing (the file is tiny) and
 # meant it was absent from the build context, so `et-cli` -- which derives each scenario's per-Dockerfile ignore
 # file from it -- could not run inside an image built from this Dockerfile:
@@ -2627,7 +2640,15 @@ description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
 # That surfaced only in the docker build.yaml lanes, because every other environment has the file on disk.
 # goawk emits CRLF on Windows, so the whole block is piped through `tr -d '\r'` -- .dockerignore must stay
 # LF-only (editorconfig enforces it, and CRLF would also make dockerignore-check see a spurious diff).
+# The file is written to a staged copy under target/ and renamed into place. Checks that read .dockerignore run
+# beside dockerignore-check, which runs this, so writing it in place would let them read a truncated file; a rename
+# shows them the old file or the new one, never part of one. The copy is made by redirection rather than mktemp,
+# which would create it 0600 and need a chmod that the Windows coreutils build lacks:
+#     chmod: function/utility not found
 run = '''
+coreutils mkdir -p target
+staged="target/dockerignore.$$"
+trap 'coreutils rm -f "$staged"' EXIT
 {
   echo "# AUTO-GENERATED from .gitignore by 'mise run gen:dockerignore' -- do not edit."
   echo "# Docker reads only this file; patterns are **/-prefixed to match at any depth"
@@ -2635,7 +2656,7 @@ run = '''
   echo
   {
     coreutils cat .gitignore
-    printf '%s\n' '.git/' 'Dockerfile*' '/README.md'
+    printf '%s\n' '.git/' 'Dockerfile*' '/*.md'
   } | goawk '
     /^[[:space:]]*#/ { print; next }
     /^[[:space:]]*$/ { print; next }
@@ -2647,7 +2668,8 @@ run = '''
       if (index(core, "/") > 0) print neg line; else print neg "**/" line
     }
   '
-} | coreutils tr -d '\r' >.dockerignore
+} | coreutils tr -d '\r' >"$staged"
+coreutils mv -f "$staged" .dockerignore
 '''
 shell = "{{ vars.task_shell }}"
 
@@ -2785,7 +2807,17 @@ run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks"
 # `--parser ignore` because Markdown has no parser; it hands the file over as its lines, which is all this reads.
 [tasks.checks-md-check]
 description = "Fail if CHECKS.md was last generated more than 7 days ago (run `mise run gen:checks`) (conftest)"
-run = "conftest test --combine --parser ignore --namespace checks_md -p config/conftest/policy CHECKS.md"
+run = """
+# Skip where CHECKS.md is absent, as it is when `check` runs inside an image.
+# CHECKS.md is a top-level Markdown file, which the docker build context excludes; the native check lanes, which
+# have it, enforce its freshness.
+if [ ! -f CHECKS.md ]; then
+  echo "checks-md-check: CHECKS.md absent (docker build context); skipping -- native lanes enforce it"
+  exit 0
+fi
+conftest test --combine --parser ignore --namespace checks_md -p config/conftest/policy CHECKS.md
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.gen-help-check]
 # Ordered after the workspace builds so its `cargo run` reuses their artifacts.
