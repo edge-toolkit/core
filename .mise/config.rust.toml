@@ -102,14 +102,17 @@ shell = "{{ vars.task_shell }}"
 
 # The crates that build without std, built for the Pico 2 W's bare-metal target, which has no std to fall back on.
 # A host build of the same features can still link std through a dependency without anyone noticing; this cannot.
+# The runner is built on its own, its features named bare: it depends on itself for its tests, so to cargo
+# `et-ws-wasi-runner/board` names that dependency's feature, which a library build never turns on.
 [tasks.build-no-std]
 description = "Build the no_std crates for a bare-metal target"
 run = """
-features=et-modules-service/board,et-storage-service/board,et-ws-service/board,et-ws-wasi-runner/board
-features="$features,et-ws-wasi-runner/core-modules"
-set -- -p et-org -p edge-toolkit -p et-modules-service -p et-storage-service -p et-ws-service -p et-ws-wasi-runner
+target=thumbv8m.main-none-eabihf
+features=et-modules-service/board,et-storage-service/board,et-ws-service/board
+set -- -p et-org -p edge-toolkit -p et-modules-service -p et-storage-service -p et-ws-service
 set -- "$@" -p et-core-guest -p et-math1
-cargo build --lib --target thumbv8m.main-none-eabihf --no-default-features --features "$features" "$@"
+cargo build --lib --target "$target" --no-default-features --features "$features" "$@"
+cargo build --lib --target "$target" --no-default-features --features board,core-modules -p et-ws-wasi-runner
 """
 shell = "{{ vars.task_shell }}"
 

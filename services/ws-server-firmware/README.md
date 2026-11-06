@@ -38,10 +38,11 @@ It serves no modules unless told which to build in, through the variables the `s
 - `MODULES_ELSEWHERE` and `MODULES_ELSEWHERE_URL`: module names too big for a board's 4 MiB of flash, listed with the
   rest at `/modules/`, and the base URL a request for one of their files is redirected to.
 - `RUNNER_GUESTS`: the runners to start beside the hub, comma-separated `runner=package` pairs, each naming a module
-  `MODULES_PATHS` builds in whose `main` is a WebAssembly component. The build compiles each for the board, and
-  refuses one that imports what a board does not host or guests needing more memory than the board holds for them,
-  which is 6 MiB of the Pico Plus 2 W's PSRAM and none on the other boards. The guests start with what they declare,
-  and the same 6 MiB bounds what they grow to as they run.
+  `MODULES_PATHS` builds in whose `main` is a WebAssembly component or a Wasm 1.0 core module. The build compiles a
+  component for the board, and builds a core module in as it is, for the board's interpreter. It refuses one that
+  imports what a board does not host or guests needing more memory than the board holds for them, which is 6 MiB of
+  the Pico Plus 2 W's PSRAM and none on the other boards. The guests start with what they declare, and the same 6 MiB
+  bounds what they grow to as they run.
 
 `et-cli generate-deployment --output-type firmware-pico2`, `firmware-esp32c6` or `firmware-pico-plus2` writes the
 tasks that set all of these for a scenario.

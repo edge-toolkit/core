@@ -1,9 +1,18 @@
 //! What a board holds for its guests' memories, and each guest's draw on it as its memories and tables grow.
 
 use alloc::sync::Arc;
+#[cfg(feature = "core-modules")]
+use core::alloc::Layout;
+#[cfg(feature = "core-modules")]
+use core::ptr::NonNull;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+#[cfg(feature = "core-modules")]
+use spacewasm::{AllocError, WasmMemoryAllocator};
 use wasmtime::ResourceLimiter;
+
+#[cfg(feature = "core-modules")]
+use crate::core_module::LinearMemory;
 
 /// The bytes a board holds for its guests' memories and tables, which every guest it runs draws on as they grow.
 ///
@@ -110,5 +119,56 @@ impl Drop for Allowance {
     /// Return everything this guest held, as it ends.
     fn drop(&mut self) {
         self.budget.give_back(self.held);
+    }
+}
+
+/// A core module's linear memory, drawn from its board's [`MemoryBudget`] as it is allocated and as it grows.
+///
+/// A module starting with more than is left fails to load, and growth past what is left fails in the guest, as
+/// `memory.grow` returning -1. What the memory held is returned when `SpaceWasm` frees it, as the module ends.
+#[cfg(feature = "core-modules")]
+pub(super) struct CoreMemory(MemoryBudget);
+
+#[cfg(feature = "core-modules")]
+impl CoreMemory {
+    /// A core module's memory, drawing on `budget`.
+    #[expect(
+        clippy::single_call_fn,
+        reason = "the memory's constructor, called where a core module is run"
+    )]
+    pub(super) const fn new(budget: MemoryBudget) -> Self {
+        Self(budget)
+    }
+
+    /// What `allocate` returns, once `bytes` are drawn from the budget; nothing stays drawn when either fails.
+    fn drawing<A>(&self, bytes: usize, allocate: A) -> Result<NonNull<u8>, AllocError>
+    where
+        A: FnOnce() -> Result<NonNull<u8>, AllocError>,
+    {
+        if !self.0.take(bytes) {
+            return Err(AllocError::OutOfMemory);
+        }
+        // Only the board's heap running out fails `allocate` after the budget allowed it, which a test cannot cause.
+        allocate().inspect_err(|_| self.0.give_back(bytes))
+    }
+}
+
+#[cfg(feature = "core-modules")]
+impl WasmMemoryAllocator for CoreMemory {
+    /// A new memory of `layout`, drawing its whole size.
+    fn allocate(&self, layout: Layout) -> Result<NonNull<u8>, AllocError> {
+        self.drawing(layout.size(), || LinearMemory.allocate(layout))
+    }
+
+    /// The memory at `ptr` grown from `old_layout` to `layout`, drawing what it grew by.
+    fn reallocate(&self, ptr: NonNull<u8>, old_layout: Layout, layout: Layout) -> Result<NonNull<u8>, AllocError> {
+        let grown = layout.size().saturating_sub(old_layout.size());
+        self.drawing(grown, || LinearMemory.reallocate(ptr, old_layout, layout))
+    }
+
+    /// Free the memory at `ptr`, returning its whole size.
+    fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        LinearMemory.deallocate(ptr, layout);
+        self.0.give_back(layout.size());
     }
 }

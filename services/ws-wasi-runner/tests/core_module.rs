@@ -12,7 +12,7 @@ use et_ws_wasi_runner::HostState;
 use et_ws_wasi_runner::bindings::et::ws_wasi::ws::WsError;
 use et_ws_wasi_runner::bindings::wasi::keyvalue::store::Error as StoreError;
 use et_ws_wasi_runner::bindings::wasi::logging::logging::Level;
-use et_ws_wasi_runner::core_module::{CoreError, CoreHost, run};
+use et_ws_wasi_runner::core_module::{CoreError, CoreHost, is_core_module, run};
 use et_ws_wasi_runner::host::run_core_module;
 use spacewasm::TrapReason;
 use tokio::sync::oneshot::{self, error::RecvError};
@@ -197,6 +197,13 @@ async fn run_returning_success_succeeds() {
     run_on(&guest("", "(i32.const 0)"), &mut Script::default())
         .await
         .unwrap();
+}
+
+#[test]
+fn a_core_module_is_told_by_its_header_from_a_component_and_from_compiled_code() {
+    assert!(is_core_module(&guest("", "(i32.const 0)")));
+    assert!(!is_core_module(&wat::parse_str("(component)").unwrap()));
+    assert!(!is_core_module(b"\x7fELF"));
 }
 
 #[tokio::test]

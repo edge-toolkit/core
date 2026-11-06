@@ -53,8 +53,8 @@ operations as the world -- the websocket, the storage buckets and the log -- fla
 An import that has to wait on the hub pauses the interpreter. The call is carried out on the same `HostState` a
 component's imports are, and the guest resumed with its result; between pauses the interpreter runs in slices of
 instructions, yielding between them. SpaceWasm's engine cannot move between threads, so the module runs on a thread
-of its own. The `core_module` module is `no_std` + `alloc` and runs on any `CoreHost`, so a board could host a core
-module too, though `board::run` runs only components so far.
+of its own. The `core_module` module is `no_std` + `alloc` and runs on any `CoreHost`, which is how a board hosts a
+core module too.
 
 ## On a board
 
@@ -71,6 +71,12 @@ returning -1, rather than the board running out of heap, and what a guest held i
 Preview 2 it hosts only
 what the ws-module guests import -- their standard streams, an empty environment, the monotonic clock and polling --
 since `wasmtime-wasi` needs `std`; `wasi:nn` and `wasi:webgpu` are host-only.
+
+With `core-modules`, `board::run_core_module` runs a core module on SpaceWasm with its `et` imports hosted on the same
+`Platform` and `Transport`. SpaceWasm decodes the module as it is, so a firmware builds one in with nothing compiled
+ahead of time. Its linear memory draws on the `MemoryBudget` as a component's memories do. `board::run_guest` is what
+a firmware runs each guest through: it picks the engine by the guest's header, as the host runner does, and supervises
+the guest as a process manager would a runner.
 
 wasmtime asks the firmware for one thing more, two thread-local pointers through `wasmtime_tls_get` and
 `wasmtime_tls_set`, which on a single core are statics. A guest's linear memory is its declared size, about 1 MiB

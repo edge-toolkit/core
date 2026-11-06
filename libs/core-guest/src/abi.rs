@@ -23,6 +23,8 @@ pub const KV_GET: &str = "kv_get";
 pub const KV_SET: &str = "kv_set";
 /// Record one log entry.
 pub const LOG: &str = "log";
+/// Every function the module provides, which is all a guest may import from it.
+pub const IMPORTS: [&str; 9] = [CONNECT, AGENT_ID, SEND, RECV, TAKE, DISCONNECT, KV_GET, KV_SET, LOG];
 
 /// The call succeeded, or `run` did.
 pub const SUCCESS: i32 = 0;

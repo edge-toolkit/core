@@ -13,6 +13,7 @@ use std::hash::{DefaultHasher, Hash as _, Hasher as _};
 use std::path::{Component, Path, PathBuf};
 
 use edge_toolkit::board::Guest;
+use et_core_guest::abi;
 use et_ws_wasi_runner::engine::precompile;
 use fs_err as fs;
 
@@ -80,15 +81,13 @@ pub enum ModulesError {
         package: String,
         names: Vec<String>,
     },
-    #[error("runner {runner} runs {package}, whose main {main:?} is not a WebAssembly component")]
+    #[error("runner {runner} runs {package}, whose main {main:?} is not a WebAssembly component or core module")]
     NotAComponent {
         runner: String,
         package: String,
         main: String,
     },
-    #[error("runner {runner} runs {package}, a Wasm 1.0 core module, which a board's runner cannot run")]
-    CoreModule { runner: String, package: String },
-    #[error("{path} is not a WebAssembly component")]
+    #[error("{path} is not a WebAssembly component or core module a board can read")]
     Unreadable {
         path: PathBuf,
         #[source]
@@ -184,20 +183,22 @@ static MODULES: {MODULES_API}::Modules = {MODULES_API}::Modules::new(
     })
 }
 
-/// The source building in a guest for each runner in `guests`, compiled for `target`, and checked against the board.
+/// The source building in a guest for each runner in `guests`, checked against the board, and ready for it to run.
 ///
 /// `guests` is a comma-separated list of `runner=package` pairs, as `RUNNER_GUESTS` holds it, each naming a module in
-/// `paths` whose `main` is the component to run. A board hosts only what [`edge_toolkit::board::HOSTED_IMPORTS`] lists,
-/// and holds `memory` bytes for its guests' memories and tables, so a guest importing anything else, or guests starting
-/// with more between them, are refused here rather than when the board instantiates them. A table element is counted
-/// at the pointer width of `target`, as the board's runner charges it. Each compiled guest is written to `out_dir`, and
-/// the source defines `const GUESTS`, every runner's name and its compiled component, as an array so the firmware can
-/// size a task pool by it.
+/// `paths` whose `main` is the guest to run: a component, which is compiled for `target` and written to `out_dir`, or
+/// a Wasm 1.0 core module, which the board's interpreter decodes as it is and so is built in as its package holds it.
+/// A board hosts only what [`edge_toolkit::board::HOSTED_IMPORTS`] lists for a component and the `et` functions for a
+/// core module, and holds `memory` bytes for its guests' memories and tables, so a guest importing anything else, or
+/// guests starting with more between them, are refused here rather than when the board instantiates them. A component's
+/// table element is counted at the pointer width of `target`, as the board's runner charges it; a core module's tables
+/// are not counted, as its interpreter keeps them beside its own state. The source defines `const GUESTS`, every
+/// runner's name and its guest, as an array so the firmware can size a task pool by it.
 ///
 /// # Errors
 ///
-/// When a pair is malformed, a package is not in `paths` or its `main` is not a readable component, a guest imports
-/// what the board does not host, the guests need more than `memory`, or one does not compile for `target`.
+/// When a pair is malformed, a package is not in `paths` or its `main` is not readable WebAssembly, a guest imports
+/// what the board does not host, the guests need more than `memory`, or a component does not compile for `target`.
 #[expect(
     clippy::use_debug,
     reason = "a str's Debug form is the Rust literal the generated source needs"
@@ -210,33 +211,39 @@ pub fn guests(paths: &str, guests: &str, target: &str, memory: u64, out_dir: &Pa
         .collect::<Result<Vec<_>, _>>()?;
     let pointer_bytes = if target == PULLEY32 { 4 } else { 8 };
     let mut entries = String::default();
-    let mut components = Vec::new();
+    let mut mains = Vec::new();
     let mut needed: u64 = 0;
     for (index, pair) in items(guests).enumerate() {
-        let (runner, component, bytes, guest) = checked_guest(pair, &packages)?;
-        needed = needed.saturating_add(guest.starts_with(pointer_bytes));
-        // Matched rather than converted, so the error can name the runner whose guest would not compile.
-        let compiled = match precompile(target, &bytes) {
-            Ok(compiled) => compiled,
-            Err(error) => {
-                return Err(ModulesError::Precompile {
-                    runner: runner.to_owned(),
-                    reason: error.to_string(),
-                });
-            }
+        let (runner, main, bytes) = found_guest(pair, &packages)?;
+        let built_in = if wasmparser::Parser::is_core_wasm(&bytes) {
+            needed = needed.saturating_add(checked_core_module(runner, &main, &bytes)?);
+            include_path(MODULES_PATHS, &main)?
+        } else {
+            let guest = checked_component(runner, &main, &bytes)?;
+            needed = needed.saturating_add(guest.starts_with(pointer_bytes));
+            // Matched rather than converted, so the error can name the runner whose guest would not compile.
+            let compiled = match precompile(target, &bytes) {
+                Ok(compiled) => compiled,
+                Err(error) => {
+                    return Err(ModulesError::Precompile {
+                        runner: runner.to_owned(),
+                        reason: error.to_string(),
+                    });
+                }
+            };
+            let compiled_path = out_dir.join(format!("guest-{index}.cwasm"));
+            fs::write(&compiled_path, compiled)?;
+            include_path(RUNNER_GUESTS, &compiled_path)?
         };
-        let compiled_path = out_dir.join(format!("guest-{index}.cwasm"));
-        fs::write(&compiled_path, compiled)?;
-        let literal = compiled_path.display().to_string();
-        let _written = writeln!(entries, "    ({runner:?}, include_bytes!({literal:?})),");
-        components.push(component);
+        let _written = writeln!(entries, "    ({runner:?}, include_bytes!({built_in})),");
+        mains.push(main);
     }
     if needed > memory {
         return Err(ModulesError::GuestMemory { needed, budget: memory });
     }
-    let count = components.len();
+    let count = mains.len();
     let source = format!(
-        "/// The guests the firmware runs beside the hub, each compiled for it, as `RUNNER_GUESTS` named them.
+        "/// The guests the firmware runs beside the hub, each ready for it to run, as `RUNNER_GUESTS` named them.
 pub(crate) const GUESTS: [(&str, &[u8]); {count}] = [
 {entries}];
 /// The bytes the board holds for its guests' memories, which they draw on as they grow, whatever they start with.
@@ -244,10 +251,7 @@ pub(crate) const GUEST_MEMORY: u64 = {budget};
 ",
         budget = separated(memory)
     );
-    Ok(Generated {
-        source,
-        files: components,
-    })
+    Ok(Generated { source, files: mains })
 }
 
 /// `value` as an integer literal with its digits in groups of three, as the firmware's lints ask of a long one.
@@ -311,17 +315,12 @@ fn runnable(dir: &Path) -> Result<Runnable, ModulesError> {
     })
 }
 
-/// The runner `pair` names, once a board can host its component.
-///
-/// With it, the component's path and bytes, and what the component asks of the board.
+/// The runner `pair` names, with the path and bytes of the `main` its package names.
 #[expect(
     clippy::single_call_fn,
-    reason = "the per-runner check of guests, kept apart from compiling"
+    reason = "the per-runner lookup of guests, kept apart from checking what it found"
 )]
-fn checked_guest<'pair>(
-    pair: &'pair str,
-    packages: &[Runnable],
-) -> Result<(&'pair str, PathBuf, Vec<u8>, Guest), ModulesError> {
+fn found_guest<'pair>(pair: &'pair str, packages: &[Runnable]) -> Result<(&'pair str, PathBuf, Vec<u8>), ModulesError> {
     let (runner, package) = pair
         .split_once('=')
         .map(|(runner, package)| (runner.trim(), package.trim()))
@@ -341,32 +340,75 @@ fn checked_guest<'pair>(
             main: found.main.clone(),
         });
     }
-    let bytes = fs::read(&found.component)?;
-    // A core module's own imports read as none to `Guest::read`, which looks only for a component's, so it would pass
-    // every check here and fail in the component compiler instead, saying nothing of why.
-    if wasmparser::Parser::is_core_wasm(&bytes) {
-        return Err(ModulesError::CoreModule {
-            runner: runner.to_owned(),
-            package: package.to_owned(),
-        });
-    }
-    let guest = match Guest::read(&bytes) {
-        Ok(guest) => guest,
-        Err(source) => {
-            return Err(ModulesError::Unreadable {
-                path: found.component.clone(),
-                source,
-            });
+    Ok((runner, found.component.clone(), fs::read(&found.component)?))
+}
+
+/// What the component `bytes`, `runner`'s guest at `path`, asks of the board, once the board can host it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the component check of guests, kept apart from compiling"
+)]
+fn checked_component(runner: &str, path: &Path, bytes: &[u8]) -> Result<Guest, ModulesError> {
+    let guest = readable(path, Guest::read(bytes))?;
+    hosted(runner, guest.unhosted().map(str::to_owned).collect())?;
+    Ok(guest)
+}
+
+/// The bytes the core module `bytes`, `runner`'s guest at `path`, starts its memories with, once the board can host it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the core module check of guests, beside the component one"
+)]
+fn checked_core_module(runner: &str, path: &Path, bytes: &[u8]) -> Result<u64, ModulesError> {
+    hosted(runner, readable(path, unhosted_core_imports(bytes))?)?;
+    // A core module's memories are what `Guest::read` counts of one, as it imports nothing it would count.
+    Ok(readable(path, Guest::read(bytes))?.memory)
+}
+
+/// The imports of the core module `bytes` that a board does not host, each as `module::name`.
+///
+/// A board provides only the functions of the `et` module, so anything else, or one of their names imported as other
+/// than a function, is not hosted.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the import scan of checked_core_module, named for what it returns"
+)]
+fn unhosted_core_imports(bytes: &[u8]) -> wasmparser::Result<Vec<String>> {
+    let mut unhosted = Vec::new();
+    for payload in wasmparser::Parser::new(0).parse_all(bytes) {
+        if let wasmparser::Payload::ImportSection(section) = payload? {
+            for import in section.into_imports() {
+                let import = import?;
+                let function = matches!(import.ty, wasmparser::TypeRef::Func(_));
+                if !(function && import.module == abi::MODULE && abi::IMPORTS.contains(&import.name)) {
+                    unhosted.push(format!("{}::{}", import.module, import.name));
+                }
+            }
         }
-    };
-    let unhosted: Vec<String> = guest.unhosted().map(str::to_owned).collect();
-    if !unhosted.is_empty() {
-        return Err(ModulesError::Unhosted {
-            runner: runner.to_owned(),
-            imports: unhosted,
-        });
     }
-    Ok((runner, found.component.clone(), bytes, guest))
+    Ok(unhosted)
+}
+
+/// What `read` read of the guest at `path`, or that it is not WebAssembly a board can read.
+fn readable<R>(path: &Path, read: wasmparser::Result<R>) -> Result<R, ModulesError> {
+    match read {
+        Ok(read) => Ok(read),
+        Err(source) => Err(ModulesError::Unreadable {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// Refuse `runner`'s guest when it imports any of `unhosted`, which the board does not host.
+fn hosted(runner: &str, unhosted: Vec<String>) -> Result<(), ModulesError> {
+    if unhosted.is_empty() {
+        return Ok(());
+    }
+    Err(ModulesError::Unhosted {
+        runner: runner.to_owned(),
+        imports: unhosted,
+    })
 }
 
 /// `path` as the literal an `include_bytes!` names it by, which has to be absolute; `variable` is where it came from.

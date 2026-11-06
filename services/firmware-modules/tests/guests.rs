@@ -1,5 +1,6 @@
-//! Covers the `guests.rs` source a firmware build writes: each runner's component found among the modules built in,
-//! checked against what a board hosts and holds, and compiled for it, and every way a guest is refused.
+//! Covers the `guests.rs` source a firmware build writes: each runner's guest found among the modules built in, checked
+//! against what a board hosts and holds, a component compiled for it and a core module built in as it is, and every way
+//! a guest is refused.
 #![cfg(test)]
 
 use std::path::{Path, PathBuf};
@@ -132,22 +133,63 @@ fn a_runner_of_a_module_with_no_component_is_refused() {
 }
 
 #[test]
-fn a_component_that_is_not_webassembly_is_refused() {
-    let root = tempdir().unwrap();
-    let dir = module(root.path(), "guest", "guest.wasm", b"not wasm");
-    let out_dir = tempdir().unwrap();
-    let refused = one_guest(&dir.display().to_string(), ROOMY, out_dir.path()).unwrap_err();
-    assert!(matches!(refused, ModulesError::Unreadable { path, .. } if path == dir.join("guest.wasm")));
+fn a_guest_that_is_not_webassembly_a_board_can_read_is_refused() {
+    // Not WebAssembly at all; a core module's header, then an import section claiming more bytes than follow; and one
+    // whose imports read, declaring a memory with no limits after it.
+    for main in [
+        b"not wasm".as_slice(),
+        b"\0asm\x01\0\0\0\x02\x7f",
+        b"\0asm\x01\0\0\0\x05\x01\x01",
+    ] {
+        let root = tempdir().unwrap();
+        let dir = module(root.path(), "guest", "guest.wasm", main);
+        let out_dir = tempdir().unwrap();
+        let refused = one_guest(&dir.display().to_string(), ROOMY, out_dir.path()).unwrap_err();
+        assert!(matches!(refused, ModulesError::Unreadable { path, .. } if path == dir.join("guest.wasm")));
+    }
 }
 
 #[test]
-fn a_core_module_is_refused() {
-    let (_root, path) = component_module(r#"(module (func (export "run") (result i32) (i32.const 0)))"#);
+fn a_runner_s_core_module_is_built_in_as_its_package_holds_it() {
+    let core_math1 = get_project_root().join("services/ws-modules/core-math1");
+    let out_dir = tempdir().unwrap();
+    let paths = format!("{}", core_math1.display());
+    let generated = guests(
+        &paths,
+        "twin = @edge-toolkit/et-ws-core-math1",
+        TARGET,
+        ROOMY,
+        out_dir.path(),
+    )
+    .unwrap();
+    // Joined a segment at a time, as the build joins it, so on Windows the expected literal has a backslash there too.
+    let module = core_math1.join("pkg").join("et_ws_core_math1.wasm");
+    assert!(!out_dir.path().join("guest-0.cwasm").exists());
+    assert!(generated.source.contains(&format!(
+        "(\"twin\", include_bytes!({:?})),",
+        module.display().to_string()
+    )));
+    assert_eq!(generated.files, [module]);
+}
+
+#[test]
+fn a_core_module_importing_what_the_board_does_not_host_is_refused() {
+    let (_root, path) = component_module(
+        r#"(module
+            (import "et" "connect" (func (result i32)))
+            (import "wasi_snapshot_preview1" "fd_write" (func (param i32 i32 i32 i32) (result i32)))
+            (import "et" "log" (global i32))
+            (import "et" "sleep_ms" (func (param i32)))
+            (func (export "run") (result i32) (i32.const 0))
+        )"#,
+    );
     let out_dir = tempdir().unwrap();
     let refused = one_guest(&path, ROOMY, out_dir.path()).unwrap_err();
-    let expected =
-        matches!(refused, ModulesError::CoreModule { runner, package } if runner == "runner-1" && package == "guest");
-    assert!(expected);
+    let unhosted = ["wasi_snapshot_preview1::fd_write", "et::log", "et::sleep_ms"];
+    assert!(matches!(
+        refused,
+        ModulesError::Unhosted { runner, imports } if runner == "runner-1" && imports == unhosted
+    ));
 }
 
 #[test]
@@ -169,17 +211,23 @@ fn a_guest_importing_what_the_board_does_not_host_is_refused() {
 
 #[test]
 fn guests_needing_more_memory_than_the_board_holds_are_refused() {
-    let (_root, path) = component_module("(component (core module (memory 2)))");
-    let out_dir = tempdir().unwrap();
-    let refused = one_guest(&path, PAGE, out_dir.path()).unwrap_err();
-    assert!(matches!(
-        refused,
-        ModulesError::GuestMemory {
-            needed: TWO_PAGES,
-            budget: PAGE
-        }
-    ));
-    let _fits = one_guest(&path, TWO_PAGES, out_dir.path()).unwrap();
+    // A component's memory, and a core module's, whose table is not counted, as its interpreter keeps that itself.
+    for text in [
+        "(component (core module (memory 2)))",
+        "(module (memory 2) (table 4 funcref))",
+    ] {
+        let (_root, path) = component_module(text);
+        let out_dir = tempdir().unwrap();
+        let refused = one_guest(&path, PAGE, out_dir.path()).unwrap_err();
+        assert!(matches!(
+            refused,
+            ModulesError::GuestMemory {
+                needed: TWO_PAGES,
+                budget: PAGE
+            }
+        ));
+        let _fits = one_guest(&path, TWO_PAGES, out_dir.path()).unwrap();
+    }
 }
 
 #[test]

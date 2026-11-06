@@ -20,12 +20,13 @@ use embassy_net::{Stack, StackResources};
 use embassy_time::Instant;
 use et_ws_service::hub::Stamps;
 use et_ws_service::picoserve_hub::{self, Hub};
+use et_ws_wasi_runner::board::run_guest;
 use picoserve::time::EmbassyTimer;
 use static_cell::StaticCell;
 
 use super::platform::{BoardPlatform, spawn_runner};
 use crate::local::BoardStorage;
-use crate::runner::{GUEST_POOL, GUESTS, Shared, run_guest};
+use crate::runner::{GUEST_POOL, GUESTS, Shared};
 use crate::server::{Served, serve as serve_connection};
 use crate::{HTTP_BUFFER, MAX_FRAME_SIZE, MAX_QUEUED, MODULES, PORT};
 

@@ -20,11 +20,22 @@ pub enum BoardError {
     /// The guest's `entry.run` returned an error.
     #[error("the guest failed: {0:?}")]
     Guest(EntryError),
+    /// The core module did not run to completion, its own `run` returning a failure among the reasons.
+    #[cfg(feature = "core-modules")]
+    #[error("{0}")]
+    CoreModule(crate::core_module::CoreError),
 }
 
 impl From<wasmtime::Error> for BoardError {
     fn from(err: wasmtime::Error) -> Self {
         Self::Wasmtime(err)
+    }
+}
+
+#[cfg(feature = "core-modules")]
+impl From<crate::core_module::CoreError> for BoardError {
+    fn from(err: crate::core_module::CoreError) -> Self {
+        Self::CoreModule(err)
     }
 }
 
