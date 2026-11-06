@@ -78,7 +78,7 @@ verification/**/.mise/locks/
 # `.gitignore` written beside it by `et-cli`, which is what keeps a real credential out of a real repository.
 **/.git/
 **/Dockerfile*
-README.md
+*.md
 
 # Re-admit the built module artifacts this scenario serves.
 # The rules above drop every `*.wasm` and `*.onnx`, which is what keeps the CI images small; these

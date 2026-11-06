@@ -1,11 +1,11 @@
 # Checks
 
 - **Generated:** 2026-11-05
-- **Checks:** 82
+- **Checks:** 83
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 366 custom local rules, or non-default strict linter settings
+- **Rules:** 368 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -551,6 +551,8 @@ Rules, from `Cargo.toml`:
   with CHECKS.md's rules count (conftest). Config: `config/conftest/policy`.
 - `conftest-check-dockerfile` (`default` env; run by `conftest-check`) -- Cross-check Dockerfiles against mise [tools]
   pins + heredoc body-first-line invariants. Config: `config/conftest/policy`.
+- `conftest-check-dockerignore` (`default` env; run by `conftest-check`) -- Check .dockerignore keeps every top-level
+  Markdown file out of the Docker build context (conftest). Config: `config/conftest/policy`.
 - `conftest-check-generated-trees` (`default` env; run by `conftest-check`) -- Cross-check config/generated-trees.toml
   against the linter configs it governs (conftest). Config: `config/ast-grep/rules`, `config/conftest/policy`,
   `config/generated-trees.toml`, `config/jscpd.json`, `config/pyrefly.toml`, `config/semgrep`.
@@ -653,6 +655,9 @@ Rules, from `config/conftest/policy`:
   - A RUN heredoc's first body line must be `set -euo pipefail`.
 - `dockerfile_stages` (`config/conftest/policy/dockerfile_stages/dockerfile_stages.rego`):
   - A `--from=` naming no stage declared before it would pull an image of that name.
+- `dockerignore` (`config/conftest/policy/dockerignore/dockerignore.rego`):
+  - .dockerignore must exclude every top-level Markdown file.
+  - Nothing after the last `*.md` may bring a top-level Markdown file back into the context.
 - `generated_trees` (meta) (`config/conftest/policy/generated_trees/generated_trees.rego`):
   - Every config a generated tree requires must carry that tree's exclusion pattern.
   - Reverse direction, matched on the tree prefix rather than on the exact pattern.

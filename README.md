@@ -36,170 +36,64 @@ device or your own network, never sent to an external cloud service.
 edge-toolkit, rerunning each with the hub and runners in place of the original infrastructure and recording what
 changed.
 
-## mise
+![The hub's browser UI, running the graphics-info module](services/ws-server/ui-screenshot.png)
 
-Please install [`mise`](https://mise.jdx.dev/) 2026.10.15 or later, including the shell integration. It is needed
-for all use of this repository.
+## What's in this repository
 
-The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)
-holds the Rust/Node tooling and shared tasks, and per-language `.mise/config.<lang>.toml` files are selected via
-`MISE_ENV` so a dev can work on one language without installing the others -- e.g.
-`MISE_ENV=dart mise install`. CI runs every language; `mise run check-all` (and `install-all`, `test-all`, ...) act
-on all of them at once.
+- [Quick start](#quick-start): see edge-toolkit running with nothing but Docker.
+- [Building from source](#building-from-source): the mise toolchain, with the full setup in
+  [CONTRIBUTING.md](CONTRIBUTING.md).
+- [Building with Docker](#building-with-docker): the test image, other Linux bases, and the Windows images.
+- [Running the hub from source](#running-the-hub-from-source): building the modules, serving them to a phone, and
+  following logs and traces in OpenObserve.
+- [Modules](#modules): AI modules in eleven languages, and the browser, WASI and PyO3 runners that run them.
+- [The math1 family](#the-math1-family): one federated-learning demo in nine languages, checked to produce the same
+  model in each.
+- [Protocol & API specs](#protocol--api-specs): the WebSocket and REST interfaces as AsyncAPI and OpenAPI specs, with
+  generated clients.
+- [et-cli](#et-cli): one scenario file deployed as local processes, Docker Compose, [hardened k3s](#k3s) or
+  [microcontroller firmware](#firmware), across [several machines](#multiple-machines) and [hubs](#several-hubs),
+  with [resource limits](#resource-limits) and [schedules](#scheduled-agents).
+- [Agent storage](services/storage/README.md): the files each agent keeps through the hub, which an S3 client can
+  also reach.
 
-The following works for Linux, macOS and Windows, and all tools "installed" are only installed into the local workspace,
-so no need for admin/root privileges.
+## Quick start
 
-Then run the preinstall task for your platform -- it configures mise and installs the shared basics (cargo-binstall,
-node, the openssl dev files) plus whatever that platform needs. Do any manual prerequisites in your platform's section
-below first.
-
-### GitHub rate limits
-
-`mise install` downloads many tools from GitHub releases, which are subject to
-[GitHub's REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
-Unauthenticated requests share a low per-IP limit, so installs can fail with
-`GitHub rate limit exceeded`. Authenticate with the
-[`gh` CLI](https://cli.github.com/) and let `mise` reuse its token -- this raises
-the limit and needs no token scopes:
-
-```bash
-mise install gh
-```
+Seeing edge-toolkit running needs only Docker and a clone of this repository. The `server` stage of the
+[`Dockerfile`](Dockerfile) installs the toolchains inside the image, builds the modules, and serves them with a
+release build of `et-ws-server`, so the first build takes a while:
 
 ```bash
-gh auth login                                        # any method; no scopes needed
-mise settings set github.credential_command "gh auth token"
-mise token github                                    # verify: should resolve a token
+export DOCKER_BUILDKIT=1
+docker build --target server -t et-ws-server .
+docker run --rm -p 8080:8080 et-ws-server
 ```
 
-If you havent activated mise shell integration, use this instead, however it is brittle:
+Then open <http://localhost:8080>, pick a module in the "Workflow module" drop-down, and click "Run". Add
+`-p 8443:8443` for TLS. The server needs no GPU, and OpenObserve/`o2` is optional -- OTLP export is off when no
+collector is configured.
 
-```bash
-mise settings set github.credential_command "$(mise which gh) auth token"
-```
-
-`gh` often stores the token in the OS keyring rather than in `~/.config/gh/hosts.yml`, so mise's default `hosts.yml`
-lookup finds nothing; `credential_command` asks `gh` for the token on demand and works either way. The setting is
-written to your global `~/.config/mise/config.toml`, so it stays per-machine and out of the repo.
-
-#### Windows (scoop): mise, git, and the gh credential command
-
-On Windows this project is set up with [scoop](https://scoop.sh/) as the package manager -- install both
-`mise` and `git` through it. `git` is needed for more than version control here: it ships the real `bash.exe`
-that the credential-command steps below depend on, and `scoop prefix git` resolves to that install:
-
-```powershell
-scoop install mise git
-```
-
-The repo sets `windows_default_inline_shell_args = "bash -euo pipefail -c"` (its tasks need bash), and mise
-runs `github.credential_command` **through that inline shell** -- with its own shims stripped from `PATH`, and
-ignoring `MISE_BASH_PATH` (that override only applies to task execution, not credential commands). The repo's
-only bash is busybox `ash.exe`, reached solely via `MISE_BASH_PATH`, so a literal `bash` is not found: the
-credential command fails silently and installs fall back to unauthenticated, rate-limited requests.
-
-Two per-machine settings fix it -- the repo's `bash` inline-shell setting stays untouched:
-
-```powershell
-# 1. Put a real bash on PATH via a single scoop shim, pointing at the bash that ships with scoop's git.
-#    Nothing else from git lands on PATH, and scoop's shims dir is on PATH and is not stripped by mise.
-scoop shim add bash "$(scoop prefix git)\bin\bash.exe"
-
-# 2. Point credential_command at gh's ABSOLUTE path with FORWARD slashes: inside `bash -c` a backslash is
-#    an escape character, so a `C:\...` path would be mangled and gh would not be found.
-mise settings set github.credential_command "$((mise which gh) -replace '\\','/') auth token"
-```
-
-`mise token github` should then resolve a token reported as `source: credential_command`.
-
-### Microsoft VC++ runtime
-
-mise.exe links the Microsoft VC++ runtime (`vcruntime140.dll`), so it must be present or mise won't start. It's
-preinstalled on Windows 10/11 and Server, so you already have it -- only Nano Server omits it, and there the
-Docker build installs the [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
-
-mise-powered builds use the `x86_64-pc-windows-gnullvm` Rust target (llvm-mingw), which needs no MSVC toolchain or
-Windows SDK on disk. Two opt-in target envs retarget the native build: `MISE_ENV=mingw` switches to
-`x86_64-pc-windows-gnu` with the winlibs mingw-w64 GCC toolchain installed by mise, and `MISE_ENV=msvc` switches
-to `x86_64-pc-windows-msvc` with a portable MSVC compiler + Windows SDK staged by `mise run prefetch:msvc` -- no
-Visual Studio install or admin rights needed for either.
-
-**Known gap on `MISE_ENV=mingw`:** `et-ws-wasi-runner` does not work on `x86_64-pc-windows-gnu`. It instantiates
-a WASI component and then aborts while connecting, with tokio reporting no running reactor from inside a host
-call, followed by a non-unwinding panic that takes the process down (`Error 0xc0000409`). The default `gnullvm`
-target and `MISE_ENV=msvc` both run the same workload cleanly, so use either of those if you need the WASI
-runner; the two scenario tests it triggers are skipped on the mingw target alone. Nothing else is known to be
-affected -- the
-mingw lane otherwise runs the full suite, including crates the default Windows target skips.
-
-### Windows shell
-
-On Windows, install the shell:
-
-```bash
-mise install http:busybox
-```
-
-### All OS
-
-To install dependencies:
-
-```bash
-mise run preinstall
-mise install-all
-```
-
-The `preinstall` task will advise if there are any required dependencies are are missing, such as Xcode Command
-Line Tools on MacOS.
-
-### Optionally pre-populating tools from the OCI stores
-
-Most of the tool tree can be restored from this project's per-platform OCI packages on ghcr.io instead of
-downloaded tool-by-tool from each upstream:
-
-```bash
-mise run pull-mise-tools
-```
-
-This pre-populates the local mise data dir from `ghcr.io/edge-toolkit/core/mise-tools/<os>-<arch>`, so the
-`mise install` that follows only fills the gaps (the store carries relocatable tools only) and regenerates shims.
-This is the same store CI restores from; it needs no authentication.
-
-### Install failures
-
-`mise install` runs tool installs in parallel. If they fail intermittently -- a download race, or a `cargo:` source
-build colliding with another -- serialize them with `MISE_JOBS=1`:
-
-```bash
-MISE_JOBS=1 mise install-all
-```
-
-This is the same workaround both Docker builds bake in, so reach for it first if a local install or build misbehaves.
-
-## Contributing
-
-Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers. [CHECKS.md](CHECKS.md) lists every
-check across every `MISE_ENV`, the tool and config each one uses, and every rule those tools are configured with.
-
-## Building and running with Docker
-
-[`Dockerfile`](Dockerfile) reproduces the mise setup above on a clean, minimal Ubuntu, in stages (`build` ->
-`prefetch` -> `precompile` -> `test`/`server`, plus a CI-only `check` stage at the end). Build the **server** image
-with `--target server`: a release build of `et-ws-server`, served automatically. `mise install-all` fetches many
-tools from GitHub releases, so build with a GitHub token to avoid the anonymous rate limit (see
-[GitHub rate limits](#github-rate-limits)), passed as a BuildKit secret so it never lands in an image layer:
+The build downloads many tools from GitHub releases, and an anonymous build can hit GitHub's
+[rate limit](CONTRIBUTING.md#github-rate-limits). If it does, and the [`gh` CLI](https://cli.github.com/) is signed
+in, build with its token instead; BuildKit passes it as a secret, so it never lands in an image layer:
 
 ```bash
 GITHUB_TOKEN="$(gh auth token)"
 export GITHUB_TOKEN DOCKER_BUILDKIT=1
 docker build --target server --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server .
-docker run --rm -p 8080:8080 et-ws-server
 ```
 
-Then open <http://localhost:8080> (add `-p 8443:8443` for TLS). The server needs no GPU. OpenObserve/`o2` is
-optional -- OTLP export is off when no collector is configured. (Drop `--secret` to build without a token;
-`install-all` may then hit rate limits.)
+## Building from source
+
+Please install [`mise`](https://mise.jdx.dev/) 2026.10.15 or later, including the shell integration. It is needed
+for all use of this repository. [CONTRIBUTING.md](CONTRIBUTING.md) walks through the rest of the setup -- GitHub rate
+limits, the Windows prerequisites, and installing every toolchain -- and the checks a change has to pass.
+
+## Building with Docker
+
+[`Dockerfile`](Dockerfile) reproduces the mise setup from [CONTRIBUTING.md](CONTRIBUTING.md) on a clean, minimal
+Ubuntu, in stages (`build` -> `prefetch` -> `precompile` -> `test`/`server`, plus a CI-only `check` stage at the
+end). The [quick start](#quick-start) builds the `server` stage.
 
 The full test suite is a **separate, non-final stage**, so build it explicitly with `--target test`. The WebGPU
 compute test needs a GPU, and `docker build` can't attach one (no `--gpus` for build), so it runs at `docker run`
@@ -250,17 +144,17 @@ A `gh_token` file (a GitHub token) in the build context is **optional** for a ma
 BuildKit secrets, so it **bakes that file into an image layer**: never publish an image built with a `gh_token`.
 (The Linux build passes the token as a BuildKit secret instead, so it never lands in a layer.)
 
-## Run ws agent in browser
+## Running the hub from source
 
 ### Build modules and run the WS server
 
-In a separate terminal start OpenObserve (o2) and leave it running.
+In a separate terminal, start OpenObserve (o2) and leave it running.
 
 ```bash
 mise run o2
 ```
 
-Then start the fetch the ONNX models and run the server
+Then fetch the ONNX models, build the modules and run the server:
 
 ```bash
 mise run download-models
@@ -268,13 +162,13 @@ mise run build-modules-all
 mise run hub
 ```
 
-Scan the QR-Code with a smart-phone camera and open the URL.
+Scan the QR code with a smartphone camera and open the URL.
 
-Select the module to run in the drop-down, then click "Run module" button.
+Pick a module in the "Workflow module" drop-down, then click "Run".
 
 Note: The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
 
-In a separate terminal, open the OpenObserve UX using:
+In a separate terminal, open the OpenObserve UI using:
 
 ```bash
 mise run open-o2
@@ -301,22 +195,12 @@ Most are Rust built with `wasm-pack build --target web`; other languages:
 
 - Dart, transpiled to JavaScript
 - Java, using [TeaVM](https://teavm.org/) to transpile to JavaScript
-- Kotlin, compiled to a [WasmGC](https://github.com/WebAssembly/gc), supported by Chrome, Firefox and Deno.
-- .Net C#, compiled to WASM
-- Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
+- Kotlin, compiled to [WasmGC](https://github.com/WebAssembly/gc), supported by Chrome, Firefox and Deno.
+- .NET C#, compiled to WASM
+- Python, using [Pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - R, using [webR](https://docs.r-wasm.org/webr/latest/) (rdata1, rcomm1) -- browser-only: webR spawns a classic
   Web Worker, which the Deno runner does not support yet
 - Zig, including C and C++ code, compiled to WASM
-
-#### et-ws-web-runner on Windows
-
-`et-ws-web-runner` embeds V8 through `deno_core` and the `v8` crate, and cannot build on the gnullvm default
-target: there is no `x86_64-pc-windows-gnullvm` `librusty_v8` prebuilt and the gnullvm build path in `rusty_v8`
-is still unfinished (open PRs [denoland/rusty_v8#1880](https://github.com/denoland/rusty_v8/pull/1880) and
-[#1957](https://github.com/denoland/rusty_v8/pull/1957)). Two mise target envs each give it a working Windows
-build: `MISE_ENV=msvc` uses rusty_v8's native prebuilt on `x86_64-pc-windows-msvc`, and `MISE_ENV=mingw` links
-that same msvc prebuilt into an `x86_64-pc-windows-gnu` binary (the CRT bridging lives in
-`services/ws-web-runner/mingw-shim/` and the crate's `build.rs`).
 
 ### WASI runner ([ws-wasi-runner](services/ws-wasi-runner))
 
