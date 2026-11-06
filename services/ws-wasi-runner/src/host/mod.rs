@@ -5,6 +5,8 @@
 //! used by the storage interface, the ws connection state, and the wgpu device
 //! used by the gfx interface.
 
+#[cfg(feature = "core-modules")]
+mod core_module;
 mod error;
 mod log;
 mod run;
@@ -14,6 +16,8 @@ pub mod wasi_keyvalue;
 pub mod wasi_nn;
 pub mod ws;
 
+#[cfg(feature = "core-modules")]
+pub use self::core_module::run_core_module;
 pub use self::run::run_module;
 pub use self::state::HostState;
 pub use self::ws::WsBackend;

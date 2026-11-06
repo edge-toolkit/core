@@ -4436,6 +4436,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlmalloc"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad5208a115eaba24916f7456929832e310a81518c641f93fee4f89aa93aa3675"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "dlopen2"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5754,6 +5765,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-core-guest"
+version = "0.1.0"
+dependencies = [
+ "dlmalloc",
+ "edge-toolkit",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "et-firmware-modules"
 version = "0.1.0"
 dependencies = [
@@ -5882,6 +5903,16 @@ dependencies = [
  "static_cell",
  "tokio",
  "tungstenite",
+]
+
+[[package]]
+name = "et-math1"
+version = "0.1.0"
+dependencies = [
+ "et-ws-test-server",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -6171,6 +6202,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-core-math1"
+version = "0.1.0"
+dependencies = [
+ "edge-toolkit",
+ "et-core-guest",
+ "et-math1",
+ "serde_json",
+]
+
+[[package]]
 name = "et-ws-data1"
 version = "0.2.0"
 dependencies = [
@@ -6287,11 +6328,11 @@ dependencies = [
 name = "et-ws-math1"
 version = "0.2.0"
 dependencies = [
+ "et-math1",
  "et-rest-client",
  "et-web",
  "et-ws-wasm-agent",
  "futures-util",
- "serde",
  "serde_json",
  "tracing",
  "wasm-bindgen",
@@ -6304,6 +6345,7 @@ dependencies = [
 name = "et-ws-math1-sender"
 version = "0.2.0"
 dependencies = [
+ "et-math1",
  "et-path",
  "et-rest-client",
  "et-web",
@@ -6562,8 +6604,8 @@ name = "et-ws-wasi-math1"
 version = "0.2.0"
 dependencies = [
  "document-features",
+ "et-math1",
  "et-wasi-guest",
- "serde",
  "serde_json",
 ]
 
@@ -6572,6 +6614,7 @@ name = "et-ws-wasi-math1-sender"
 version = "0.2.0"
 dependencies = [
  "document-features",
+ "et-math1",
  "et-path",
  "et-wasi-guest",
 ]
@@ -6588,6 +6631,7 @@ dependencies = [
  "edge-ws",
  "embassy-sync 0.8.0",
  "embedded-io-async 0.7.0",
+ "et-core-guest",
  "et-org",
  "et-otlp",
  "et-rest-client",
@@ -6606,6 +6650,7 @@ dependencies = [
  "secrecy",
  "serde_json",
  "serde_path_to_error",
+ "spacewasm",
  "spin 0.12.3",
  "tempfile",
  "thiserror 2.0.21",
@@ -6613,9 +6658,11 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "wasi-webgpu-wasmtime",
+ "wasmparser 0.258.3",
  "wasmtime",
  "wasmtime-wasi",
  "wasmtime-wasi-nn",
+ "wat",
  "wgpu-core",
  "wgpu-types",
 ]
@@ -12706,6 +12753,15 @@ dependencies = [
  "serde_json",
  "unicode-id-start",
  "url",
+]
+
+[[package]]
+name = "spacewasm"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53f8bfaf73590037468fc77f1a5d4baa3389e3aa73f72f18cc0f463c42c74d2e"
+dependencies = [
+ "libm",
 ]
 
 [[package]]

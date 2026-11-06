@@ -38,6 +38,10 @@ name = "board_net"
 required-features = ["board", "precompile", "std"]
 
 [[test]]
+name = "core_module"
+required-features = ["core-modules", "std"]
+
+[[test]]
 name = "modules"
 required-features = ["std"]
 
@@ -61,7 +65,7 @@ required-features = ["std"]
 #! Each standardised WASI interface hosted beyond `et:ws-wasi` and WASI Preview 2 is a feature, all on by default.
 #! A guest that imports an interface the build left out fails to instantiate, naming the import.
 
-default = ["nn", "std", "webgpu"]
+default = ["core-modules", "nn", "std", "webgpu"]
 ## The runner for a host with an operating system.
 ## It fetches a component from the hub, compiles it, and hosts WASI Preview 2 through `wasmtime-wasi`. Without it the
 ## crate is `no_std`: the message conversions, and with `board` the runner for a board.
@@ -77,6 +81,7 @@ std = [
   "dep:tokio",
   "dep:tokio-tungstenite",
   "dep:tracing",
+  "dep:wasmparser",
   "dep:wasmtime-wasi",
   "edge-toolkit/std",
   "embedded-io-async?/std",
@@ -92,6 +97,10 @@ precompile = ["wasmtime/cranelift", "wasmtime/pulley", "wasmtime/std"]
 ## Pulley bytecode, and keeps the board's storage buckets under a spin lock, since a board has no `std::sync::Mutex`.
 ## Its `board::net` reaches a hub on another machine over the board's own sockets.
 board = ["dep:edge-ws", "dep:embassy-sync", "dep:embedded-io-async", "dep:spin", "wasmtime/pulley"]
+## Runs a Wasm 1.0 core module beside components, on NASA's SpaceWasm interpreter rather than wasmtime.
+## The module's header picks the engine. A core module imports the `et` functions `et-core-guest` defines in place of
+## the `et:ws-wasi` world, and needs no `std`, so a board can host one too.
+core-modules = ["dep:et-core-guest", "dep:spacewasm"]
 ## Hosts `wasi:nn` (graph, tensor, inference) on ONNX Runtime through `wasmtime-wasi-nn`.
 ## Guests can then load an ONNX model and run inference on it.
 nn = ["dep:ort", "dep:wasmtime-wasi-nn", "std"]
@@ -120,8 +129,12 @@ edge-toolkit.workspace = true
 edge-ws = { workspace = true, optional = true }
 embassy-sync = { workspace = true, optional = true }
 embedded-io-async = { workspace = true, optional = true }
+# The `et` imports a core module is hosted with.
+et-core-guest = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["alloc"] }
 serde_path_to_error.workspace = true
+# The interpreter a core module runs on.
+spacewasm = { workspace = true, optional = true }
 # The lock a board's guests share their buckets under, when there is no `std::sync::Mutex`.
 spin = { workspace = true, optional = true }
 thiserror.workspace = true
@@ -136,6 +149,8 @@ reqwest = { workspace = true, features = ["json", "rustls", "stream"], optional 
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
 tokio-tungstenite = { workspace = true, features = ["connect"], optional = true }
 tracing = { workspace = true, features = ["std"], optional = true }
+# Tells a fetched core module from a component, to pick the engine that runs it.
+wasmparser = { workspace = true, optional = true }
 wasmtime-wasi = { workspace = true, optional = true }
 # wasi-nn standardised ML inference.
 # The workspace pin drops `openvino` + `winml` (which we don't use) and keeps `onnx`.
@@ -172,6 +187,7 @@ rstest.workspace = true
 secrecy.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+wat.workspace = true
 
 [lints]
 workspace = true

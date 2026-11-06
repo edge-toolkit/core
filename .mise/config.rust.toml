@@ -106,7 +106,9 @@ shell = "{{ vars.task_shell }}"
 description = "Build the no_std crates for a bare-metal target"
 run = """
 features=et-modules-service/board,et-storage-service/board,et-ws-service/board,et-ws-wasi-runner/board
+features="$features,et-ws-wasi-runner/core-modules"
 set -- -p et-org -p edge-toolkit -p et-modules-service -p et-storage-service -p et-ws-service -p et-ws-wasi-runner
+set -- "$@" -p et-core-guest -p et-math1
 cargo build --lib --target thumbv8m.main-none-eabihf --no-default-features --features "$features" "$@"
 """
 shell = "{{ vars.task_shell }}"
@@ -242,6 +244,20 @@ coreutils mkdir -p services/ws-modules/wasi-math1/pkg
 wasm=et_ws_wasi_math1.wasm
 coreutils cp "target/wasm32-wasip2/release/$wasm" "services/ws-modules/wasi-math1/pkg/$wasm"
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-math1
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.build-ws-core-math1-module]
+depends = ["build-et-cli"]
+description = "Build the Rust core math1 module as a Wasm 1.0 core module, for SpaceWasm"
+# Built for wasm32v1-none, whose prebuilt core and alloc are already the Wasm 1.0 that SpaceWasm runs.
+# So the module needs no lowering pass. It is not built for coverage: SpaceWasm hosts no file to dump a profile to.
+run = """
+cargo build --release -p et-ws-core-math1 --target wasm32v1-none
+coreutils mkdir -p services/ws-modules/core-math1/pkg
+wasm=et_ws_core_math1.wasm
+coreutils cp "target/wasm32v1-none/release/$wasm" "services/ws-modules/core-math1/pkg/$wasm"
+{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/core-math1
 """
 shell = "{{ vars.task_shell }}"
 

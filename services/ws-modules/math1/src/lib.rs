@@ -9,37 +9,20 @@
 //! and verifies it. The math1 twins in the other guest languages run the same protocol and kernel.
 
 #![expect(
-    clippy::float_arithmetic,
     clippy::future_not_send,
     clippy::single_call_fn,
-    reason = "browser WASM module: JsFuture is !Send; the FedAvg kernel is float math; helpers are single-use"
+    reason = "browser WASM module: JsFuture is !Send; helpers are single-use"
 )]
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use et_math1::{InputPointer, Math1Input, OUTPUT_FILENAME, fed_avg, output_json, parse_pointer};
 use et_web::{JsResultExt as _, sleep_ms, websocket_url};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea, wait_for_connected};
 use futures_util::StreamExt as _;
-use serde::Deserialize;
 use tracing::info;
 use wasm_bindgen::prelude::*;
-
-/// The canonical input: per-client (feature, target) samples plus the training hyperparameters.
-#[derive(Deserialize)]
-struct Math1Input {
-    clients: Vec<Vec<(f64, f64)>>,
-    rounds: u32,
-    epochs: u32,
-    learning_rate: f64,
-}
-
-/// The broadcast pointer naming the storage bucket + filename the input JSON was injected at.
-#[derive(Clone, Deserialize)]
-struct InputPointer {
-    bucket: String,
-    filename: String,
-}
 
 #[wasm_bindgen(start)]
 pub fn init() {
@@ -47,50 +30,7 @@ pub fn init() {
     info!("math1 FedAvg module initialized");
 }
 
-/// Sample count as f64, accumulated additively to avoid an integer-to-float cast.
-fn sample_count(samples: &[(f64, f64)]) -> f64 {
-    samples.iter().fold(0.0_f64, |count, _| count + 1.0_f64)
-}
-
-/// Runs the `FedAvg` simulation on `input` and returns the final global (weight, bias).
-#[expect(
-    clippy::suboptimal_flops,
-    reason = "mul_add rounds once where `a * b + c` rounds twice; the kernel must stay bit-identical to its twins"
-)]
-fn fed_avg(input: &Math1Input) -> (f64, f64) {
-    let mut weight = 0.0_f64;
-    let mut bias = 0.0_f64;
-    let total_samples: f64 = input
-        .clients
-        .iter()
-        .fold(0.0_f64, |acc, samples| acc + sample_count(samples));
-    for _ in 0_u32..input.rounds {
-        let mut merged_weight = 0.0_f64;
-        let mut merged_bias = 0.0_f64;
-        for samples in &input.clients {
-            let count = sample_count(samples);
-            let mut client_weight = weight;
-            let mut client_bias = bias;
-            for _ in 0_u32..input.epochs {
-                let mut grad_weight = 0.0_f64;
-                let mut grad_bias = 0.0_f64;
-                for &(feature, target) in samples {
-                    let residual = client_weight * feature + client_bias - target;
-                    grad_weight += residual * feature;
-                    grad_bias += residual;
-                }
-                client_weight -= input.learning_rate * (2.0_f64 * grad_weight / count);
-                client_bias -= input.learning_rate * (2.0_f64 * grad_bias / count);
-            }
-            merged_weight += client_weight * count;
-            merged_bias += client_bias * count;
-        }
-        weight = merged_weight / total_samples;
-        bias = merged_bias / total_samples;
-    }
-    (weight, bias)
-}
-
+/// Wait for the input pointer, fit the model to the input it names, and store the model in this agent's bucket.
 #[wasm_bindgen]
 #[expect(
     clippy::too_many_lines,
@@ -113,14 +53,8 @@ pub async fn run() -> Result<(), JsValue> {
     let on_message = Closure::wrap(Box::new({
         let pointer_slot = Rc::clone(&pointer_slot);
         move |value: JsValue| {
-            let Some(data) = value.as_string() else {
-                return;
-            };
-            let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) else {
-                return;
-            };
-            if json.get("type").and_then(serde_json::Value::as_str) == Some("math1-input")
-                && let Ok(pointer) = serde_json::from_value::<InputPointer>(json)
+            if let Some(data) = value.as_string()
+                && let Ok(pointer) = parse_pointer(&data)
             {
                 *pointer_slot.borrow_mut() = Some(pointer);
             }
@@ -164,17 +98,16 @@ pub async fn run() -> Result<(), JsValue> {
     );
     log(&msg);
     set_module_status(&msg)?;
-    let (weight, bias) = fed_avg(&input);
-    let msg = format!("math1: global model weight={weight} bias={bias}");
+    let model = fed_avg(&input);
+    let msg = format!("math1: global model weight={} bias={}", model.weight, model.bias);
     log(&msg);
     set_module_status(&msg)?;
 
-    let output = serde_json::json!({ "module": "math1", "weight": weight, "bias": bias }).to_string();
     let _put_response = rest
-        .put_file(&agent_id, "math1-output.json", output)
+        .put_file(&agent_id, OUTPUT_FILENAME, output_json("math1", model))
         .await
         .js_context("output PUT failed")?;
-    let msg = format!("math1: stored the global model to /storage/{agent_id}/math1-output.json");
+    let msg = format!("math1: stored the global model to /storage/{agent_id}/{OUTPUT_FILENAME}");
     log(&msg);
     set_module_status(&msg)?;
 

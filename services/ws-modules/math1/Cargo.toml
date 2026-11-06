@@ -17,11 +17,11 @@ doctest = false
 test = false
 
 [dependencies]
+et-math1.workspace = true
 et-rest-client.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 futures-util.workspace = true
-serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std"] }
 tracing-wasm.workspace = true

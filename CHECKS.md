@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-11-05
+- **Generated:** 2026-11-06
 - **Checks:** 83
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 368 custom local rules, or non-default strict linter settings
+- **Rules:** 369 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -268,6 +268,11 @@ Rules, from `config/ast-grep/rules`:
 - `no-uds-listener` -- HTTP servers here listen on TCP only. A Unix-domain-socket listener gives requests no peer
   address, and the handlers take the client address from the socket peer rather than from client-supplied `Forwarded` /
   `X-Forwarded-For` headers -- so `ws_handler` refuses every request arriving on one. Bind a TCP address instead.
+- `no-unwrap-or-call` -- `.unwrap_or(...)` evaluates its argument even when the value it stands in for is there, so a
+  call written there runs every time. Reach the fallback another way: `let Some(value) = option else { ... }` or a
+  `match`, or `.unwrap_or_else(...)` when the fallback is real work -- clippy's `unnecessary_lazy_evaluations` objects
+  to a closure around a plain constructor. This mirrors `DeepSource RS-W1031`. clippy's `or_fun_call` lets an enum or
+  tuple-struct constructor such as `Ok(None)` through as cheap, so a constructor here gets past clippy alone.
 - `org-identity-lives-in-et-org` -- This constant spells out the organisation name or the crate prefix. Both belong to
   `et-org`, which is the one place either literal is written: take the value from `et_org::ORG`, `et_org::CRATE_PREFIX`,
   `et_org::NPM_SCOPE`, `et_org::REPOSITORY_URL` or `et_org::IMAGE_REGISTRY`, or build a longer string from them, rather

@@ -2056,7 +2056,7 @@ specifiers = ["nightly-2026-08-05"]
 [tools.rust.options]
 components = "llvm-tools,rust-src,rustfmt"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
 
 [[tools.rust]]
 version = "stable"
@@ -2066,7 +2066,7 @@ specifiers = ["stable"]
 [tools.rust.options]
 components = "clippy,rust-analyzer"
 profile = "minimal"
-targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
+targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
 
 [[tools.taplo]]
 version = "0.10.0"

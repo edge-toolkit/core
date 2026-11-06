@@ -16,81 +16,20 @@
 #![cfg(target_os = "wasi")]
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
-#![expect(clippy::float_arithmetic, reason = "the FedAvg kernel is float math by design")]
 
+use et_math1::{InputPointer, Math1Input, OUTPUT_FILENAME, fed_avg, output_json, parse_pointer};
 use et_wasi_guest::et::ws_messages::messages::ServerMessage;
 use et_wasi_guest::et::ws_wasi::ws;
 use et_wasi_guest::exports::et::ws_wasi::entry::{EntryError, Guest};
 use et_wasi_guest::wasi::keyvalue::store;
 use et_wasi_guest::{info, start};
-use serde::Deserialize;
 
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
-
-/// The canonical input: per-client (feature, target) samples plus the training hyperparameters.
-#[derive(Deserialize)]
-struct Math1Input {
-    clients: Vec<Vec<(f64, f64)>>,
-    rounds: u32,
-    epochs: u32,
-    learning_rate: f64,
-}
-
-/// The broadcast pointer naming the storage bucket + filename the input JSON was injected at.
-#[derive(Deserialize)]
-struct InputPointer {
-    bucket: String,
-    filename: String,
-}
-
-/// Sample count as f64, accumulated additively to avoid an integer-to-float cast.
-fn sample_count(samples: &[(f64, f64)]) -> f64 {
-    samples.iter().fold(0.0_f64, |count, _| count + 1.0_f64)
-}
-
-/// Runs the `FedAvg` simulation on `input` and returns the final global (weight, bias).
-#[expect(
-    clippy::single_call_fn,
-    clippy::suboptimal_flops,
-    reason = "a step kept apart from the ws workflow; mul_add's single rounding would break bit-identity with its twins"
-)]
-fn fed_avg(input: &Math1Input) -> (f64, f64) {
-    let mut weight = 0.0_f64;
-    let mut bias = 0.0_f64;
-    let total_samples: f64 = input
-        .clients
-        .iter()
-        .fold(0.0_f64, |acc, samples| acc + sample_count(samples));
-    for _ in 0_u32..input.rounds {
-        let mut merged_weight = 0.0_f64;
-        let mut merged_bias = 0.0_f64;
-        for samples in &input.clients {
-            let count = sample_count(samples);
-            let mut client_weight = weight;
-            let mut client_bias = bias;
-            for _ in 0_u32..input.epochs {
-                let mut grad_weight = 0.0_f64;
-                let mut grad_bias = 0.0_f64;
-                for &(feature, target) in samples {
-                    let residual = client_weight * feature + client_bias - target;
-                    grad_weight += residual * feature;
-                    grad_bias += residual;
-                }
-                client_weight -= input.learning_rate * (2.0_f64 * grad_weight / count);
-                client_bias -= input.learning_rate * (2.0_f64 * grad_bias / count);
-            }
-            merged_weight += client_weight * count;
-            merged_bias += client_bias * count;
-        }
-        weight = merged_weight / total_samples;
-        bias = merged_bias / total_samples;
-    }
-    (weight, bias)
-}
 
 struct Component;
 
 impl Guest for Component {
+    /// Wait for the input pointer, fit the model to the input it names, and store the model in this agent's bucket.
     #[expect(
         clippy::unused_async_trait_impl,
         reason = "entry.run is an async export of the WIT world, so the generated trait fixes the signature"
@@ -120,13 +59,12 @@ impl Guest for Component {
             input.rounds,
             input.epochs
         ));
-        let (weight, bias) = fed_avg(&input);
-        info(&format!("global model weight={weight} bias={bias}"));
+        let model = fed_avg(&input);
+        info(&format!("global model weight={} bias={}", model.weight, model.bias));
 
         let own_bucket = store::open(&agent_id)?;
-        let output = serde_json::json!({ "module": "wasi-math1", "weight": weight, "bias": bias }).to_string();
-        own_bucket.set("math1-output.json", output.as_bytes())?;
-        info("stored the global model to math1-output.json");
+        own_bucket.set(OUTPUT_FILENAME, output_json("wasi-math1", model).as_bytes())?;
+        info(&format!("stored the global model to {OUTPUT_FILENAME}"));
 
         ws::disconnect();
         info("workflow complete");
@@ -147,9 +85,7 @@ impl Guest for Component {
 fn wait_for_pointer() -> Option<InputPointer> {
     for _ in 0_u32..100 {
         if let Ok(Some(ServerMessage::RelayText(payload))) = ws::recv(100)
-            && let Ok(json) = serde_json::from_str::<serde_json::Value>(&payload.content)
-            && json.get("type").and_then(serde_json::Value::as_str) == Some("math1-input")
-            && let Ok(pointer) = serde_json::from_value::<InputPointer>(json)
+            && let Ok(pointer) = parse_pointer(&payload.content)
         {
             return Some(pointer);
         }

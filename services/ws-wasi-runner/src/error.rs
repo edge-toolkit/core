@@ -24,6 +24,25 @@ pub enum RunnerError {
 
     #[error("module run() returned err: {0:?}")]
     Guest(#[from] EntryError),
+
+    #[cfg(feature = "core-modules")]
+    #[error(transparent)]
+    Core(#[from] crate::core_module::CoreError),
+
+    /// The thread a core module runs on could not be started.
+    #[cfg(feature = "core-modules")]
+    #[error("the core module's thread could not be started: {0}")]
+    CoreThread(#[from] std::io::Error),
+
+    /// The thread a core module runs on ended without reporting how the module ended, which only a panic does.
+    #[cfg(feature = "core-modules")]
+    #[error("the core module's thread ended without a result")]
+    CoreLost(#[from] tokio::sync::oneshot::error::RecvError),
+
+    /// The module is a core module, which only a runner built with the `core-modules` feature runs.
+    #[cfg(not(feature = "core-modules"))]
+    #[error("the module is a core module, which this runner, built without the `core-modules` feature, cannot run")]
+    CoreModulesDisabled,
 }
 
 impl From<et_ws_runner_common::BootstrapError> for RunnerError {

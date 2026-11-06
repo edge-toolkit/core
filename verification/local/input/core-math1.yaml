@@ -1,0 +1,17 @@
+cluster_name: "core-math1"
+deployment_type: "mise"
+
+# The math1 exchange with a Wasm 1.0 core-module twin, driven by the WASI trigger. Both agents are `runner: wasi`, and
+# the runner reads each module's header to pick its engine: the trigger is a component, which runs on wasmtime, and
+# the twin is a core module, which runs on NASA's SpaceWasm interpreter. One runner kind hosting both engines is what
+# distinguishes this from `wasi-math1`, where both ends are components.
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+
+  - name: "core-math1-twin"
+    runner: "wasi"
+    resources:
+      - type: "core-math1"

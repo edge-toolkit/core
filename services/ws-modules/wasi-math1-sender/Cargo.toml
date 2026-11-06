@@ -24,6 +24,7 @@ docs = ["dep:document-features"]
 
 [target.'cfg(target_os = "wasi")'.dependencies]
 document-features = { workspace = true, optional = true }
+et-math1.workspace = true
 et-wasi-guest.workspace = true
 
 # Build script (runs on the host) emits ET_MATH1_INPUT_PATH for the embedded canonical input.

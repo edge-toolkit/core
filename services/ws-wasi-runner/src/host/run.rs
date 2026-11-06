@@ -3,6 +3,7 @@
 
 use et_ws_runner_common::{derive_http_base, fetch_main_field};
 use tracing::{Instrument as _, info, info_span};
+use wasmparser::Parser;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
@@ -48,6 +49,18 @@ async fn run_module_inner(
     let wasm_bytes = et_ws_runner_common::fetch_module_file(&rest, module_name, &main)
         .instrument(info_span!("fetch_component", module = module_name, file = %main))
         .await?;
+
+    // A core module cannot import the `et:ws-wasi` world, so it runs on SpaceWasm with the `et` imports instead.
+    if Parser::is_core_wasm(&wasm_bytes) {
+        #[cfg(feature = "core-modules")]
+        {
+            info!(module = module_name, "running the core module on SpaceWasm");
+            let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout, coverage);
+            return super::core_module::run_core_module(wasm_bytes, host_state).await;
+        }
+        #[cfg(not(feature = "core-modules"))]
+        return Err(RunnerError::CoreModulesDisabled);
+    }
 
     let mut config = Config::new();
     #[expect(

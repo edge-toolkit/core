@@ -86,6 +86,8 @@ pub enum ModulesError {
         package: String,
         main: String,
     },
+    #[error("runner {runner} runs {package}, a Wasm 1.0 core module, which a board's runner cannot run")]
+    CoreModule { runner: String, package: String },
     #[error("{path} is not a WebAssembly component")]
     Unreadable {
         path: PathBuf,
@@ -340,6 +342,14 @@ fn checked_guest<'pair>(
         });
     }
     let bytes = fs::read(&found.component)?;
+    // A core module's own imports read as none to `Guest::read`, which looks only for a component's, so it would pass
+    // every check here and fail in the component compiler instead, saying nothing of why.
+    if wasmparser::Parser::is_core_wasm(&bytes) {
+        return Err(ModulesError::CoreModule {
+            runner: runner.to_owned(),
+            package: package.to_owned(),
+        });
+    }
     let guest = match Guest::read(&bytes) {
         Ok(guest) => guest,
         Err(source) => {

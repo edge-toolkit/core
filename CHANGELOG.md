@@ -7,6 +7,14 @@ Changelog 1.1.0.
 
 ### Added
 
+- `et-ws-wasi-runner` runs Wasm 1.0 core modules beside WASI components, on NASA's SpaceWasm interpreter, with its
+  new `core-modules` feature, on by default. It picks the engine from the fetched module's header, so a scenario's
+  `runner: wasi` covers both. A core module reaches the hub through the `et` imports, which the new `et-core-guest`
+  crate defines and wraps in a typed guest API for the `wasm32v1-none` target; `core-math1` is the first such module,
+  and `verification/local/input/core-math1.yaml` pairs it with the WASI trigger. A runner built without the feature
+  fails a core module with `RunnerError::CoreModulesDisabled`.
+- `et-math1` holds the math1 family's `FedAvg` kernel, input pointer and output JSON, which the Rust math1 twins and
+  triggers now share rather than each carrying a copy.
 - `generated/specs/rest.md` and `generated/specs/ws.md` document the REST API and the WebSocket protocol in Markdown:
   every operation, message and shared schema, with the side of the hub that sends each message. They are rendered
   from `rest.yaml` and `ws.yaml` and regenerated with them.

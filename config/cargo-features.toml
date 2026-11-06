@@ -7,6 +7,7 @@
 
 [features]
 board = "Runs on a microcontroller board: `no_std` + `alloc`, served or driven over the board's own sockets."
+core-modules = "Runs Wasm 1.0 core modules beside components, on NASA's SpaceWasm interpreter."
 coverage = "Internal: builds in what the repo's coverage workflow measures with, such as minicov or the `/cov` preopen."
 cuda = "Runs `wasi:nn` inference on an NVIDIA GPU, through ONNX Runtime's CUDA provider."
 default = "Cargo's own: the features a dependent gets unless it sets `default-features = false`."

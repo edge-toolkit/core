@@ -1,8 +1,10 @@
 # et-ws-wasi-runner
 
-Runs edge-toolkit ws-modules compiled to **WASI Preview 2 components**, rather than browser WASM modules. It fetches
-the module's `pkg/package.json` from the ws-server, downloads the `.wasm` named by the `wasi-main` field,
-instantiates it under `wasmtime` with async support, and calls the exported `entry.run` function.
+Runs edge-toolkit ws-modules built as WebAssembly for a host rather than for a browser. It fetches the module's
+`pkg/package.json` from the ws-server, downloads the `.wasm` its `main` field names, and picks the engine from the
+module's header: a **WASI Preview 2 component** is instantiated under `wasmtime` with async support and its exported
+`entry.run` called, and a **Wasm 1.0 core module** runs on NASA's SpaceWasm interpreter, which calls its exported
+`run`.
 
 ```sh
 RUNNER_MODULE=@edge-toolkit/et-ws-wasi-math1 WS_SERVER_URL=ws://localhost:8080/ws et-ws-wasi-runner
@@ -14,13 +16,13 @@ variable the runner reads, with its type and default.
 
 ## Host imports
 
-Defined in `generated/specs/wit/world.wit` of the edge-toolkit repository, package `et:ws-wasi`:
+A component imports the `runner` world in `generated/specs/wit/world.wit` of the edge-toolkit repository:
 
-- `log` -- `log` and `set-status` for guest output
-- `clock` -- `sleep-ms`, `now-ms`
-- `storage` -- `put-file`/`get-file` proxied to the ws-server's storage service via reqwest
-- `ws` -- websocket client backed by `tokio-tungstenite`; mirrors the wire format of `et-ws-wasm-agent` so events
-  look the same on the server
+- `et:ws-wasi/ws` -- websocket client backed by `tokio-tungstenite`; mirrors the wire format of `et-ws-wasm-agent` so
+  events look the same on the server
+- `wasi:keyvalue/store` -- the agent's own storage bucket, and a module's files read-only, proxied to the ws-server's
+  storage and modules services through its REST API
+- `wasi:logging/logging` -- the guest's log, routed into `tracing`
 
 Plus, attached to the same `Linker` but defined by external WIT packages, each behind the cargo feature named first:
 
@@ -37,6 +39,22 @@ Plus, attached to the same `Linker` but defined by external WIT packages, each b
   wasmtime-wasi-nn 48 still uses). Guests load model bytes via `graph.load`, build `Tensor`s, and call `compute` --
   the same shape of calls Spin / wasmCloud / Fermyon production wasi-nn workloads use. Inference runs on the CPU
   unless the `cuda` feature is on.
+
+## Core modules
+
+The `runner` world exists only through the component model, so a core module cannot import it. With the
+`core-modules` feature, on by default, the runner runs one on [SpaceWasm](https://github.com/nasa/spacewasm), NASA
+JPL's Wasm 1.0 interpreter for flight software, in place of wasmtime. SpaceWasm runs Wasm 1.0 with mutable globals
+and nothing later, which is what Rust's `wasm32v1-none` target builds; a `wasm32-wasip1` or `wasm32-wasip2` build
+uses bulk memory, sign extension, multi-value and reference types, which it rejects. A core module imports the same
+operations as the world -- the websocket, the storage buckets and the log -- flattened into the `et` functions that
+`et-core-guest` defines, and `core-math1` is one.
+
+An import that has to wait on the hub pauses the interpreter. The call is carried out on the same `HostState` a
+component's imports are, and the guest resumed with its result; between pauses the interpreter runs in slices of
+instructions, yielding between them. SpaceWasm's engine cannot move between threads, so the module runs on a thread
+of its own. The `core_module` module is `no_std` + `alloc` and runs on any `CoreHost`, so a board could host a core
+module too, though `board::run` runs only components so far.
 
 ## On a board
 
