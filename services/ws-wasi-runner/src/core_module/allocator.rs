@@ -65,7 +65,7 @@ pub unsafe extern "C" fn __spacewasm_dealloc(ptr: *mut u8, size: usize, align: u
 ///
 /// `SpaceWasm` zeroes each page it hands the guest, and never asks for a zero-sized memory: one of no pages is never
 /// allocated, and a grow from it allocates rather than reallocating.
-pub(super) struct LinearMemory;
+pub(crate) struct LinearMemory;
 
 impl WasmMemoryAllocator for LinearMemory {
     /// A new linear memory of `layout`, or why there is none.

@@ -11,7 +11,7 @@ use core::task::{Context, Poll};
 use et_core_guest::abi;
 use spacewasm::{
     CodeBuilder, CompilerOptions, Engine, ExportDesc, Interpreter, InterpreterResult, InterpreterRunner as _, Module,
-    Ref, ValType, WasmRef,
+    Ref, ValType, WasmMemoryAllocator, WasmRef,
 };
 
 use super::allocator::LinearMemory;
@@ -21,7 +21,7 @@ use super::{CoreError, CoreHost};
 
 /// How many instructions the interpreter runs before yielding to the executor.
 const FUEL_SLICE: usize = 100_000;
-/// The engine's operand and call stack, in words.
+/// The engine's operand and call stack on a host, in its four-byte words: 4 MiB.
 const STACK_WORDS: usize = 0x10_0000;
 /// The deepest nesting of blocks the decoder validates a function with.
 const MAX_CONTROL_FRAMES: usize = 256;
@@ -41,9 +41,31 @@ const MODULE_NAME: &str = "main";
 ///
 /// When the module does not decode, validate or link, has no `run` of the right type, traps, or its `run` returns
 /// anything but [`abi::SUCCESS`].
-pub async fn run<H>(wasm: &[u8], mut host: H) -> Result<(), CoreError>
+pub async fn run<H>(wasm: &[u8], host: H) -> Result<(), CoreError>
 where
     H: CoreHost,
+{
+    run_within(wasm, host, LinearMemory, STACK_WORDS).await
+}
+
+/// [`run()`], the module's linear memory allocated by `memory`, and the engine's stack `stack_words` words deep.
+///
+/// A board bounds both, where a host has room for whatever a module asks.
+///
+/// # Errors
+///
+/// As [`run()`]'s, and when `memory` cannot allocate what the module starts with, which fails it as it decodes.
+#[cfg_attr(
+    not(feature = "board"),
+    expect(
+        clippy::single_call_fn,
+        reason = "run's body, which a board's runner also calls when the crate has one"
+    )
+)]
+pub(crate) async fn run_within<H, M>(wasm: &[u8], mut host: H, memory: M, stack_words: usize) -> Result<(), CoreError>
+where
+    H: CoreHost,
+    M: WasmMemoryAllocator + 'static,
 {
     let shared = Shared::default();
     let mut code = CodeBuilder::new(CompilerOptions {
@@ -51,8 +73,8 @@ where
         max_backpatch_iterations: None,
         max_code_pages: MAX_CODE_PAGES,
     })?;
-    let mut engine = Engine::new(STACK_WORDS, 1, spacewasm::Vec::from_array([imports::module(&shared)?])?)?;
-    let memory = spacewasm::Rc::new(LinearMemory)?.into_wasm_memory_allocator();
+    let mut engine = Engine::new(stack_words, 1, spacewasm::Vec::from_array([imports::module(&shared)?])?)?;
+    let memory = spacewasm::Rc::new(memory)?.into_wasm_memory_allocator();
     let module = Module::new::<MAX_CONTROL_FRAMES, MAX_STACK_DEPTH>(
         MODULE_NAME,
         &mut ModuleStream::new(wasm),

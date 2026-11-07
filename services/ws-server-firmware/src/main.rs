@@ -10,6 +10,7 @@
 #![cfg_attr(target_os = "none", no_std, no_main)]
 #![recursion_limit = "256"]
 
+#[cfg(target_os = "none")]
 extern crate alloc;
 
 #[cfg(not(remote_hub))]

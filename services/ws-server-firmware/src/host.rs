@@ -2,8 +2,8 @@
 //!
 //! The hub, its settings, the modules built in and the guests its runners run are the board's own; only the network
 //! stack, the executor and the clock differ. It listens on the address its one argument names, or on the board's port
-//! on every interface, and says where on its first line of output, so a caller can ask for port 0 and learn the one
-//! it got. A build for a hub elsewhere serves nothing, and runs its guests against that hub as the board would.
+//! on every interface, and says where on its first line of output, so a caller can ask for port 0 and learn the one it
+//! got. A build for a hub elsewhere serves nothing, and runs its guests against that hub as the board would.
 
 use std::error::Error;
 use std::io::Write as _;
@@ -29,7 +29,7 @@ use et_ws_wasi_runner::bindings::wasi::logging::logging::Level;
 use et_ws_wasi_runner::board::net::{NetLink, NetTransport, drive};
 #[cfg(remote_hub)]
 use et_ws_wasi_runner::board::net_tokio::TokioConnector;
-use et_ws_wasi_runner::board::{Console, Platform};
+use et_ws_wasi_runner::board::{Console, Platform, run_guest};
 #[cfg(not(remote_hub))]
 use picoserve::time::TokioTimer;
 #[cfg(not(remote_hub))]
@@ -40,7 +40,7 @@ use tokio::task::LocalSet;
 use crate::HUB_ADDRESS;
 #[cfg(not(remote_hub))]
 use crate::local::BoardStorage;
-use crate::runner::{GUESTS, Shared, run_guest};
+use crate::runner::{GUESTS, Shared};
 #[cfg(not(remote_hub))]
 use crate::server::{Served, serve};
 #[cfg(not(remote_hub))]

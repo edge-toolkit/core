@@ -12,6 +12,7 @@ doctest = false
 
 [dependencies]
 edge-toolkit = { workspace = true, features = ["std"] }
+et-core-guest.workspace = true
 et-ws-wasi-runner = { workspace = true, features = ["precompile"] }
 fs-err.workspace = true
 serde_json = { workspace = true, features = ["std"] }

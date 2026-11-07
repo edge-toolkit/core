@@ -13,6 +13,13 @@ Changelog 1.1.0.
   crate defines and wraps in a typed guest API for the `wasm32v1-none` target; `core-math1` is the first such module,
   and `verification/local/input/core-math1.yaml` pairs it with the WASI trigger. A runner built without the feature
   fails a core module with `RunnerError::CoreModulesDisabled`.
+- A board runs Wasm 1.0 core modules too. `et-ws-wasi-runner`'s `board::run_core_module` hosts one's `et` imports on
+  the board's `Platform` and `Transport`, its memory drawn from the same `MemoryBudget` as a component's, and
+  `core_module::is_core_module` tells one from a component or a precompiled guest by its header. `board::run_guest`
+  runs a guest of either kind, rerunning it after `board::RERUN_DELAY` when it fails in itself. `RUNNER_GUESTS` may
+  name a core module for et-ws-server-firmware, whose build checks its imports against the `et` functions, now listed
+  as `et_core_guest::abi::IMPORTS`, and builds it in as its package holds it, with nothing compiled ahead of time.
+  `core-math1`'s `firmware-pico-plus2` deployment now builds.
 - `et-math1` holds the math1 family's `FedAvg` kernel, input pointer and output JSON, which the Rust math1 twins and
   triggers now share rather than each carrying a copy.
 - `generated/specs/rest.md` and `generated/specs/ws.md` document the REST API and the WebSocket protocol in Markdown:

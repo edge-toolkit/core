@@ -10,10 +10,11 @@ use std::path::{Path, PathBuf};
 use et_firmware_modules::{BOARD_VARIABLES, RUNNER_GUESTS, board, generate, guests};
 use fs_err as fs;
 
-/// The bytes a board with PSRAM holds for its guests' memories: its 8 MiB, less what wasmtime keeps beside them.
+/// The bytes a board with PSRAM holds for its guests' memories: its 8 MiB, less what the engines keep beside them.
 ///
-/// That is each guest's compiled code, copied in when it loads, its 64 KiB stack, and the store and instance, all of
-/// which share the one heap with the hub's 160 KiB.
+/// That is each guest's code, a component's compiled code copied in when it loads or the code `SpaceWasm` decodes a
+/// core module to, its 64 KiB stack, and its engine's own state, all of which share the one heap with the hub's 160
+/// KiB.
 const PSRAM_GUEST_MEMORY: u64 = 6 * 1024 * 1024;
 /// The flash `memory.x` gives the Pico 2 W, which the Pico Plus 2 W's build replaces with its own.
 const PICO2W_FLASH: &str = "FLASH : ORIGIN = 0x10000000, LENGTH = 4096K";

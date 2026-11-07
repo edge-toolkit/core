@@ -84,11 +84,12 @@ jobs:
           mise run cargo-clippy-check-esp32c6
           mise run firmware-scenario verification/local/input/default.yaml firmware-esp32c6
 
-      # The board with PSRAM runs wasi runners beside the hub, so its scenario is the two math1 runners.
-      # Their components have to be built before the firmware compiles them for the board. The host build then runs the
-      # same guests against the same hub.
-      - name: Lint the Pico Plus 2 W firmware, then build and serve a generated scenario's runners
-        timeout-minutes: 45
+      # The board with PSRAM runs wasi runners beside the hub, so its scenarios are the math1 runners.
+      # First two components, then the trigger with its core-module twin, which the board runs on its interpreter
+      # rather than its engine. Their modules have to be built before the firmware builds them in. The host build then
+      # runs the same guests against the same hub.
+      - name: Lint the Pico Plus 2 W firmware, then build and serve generated scenarios' runners
+        timeout-minutes: 60
         env:
           WIFI_NETWORK: edge-toolkit-ci
           WIFI_PASSWORD: not-a-real-passphrase
@@ -97,4 +98,6 @@ jobs:
           mise run build-ws-wasm-agent
           mise run build-ws-wasi-math1-module
           mise run build-ws-wasi-math1-sender-module
+          mise run build-ws-core-math1-module
           mise run firmware-scenario verification/local/input/wasi-math1.yaml firmware-pico-plus2 --host-test
+          mise run firmware-scenario verification/local/input/core-math1.yaml firmware-pico-plus2 --host-test

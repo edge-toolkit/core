@@ -17,10 +17,11 @@ use embassy_net::tcp::{Error, TcpReader, TcpSocket, TcpWriter};
 use embassy_net::{IpEndpoint, Stack, StackResources};
 use embedded_io_async::{ErrorType, Read, Write};
 use et_ws_wasi_runner::board::net::{Connector, NetError, NetLink, NetTransport, Split, drive};
+use et_ws_wasi_runner::board::run_guest;
 
 use super::platform::{BoardPlatform, spawn_runner};
 use crate::HUB_ADDRESS;
-use crate::runner::{GUEST_POOL, GUESTS, Shared, run_guest};
+use crate::runner::{GUEST_POOL, GUESTS, Shared};
 
 /// Each socket's TCP receive and transmit buffer.
 const TCP_BUFFER: usize = 4 * 1024;
