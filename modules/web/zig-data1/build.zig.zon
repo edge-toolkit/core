@@ -6,7 +6,7 @@
     .main = "et_ws_zig_data1.js",
     .fingerprint = 0x8c5646f08b8cd4b1,
     .dependencies = .{
-        .zig_shared = .{ .path = "../zig-shared" },
+        .zig_shared = .{ .path = "../../../libs/zig-shared" },
     },
     .paths = .{""},
 }

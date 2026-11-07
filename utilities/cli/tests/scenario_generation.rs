@@ -161,7 +161,7 @@ fn docker_image_module_paths_include_static_root_module() {
     assert!(paths.contains(&"/app/data/model-modules/model-face1".to_string()));
     assert!(paths.contains(&"/app/node_modules/onnxruntime-web".to_string()));
     assert!(!paths.contains(&"/app/node_modules/pyodide".to_string()));
-    assert!(paths.contains(&"/app/services/ws-modules/face-detection".to_string()));
+    assert!(paths.contains(&"/app/modules/web/face-detection".to_string()));
 }
 
 #[test]
@@ -178,7 +178,7 @@ fn a_headless_image_is_given_neither_the_page_nor_what_the_page_imports() {
     assert!(!paths.contains(&"/app/node_modules/stats-gl".to_string()), "{paths:?}");
     assert!(!paths.contains(&"/app/services/ws-wasm-agent".to_string()), "{paths:?}");
     assert!(paths.contains(&"/app/data/model-modules/model-face1".to_string()));
-    assert!(paths.contains(&"/app/services/ws-modules/face-detection".to_string()));
+    assert!(paths.contains(&"/app/modules/web/face-detection".to_string()));
 }
 
 #[test]
@@ -198,14 +198,14 @@ fn scenario_module_paths_include_selected_modules_and_dependencies() {
             "$(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)".to_string(),
             "../../data/model-modules/model-face1".to_string(),
             "../../data/model-modules/model-har-motion1".to_string(),
-            "../ws-modules/face-detection".to_string(),
-            "../ws-modules/har1".to_string(),
+            "../../modules/web/face-detection".to_string(),
+            "../../modules/web/har1".to_string(),
             "../ws-wasm-agent".to_string(),
             "static".to_string(),
         ],
     );
-    assert!(!paths.contains(&"../ws-modules".to_string()));
-    assert!(!paths.contains(&"../ws-modules/data1".to_string()));
+    assert!(!paths.contains(&"../../modules/web".to_string()));
+    assert!(!paths.contains(&"../../modules/web/data1".to_string()));
 }
 
 #[test]
@@ -233,7 +233,7 @@ fn scenario_module_paths_include_pyface1_python_runtime_dependencies() {
     let modules = ["pyface1".to_string()];
     let paths = scenario_module_paths(&ScenarioModules::new(&ws_server_dir, &modules, true)).unwrap();
 
-    assert!(paths.contains(&"../ws-modules/pyface1".to_string()));
+    assert!(paths.contains(&"../../modules/web/pyface1".to_string()));
     assert!(paths.contains(&"../../data/model-modules/model-face1".to_string()));
     assert!(paths.contains(&"$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string()));
     // pyface1 calls `micropip.install`, so it needs the full GitHub-release distribution rather than the npm one.
@@ -628,10 +628,7 @@ agents:
     let segments: Vec<&str> = paths.split(',').map(str::trim).collect();
     assert_eq!(
         segments,
-        [
-            "/app/services/ws-modules/wasi-math1",
-            "/app/services/ws-modules/wasi-math1-sender"
-        ]
+        ["/app/modules/wasi/wasi-math1", "/app/modules/wasi/wasi-math1-sender"]
     );
 }
 
@@ -639,10 +636,7 @@ agents:
 fn a_single_module_path_is_still_a_closed_quoted_value() {
     // One path has no break to fold, and was once written as the opening line of a fold with nothing to close it.
     let (_test_root, output_dir) = k3s_scenario_with("");
-    assert_eq!(
-        compose_modules_paths(&output_dir),
-        "/app/services/ws-modules/wasi-math1"
-    );
+    assert_eq!(compose_modules_paths(&output_dir), "/app/modules/wasi/wasi-math1");
 }
 
 #[test]

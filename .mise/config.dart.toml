@@ -4,7 +4,7 @@
 # Every tracked Dart package: the two generated clients plus the three modules. Shared by analyze/format.
 # Split in two only to stay inside the editorconfig line length; dart_paths is the one callers use.
 dart_generated_paths = "generated/dart-ws generated/dart-rest"
-dart_module_paths = "services/ws-modules/dart-comm1 services/ws-modules/dart-data1 services/ws-modules/dart-math1"
+dart_module_paths = "modules/web/dart-comm1 modules/web/dart-data1 modules/web/dart-math1"
 dart_paths = "{{ vars.dart_generated_paths }} {{ vars.dart_module_paths }}"
 
 [tools]
@@ -73,7 +73,7 @@ description = "Format Dart sources"
 
 [tasks.build-ws-dart-comm1-module]
 description = "Build the dart-comm1 workflow module"
-dir = "services/ws-modules/dart-comm1"
+dir = "modules/web/dart-comm1"
 run = """
 dart pub get
 dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
@@ -82,7 +82,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dart-data1-module]
 description = "Build the dart-data1 workflow module"
-dir = "services/ws-modules/dart-data1"
+dir = "modules/web/dart-data1"
 run = """
 dart pub get
 dart compile js lib/dart_data1.dart -o pkg/et_ws_dart_data1_compiled.js --no-source-maps
@@ -91,7 +91,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dart-math1-module]
 description = "Build the dart-math1 FedAvg module"
-dir = "services/ws-modules/dart-math1"
+dir = "modules/web/dart-math1"
 run = """
 dart pub get
 dart compile js lib/dart_math1.dart -o pkg/et_ws_dart_math1_compiled.js --no-source-maps
@@ -102,9 +102,9 @@ shell = "{{ vars.task_shell }}"
 description = "Prefetch Dart (pub) dependencies"
 run = """
 dart pub get --directory generated/dart-rest
-dart pub get --directory services/ws-modules/dart-comm1
-dart pub get --directory services/ws-modules/dart-data1
-dart pub get --directory services/ws-modules/dart-math1
+dart pub get --directory modules/web/dart-comm1
+dart pub get --directory modules/web/dart-data1
+dart pub get --directory modules/web/dart-math1
 """
 shell = "{{ vars.task_shell }}"
 

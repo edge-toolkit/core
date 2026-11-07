@@ -66,8 +66,8 @@ rules:
         - "/generated/**" # Generator-owned output, carrying whatever the generator wrote.
         - "/config/conftest/policy/mise/mise.rego" # Names the task a shell builtin was verified to break in.
         - "/pnpm-workspace.yaml" # The lockfile layout exists because one module's build depends on it.
-        - "/services/ws-modules/pyface1/pyproject.toml" # Names the task that puts a bundled asset in `pkg/`.
-        - "/services/ws-modules/wasi-graphics-info/.gitignore" # Names the task that writes the ignored files.
+        - "/modules/web/pyface1/pyproject.toml" # Names the task that puts a bundled asset in `pkg/`.
+        - "/modules/wasi/wasi-graphics-info/.gitignore" # Names the task that writes the ignored files.
         # These three skip when a module's `pkg/` is absent, and print or explain which build fills it.
         - "/services/ws-wasi-runner/tests/modules.rs"
         - "/services/ws-wasi-runner/tests/otel_propagation.rs"
@@ -179,7 +179,7 @@ rules:
         - "/README.md" # Tells a contributor how to run them.
         - "/CONTRIBUTING.md" # Names the aggregate that runs every language's suite.
         - "/**/README.md" # A module's own README names the command that exercises it.
-        - "/services/ws-modules/pic-viewer/tests/show_image.rs" # Needs a browser harness no plain test run gives.
+        - "/modules/web/pic-viewer/tests/show_image.rs" # Needs a browser harness no plain test run gives.
         - "/services/ws-test-server/src/bin/cov-server.rs" # Names the end-to-end run sharing its fixed port.
         - "/services/ws-test-server/src/bin/verify-math1.rs" # Names the task that pipes cluster output into it.
         - "/services/ws-wasm-agent/tests/client.rs" # Names the runs that must have a backend on its port.

@@ -28,13 +28,13 @@ gradle
 
 [tasks.build-ws-kotlin-data1-module]
 description = "Build the kotlin-data1 workflow module (Kotlin/Wasm -> WasmGC)"
-dir = "services/ws-modules/kotlin-data1"
+dir = "modules/web/kotlin-data1"
 run = "\"$GRADLE\" --console=plain pkgDist"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-kotlin-math1-module]
 description = "Build the kotlin-math1 FedAvg module (Kotlin/Wasm -> WasmGC)"
-dir = "services/ws-modules/kotlin-math1"
+dir = "modules/web/kotlin-math1"
 run = "\"$GRADLE\" --console=plain pkgDist"
 shell = "{{ vars.task_shell }}"
 # Never extract binaryen at the same moment the sibling Kotlin module does.
@@ -63,15 +63,15 @@ wait_for = ["build-ws-kotlin-data1-module"]
 [tasks."check:kotlin"]
 description = "Run Kotlin checks (kotlinc allWarningsAsErrors via the Gradle compile)"
 run = """
-"$GRADLE" --console=plain -p services/ws-modules/kotlin-data1 compileKotlinWasmJs
-"$GRADLE" --console=plain -p services/ws-modules/kotlin-math1 compileKotlinWasmJs
+"$GRADLE" --console=plain -p modules/web/kotlin-data1 compileKotlinWasmJs
+"$GRADLE" --console=plain -p modules/web/kotlin-math1 compileKotlinWasmJs
 """
 shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:kotlin"]
 description = "Prefetch Kotlin (Gradle plugin + Maven Central) dependencies"
 run = """
-"$GRADLE" --console=plain -p services/ws-modules/kotlin-data1 dependencies
-"$GRADLE" --console=plain -p services/ws-modules/kotlin-math1 dependencies
+"$GRADLE" --console=plain -p modules/web/kotlin-data1 dependencies
+"$GRADLE" --console=plain -p modules/web/kotlin-math1 dependencies
 """
 shell = "{{ vars.task_shell }}"

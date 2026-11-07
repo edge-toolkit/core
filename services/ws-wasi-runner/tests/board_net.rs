@@ -71,8 +71,8 @@ async fn a_guest_round_trips_a_value_through_a_hub_elsewhere() {
     LocalSet::new()
         .run_until(async {
             let transport = transport_to(address, board.clone());
-            let built = edge_toolkit::config::get_project_root()
-                .join("services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm");
+            let built =
+                edge_toolkit::config::get_project_root().join("modules/wasi/wasi-data1/pkg/et_ws_wasi_data1.wasm");
             let component = precompile(NATIVE_PULLEY, &fs_err::read(built).unwrap()).unwrap();
             let engine = board_engine().unwrap();
             let ran = run(

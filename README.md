@@ -23,9 +23,9 @@ edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardw
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,
 Java, Kotlin and more, each compiled to WebAssembly or transpiled to JavaScript -- straight to a browser, where they run
 locally and can reach the browser's own Web APIs (camera, microphone, geolocation, motion sensors, Bluetooth, NFC,
-USB devices and more, listed by browser in [services/ws-modules/README.md](services/ws-modules/README.md)) to sense
+USB devices and more, listed by browser in [modules/web/README.md](modules/web/README.md)) to sense
 the real world directly. Bluetooth is missing from Safari and every other mainstream iPhone browser; the
-[bluetooth module's README](services/ws-modules/bluetooth/README.md) has the evidence and the Bluefy workaround. The
+[bluetooth module's README](modules/web/bluetooth/README.md) has the evidence and the Bluefy workaround. The
 same framework also drives larger models on local GPU hardware through standardised WebAssembly interfaces, so one
 toolkit spans on-device and server inference without changing the protocol.
 
@@ -178,12 +178,13 @@ The server logs appear in the Logs section.
 
 ## Modules
 
-The module list is dynamically populated from the modules in [services/ws-modules](services/ws-modules).
+The module list is dynamically populated from the modules in [modules](modules), which holds a directory per
+runtime that loads them: `web`, `wasi`, `core` and `pyo3`.
 
 Each module must have a `package.json` that defines a `main` which contains a JavaScript file that can load and run
 the module.
 
-Under each module in `ws-modules`, the package can be found in a subdirectory `pkg`.
+Under each module in `modules/<type>/`, the package can be found in a subdirectory `pkg`.
 
 Modules target one of three runners.
 

@@ -131,8 +131,8 @@ services:
       AWS_ALLOW_HTTP: "true"
       AWS_DEFAULT_REGION: us-east-1
       AWS_ENDPOINT: http://localhost:9000
-      MODULES_PATHS: "/app/services/ws-modules/math1,
-        /app/services/ws-modules/math1-sender"
+      MODULES_PATHS: "/app/modules/web/math1,
+        /app/modules/web/math1-sender"
       MODULES_ROOT: ""
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
@@ -178,8 +178,8 @@ services:
       AWS_ALLOW_HTTP: "true"
       AWS_DEFAULT_REGION: us-east-1
       AWS_ENDPOINT: http://127.0.0.1:9000
-      MODULES_PATHS: "/app/services/ws-modules/math1,
-        /app/services/ws-modules/math1-sender"
+      MODULES_PATHS: "/app/modules/web/math1,
+        /app/modules/web/math1-sender"
       MODULES_ROOT: ""
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1

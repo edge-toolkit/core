@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  services/ws-modules/js-data1:
+  modules/web/js-data1:
     dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3

@@ -152,6 +152,12 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** The modules moved from `services/ws-modules/` to `modules/<type>/`, the type being the runtime that
+  loads them: `web`, `wasi`, `core` or `pyo3`, as `edge_toolkit::config::MODULE_TYPE_DIRS` lists them.
+  `default_modules_folders` returns those four in place of `services/ws-modules`, and a generated deployment stages
+  each module at `/app/modules/<type>/<name>`. A hub configured with the old path, or a deployment generated before
+  this change, must be pointed at the new one or regenerated. The Zig modules' shared build moved to
+  `libs/zig-shared`.
 - **Breaking:** `et_ws_server::routes::HealthResponse`, the answer to `GET /health`, is now
   `et_ws_service::health::HealthResponse`, since a board's hub gives the same answer; import it from there.
 - **Breaking:** `et-ws-wasi-runner`'s host runner, its binary and `run_module` are behind the new default `std`

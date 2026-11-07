@@ -306,7 +306,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
-        - "/services/ws-modules/zig-except1/src/exceptions.cpp" # A `flawfinder: ignore` pragma, spelled out.
+        - "/modules/web/zig-except1/src/exceptions.cpp" # A `flawfinder: ignore` pragma, spelled out.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)flawfinder"
@@ -576,8 +576,8 @@ rules:
         - "/utilities/int-gen/src/checks.rs" # Names the root config the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
         - "/services/ws-pyo3-runner/python/*.py" # Single-file runner payloads, each exempt from the package rule.
-        - "/services/ws-modules/pyo3-math1/pkg/et_ws_pyo3_math1.py" # A single-file payload, the same exemption.
-        - "/services/ws-modules/pywasm1/main.py" # A single file the browser runs verbatim, the same exemption.
+        - "/modules/pyo3/pyo3-math1/pkg/et_ws_pyo3_math1.py" # A single-file payload, the same exemption.
+        - "/modules/web/pywasm1/main.py" # A single file the browser runs verbatim, the same exemption.
     pattern-regex: '(?i)\bruff\b'
     message: >-
       Do not name the Python linter/formatter outside its config and the configs that defer to it. A `# noqa`

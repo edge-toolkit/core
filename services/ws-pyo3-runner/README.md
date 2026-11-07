@@ -40,7 +40,7 @@ A name that resolves nowhere on `sys.path` is fetched from the ws-server, which 
 way it serves every other module: the runner reads the module's `package.json`, downloads the single file its
 `main` field names, and compiles that source under the file's own stem. This is the shape the WASI and web
 runners already have, and it is what lets a generated deployment name a pyo3 module without also arranging for
-that module to be on the runner's filesystem -- see `services/ws-modules/pyo3-math1/` for one.
+that module to be on the runner's filesystem -- see `modules/pyo3/pyo3-math1/` for one.
 
 The local path is tried first and is unchanged, so a module on `PYO3_PYTHONPATH` never causes a fetch. Only the
 module itself arrives over the wire: whatever it imports still resolves through `sys.path`, so its third-party

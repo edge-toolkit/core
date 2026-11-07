@@ -1,6 +1,6 @@
 # Checks
 
-- **Generated:** 2026-11-06
+- **Generated:** 2026-11-07
 - **Checks:** 83
 - **Tools:** 48
 - **Shell-script checks:** 10
@@ -899,10 +899,10 @@ Rules, from `config/semgrep`:
   ls-lint snapshots glob-based ignores once at startup and deletes every key that matches nothing at that moment
   (internal/glob/glob.go), so a glob covering a directory that a parallel task creates mid-run silently stops applying
   and ls-lint walks the tree it was supposed to skip. That is how `**/.gradle` let
-  `services/ws-modules/kotlin-data1/.gradle/9.7.0` reach the `.dir` rules while `check:kotlin` ran alongside
-  `ls-lint-check`. A literal path is never expanded, so it holds no matter when the directory appears, and one naming a
-  path that never appears costs nothing. List each directory explicitly, adding a new entry per module rather than
-  reaching for a pattern that covers them all.
+  `modules/web/kotlin-data1/.gradle/9.7.0` reach the `.dir` rules while `check:kotlin` ran alongside `ls-lint-check`. A
+  literal path is never expanded, so it holds no matter when the directory appears, and one naming a path that never
+  appears costs nothing. List each directory explicitly, adding a new entry per module rather than reaching for a
+  pattern that covers them all.
 - `mise-task-coreutils-prefix` -- Call POSIX utilities in mise task bodies through the mise-managed uutils multicall, as
   `coreutils <util>`. A bare `mkdir`/`cp`/`rm`/... runs whatever the host ships -- BSD on macOS, GNU on Linux, busybox
   or Git Bash on Windows -- so flags and behaviour differ per machine, and the task depends on a tool mise does not pin.
@@ -1052,10 +1052,10 @@ Rules, from `config/semgrep`:
   written down.
 - `no-python-outside-modules` -- Python outside the module trees is banned. It is a guest language in this repo, not a
   tooling language: it is here so that a module can be written in it and run in a browser or a runner, and every such
-  file sits under `services/ws-modules/` beside the manifest that builds and packages it. A `.py` anywhere else is a
-  loose script by another name, carrying every problem one brings -- nothing invokes it, nothing tests it, and nothing
-  fails when it stops working. Short and simple belongs in a task body under `.mise/`; anything more involved gets its
-  own directory under `utilities/` with a `README.md`.
+  file sits under `modules/` beside the manifest that builds and packages it. A `.py` anywhere else is a loose script by
+  another name, carrying every problem one brings -- nothing invokes it, nothing tests it, and nothing fails when it
+  stops working. Short and simple belongs in a task body under `.mise/`; anything more involved gets its own directory
+  under `utilities/` with a `README.md`.
 - `no-regal-mentions` -- Do not name the Rego linter outside its own config. A policy is written the way Rego reads
   best; if one of its idioms is deliberate, say what the idiom does rather than which linter asked for it.
 - `no-repo-mentions-in-verification` -- A scenario's generated docs must not mention git or a checkout. They are read by

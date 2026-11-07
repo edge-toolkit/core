@@ -8,7 +8,7 @@
 # no-op when it's not on PATH.
 "github:christianhelle/openapi2zig" = { version = "latest", os = ["linux/x64", "macos", "windows"] }
 # C/C++ tooling for the zig-data1 module's hand-written C and C++.
-# The sources live under services/ws-modules/zig-data1/src/*.{c,cpp}. Two conda packages because mise hands the
+# The sources live under modules/web/zig-data1/src/*.{c,cpp}. Two conda packages because mise hands the
 # `clang-format` name to conda:clang-format, so conda:clang-tools omits it and only supplies clang-tidy. Both
 # are conda-forge's native LLVM binaries. cpplint (Google C++ style) and flawfinder (C/C++ security scanner)
 # have no prebuilt binary -- pipx is their only distribution.
@@ -93,10 +93,10 @@ llvm_mingw_pattern = """{% raw %}llvm-mingw-*-ucrt-
 """
 
 [tasks.zig-check]
-run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
+run = "zig fmt --check modules/ libs/zig-shared/ generated/zig-rest/"
 
 [tasks.zig-fmt]
-run = "zig fmt services/ws-modules/ generated/zig-rest/"
+run = "zig fmt modules/ libs/zig-shared/ generated/zig-rest/"
 
 [tasks.clang-format]
 description = "Format C/C++ sources (clang-format)"
@@ -123,7 +123,7 @@ description = "Lint C/C++ sources (clang-tidy)"
 # Flags after `--` are the compile args; clang_resource_arg points clang at its builtin headers (set per host
 # -- see config.linux.toml), and {{ }} renders empty where unset, leaving a bare `--`.
 #   1. host pass -- portable C/C++ built for the native target. This currently matches NOTHING: every tracked
-#      C/C++ file lives under services/ws-web-runner/mingw-shim or services/ws-modules/zig-* (both excluded
+#      C/C++ file lives under services/ws-web-runner/mingw-shim or modules/web/zig-* (both excluded
 #      just below), so the pass is a reserved slot for future portable C/C++ that is neither the Windows shim
 #      nor a wasm module. (On main it matched zig-data1/src/util.c; PR #93 moved the zig sources to pass 3.)
 #   2. mingw-shim -- Windows-only (windows.h, MSVC CRT), so it goes through llvm-mingw's clang-tidy
@@ -137,7 +137,7 @@ description = "Lint C/C++ sources (clang-tidy)"
 run = """
 {{ vars.conda_exe_sh }}
 clang_tidy="$(conda_exe clang-tools clang-tidy)"
-git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
+git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!modules/web/zig-*' |
   xargs -r -I{} "$clang_tidy" --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
@@ -152,7 +152,7 @@ if [ "$(coreutils uname -s)" = "Darwin" ]; then
 else
   set -- {{ vars.clang_resource_arg }} "$@"
 fi
-git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
+git ls-files 'modules/web/zig-*/src/*.c' 'modules/web/zig-*/src/*.cpp' |
   xargs -r -I{} "$clang_tidy" --config-file=config/clang-tidy.yaml {} -- "$@"
 """
 shell = "{{ vars.task_shell }}"
@@ -165,7 +165,7 @@ description = "Apply clang-tidy's machine-applicable fix-its to C/C++ sources in
 run = """
 {{ vars.conda_exe_sh }}
 clang_tidy="$(conda_exe clang-tools clang-tidy)"
-git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
+git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!modules/web/zig-*' |
   xargs -r -I{} "$clang_tidy" --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
@@ -180,7 +180,7 @@ if [ "$(coreutils uname -s)" = "Darwin" ]; then
 else
   set -- {{ vars.clang_resource_arg }} "$@"
 fi
-git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
+git ls-files 'modules/web/zig-*/src/*.c' 'modules/web/zig-*/src/*.cpp' |
   xargs -r -I{} "$clang_tidy" --fix --config-file=config/clang-tidy.yaml {} -- "$@"
 """
 shell = "{{ vars.task_shell }}"
@@ -221,22 +221,22 @@ description = "Apply C/C++ lint-fix passes"
 
 [tasks.build-ws-zig-data1-module]
 description = "Build the zig-data1 workflow WASM module"
-dir = "services/ws-modules/zig-data1"
+dir = "modules/web/zig-data1"
 run = "zig build -Doptimize=ReleaseSmall"
 
 [tasks.build-ws-zig-math1-module]
 description = "Build the zig-math1 FedAvg WASM module"
-dir = "services/ws-modules/zig-math1"
+dir = "modules/web/zig-math1"
 run = "zig build -Doptimize=ReleaseSmall"
 
 [tasks.build-ws-zig-except1-module]
 description = "Build the zig-except1 exception-handling demo WASM module"
-dir = "services/ws-modules/zig-except1"
+dir = "modules/web/zig-except1"
 run = "zig build -Doptimize=ReleaseSmall"
 
 [tasks."prefetch:zig"]
 description = "Prefetch Zig build dependencies"
-run = "zig build --fetch --build-file services/ws-modules/zig-data1/build.zig"
+run = "zig build --fetch --build-file modules/web/zig-data1/build.zig"
 
 [tasks."gen:zig-rest"]
 depends = ["gen:ws-spec"]

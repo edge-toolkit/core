@@ -113,8 +113,8 @@ FROM hub
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 
 COPY --chown=10001:10001 data/model-modules/model-har-motion1/pkg /app/data/model-modules/model-har-motion1/pkg
-COPY --chown=10001:10001 services/ws-modules/har1/pkg /app/services/ws-modules/har1/pkg
-COPY --chown=10001:10001 services/ws-modules/pyo3-math1/pkg /app/services/ws-modules/pyo3-math1/pkg
+COPY --chown=10001:10001 modules/pyo3/pyo3-math1/pkg /app/modules/pyo3/pyo3-math1/pkg
+COPY --chown=10001:10001 modules/web/har1/pkg /app/modules/web/har1/pkg
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/onnxruntime-web /app/node_modules/onnxruntime-web
 
 USER 10001

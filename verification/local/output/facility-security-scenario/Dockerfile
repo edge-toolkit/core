@@ -153,9 +153,9 @@ COPY --chown=10001:10001 data/model-modules/model-har-motion1/pkg /app/data/mode
 COPY --chown=10001:10001 generated/python-ws/pkg /app/generated/python-ws/pkg
 COPY --chown=10001:10001 libs/python-edge-toolkit/pkg /app/libs/python-edge-toolkit/pkg
 COPY --chown=10001:10001 libs/python-org/pkg /app/libs/python-org/pkg
-COPY --chown=10001:10001 services/ws-modules/face-detection/pkg /app/services/ws-modules/face-detection/pkg
-COPY --chown=10001:10001 services/ws-modules/har1/pkg /app/services/ws-modules/har1/pkg
-COPY --chown=10001:10001 services/ws-modules/pyface1/pkg /app/services/ws-modules/pyface1/pkg
+COPY --chown=10001:10001 modules/web/face-detection/pkg /app/modules/web/face-detection/pkg
+COPY --chown=10001:10001 modules/web/har1/pkg /app/modules/web/har1/pkg
+COPY --chown=10001:10001 modules/web/pyface1/pkg /app/modules/web/pyface1/pkg
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/pyodide /app/node_modules/pyodide
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/onnxruntime-web /app/node_modules/onnxruntime-web
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/stats-gl /app/node_modules/stats-gl

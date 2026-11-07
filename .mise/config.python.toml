@@ -110,7 +110,7 @@ depends = [
 description = "Run Python tests"
 
 [tasks.test-pyo3-mlflow]
-dir = "services/ws-modules/pyo3-mlflow"
+dir = "modules/pyo3/pyo3-mlflow"
 run = "python -m unittest discover -p 'test_*.py'"
 
 [tasks.test-edge-toolkit]
@@ -124,24 +124,24 @@ env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ va
 run = "uv run pytest"
 
 [tasks.test-pyeye1]
-dir = "services/ws-modules/pyeye1"
+dir = "modules/web/pyeye1"
 # Same uv-interpreter pin as `[tasks."prefetch:python".env]`; see there.
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = "uv run pytest"
 
 [tasks.test-pyface1]
-dir = "services/ws-modules/pyface1"
+dir = "modules/web/pyface1"
 # Same uv-interpreter pin as `[tasks."prefetch:python".env]`; see there.
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = "uv run pytest"
 
 [tasks.test-pydemo1]
-dir = "services/ws-modules/pydemo1"
+dir = "modules/web/pydemo1"
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = "uv run pytest"
 
 [tasks.test-pyspeech1]
-dir = "services/ws-modules/pyspeech1"
+dir = "modules/web/pyspeech1"
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = "uv run pytest"
 
@@ -192,7 +192,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pymath1-module]
 depends = ["build-et-cli"]
 description = "Build the pymath1 FedAvg module"
-dir = "services/ws-modules/pymath1"
+dir = "modules/web/pymath1"
 run = """
 {{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
@@ -202,7 +202,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
 description = "Build the pydata1 Python workflow module"
-dir = "services/ws-modules/pydata1"
+dir = "modules/web/pydata1"
 # et-rest-client is its own ws-module mounted at /modules/et-rest-client/.
 # pydata1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
@@ -215,7 +215,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pyface1-module]
 depends = ["build-edge-toolkit-wheel"]
 description = "Build the pyface1 Python face detection workflow module"
-dir = "services/ws-modules/pyface1"
+dir = "modules/web/pyface1"
 # et-ws is its own ws-module mounted at /modules/et-ws/.
 # pyface1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
@@ -228,7 +228,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pyeye1-module]
 depends = ["build-edge-toolkit-wheel"]
 description = "Build the pyeye1 Python MediaPipe eye detection workflow module"
-dir = "services/ws-modules/pyeye1"
+dir = "modules/web/pyeye1"
 # et-ws is its own ws-module mounted at /modules/et-ws/, loaded at runtime, so only pyeye1's wheel builds here.
 # pyeye1 loads the et-ws wheel at runtime from that mount. The MediaPipe FaceLandmarker runtime
 # (@mediapipe/tasks-vision) and the model bundle (et-model-eye1) are served separately -- not part of this build.
@@ -241,7 +241,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pyspeech1-module]
 depends = ["build-edge-toolkit-wheel"]
 description = "Build the pyspeech1 Python Silero VAD workflow module"
-dir = "services/ws-modules/pyspeech1"
+dir = "modules/web/pyspeech1"
 run = """
 {{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
@@ -251,7 +251,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pydemo1-module]
 depends = ["build-ws-pyeye1-module", "build-ws-pyspeech1-module"]
 description = "Build the combined pydemo1 Python eye and speech workflow module"
-dir = "services/ws-modules/pydemo1"
+dir = "modules/web/pydemo1"
 run = """
 {{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
@@ -261,7 +261,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-wasi-graphics-info-module]
 depends = ["build-et-cli"]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
-dir = "services/ws-modules/wasi-graphics-info"
+dir = "modules/wasi/wasi-graphics-info"
 # WIT lives once at generated/specs/wit/.
 # The runner's `runner` world is what its bindgen consumes; the `module` world (which `include`s `runner` and
 # adds wasi-nn) is what guest modules target. `mnist-12.onnx` is fetched into `pkg/` by `mise run download-models`
@@ -287,11 +287,11 @@ description = "Prefetch Python (uv) dependencies"
 # binary out at the install root (`python.exe`), not under `bin/`.
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = """
-uv sync --directory services/ws-modules/pydata1
-uv sync --directory services/ws-modules/pydemo1
-uv sync --directory services/ws-modules/pyeye1
-uv sync --directory services/ws-modules/pyface1
-uv sync --directory services/ws-modules/pyspeech1
+uv sync --directory modules/web/pydata1
+uv sync --directory modules/web/pydemo1
+uv sync --directory modules/web/pyeye1
+uv sync --directory modules/web/pyface1
+uv sync --directory modules/web/pyspeech1
 """
 shell = "{{ vars.task_shell }}"
 

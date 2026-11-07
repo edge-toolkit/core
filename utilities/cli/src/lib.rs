@@ -8,6 +8,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::slice;
 
+use edge_toolkit::config::MODULE_TYPE_DIRS;
 use edge_toolkit::ports::Services as Ports;
 use et_path::{absolute_from, relative_path_from};
 use et_sanitise::{is_plain_path, is_quotable_path};
@@ -105,7 +106,9 @@ const CLUSTER_NAME_MAX: usize = 60;
 const RUNNER_NAME_MAX: usize = 63;
 
 /// Directories of this repository whose every child holding a module is registered, relative to its root.
-const REPO_MODULE_PARENTS: [&str; 2] = ["services/ws-modules", "data/model-modules"];
+///
+/// The module type directories are registered the same way, from `MODULE_TYPE_DIRS`.
+const REPO_MODULE_PARENTS: [&str; 1] = ["data/model-modules"];
 
 /// Single module directories of this repository, relative to its root, each registered as it is.
 const REPO_MODULE_DIRS: [&str; 6] = [
@@ -1874,7 +1877,7 @@ pub(crate) fn module_registry(
 ) -> BTreeMap<String, ModuleRegistryEntry> {
     let mut registry = BTreeMap::new();
 
-    for parent in REPO_MODULE_PARENTS {
+    for parent in MODULE_TYPE_DIRS.into_iter().chain(REPO_MODULE_PARENTS) {
         register_modules_under(
             &mut registry,
             &project_root.join(parent),
@@ -2032,7 +2035,7 @@ fn register_modules_under(
 
 /// Register a single module by its filesystem path (not a parent dir).
 ///
-/// Used for modules that don't live under `services/ws-modules/` -- currently the generated python clients under
+/// Used for modules that don't live under a module type directory -- currently the generated python clients under
 /// `generated/`.
 fn register_module_at(
     registry: &mut BTreeMap<String, ModuleRegistryEntry>,

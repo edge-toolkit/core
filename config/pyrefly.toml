@@ -4,7 +4,7 @@
 # parse legacy `# type:` comments -- a rule of our own bans those, so the annotation form Pyrefly does check is
 # the only one in the tree.
 
-project-includes = ["../libs/python-*/**/*.py", "../services/**/*.py"]
+project-includes = ["../libs/python-*/**/*.py", "../modules/**/*.py", "../services/**/*.py"]
 
 # The Python the code is checked against, rather than whichever interpreter the host's PATH yields first.
 # Must equal the mise `python` pin.
@@ -23,22 +23,22 @@ skip-interpreter-query = true
 # by Pyrefly's .gitignore + default excludes.
 project-excludes = [
   "../generated/**",
-  "../services/ws-modules/wasi-graphics-info/componentize_py_async_support/**",
-  "../services/ws-modules/wasi-graphics-info/poll_loop.py",
-  "../services/ws-modules/wasi-graphics-info/wit_world/**",
+  "../modules/wasi/wasi-graphics-info/componentize_py_async_support/**",
+  "../modules/wasi/wasi-graphics-info/poll_loop.py",
+  "../modules/wasi/wasi-graphics-info/wit_world/**",
 ]
 
 # Package roots so intra-package imports (`pyface1.face_detection`) resolve as real modules, not `__unknown__.*`.
 search-path = [
   "../libs/python-edge-toolkit",
   "../libs/python-org",
-  "../services/ws-modules/pydata1",
-  "../services/ws-modules/pydemo1",
-  "../services/ws-modules/pyeye1",
-  "../services/ws-modules/pyface1",
-  "../services/ws-modules/pymath1",
-  "../services/ws-modules/pyo3-mlflow",
-  "../services/ws-modules/pyspeech1",
+  "../modules/pyo3/pyo3-mlflow",
+  "../modules/web/pydata1",
+  "../modules/web/pydemo1",
+  "../modules/web/pyeye1",
+  "../modules/web/pyface1",
+  "../modules/web/pymath1",
+  "../modules/web/pyspeech1",
   "../services/ws-pyo3-runner/python",
 ]
 

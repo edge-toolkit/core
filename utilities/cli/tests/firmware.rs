@@ -109,7 +109,7 @@ fn it_embeds_the_repository_modules_and_redirects_the_npm_packages() {
     let (_root, config, readme) = generated(BROWSER);
     let build = &config.tasks.build;
     for module in [
-        "services/ws-modules/math1",
+        "modules/web/math1",
         "services/ws-server/static",
         "services/ws-wasm-agent",
     ] {
@@ -203,10 +203,7 @@ fn a_pico_plus_2_w_starts_each_wasi_runner_beside_its_hub() {
         build.env["RUNNER_GUESTS"],
         "math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender, wasi-math1-twin=@edge-toolkit/et-ws-wasi-math1"
     );
-    for module in [
-        "services/ws-modules/wasi-math1",
-        "services/ws-modules/wasi-math1-sender",
-    ] {
+    for module in ["modules/wasi/wasi-math1", "modules/wasi/wasi-math1-sender"] {
         assert!(build.run.contains(&format!("$PWD/{module}")));
     }
     assert!(build.run.contains("mise -E rust run build-firmware-pico-plus2w"));
@@ -318,7 +315,7 @@ fn a_board_as_the_server_runs_the_hub_and_its_guests_as_firmware() {
     let run = build["run"].as_str().unwrap();
     assert!(run.contains("mise -E rust run build-firmware-pico-plus2w"));
     // The twin's module too, since it is fetched from the board's hub.
-    assert!(run.contains("$PWD/services/ws-modules/pyo3-math1"));
+    assert!(run.contains("$PWD/modules/pyo3/pyo3-math1"));
     let flash = toml::Value::from("firmware-flash-hub-board");
     assert_eq!(
         tasks["machine-hub-board"]["depends"].as_array().unwrap(),
@@ -392,7 +389,7 @@ fn a_board_off_the_hub_s_machine_runs_its_runners_against_that_hub() {
     );
     // Only the runner's own module is built in, since the board serves nothing.
     let run = build["run"].as_str().unwrap();
-    assert!(run.contains("$PWD/services/ws-modules/wasi-math1-sender"));
+    assert!(run.contains("$PWD/modules/wasi/wasi-math1-sender"));
     assert!(!run.contains("pyo3-math1"));
     let flash = tasks["firmware-flash-runner-board"]["run"].as_str().unwrap();
     assert!(flash.ends_with("target/firmware/runner-board/thumbv8m.main-none-eabihf/release/et-ws-server-firmware"));

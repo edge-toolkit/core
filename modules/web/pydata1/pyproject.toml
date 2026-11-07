@@ -22,7 +22,7 @@ module-root = ""
 et-rest-client = { workspace = true }
 
 # Browser-side module dependencies, each resolving to a sibling /modules/<name>/ mount.
-# These are other ws-modules in services/ws-modules/ plus the generated et-rest-client
+# These are other ws-modules in modules/web/ plus the generated et-rest-client
 # at generated/python-rest/.
 [tool.ws-module.dependencies]
 et-rest-client = "*"
