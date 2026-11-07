@@ -139,85 +139,85 @@ run = "cargo build -p int-wasm-cov-wrapper"
 [tasks.build-ws-data1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the data1 workflow WASM module"
-dir = "services/ws-modules/data1"
+dir = "modules/web/data1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-math1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the math1 FedAvg WASM module"
-dir = "services/ws-modules/math1"
+dir = "modules/web/math1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-math1-sender-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the math1-sender trigger WASM module"
-dir = "services/ws-modules/math1-sender"
+dir = "modules/web/math1-sender"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-comm1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the comm1 workflow WASM module"
-dir = "services/ws-modules/comm1"
+dir = "modules/web/comm1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-pic-viewer-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the pic-viewer broadcast picture viewer WASM module"
-dir = "services/ws-modules/pic-viewer"
+dir = "modules/web/pic-viewer"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-except1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the except1 exception-handling demo WASM module"
-dir = "services/ws-modules/except1"
+dir = "modules/web/except1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-sensor1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the sensor1 workflow WASM module"
-dir = "services/ws-modules/sensor1"
+dir = "modules/web/sensor1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-audio1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the audio1 workflow WASM module"
-dir = "services/ws-modules/audio1"
+dir = "modules/web/audio1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-video1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the video1 workflow WASM module"
-dir = "services/ws-modules/video1"
+dir = "modules/web/video1"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-bluetooth-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the bluetooth workflow WASM module"
-dir = "services/ws-modules/bluetooth"
+dir = "modules/web/bluetooth"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-geolocation-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the geolocation workflow WASM module"
-dir = "services/ws-modules/geolocation"
+dir = "modules/web/geolocation"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-graphics-info-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the graphics info workflow WASM module"
-dir = "services/ws-modules/graphics-info"
+dir = "modules/web/graphics-info"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-speech-recognition-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the speech recognition workflow WASM module"
-dir = "services/ws-modules/speech-recognition"
+dir = "modules/web/speech-recognition"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-nfc-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the nfc workflow WASM module"
-dir = "services/ws-modules/nfc"
+dir = "modules/web/nfc"
 run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cargo_args }}"
 
 [tasks.build-ws-wasi-data1-module]
@@ -231,10 +231,10 @@ description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
 # copied into the module's pkg/ for et-modules-service to serve.
 run = """
 {{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
-coreutils mkdir -p services/ws-modules/wasi-data1/pkg
+coreutils mkdir -p modules/wasi/wasi-data1/pkg
 wasm=et_ws_wasi_data1.wasm
-coreutils cp "target/wasm32-wasip2/release/$wasm" "services/ws-modules/wasi-data1/pkg/$wasm"
-{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-data1
+coreutils cp "target/wasm32-wasip2/release/$wasm" "modules/wasi/wasi-data1/pkg/$wasm"
+{{ vars.et_cli }} module-package-json --module-dir modules/wasi/wasi-data1
 """
 shell = "{{ vars.task_shell }}"
 
@@ -243,10 +243,10 @@ depends = ["build-et-cli"]
 description = "Build the Rust WASI math1 module as a WASI Preview 2 component"
 run = """
 {{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-math1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
-coreutils mkdir -p services/ws-modules/wasi-math1/pkg
+coreutils mkdir -p modules/wasi/wasi-math1/pkg
 wasm=et_ws_wasi_math1.wasm
-coreutils cp "target/wasm32-wasip2/release/$wasm" "services/ws-modules/wasi-math1/pkg/$wasm"
-{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-math1
+coreutils cp "target/wasm32-wasip2/release/$wasm" "modules/wasi/wasi-math1/pkg/$wasm"
+{{ vars.et_cli }} module-package-json --module-dir modules/wasi/wasi-math1
 """
 shell = "{{ vars.task_shell }}"
 
@@ -257,10 +257,10 @@ description = "Build the Rust core math1 module as a Wasm 1.0 core module, for S
 # So the module needs no lowering pass. It is not built for coverage: SpaceWasm hosts no file to dump a profile to.
 run = """
 cargo build --release -p et-ws-core-math1 --target wasm32v1-none
-coreutils mkdir -p services/ws-modules/core-math1/pkg
+coreutils mkdir -p modules/core/core-math1/pkg
 wasm=et_ws_core_math1.wasm
-coreutils cp "target/wasm32v1-none/release/$wasm" "services/ws-modules/core-math1/pkg/$wasm"
-{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/core-math1
+coreutils cp "target/wasm32v1-none/release/$wasm" "modules/core/core-math1/pkg/$wasm"
+{{ vars.et_cli }} module-package-json --module-dir modules/core/core-math1
 """
 shell = "{{ vars.task_shell }}"
 
@@ -269,10 +269,10 @@ depends = ["build-et-cli"]
 description = "Build the Rust WASI math1-sender module as a WASI Preview 2 component"
 run = """
 {{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-math1-sender --target wasm32-wasip2{{ vars.wasi_cov_feat }}
-coreutils mkdir -p services/ws-modules/wasi-math1-sender/pkg
+coreutils mkdir -p modules/wasi/wasi-math1-sender/pkg
 sender=et_ws_wasi_math1_sender.wasm
-coreutils cp "target/wasm32-wasip2/release/$sender" "services/ws-modules/wasi-math1-sender/pkg/$sender"
-{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-math1-sender
+coreutils cp "target/wasm32-wasip2/release/$sender" "modules/wasi/wasi-math1-sender/pkg/$sender"
+{{ vars.et_cli }} module-package-json --module-dir modules/wasi/wasi-math1-sender
 """
 shell = "{{ vars.task_shell }}"
 
@@ -281,10 +281,10 @@ depends = ["build-et-cli"]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
 run = """
 {{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
-coreutils mkdir -p services/ws-modules/wasi-comm1/pkg
+coreutils mkdir -p modules/wasi/wasi-comm1/pkg
 wasm=et_ws_wasi_comm1.wasm
-coreutils cp "target/wasm32-wasip2/release/$wasm" "services/ws-modules/wasi-comm1/pkg/$wasm"
-{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-comm1
+coreutils cp "target/wasm32-wasip2/release/$wasm" "modules/wasi/wasi-comm1/pkg/$wasm"
+{{ vars.et_cli }} module-package-json --module-dir modules/wasi/wasi-comm1
 """
 shell = "{{ vars.task_shell }}"
 

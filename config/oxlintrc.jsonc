@@ -54,7 +54,7 @@
       // convention, and there's only ever one handler. `no-await-in-loop` warnings here are also intentional
       // serialised sequences (init -> message-loop ordering matters). `consistent-function-scoping` flags inline
       // closures that exist for readability, not to capture state.
-      "files": ["**/services/ws-modules/*/pkg/*.js", "**/services/ws-server/static/*.js"],
+      "files": ["**/modules/*/*/pkg/*.js", "**/services/ws-server/static/*.js"],
       "rules": {
         "eslint/no-await-in-loop": "off",
         "unicorn/consistent-function-scoping": "off",

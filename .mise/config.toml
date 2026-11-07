@@ -734,7 +734,7 @@ llm1_repo = ":http:HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f"
 llm1_tokenizer_asset = "llm1-12fd25f-tokenizer.json"
 llm1_tokenizer_config_asset = "llm1-12fd25f-tokenizer_config.json"
 llm1_weights_asset = "llm1-12fd25f-model_q4f16.onnx"
-mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
+mnist_dst = "modules/wasi/wasi-graphics-info/pkg/mnist-12.onnx"
 mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
 speech1_asset = "speech1-84f0d86.onnx"
 speech1_dst = "data/model-modules/model-speech1/pkg/speech1.onnx"
@@ -1447,7 +1447,17 @@ description = "Fail when the branch modifies more files than CodeRabbit reviews 
 # task in the same job can rewrite tracked files -- a fresh `mise install` fills in lockfile fields a warm machine
 # never writes back -- which are no part of what CodeRabbit reviews. A clone with no origin/main has nothing to
 # compare against, and skips as branch-up-to-date-check does.
+# A branch whose name contains `reorg` is exempt: a reorganisation moves files wholesale, and splitting one to fit
+# the limit would leave the tree half-moved between pull requests. CI checks out the pull request's merge commit
+# detached, so the name comes from `GITHUB_HEAD_REF` there and from git everywhere else.
 run = """
+branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
+case "$branch" in
+  *reorg*)
+    echo "conftest-check-branch-size: $branch is a reorganisation branch, which the file limit exempts; skipping"
+    exit 0
+    ;;
+esac
 if ! git rev-parse --verify --quiet origin/main >/dev/null; then
   echo "conftest-check-branch-size: origin/main not available (shallow clone?); skipping"
   exit 0
@@ -2485,7 +2495,7 @@ dashboard='^https://codecov\\.io/gh/edge-toolkit/core$'
 # check reports the first and misses the second. The file URL takes the same cross-platform form as taplo-check's.
 blob='^https://github\\.com/edge-toolkit/core/blob/main/(.*)$ '"file:///${PWD#/}/\\$1"
 set -- --exclude "$dashboard" --remap "$blob"
-lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'modules/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
 # The other languages' sources are named by git rather than globbed, which keeps their build output out as well.
 src=$(git ls-files -- libs services utilities | rg '\\.(py|js|mjs|ts|dart|kt|cs|java|zig|c|cpp|h)$')
 # $src is a newline-separated path list, split into one argument per path by design.
@@ -3157,12 +3167,12 @@ run = "env CHROMEDRIVER=\"$(mise which chromedriver)\" wasm-pack test --headless
 
 [tasks.test-pic-viewer-firefox]
 description = "Run headless Firefox tests for the pic-viewer module (image display onto the canvas)"
-dir = "services/ws-modules/pic-viewer"
+dir = "modules/web/pic-viewer"
 run = "wasm-pack test --headless --firefox"
 
 [tasks.test-pic-viewer-chrome]
 description = "Run headless Chrome tests for the pic-viewer module (image display onto the canvas)"
-dir = "services/ws-modules/pic-viewer"
+dir = "modules/web/pic-viewer"
 run = "env CHROMEDRIVER=\"$(mise which chromedriver)\" wasm-pack test --headless --chrome"
 
 [tasks.ws-e2e-chrome]
@@ -3335,7 +3345,7 @@ run = "rclone copyto {{ vars.har_src }} {{ vars.har_dst }} {{ vars.gh_http }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-mnist-rclone]
-# MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise wasi-nn.
+# MNIST classifier used by modules/wasi/wasi-graphics-info to exercise wasi-nn.
 # Exercises wasi-nn end-to-end. Sourced from the canonical ONNX Model Zoo; size 26143 bytes. Lands under
 # the module's gitignored pkg/ so et-modules-service can serve it statically alongside the .wasm.
 run = "rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
@@ -3475,7 +3485,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-pywasm1-module]
 depends = ["build-et-cli"]
 description = "Build the pywasm1 module (fetched rustpython_wasm + main.py)"
-dir = "services/ws-modules/pywasm1"
+dir = "modules/web/pywasm1"
 run = """
 rp_pkg={{ vars.rp_wasm_dir }}
 coreutils rm -rf pkg

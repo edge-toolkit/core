@@ -77,16 +77,16 @@ description = "Analyze C# sources (Roslynator)"
 # dotnet plugin exports DOTNET_ROOT on every OS, and the forward-slashed form ash delivers on Windows is
 # accepted there; only MSBuildLocator's own probing of it breaks.
 run = """
-roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj
-roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-math1/dotnet-math1.csproj
+roslynator analyze -m "{{ vars.dotnet_msbuild }}" modules/web/dotnet-data1/dotnet-data1.csproj
+roslynator analyze -m "{{ vars.dotnet_msbuild }}" modules/web/dotnet-math1/dotnet-math1.csproj
 """
 shell = "{{ vars.task_shell }}"
 
 [tasks.roslynator-fix]
 description = "Apply Roslynator diagnostics' machine-applicable C# fixes in place"
 run = """
-roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj
-roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-math1/dotnet-math1.csproj
+roslynator fix -m "{{ vars.dotnet_msbuild }}" modules/web/dotnet-data1/dotnet-data1.csproj
+roslynator fix -m "{{ vars.dotnet_msbuild }}" modules/web/dotnet-math1/dotnet-math1.csproj
 """
 shell = "{{ vars.task_shell }}"
 
@@ -133,14 +133,14 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-ws-dotnet-data1-module]
 depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-data1 C# WASM workflow module"
-dir = "services/ws-modules/dotnet-data1"
+dir = "modules/web/dotnet-data1"
 run = "{{ vars.dotnet_publish_sh }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dotnet-math1-module]
 depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-math1 C# WASM FedAvg module"
-dir = "services/ws-modules/dotnet-math1"
+dir = "modules/web/dotnet-math1"
 run = "{{ vars.dotnet_publish_sh }}"
 shell = "{{ vars.task_shell }}"
 # Both dotnet publishes drive emscripten out of one shared workload pack tree, so they run one at a time.

@@ -251,7 +251,7 @@ fn wait_for_runner_exit(runner: &mut std::process::Child) -> std::process::ExitS
 )]
 fn dotnet_data1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
-        .join("services/ws-modules/dotnet-data1/pkg/dotnet.js")
+        .join("modules/web/dotnet-data1/pkg/dotnet.js")
         .exists()
 }
 
@@ -265,7 +265,7 @@ fn dotnet_data1_pkg_built() -> bool {
 )]
 fn dotnet_math1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
-        .join("services/ws-modules/dotnet-math1/pkg/dotnet.js")
+        .join("modules/web/dotnet-math1/pkg/dotnet.js")
         .exists()
 }
 
@@ -280,7 +280,7 @@ fn dotnet_math1_pkg_built() -> bool {
 )]
 fn js_data1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
-        .join("services/ws-modules/js-data1/pkg/et_ws_js_data1.js")
+        .join("modules/web/js-data1/pkg/et_ws_js_data1.js")
         .exists()
 }
 
@@ -296,7 +296,7 @@ fn js_data1_pkg_built() -> bool {
 )]
 fn kotlin_data1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
-        .join("services/ws-modules/kotlin-data1/pkg/et_ws_kotlin_data1_compiled.mjs")
+        .join("modules/web/kotlin-data1/pkg/et_ws_kotlin_data1_compiled.mjs")
         .exists()
 }
 
@@ -310,7 +310,7 @@ fn kotlin_data1_pkg_built() -> bool {
 )]
 fn kotlin_math1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
-        .join("services/ws-modules/kotlin-math1/pkg/et_ws_kotlin_math1_compiled.mjs")
+        .join("modules/web/kotlin-math1/pkg/et_ws_kotlin_math1_compiled.mjs")
         .exists()
 }
 

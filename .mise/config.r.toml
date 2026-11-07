@@ -39,18 +39,18 @@ coreutils rm -f pkg/webr/metadata.json
 
 [tasks.build-ws-rdata1-module]
 description = "Vendor the webR distribution into rdata1's pkg/webr/ (served at /modules/et-ws-rdata1/webr/)"
-dir = "services/ws-modules/rdata1"
+dir = "modules/web/rdata1"
 run = "{{ vars.webr_vendor_sh }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rmath1-module]
 description = "Vendor the webR distribution into rmath1's pkg/webr/ (served at /modules/et-ws-rmath1/webr/)"
-dir = "services/ws-modules/rmath1"
+dir = "modules/web/rmath1"
 run = "{{ vars.webr_vendor_sh }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rcomm1-module]
 description = "Vendor the webR distribution into rcomm1's pkg/webr/ (served at /modules/et-ws-rcomm1/webr/)"
-dir = "services/ws-modules/rcomm1"
+dir = "modules/web/rcomm1"
 run = "{{ vars.webr_vendor_sh }}"
 shell = "{{ vars.task_shell }}"

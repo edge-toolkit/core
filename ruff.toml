@@ -16,7 +16,7 @@ target-version = "py310"
 
 # Exclude componentize-py's generated bindings, which we don't own and don't ship.
 # componentize-py regenerates `wit_world` and `componentize_py_async_support`
-# under services/ws-modules/wasi-graphics-info/ on every build. Exclude them here
+# under modules/wasi/wasi-graphics-info/ on every build. Exclude them here
 # (on top of ruff's defaults) so the ruff tasks don't need to repeat `--exclude`
 # flags, and so they're skipped even when ruff runs with `--no-respect-gitignore`.
 extend-exclude = ["componentize_py_async_support", "wit_world"]

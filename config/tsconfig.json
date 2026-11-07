@@ -8,5 +8,5 @@
     "noEmit": true,
     "strict": true
   },
-  "include": ["../services/**/*.js", "../services/**/*.ts"]
+  "include": ["../modules/**/*.js", "../modules/**/*.ts", "../services/**/*.js", "../services/**/*.ts"]
 }

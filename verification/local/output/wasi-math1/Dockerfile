@@ -23,7 +23,7 @@ FROM hub
 
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 
-COPY --chown=10001:10001 services/ws-modules/wasi-math1/pkg /app/services/ws-modules/wasi-math1/pkg
-COPY --chown=10001:10001 services/ws-modules/wasi-math1-sender/pkg /app/services/ws-modules/wasi-math1-sender/pkg
+COPY --chown=10001:10001 modules/wasi/wasi-math1/pkg /app/modules/wasi/wasi-math1/pkg
+COPY --chown=10001:10001 modules/wasi/wasi-math1-sender/pkg /app/modules/wasi/wasi-math1-sender/pkg
 
 USER 10001

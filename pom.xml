@@ -40,7 +40,7 @@
   </dependencies>
 
   <build>
-    <sourceDirectory>${project.basedir}/services/ws-modules/java-data1/src/main/java</sourceDirectory>
+    <sourceDirectory>${project.basedir}/modules/web/java-data1/src/main/java</sourceDirectory>
     <plugins>
       <plugin>
         <!-- Maven allows one <sourceDirectory>; the other Java modules join the same compilation as extra
@@ -57,7 +57,7 @@
             </goals>
             <configuration>
               <sources>
-                <source>${project.basedir}/services/ws-modules/java-math1/src/main/java</source>
+                <source>${project.basedir}/modules/web/java-math1/src/main/java</source>
               </sources>
             </configuration>
           </execution>
@@ -111,7 +111,7 @@
             <phase>package</phase>
             <configuration>
               <mainClass>au.edu.curtin.et.Data1</mainClass>
-              <targetDirectory>${project.basedir}/services/ws-modules/java-data1/pkg</targetDirectory>
+              <targetDirectory>${project.basedir}/modules/web/java-data1/pkg</targetDirectory>
               <targetFileName>classes.js</targetFileName>
               <targetType>JAVASCRIPT</targetType>
               <optimizationLevel>ADVANCED</optimizationLevel>
@@ -126,7 +126,7 @@
             <phase>package</phase>
             <configuration>
               <mainClass>au.edu.curtin.et.Math1</mainClass>
-              <targetDirectory>${project.basedir}/services/ws-modules/java-math1/pkg</targetDirectory>
+              <targetDirectory>${project.basedir}/modules/web/java-math1/pkg</targetDirectory>
               <targetFileName>classes.js</targetFileName>
               <targetType>JAVASCRIPT</targetType>
               <optimizationLevel>ADVANCED</optimizationLevel>

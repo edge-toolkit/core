@@ -40,8 +40,8 @@ dir = "../../../../services/ws-server"
 run = """
 MODULES_PATHS="$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)"
 MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)"
-MODULES_PATHS="$MODULES_PATHS, ../../data/model-modules/model-har-motion1, ../ws-modules/har1, ../ws-modules/pyo3-math1"
-MODULES_PATHS="$MODULES_PATHS, ../ws-wasm-agent, static"
+MODULES_PATHS="$MODULES_PATHS, ../../data/model-modules/model-har-motion1, ../../modules/pyo3/pyo3-math1"
+MODULES_PATHS="$MODULES_PATHS, ../../modules/web/har1, ../ws-wasm-agent, static"
 export MODULES_PATHS
 cargo run
 """
