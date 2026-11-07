@@ -24,11 +24,14 @@ fn returns_only_workspace_paths_when_mise_missing() {
         "ws-server/static",
         "services/ws-wasm-agent",
         "data/model-modules",
-        "services/ws-modules",
         "generated/python-ws",
         "generated/python-rest",
         "libs/python-org",
         "libs/python-edge-toolkit",
+        "modules/core",
+        "modules/pyo3",
+        "modules/wasi",
+        "modules/web",
     ];
     assert_eq!(
         paths.len(),

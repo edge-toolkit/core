@@ -63,12 +63,12 @@ services:
         /app/generated/python-ws,
         /app/libs/python-edge-toolkit,
         /app/libs/python-org,
+        /app/modules/web/face-detection,
+        /app/modules/web/har1,
+        /app/modules/web/pyface1,
         /app/node_modules/onnxruntime-web,
         /app/node_modules/pyodide,
         /app/node_modules/stats-gl,
-        /app/services/ws-modules/face-detection,
-        /app/services/ws-modules/har1,
-        /app/services/ws-modules/pyface1,
         /app/services/ws-server/static,
         /app/services/ws-wasm-agent"
       MODULES_ROOT: "@edge-toolkit/et-ws-server-static"

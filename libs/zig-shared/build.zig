@@ -3,9 +3,6 @@
 //! Imported as a path dependency rather than by relative path, because Zig refuses an `@import` that escapes
 //! the importing module's own directory. Carries no build of its own: the `build` function exists so this is
 //! a valid dependency, and does nothing.
-//!
-//! Not a module directory itself. It holds no `pkg/` and no `package.json`, which is what the hub's scan
-//! requires of anything under `services/ws-modules/`, so the scan passes over it rather than serving it.
 
 const std = @import("std");
 

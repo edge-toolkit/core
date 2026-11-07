@@ -15,6 +15,9 @@ use crate::ports::Services;
 /// Localhost address 127.0.0.1 .
 pub const LOCALHOST: &str = "127.0.0.1";
 
+/// The directory of each module type, relative to the project root: one per runtime that loads the modules in it.
+pub const MODULE_TYPE_DIRS: [&str; 4] = ["modules/core", "modules/pyo3", "modules/wasi", "modules/web"];
+
 /// Whether a config value names the "disabled" state: `none`, `off`, or `disabled`.
 ///
 /// Matched case-insensitively, ignoring surrounding whitespace.
@@ -101,12 +104,12 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         project_root.join("services/ws-server/static"),
         project_root.join("services/ws-wasm-agent"),
         project_root.join("data/model-modules"),
-        project_root.join("services/ws-modules"),
         project_root.join("generated/python-ws"),
         project_root.join("generated/python-rest"),
         project_root.join("libs/python-org"),
         project_root.join("libs/python-edge-toolkit"),
     ];
+    paths.extend(MODULE_TYPE_DIRS.map(|dir| project_root.join(dir)));
     // Skip mise-managed module resolution when mise isn't on PATH: the per-package "run `mise install ...`" warnings
     // would just confuse a deployment that has provisioned those modules some other way (or doesn't serve them at all).
     if !mise_is_available() {

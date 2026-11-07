@@ -80,7 +80,7 @@ fn the_board_s_budget_is_written_for_its_guests_to_draw_on() {
 
 #[test]
 fn a_runner_s_module_is_compiled_for_the_board_and_built_in() {
-    let data1 = get_project_root().join("services/ws-modules/wasi-data1");
+    let data1 = get_project_root().join("modules/wasi/wasi-data1");
     let out_dir = tempdir().unwrap();
     let paths = format!("{}", data1.display());
     let generated = guests(
@@ -151,7 +151,7 @@ fn a_guest_that_is_not_webassembly_a_board_can_read_is_refused() {
 
 #[test]
 fn a_runner_s_core_module_is_built_in_as_its_package_holds_it() {
-    let core_math1 = get_project_root().join("services/ws-modules/core-math1");
+    let core_math1 = get_project_root().join("modules/core/core-math1");
     let out_dir = tempdir().unwrap();
     let paths = format!("{}", core_math1.display());
     let generated = guests(

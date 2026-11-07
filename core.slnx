@@ -1,7 +1,7 @@
 <Solution>
-  <Folder Name="/services/" />
-  <Folder Name="/services/ws-modules/">
-    <Project Path="services/ws-modules/dotnet-data1/dotnet-data1.csproj" />
-    <Project Path="services/ws-modules/dotnet-math1/dotnet-math1.csproj" />
+  <Folder Name="/modules/" />
+  <Folder Name="/modules/web/">
+    <Project Path="modules/web/dotnet-data1/dotnet-data1.csproj" />
+    <Project Path="modules/web/dotnet-math1/dotnet-math1.csproj" />
   </Folder>
 </Solution>

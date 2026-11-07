@@ -3,9 +3,8 @@ description = "Build the Pimoroni Pico Plus 2 W firmware serving facility-securi
 dir = "../../../.."
 run = """
 MODULES_PATHS="$PWD/data/model-modules/model-face1, $PWD/data/model-modules/model-har-motion1, $PWD/generated/python-ws"
-MODULES_PATHS="$MODULES_PATHS, $PWD/libs/python-edge-toolkit, $PWD/libs/python-org"
-MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/face-detection, $PWD/services/ws-modules/har1"
-MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/pyface1, $PWD/services/ws-server/static"
+MODULES_PATHS="$MODULES_PATHS, $PWD/libs/python-edge-toolkit, $PWD/libs/python-org, $PWD/modules/web/face-detection"
+MODULES_PATHS="$MODULES_PATHS, $PWD/modules/web/har1, $PWD/modules/web/pyface1, $PWD/services/ws-server/static"
 MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
 export MODULES_PATHS
 mise -E rust run build-firmware-pico-plus2w
@@ -28,9 +27,8 @@ description = "Serve facility-security-scenario's modules from this host as the 
 dir = "../../../.."
 run = """
 MODULES_PATHS="$PWD/data/model-modules/model-face1, $PWD/data/model-modules/model-har-motion1, $PWD/generated/python-ws"
-MODULES_PATHS="$MODULES_PATHS, $PWD/libs/python-edge-toolkit, $PWD/libs/python-org"
-MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/face-detection, $PWD/services/ws-modules/har1"
-MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/pyface1, $PWD/services/ws-server/static"
+MODULES_PATHS="$MODULES_PATHS, $PWD/libs/python-edge-toolkit, $PWD/libs/python-org, $PWD/modules/web/face-detection"
+MODULES_PATHS="$MODULES_PATHS, $PWD/modules/web/har1, $PWD/modules/web/pyface1, $PWD/services/ws-server/static"
 MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
 export MODULES_PATHS
 mise run cargo-test-pkg et-int-ws-server-firmware

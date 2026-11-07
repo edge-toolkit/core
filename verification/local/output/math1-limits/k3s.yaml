@@ -145,7 +145,7 @@ spec:
       containers:
         - env:
             - name: MODULES_PATHS
-              value: /app/services/ws-modules/math1,/app/services/ws-modules/math1-sender
+              value: /app/modules/web/math1,/app/modules/web/math1-sender
             - name: MODULES_ROOT
               value: ""
             - name: OTLP_AUTH_USERNAME

@@ -59,10 +59,10 @@ services:
     network_mode: host
     environment:
       MODULES_PATHS: "/app/data/model-modules/model-har-motion1,
+        /app/modules/pyo3/pyo3-math1,
+        /app/modules/web/har1,
         /app/node_modules/onnxruntime-web,
         /app/node_modules/stats-gl,
-        /app/services/ws-modules/har1,
-        /app/services/ws-modules/pyo3-math1,
         /app/services/ws-server/static,
         /app/services/ws-wasm-agent"
       MODULES_ROOT: "@edge-toolkit/et-ws-server-static"

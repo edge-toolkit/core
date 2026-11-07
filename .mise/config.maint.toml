@@ -931,7 +931,7 @@ candidates=(
   libs/python-edge-toolkit/pkg
   services/ws-wasm-agent/pkg
   services/ws-server/static
-  services/ws-modules/*/pkg
+  modules/*/*/pkg
 )
 modules=()
 for dir in "${candidates[@]}"; do

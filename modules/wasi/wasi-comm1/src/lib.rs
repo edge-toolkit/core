@@ -1,6 +1,6 @@
 //! Rust WASI Preview 2 port of the comm1 workflow module.
 //!
-//! Browser comm1 (`services/ws-modules/comm1`) waits for a second agent to
+//! Browser comm1 (`modules/web/comm1`) waits for a second agent to
 //! be connected, then exchanges broadcast and direct messages with it. The
 //! runner it is exercised under is alone on its hub, so the WASI port instead
 //! exercises the message round-trip with the server itself:

@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use edge_toolkit::board::Guest;
-use edge_toolkit::config::get_project_root;
+use edge_toolkit::config::{MODULE_TYPE_DIRS, get_project_root};
 use edge_toolkit::ws::{
     AgentConnectionState, AgentSummary, ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope,
     ServerMessage,
@@ -239,17 +239,16 @@ fn text_frame(message: &ServerMessage) -> Frame {
     Frame::Text(serde_json::to_string(message).unwrap())
 }
 
-/// `module`'s component as its build left it.
+/// `module`'s component as its build left it, from whichever module type directory holds it.
 fn component(module: &str) -> Vec<u8> {
     let file = format!("et_ws_{}.wasm", module.replace('-', "_"));
-    fs_err::read(
-        get_project_root()
-            .join("services/ws-modules")
-            .join(module)
-            .join("pkg")
-            .join(file),
-    )
-    .unwrap()
+    let root = get_project_root();
+    let dir = MODULE_TYPE_DIRS
+        .iter()
+        .map(|type_dir| root.join(type_dir).join(module))
+        .find(|dir| dir.is_dir())
+        .unwrap();
+    fs_err::read(dir.join("pkg").join(file)).unwrap()
 }
 
 /// `module`'s component as its build left it, compiled for the board engine this build has.

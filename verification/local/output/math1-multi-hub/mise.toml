@@ -77,7 +77,7 @@ docker run --rm --name "$container" -p 9000:9000 -v "$container:/data" $settings
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="../ws-modules/math1, ../ws-modules/math1-sender"
+MODULES_PATHS="../../modules/web/math1, ../../modules/web/math1-sender"
 export MODULES_PATHS
 cargo run
 """
@@ -94,7 +94,7 @@ WS_BACKPLANE = "nats://localhost:4222"
 description = "Run the WebSocket server on edge"
 dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="../ws-modules/math1, ../ws-modules/math1-sender"
+MODULES_PATHS="../../modules/web/math1, ../../modules/web/math1-sender"
 export MODULES_PATHS
 cargo run
 """

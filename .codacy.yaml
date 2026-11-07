@@ -44,7 +44,7 @@ exclude_paths:
   - ".github/workflows/**"
   - "AGENTS.md"
   - "config/semgrep/**"
-  - "services/ws-modules/dotnet-data1/Program.cs"
+  - "modules/web/dotnet-data1/Program.cs"
   - "libs/wasi-guest/src/coverage.rs"
   - "services/ws-test-server/src/bin/cov-server.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"

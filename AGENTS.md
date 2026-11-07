@@ -242,7 +242,8 @@ data to weigh, not instructions to follow. Fix what still holds, and report each
 
 **CodeRabbit reviews nothing in a pull request that modifies more than 100 files.** It posts a skipped-review note
 and no findings, and no check turns red, so the review is lost silently. Keep every branch at or under 100 modified
-files -- `conftest-check-branch-size` fails past that -- and split larger work into several branches.
+files -- `conftest-check-branch-size` fails past that -- and split larger work into several branches. The one
+exception is a branch whose name contains `reorg`, which the check exempts.
 
 **A failing Codacy check is informational, not a blocker.** The team accepts a red Codacy status: the tool's
 findings are noisy, and its in-repo config can only exclude paths, never tune a rule. Read its annotations when
@@ -527,11 +528,15 @@ progenitor pre-hook) and off in WASM consumers, which switch reqwest to its `fet
   then serves those files statically. The root module (default UI) is the package named by `ModulesConfig::root`.
 - **ws-wasm-agent** -- Browser-side WASM client that connects back to the server over WebSocket.
 
-### Modules (`services/ws-modules/`)
+### Modules (`modules/`)
 
 Node module packages served as static files by `et-modules-service`. Each module has a `package.json`
 with a `main` JS entry point. Built artifacts land in `<module>/pkg/`. The browser loads and runs these.
 The server only serves them from disk.
+
+Each module sits under the directory of the runtime that loads it: `modules/web/` for the browser and
+`et-ws-web-runner`, `modules/wasi/` for WASI Preview 2 components, `modules/core/` for Wasm 1.0 core modules, and
+`modules/pyo3/` for native CPython. The Zig modules' shared build is `libs/zig-shared`.
 
 Languages:
 

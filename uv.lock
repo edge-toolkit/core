@@ -241,7 +241,7 @@ requires-dist = [{ name = "pydantic", specifier = ">=2" }]
 [[package]]
 name = "et-ws-pydata1"
 version = "0.1.2"
-source = { editable = "services/ws-modules/pydata1" }
+source = { editable = "modules/web/pydata1" }
 dependencies = [
     { name = "et-rest-client" },
     { name = "pyodide-http" },
@@ -256,7 +256,7 @@ requires-dist = [
 [[package]]
 name = "et-ws-pydemo1"
 version = "0.1.0"
-source = { editable = "services/ws-modules/pydemo1" }
+source = { editable = "modules/web/pydemo1" }
 dependencies = [
     { name = "et-org" },
     { name = "et-ws" },
@@ -274,8 +274,8 @@ dev = [
 requires-dist = [
     { name = "et-org", editable = "libs/python-org" },
     { name = "et-ws", editable = "generated/python-ws" },
-    { name = "et-ws-pyeye1", editable = "services/ws-modules/pyeye1" },
-    { name = "et-ws-pyspeech1", editable = "services/ws-modules/pyspeech1" },
+    { name = "et-ws-pyeye1", editable = "modules/web/pyeye1" },
+    { name = "et-ws-pyspeech1", editable = "modules/web/pyspeech1" },
 ]
 
 [package.metadata.requires-dev]
@@ -287,7 +287,7 @@ dev = [
 [[package]]
 name = "et-ws-pyeye1"
 version = "0.1.1"
-source = { editable = "services/ws-modules/pyeye1" }
+source = { editable = "modules/web/pyeye1" }
 dependencies = [
     { name = "edge-toolkit" },
     { name = "et-org" },
@@ -316,7 +316,7 @@ dev = [
 [[package]]
 name = "et-ws-pyface1"
 version = "0.1.0"
-source = { editable = "services/ws-modules/pyface1" }
+source = { editable = "modules/web/pyface1" }
 dependencies = [
     { name = "edge-toolkit" },
     { name = "et-org" },
@@ -345,12 +345,12 @@ dev = [
 [[package]]
 name = "et-ws-pymath1"
 version = "0.1.0"
-source = { editable = "services/ws-modules/pymath1" }
+source = { editable = "modules/web/pymath1" }
 
 [[package]]
 name = "et-ws-pyspeech1"
 version = "0.1.0"
-source = { editable = "services/ws-modules/pyspeech1" }
+source = { editable = "modules/web/pyspeech1" }
 dependencies = [
     { name = "edge-toolkit" },
     { name = "et-org" },
@@ -379,7 +379,7 @@ dev = [
 [[package]]
 name = "et-ws-wasi-graphics-info"
 version = "0.1.0"
-source = { editable = "services/ws-modules/wasi-graphics-info" }
+source = { editable = "modules/wasi/wasi-graphics-info" }
 
 [[package]]
 name = "exceptiongroup"

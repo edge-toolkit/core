@@ -1,6 +1,6 @@
 //! Rust WASI Preview 2 port of the data1 workflow module.
 //!
-//! Browser data1 (`services/ws-modules/data1`) round-trips a file through
+//! Browser data1 (`modules/web/data1`) round-trips a file through
 //! the ws-server's storage service by:
 //!   1. Asking the server (via `StoreFile`) for a PUT URL,
 //!   2. HTTP-PUTting bytes,
