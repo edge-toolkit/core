@@ -5,6 +5,7 @@
 // shim with the platform-native binary, which pnpm's node-based `.bin` wrapper then fails to execute
 // ("Invalid or unexpected token"). The JS API loads the native binary itself and sidesteps that entirely.
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 import { build } from "esbuild";
 
 await build({

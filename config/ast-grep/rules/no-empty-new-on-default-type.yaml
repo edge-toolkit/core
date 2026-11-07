@@ -1,0 +1,37 @@
+id: no-empty-new-on-default-type
+language: Rust
+severity: error
+message: |
+  An empty `new()` on a type that implements `Default` (`DeepSource RS-W1079`): construct it with `default()`, which
+  says plainly that the value is the type's zero value rather than something `new` sets up. `String` has a rule of
+  its own; this one covers `PathBuf` and every type the same file derives `Default` for.
+# A type counts as deriving `Default` only when this file derives it.
+# The derive has to sit in the run of attributes directly above the type's `struct`; a `Default` implemented by
+# hand, or derived in another file, is out of reach of a single-file rule.
+rule:
+  pattern: $TYPE::new()
+  any:
+    - has:
+        field: function
+        regex: "^(std::path::)?PathBuf::new$"
+    - inside:
+        kind: source_file
+        stopBy: end
+        has:
+          kind: struct_item
+          has:
+            field: name
+            pattern: $TYPE
+          follows:
+            kind: attribute_item
+            regex: "^#\\[derive\\([^)]*\\bDefault\\b"
+            stopBy:
+              not:
+                any:
+                  - kind: attribute_item
+                  - kind: line_comment
+# Mechanical autofix, since the rule only fires where `default()` exists.
+# An empty `new()` beside a derived `Default` that built anything else would be the bug worth seeing in the diff.
+fix: $TYPE::default()
+ignores:
+  - generated/**

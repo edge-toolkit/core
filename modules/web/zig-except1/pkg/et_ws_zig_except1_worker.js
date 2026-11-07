@@ -1,12 +1,15 @@
 // et_ws_zig_except1_worker.js -- Web Worker for zig-except1 WASM module
 const DATA_OFFSET = 16;
-let ctrl, data, wasmMemory;
+// Bound to the SharedArrayBuffer and the instance's memory once `onmessage` receives them.
+let ctrl = null;
+let data = null;
+let wasmMemory = null;
 const enc = new TextEncoder(),
   dec = new TextDecoder();
 const readStr = (ptr, len) => dec.decode(new Uint8Array(wasmMemory.buffer, ptr, len));
 
 // String payload, response is a UTF-8 string.
-function call(type, payload = "") {
+const call = (type, payload = "") => {
   const pb = enc.encode(payload);
   data.set(pb);
   Atomics.store(ctrl, 3, 0);
@@ -17,20 +20,20 @@ function call(type, payload = "") {
   Atomics.wait(ctrl, 0, 1); // block until main thread responds
   const rlen = Atomics.load(ctrl, 2);
   return dec.decode(Uint8Array.from(data.subarray(0, rlen)));
-}
+};
 
-const writeBack = (r, buf, max) => {
-  const b = enc.encode(r);
-  const n = Math.min(b.length, max);
-  new Uint8Array(wasmMemory.buffer, buf, n).set(b.subarray(0, n));
-  return n;
+const writeBack = (text, buf, max) => {
+  const bytes = enc.encode(text);
+  const count = Math.min(bytes.length, max);
+  new Uint8Array(wasmMemory.buffer, buf, count).set(bytes.subarray(0, count));
+  return count;
 };
 
 const imports = {
   env: {
-    js_log: (p, l) => call(7, readStr(p, l)),
-    js_set_status: (p, l) => call(8, readStr(p, l)),
-    js_ws_connect: (p, l) => call(1, readStr(p, l)),
+    js_log: (ptr, len) => call(7, readStr(ptr, len)),
+    js_set_status: (ptr, len) => call(8, readStr(ptr, len)),
+    js_ws_connect: (ptr, len) => call(1, readStr(ptr, len)),
     js_ws_disconnect: () => call(6),
     js_ws_get_state: (buf, max) => writeBack(call(2), buf, max),
     js_ws_get_agent_id: (buf, max) => writeBack(call(3), buf, max),
@@ -39,11 +42,11 @@ const imports = {
   },
 };
 
-self.onmessage = async (e) => {
+self.onmessage = async (event) => {
   // Dedicated worker: messages only originate from the same-origin context that created it. Reject any
   // cross-origin message defensively (the browser already guarantees this, but make the check explicit).
-  if (e.origin && e.origin !== self.location.origin) return;
-  const { sab } = e.data;
+  if (event.origin && event.origin !== self.location.origin) return;
+  const { sab } = event.data;
   ctrl = new Int32Array(sab, 0, 4);
   data = new Uint8Array(sab, DATA_OFFSET);
   // Resolve the module wasm from this worker's own location (self.location), never from a postMessage value,

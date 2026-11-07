@@ -142,7 +142,8 @@ ripgrep = "latest"
 # Upstream ships prebuilt tarballs for every tier-1 and tier-2 triple, so the github (ubi) backend covers all five
 # platforms with no os-scoping. Clone fingerprints are tokenizer-derived, so a new jscpd release can rewrite them
 # and redden config/jscpd-baseline.json; the lockfile holds the version until a refresh moves it. When it moves,
-# regenerate the baseline and set `declared_clones` in the jscpd conftest policy to its new count in the same change.
+# regenerate the baseline and, in the same change, set `declared_clones` in the jscpd conftest policy to the smallest
+# multiple of its `ceiling_step` at or above the new count.
 "github:kucherenko/jscpd" = "latest"
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
@@ -3353,8 +3354,8 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-llm1-rclone]
 # llm1's SmolLM2 weights, tokenizer and configs, fetched straight from HuggingFace.
-# The five files land under the model module's gitignored pkg/, which et-modules-service then serves as
-# /modules/et-model-llm1/... -- exactly the layout transformers.js expects of a local model. Deliberately not
+# The five files land under the model module's gitignored pkg/, which et-modules-service then serves under the
+# module's own scoped path -- exactly the layout transformers.js expects of a local model. Deliberately not
 # in prefetch-ci: at ~118 MB the weights are a developer-side download, and only llm1 reads them.
 run = """
 opts="--http-url https://huggingface.co --progress --ignore-existing"

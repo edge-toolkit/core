@@ -60,3 +60,9 @@ replace-imports-with-any = [
   "wit_world",
   "wit_world.*",
 ]
+
+# Error kinds raised above their default severity.
+# `implicitly-defined-attribute` -- an attribute first assigned outside `__init__` and undeclared in the class body.
+# The local equivalent of `DeepSource PYL-W0201`.
+[errors]
+implicitly-defined-attribute = true

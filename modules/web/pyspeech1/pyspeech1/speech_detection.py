@@ -11,7 +11,7 @@ from edge_toolkit.events import client_event
 from et_org import served_npm_module_path
 
 EVENT_SOURCE = served_npm_module_path("et-ws-pyspeech1")
-SPEECH_MODEL_PATH = "/modules/et-model-speech1/speech1.onnx"
+SPEECH_MODEL_PATH = served_npm_module_path("et-model-speech1") + "/speech1.onnx"
 SAMPLE_RATE = 16_000
 CHUNK_SIZE = 512
 CONTEXT_SIZE = 64

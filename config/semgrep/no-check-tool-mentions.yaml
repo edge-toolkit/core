@@ -242,11 +242,13 @@ rules:
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
         - "/config/semgrep/deepsource-codes-are-qualified.yaml" # Requires the name, so it has to write it.
+        - "/config/semgrep-tests/deepsource-codes-are-qualified.md.yaml" # Annotates that rule by its name.
+        - "/config/semgrep-tests/no-check-tool-mentions.md.yaml" # Spells the name out to test this rule.
     # Unlike its siblings, this one permits the name where it qualifies one of the analyzer's codes.
     # A bare code does not identify itself: `RS-`, `JS-` and `CXX-` could belong to any analyzer the repo
     # runs, so the vendor in front is what makes the reference readable and searchable. The separate rule
     # requiring that shape is what keeps this from being a way back in for prose about the tool.
-    pattern-regex: '(?i)deepsource(?! (RS|JS|CXX|CS|DOK|PYL|SCT|TYP)-[A-Z]{0,2}[0-9]{3,4}\b)'
+    pattern-regex: '(?i)deepsource(?! (RS|JS|CXX|CS|DOK|PTC|PY|PYL|SCT|TYP)-[A-Z]{0,2}[0-9]{3,4}\b)'
     message: >-
       Do not name this analyzer outside its own config, the pragmas it reads, and a reference to one of its
       codes. Naming it in front of a code -- `DeepSource RS-W1079` -- is required, because the code alone does
@@ -362,8 +364,7 @@ rules:
         - "/config/jscpd.json" # Its own config.
         - "/config/jscpd-baseline.json" # The clone-fingerprint baseline it reads.
         - "/config/conftest/policy/jscpd/jscpd.rego" # Ratchets that baseline, and takes the tool as its package.
-        - "/config/conftest/policy/policy_pairing/policy_pairing.rego" # Names that policy path in its exception list.
-        - "/config/conftest/policy/policy_pairing/policy_pairing_test.rego" # Unit tests for it.
+        - "/config/conftest/policy/jscpd/jscpd_test.rego" # Unit tests for that ratchet, importing its package.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces the linter/tree mapping.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its two files, which cannot be YAML or take comments.

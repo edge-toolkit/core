@@ -4,23 +4,18 @@ from __future__ import annotations
 
 import json
 import time
-from collections import deque
 from typing import Any, TypedDict
 
 from et_org import served_npm_module_path
 from pyeye1.eye_detection import (
-    ANALYSIS_INTERVAL_MS,
-    ANALYSIS_WINDOW_MS,
     EYE_MODEL_PATH,
-    PERIODIC_CAPTURE_INTERVAL_MS,
     VISION_BUNDLE_PATH,
     VISION_WASM_PATH,
+    ScreeningWindow,
     build_results,
     capture_broadcast_json,
     eye_capture_error_event_json,
-    eye_region_crop,
     results_json,
-    smooth_crop,
 )
 from pyeye1.eye_detection import (
     client_event_json as eye_event_json,
@@ -28,7 +23,6 @@ from pyeye1.eye_detection import (
 from pyeye1.eye_detection import (
     event_payload as eye_event_payload,
 )
-from pyeye1.gaze_analysis import GazeSample, WindowAnalysis, analyze_window, gaze_sample
 from pyspeech1.speech_detection import (
     SPEECH_THRESHOLD,
     summarize_probabilities,
@@ -95,7 +89,9 @@ class EyeCaptureResult(TypedDict):
 
 
 class EyeCaptureProcessor:
-    """Retain pyeye1's rolling gaze window, analysis cadence, and smoothed crop across demo frames."""
+    """Retain pyeye1's screening window across demo frames, counting the captures each frame owes."""
+
+    window: ScreeningWindow
 
     def __init__(self) -> None:
         """Initialize an empty eye-analysis session."""
@@ -103,14 +99,7 @@ class EyeCaptureProcessor:
 
     def reset(self) -> None:
         """Start a fresh eye-screening window for one combined-demo recording."""
-        self.started_at = time.monotonic()
-        self.last_analysis_ms = 0.0
-        self.history: deque[GazeSample] = deque()
-        self.analysis: WindowAnalysis | None = None
-        self.crop: list[float] | None = None
-        self.last_periodic_capture_ms = 0.0
-        self.indicator_was_active = False
-        self.captured_for_episode = False
+        self.window = ScreeningWindow(started_at=time.monotonic())
 
     def process(self, capture: dict[str, Any]) -> EyeCaptureResult:
         """Process one FaceLandmarker capture with the current pyeye1 rolling-window functionality."""
@@ -118,34 +107,21 @@ class EyeCaptureProcessor:
         width, height = capture["width"], capture["height"]
         upload_consent = bool(capture.get("upload_consent", False))
         results = build_results(faces, width, height)
-        now_s = time.monotonic() - self.started_at
-        if results:
-            self.crop = smooth_crop(self.crop, eye_region_crop(results[0], width, height))
-        if faces:
-            self.history.append(gaze_sample(faces[0], width, height, now_s))
-        while self.history and (now_s - self.history[0]["t"]) * 1000.0 > ANALYSIS_WINDOW_MS:
-            self.history.popleft()
+        window = self.window
+        now_s = time.monotonic() - window.started_at
+        window.observe(faces, results, width, height, now_s)
 
         event_json: str | None = None
         capture_count = 0
-        if now_s * 1000.0 - self.last_analysis_ms >= ANALYSIS_INTERVAL_MS:
-            self.last_analysis_ms = now_s * 1000.0
-            self.analysis = analyze_window(list(self.history))
-            event_json = eye_event_json(eye_event_payload(results, self.analysis, width, height), EVENT_SOURCE)
-            indicator_active = self.analysis["misalignment"]["detected"] or self.analysis["oscillation"]["detected"]
-            if indicator_active and not self.indicator_was_active:
-                self.captured_for_episode = False
-            if indicator_active and not self.captured_for_episode and upload_consent:
-                self.captured_for_episode = True
+        if window.analysis_tick(now_s):
+            analysis = window.analyze()
+            event_json = eye_event_json(eye_event_payload(results, analysis, width, height), EVENT_SOURCE)
+            if window.detection_capture_due(analysis, upload_consent):
                 capture_count += 1
-            self.indicator_was_active = indicator_active
-
-        if now_s * 1000.0 - self.last_periodic_capture_ms >= PERIODIC_CAPTURE_INTERVAL_MS:
-            self.last_periodic_capture_ms = now_s * 1000.0
-            if upload_consent:
-                capture_count += 1
+        if window.periodic_capture_tick(now_s) and upload_consent:
+            capture_count += 1
         return {
-            "results_json": results_json(results, self.analysis, self.crop),
+            "results_json": results_json(results, window.analysis, window.crop),
             "event_json": event_json,
             "face_count": len(results),
             "eye_count": sum(len(result["eyes"]) for result in results),

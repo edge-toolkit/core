@@ -17,6 +17,9 @@ class SpeechDetectionTests(unittest.TestCase):
         self.assertEqual(config()["chunk_size"], 512)
         self.assertEqual(config()["context_size"], 64)
 
+    def test_config_loads_the_model_from_its_served_module(self) -> None:
+        self.assertEqual(config()["model_path"], "/modules/@edge-toolkit/et-model-speech1/speech1.onnx")
+
     def test_silence_is_not_speech(self) -> None:
         result = summarize_probabilities([0.01] * 20)
         self.assertFalse(result["speech_detected"])

@@ -9,10 +9,11 @@
 
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export async function installWheel(pyodide) {
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
   const distribution = pkg.name.split("/").pop();
   const wheel = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
-  const bytes = new Uint8Array(await fetch(new URL(wheel, import.meta.url)).then((r) => r.arrayBuffer()));
+  const wheelResponse = await fetch(new URL(wheel, import.meta.url));
+  const bytes = new Uint8Array(await wheelResponse.arrayBuffer());
   pyodide.FS.writeFile(`/tmp/${wheel}`, bytes);
   pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheel}")`);
 }

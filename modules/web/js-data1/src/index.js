@@ -65,7 +65,7 @@ function connectAgent() {
     };
     const timer = setTimeout(() => fail("timed out waiting for et-connect-ack"), 10000);
     ws.addEventListener("message", (event) => {
-      let frame;
+      let frame = null;
       try {
         frame = JSON.parse(event.data);
       } catch {

@@ -27,10 +27,10 @@ pub fn find_project_root(start: &Path) -> PathBuf {
 
 /// Locate the repository root from a build script.
 ///
-/// Reads `CARGO_MANIFEST_DIR` (which cargo sets for build scripts), so this is the single sanctioned use
-/// of that variable, and every other read of it is banned. Outside a build script the variable
-/// is unset and this returns a meaningless path; use [`find_project_root`] with an explicit start, or
-/// `edge_toolkit::config::get_project_root`, instead.
+/// Reads `CARGO_MANIFEST_DIR` (which cargo sets for build scripts), so this is the single sanctioned use of that
+/// variable, and every other read of it is banned. Outside a build script the variable is unset and this returns a
+/// meaningless path; use [`find_project_root`] with an explicit start, or `edge_toolkit::config::get_project_root`,
+/// instead.
 #[must_use]
 pub fn find_project_root_from_manifest() -> PathBuf {
     const CARGO_MANIFEST_DIR: &str = "CARGO_MANIFEST_DIR";
@@ -40,13 +40,13 @@ pub fn find_project_root_from_manifest() -> PathBuf {
 
 /// The cargo directives that point `var` at a repo-relative file and re-run when that file changes.
 ///
-/// Separate from [`emit_repo_file_env`] so the directive text can be asserted: a build script's only channel to
-/// cargo is stdout, and a typo in one of these strings is not a compile error -- cargo silently ignores a line
-/// it does not recognise, and the `env!` that was supposed to read the variable fails much later, in a different
-/// crate, with no mention of the build script that should have set it.
+/// Separate from [`emit_repo_file_env`] so the directive text can be asserted: a build script's only channel to cargo
+/// is stdout, and a typo in one of these strings is not a compile error -- cargo silently ignores a line it does not
+/// recognise, and the `env!` that was supposed to read the variable fails much later, in a different crate, with no
+/// mention of the build script that should have set it.
 ///
-/// `repo_relative` is anchored to the repository root rather than to the calling crate, so the caller does not
-/// hardcode its own depth below that root.
+/// `repo_relative` is anchored to the repository root rather than to the calling crate, so the caller does not hardcode
+/// its own depth below that root.
 #[must_use]
 pub fn repo_file_env_directives(var: &str, repo_relative: &str) -> [String; 3] {
     let path = find_project_root_from_manifest().join(repo_relative);
@@ -59,9 +59,9 @@ pub fn repo_file_env_directives(var: &str, repo_relative: &str) -> [String; 3] {
 
 /// From a build script: point `var` at a repo-relative file, and re-run when that file changes.
 ///
-/// The whole of a build script whose only job is to hand a path to `include_str!`, which is otherwise the same
-/// four lines wherever it appears -- locate the root, emit the var, declare the two rerun triggers -- and was
-/// duplicated verbatim across the crates that embed the same committed data file.
+/// The whole of a build script whose only job is to hand a path to `include_str!`, which is otherwise the same four
+/// lines wherever it appears -- locate the root, emit the var, declare the two rerun triggers -- and was duplicated
+/// verbatim across the crates that embed the same committed data file.
 #[expect(
     clippy::print_stdout,
     reason = "a build script's directives to cargo are its stdout; there is no other channel"
@@ -120,8 +120,9 @@ fn normal_components(path: &Path) -> Vec<OsString> {
         .collect()
 }
 
+/// Resolve the `.` and `..` components of `path` lexically, without consulting the filesystem.
 fn normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
+    let mut normalized = PathBuf::default();
     for component in path.components() {
         match component {
             // The root as the platform spells it, so a Windows path keeps one separator throughout.

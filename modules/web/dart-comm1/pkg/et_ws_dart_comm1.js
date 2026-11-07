@@ -3,11 +3,11 @@
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   await new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = new URL("et_ws_dart_comm1_compiled.js", import.meta.url).href;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
+    const script = document.createElement("script");
+    script.src = new URL("et_ws_dart_comm1_compiled.js", import.meta.url).href;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
   });
 }
 
@@ -26,10 +26,10 @@ export async function run() {
     const result = globalThis.dartComm1Run();
     console.log("dart-comm1 dartComm1Run returned:", result, typeof result);
     await result;
-  } catch (e) {
-    console.error("dart-comm1 raw error:", e, "boxed:", e?.error);
-    const msg = e?.error?.toString?.() ?? e?.message ?? String(e);
-    throw new Error(msg, { cause: e });
+  } catch (error) {
+    console.error("dart-comm1 raw error:", error, "boxed:", error?.error);
+    const msg = error?.error?.toString?.() ?? error?.message ?? String(error);
+    throw new Error(msg, { cause: error });
   } finally {
     delete globalThis.WsClient;
     delete globalThis.WsClientConfig;

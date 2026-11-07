@@ -1,0 +1,41 @@
+id: js-no-function-declaration-in-script
+valid:
+  - |
+    const call = (type) => type;
+  - |
+    import { helper } from "./helper.js";
+    function local() {
+      return helper();
+    }
+  - |
+    export function run() {}
+    function appendOutput(msg) {
+      console.log(msg);
+    }
+  - |
+    const outer = () => {
+      function inner() {}
+      return inner;
+    };
+  - |
+    const { run } = await import("./module.js");
+    function helper() {}
+  - |
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    function helper() {}
+invalid:
+  - |
+    function call(type) {
+      return type;
+    }
+  - |
+    async function load() {}
+  - |
+    function* frames() {
+      yield 1;
+    }
+  - |
+    const load = async () => {
+      await fetch("x");
+    };
+    function helper() {}

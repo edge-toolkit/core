@@ -68,13 +68,13 @@ test_non_rego_files_are_ignored if {
 
 # An exception excuses the policy it names, and only that one.
 test_excepted_policy_needs_no_test if {
-	msgs := policy_pairing.deny with input as files(["config/conftest/policy/jscpd/jscpd.rego"])
-	not names(msgs, "add config/conftest/policy/jscpd/jscpd_test.rego")
+	msgs := policy_pairing.deny with input as files(["config/conftest/policy/gha_action/gha_action.rego"])
+	not names(msgs, "add config/conftest/policy/gha_action/gha_action_test.rego")
 }
 
 test_exception_does_not_cover_other_policies if {
 	msgs := policy_pairing.deny with input as files([
-		"config/conftest/policy/jscpd/jscpd.rego",
+		"config/conftest/policy/gha_action/gha_action.rego",
 		"config/conftest/policy/demo/demo.rego",
 	])
 	names(msgs, demo_wanted)
@@ -83,8 +83,8 @@ test_exception_does_not_cover_other_policies if {
 # Writing the test is what retires the entry, so an entry that outlives its answer reports.
 test_excepted_policy_that_gained_a_test_reports_the_stale_entry if {
 	msgs := policy_pairing.deny with input as files([
-		"config/conftest/policy/jscpd/jscpd.rego",
-		"config/conftest/policy/jscpd/jscpd_test.rego",
+		"config/conftest/policy/gha_action/gha_action.rego",
+		"config/conftest/policy/gha_action/gha_action_test.rego",
 	])
 	names(msgs, "drop its untested_policy entry")
 }

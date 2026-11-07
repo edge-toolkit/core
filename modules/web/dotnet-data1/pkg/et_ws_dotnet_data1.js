@@ -20,9 +20,9 @@ export default async function init() {
         wsState = "connected";
         ws.send(JSON.stringify({ type: "et-connect" }));
       };
-      ws.onmessage = (e) => {
+      ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(e.data);
+          const msg = JSON.parse(event.data);
           if (msg.type === "et-connect-ack" && msg.agent_id) agentId = msg.agent_id;
         } catch {}
       };
@@ -37,13 +37,13 @@ export default async function init() {
     wsGetState: () => wsState,
     wsGetAgentId: () => agentId ?? "",
     putFile: (url, body) =>
-      fetch(url, { method: "PUT", body }).then((r) => {
-        if (!r.ok) throw new Error(`PUT failed: ${r.status}`);
+      fetch(url, { method: "PUT", body }).then((response) => {
+        if (!response.ok) throw new Error(`PUT failed: ${response.status}`);
       }),
     getFile: (url) =>
-      fetch(url).then((r) => {
-        if (!r.ok) throw new Error(`GET failed: ${r.status}`);
-        return r.text();
+      fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`GET failed: ${response.status}`);
+        return response.text();
       }),
     log: (msg) => {
       console.log(msg);
@@ -52,7 +52,7 @@ export default async function init() {
     setStatus: (msg) => appendOutput(msg),
     getWsUrl: () => `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
     getIsoTimestamp: () => new Date().toISOString(),
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
   exports = await getAssemblyExports("dotnet-data1");

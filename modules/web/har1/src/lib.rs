@@ -178,13 +178,7 @@ impl DeviceSensors {
     #[must_use]
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self {
-            active: false,
-            orientation_state: Rc::new(RefCell::new(None)),
-            motion_state: Rc::new(RefCell::new(None)),
-            orientation_listener: None,
-            motion_listener: None,
-        }
+        Self::default()
     }
 
     #[expect(
@@ -347,6 +341,9 @@ pub fn init() {
     info!("har1 workflow module initialized");
 }
 
+/// Connect to the hub, run the HAR workflow, then stop the sensors and disconnect, whether or not it succeeded.
+///
+/// A failure is also shown in the module's status element before it is returned.
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     set_har_status("har1: entered run()")?;
@@ -363,7 +360,7 @@ pub async fn run() -> Result<(), JsValue> {
         wait_for_connected(&client).await?;
         log(&format!("websocket connected with agent_id={}", client.get_agent_id()));
 
-        let mut sensors = DeviceSensors::new();
+        let mut sensors = DeviceSensors::default();
         log("starting har1 workflow");
 
         let result = run_inner(&client, &mut sensors).await;
@@ -389,25 +386,85 @@ pub async fn run() -> Result<(), JsValue> {
     outcome
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "single-method wiring of model load, sensor start, sample buffering, inference loop with class tracking"
-)]
+/// Classify the sensor stream until three class changes are recorded, the first prediction counting as one.
+///
+/// Each change is reported to the hub through `client`. A prediction is made at most once per
+/// `HAR_INFERENCE_INTERVAL_MS`, and only once the sample window is full.
 async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(), JsValue> {
-    set_har_status("har1: loading HAR model")?;
-    log(&format!("loading HAR model from {HAR_MODEL_PATH}"));
-    let session = create_har_session(HAR_MODEL_PATH).await?;
-    let feat_input_name = nth_string_entry(&session, "inputNames", 0)?;
-    let raw_input_name = nth_string_entry(&session, "inputNames", 1)?;
-    let output_name = first_string_entry(&session, "outputNames")?;
+    let model = HarModel::load().await?;
+    start_sensors(sensors).await?;
 
-    set_har_status(&format!(
-        "model loaded\npath: {HAR_MODEL_PATH}\ninputs: {feat_input_name}, {raw_input_name}\noutput: {output_name}"
-    ))?;
-    log(&format!(
-        "HAR model loaded: feat_input={feat_input_name} raw_input={raw_input_name} output={output_name}"
-    ));
+    let mut window = SampleWindow::default();
+    let mut changes = ClassChanges::default();
+    let mut last_inference_at = 0.0_f64;
+    while changes.count < 3 {
+        sleep_ms(HAR_SAMPLE_INTERVAL_MS).await?;
+        if !take_sample(sensors, &mut window)? {
+            continue;
+        }
+        let now = js_sys::Date::now();
+        if now - last_inference_at < HAR_INFERENCE_INTERVAL_MS {
+            continue;
+        }
+        last_inference_at = now;
+        let prediction = model.predict(&window).await?;
+        changes.record(client, prediction, window.samples.len())?;
+    }
 
+    set_har_status("har1: workflow complete")?;
+    Ok(())
+}
+
+/// The HAR model's session, with the names of the two inputs and the output it is driven through.
+struct HarModel {
+    feat_input_name: String,
+    output_name: String,
+    raw_input_name: String,
+    session: JsValue,
+}
+
+impl HarModel {
+    /// Load the model from `HAR_MODEL_PATH`, reporting each step on the status panel and in the log.
+    async fn load() -> Result<Self, JsValue> {
+        set_har_status("har1: loading HAR model")?;
+        log(&format!("loading HAR model from {HAR_MODEL_PATH}"));
+        let session = create_har_session(HAR_MODEL_PATH).await?;
+        let model = Self {
+            feat_input_name: nth_string_entry(&session, "inputNames", 0)?,
+            output_name: first_string_entry(&session, "outputNames")?,
+            raw_input_name: nth_string_entry(&session, "inputNames", 1)?,
+            session,
+        };
+        let Self {
+            feat_input_name,
+            output_name,
+            raw_input_name,
+            ..
+        } = &model;
+        set_har_status(&format!(
+            "model loaded\npath: {HAR_MODEL_PATH}\ninputs: {feat_input_name}, {raw_input_name}\noutput: {output_name}"
+        ))?;
+        log(&format!(
+            "HAR model loaded: feat_input={feat_input_name} raw_input={raw_input_name} output={output_name}"
+        ));
+        Ok(model)
+    }
+
+    /// Classify the samples `window` holds.
+    async fn predict(&self, window: &SampleWindow) -> Result<Prediction, JsValue> {
+        infer_prediction(
+            &self.session,
+            &self.feat_input_name,
+            &self.raw_input_name,
+            &self.output_name,
+            &window.samples,
+        )
+        .await
+    }
+}
+
+/// Start the device sensors and wait for their first motion sample.
+async fn start_sensors(sensors: &mut DeviceSensors) -> Result<(), JsValue> {
     log("requesting sensor access");
     sensors.start().await?;
     log("sensors started");
@@ -415,106 +472,99 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
     log("waiting for first motion sample");
     wait_for_motion_sample(sensors).await?;
     log("first motion sample received");
+    Ok(())
+}
 
-    let mut gravity_estimate = [0.0_f64; 3];
-    let mut sample_buffer: VecDeque<[f32; HAR_FEATURE_COUNT]> = VecDeque::with_capacity(HAR_SEQUENCE_LENGTH);
-    let mut last_inference_at = 0.0_f64;
-    let mut last_class_label: Option<String> = None;
-    let mut class_change_count = 0_u32;
+/// The rolling window of motion features the model reads, with the gravity estimate they are taken against.
+#[derive(Default)]
+struct SampleWindow {
+    gravity_estimate: [f64; 3],
+    samples: VecDeque<[f32; HAR_FEATURE_COUNT]>,
+}
 
-    while class_change_count < 3 {
-        sleep_ms(HAR_SAMPLE_INTERVAL_MS).await?;
-
-        if !sensors.has_motion() {
-            continue;
+impl SampleWindow {
+    /// Append one reading's features, dropping the oldest past `HAR_SEQUENCE_LENGTH`, and say whether it is full.
+    fn push(&mut self, reading: &MotionReading) -> Result<bool, JsValue> {
+        self.samples
+            .push_back(feature_vector(reading, &mut self.gravity_estimate));
+        if self.samples.len() > HAR_SEQUENCE_LENGTH {
+            self.samples.pop_front();
         }
-
-        let reading = sensors.motion_snapshot()?;
-        render_sensor_output(sensors)?;
-        sample_buffer.push_back(feature_vector(&reading, &mut gravity_estimate));
-        if sample_buffer.len() > HAR_SEQUENCE_LENGTH {
-            sample_buffer.pop_front();
-        }
-
-        if sample_buffer.len() == 1
-            || sample_buffer.len() == 64
-            || sample_buffer.len() == 128
-            || sample_buffer.len() == 256
-        {
+        if matches!(self.samples.len(), 1 | 64 | 128) {
             log(&format!(
                 "buffering HAR samples: {}/{}",
-                sample_buffer.len(),
+                self.samples.len(),
                 HAR_SEQUENCE_LENGTH
             ));
         }
-
-        if sample_buffer.len() < HAR_SEQUENCE_LENGTH {
-            continue;
+        if self.samples.len() < HAR_SEQUENCE_LENGTH {
+            return Ok(false);
         }
+        set_har_status("har1: HAR sample window full; inference loop active")?;
+        log("HAR sample window full; starting inference loop");
+        Ok(true)
+    }
+}
 
-        if sample_buffer.len() == HAR_SEQUENCE_LENGTH {
-            set_har_status("har1: HAR sample window full; inference loop active")?;
-            log("HAR sample window full; starting inference loop");
+/// Fold the latest motion reading into `window`, saying whether the window is full enough to classify.
+fn take_sample(sensors: &DeviceSensors, window: &mut SampleWindow) -> Result<bool, JsValue> {
+    if !sensors.has_motion() {
+        return Ok(false);
+    }
+    let reading = sensors.motion_snapshot()?;
+    render_sensor_output(sensors)?;
+    window.push(&reading)
+}
+
+/// The classes the model has reported, counted each time a prediction differs from the one before it.
+#[derive(Default)]
+struct ClassChanges {
+    count: u32,
+    /// The last class reported: `None` until the first prediction, whose event then names no previous class.
+    last_label: Option<String>,
+}
+
+impl ClassChanges {
+    /// Record `prediction`, reporting it to the hub and on the page when its class differs from the last one.
+    fn record(&mut self, client: &WsClient, prediction: Prediction, buffered: usize) -> Result<(), JsValue> {
+        if self.last_label.as_deref() == Some(prediction.best_label.as_str()) {
+            return Ok(());
         }
-
-        let now = js_sys::Date::now();
-        if now - last_inference_at < HAR_INFERENCE_INTERVAL_MS {
-            continue;
-        }
-        last_inference_at = now;
-
-        let prediction = infer_prediction(
-            &session,
-            &feat_input_name,
-            &raw_input_name,
-            &output_name,
-            &sample_buffer,
-        )
-        .await?;
-        if last_class_label.as_deref() == Some(prediction.best_label.as_str()) {
-            continue;
-        }
-
-        class_change_count += 1;
+        self.count += 1;
         client.send_client_event(
             et_org::served_npm_module_path!(),
             "har",
             "class_changed",
             json!({
                 "detected_class": prediction.best_label,
-                "previous_class": last_class_label,
+                "previous_class": self.last_label,
                 "class_index": prediction.best_index,
                 "confidence": prediction.best_probability,
                 "probabilities": prediction.probabilities,
                 "logits": prediction.logits,
-                "buffered_samples": sample_buffer.len(),
+                "buffered_samples": buffered,
                 "detected_at": String::from(js_sys::Date::new_0().to_iso_string()),
             }),
         )?;
-
         log(&format!(
             "class change {} of 3: {} -> {}",
-            class_change_count,
-            last_class_label.as_deref().unwrap_or("none"),
+            self.count,
+            self.last_label.as_deref().unwrap_or("none"),
             prediction.best_label
         ));
         set_har_status(&format!(
             "har1: inference running\nlatest class: {}\nclass changes: {}/3\nbuffered samples: {}",
-            prediction.best_label,
-            class_change_count,
-            sample_buffer.len()
+            prediction.best_label, self.count, buffered
         ))?;
-        last_class_label = Some(prediction.best_label);
+        self.last_label = Some(prediction.best_label);
+        Ok(())
     }
-
-    set_har_status("har1: workflow complete")?;
-    Ok(())
 }
 
 /// Append a blank-line-separated section header to the status-panel lines.
 ///
-/// Pure (no DOM/interop calls), so the separator formatting the sensor display builds its orientation/motion
-/// sections through runs off the browser too.
+/// Pure (no DOM/interop calls), so the separator formatting the sensor display builds its orientation/motion sections
+/// through runs off the browser too.
 pub fn push_section(lines: &mut Vec<String>, title: &str) {
     lines.push(String::default());
     lines.push(String::from(title));
@@ -762,6 +812,7 @@ fn create_raw_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     Reflect::construct(&tensor_ctor, &args)
 }
 
+/// The model's `[1, HAR_FEAT_INPUT_SIZE]` float32 feature input, built with the page's `ort.Tensor`.
 fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
@@ -781,8 +832,8 @@ fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
 
 /// Compute 36 hand-crafted features from the sample buffer.
 ///
-/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the per-sample vector
-/// magnitude (mean, std, min, max) = 36 total.
+/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the per-sample vector magnitude (mean, std, min,
+/// max) = 36 total.
 fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f32; HAR_FEAT_INPUT_SIZE] {
     let sample_count = sample_buffer.len() as f32;
     let mut out = [0.0f32; HAR_FEAT_INPUT_SIZE];

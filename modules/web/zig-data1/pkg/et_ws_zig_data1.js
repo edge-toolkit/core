@@ -25,9 +25,9 @@ export async function run() {
 
   const respond = (str = "") => {
     if (str) {
-      const b = enc.encode(str);
-      data.set(b);
-      Atomics.store(ctrl, 2, b.length);
+      const encoded = enc.encode(str);
+      data.set(encoded);
+      Atomics.store(ctrl, 2, encoded.length);
     } else Atomics.store(ctrl, 2, 0);
     Atomics.store(ctrl, 0, 0);
     Atomics.notify(ctrl, 0);
@@ -79,9 +79,9 @@ export async function run() {
             wsState = "connected";
             ws.send(JSON.stringify({ type: "et-connect" }));
           };
-          ws.onmessage = (e) => {
+          ws.onmessage = (event) => {
             try {
-              const msg = JSON.parse(e.data);
+              const msg = JSON.parse(event.data);
               if (msg.type === "et-connect-ack" && msg.agent_id) agentId = msg.agent_id;
             } catch {}
           };
@@ -111,8 +111,8 @@ export async function run() {
           respond();
           break;
         case 9: {
-          const p = location.protocol === "https:" ? "wss:" : "ws:";
-          respond(`${p}//${location.host}/ws`);
+          const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+          respond(`${scheme}//${location.host}/ws`);
           break;
         }
         case 10:
@@ -130,9 +130,9 @@ export async function run() {
             opts.body = new Uint8Array(data.subarray(plen, plen + alen)).slice();
           }
           fetch(url, opts)
-            .then((r) => {
-              if (!r.ok) throw new Error(`HTTP ${r.status}`);
-              return r.arrayBuffer();
+            .then((response) => {
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              return response.arrayBuffer();
             })
             .then((buf) => {
               respondBytes(new Uint8Array(buf));
@@ -152,19 +152,19 @@ export async function run() {
     };
 
     const worker = new Worker(workerUrl, { type: "module" });
-    worker.onmessage = (e) => {
-      if (e.data.done) {
+    worker.onmessage = (event) => {
+      if (event.data.done) {
         worker.terminate();
-        if (e.data.ret === 0) {
+        if (event.data.ret === 0) {
           resolve();
         } else {
-          reject(new Error("zig-data1: run() returned " + e.data.ret));
+          reject(new Error("zig-data1: run() returned " + event.data.ret));
         }
       }
     };
-    worker.onerror = (e) => {
+    worker.onerror = (error) => {
       worker.terminate();
-      reject(e);
+      reject(error);
     };
     // The worker resolves its own wasm URL from import.meta.url; only the shared buffer crosses the boundary.
     worker.postMessage({ sab });

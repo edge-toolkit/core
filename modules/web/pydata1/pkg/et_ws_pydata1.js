@@ -1,52 +1,16 @@
 // et_ws_pydata1.js -- Pyodide-based Python module shim
 // Interface: default(wasmUrl), metadata(), run()
 
-const PYODIDE_BASE_PATH = "/modules/pyodide/";
-// ES-module entry used by the Deno / non-browser `import()` path below (its named export is `loadPyodide`);
-// the browser path loads the UMD `pyodide.js` via a <script> tag instead.
-const PYODIDE_CDN = `${PYODIDE_BASE_PATH}pyodide.mjs`;
-
 let pyodide = null;
 let pyMod = null;
 let moduleVersion = null;
 
-function loadPyodideScript() {
-  return new Promise((resolve, reject) => {
-    if (globalThis.loadPyodide) return resolve();
-    // In Deno / non-browser environments, import() the module directly.
-    if (
-      typeof document === "undefined" ||
-      typeof document.createElement !== "function" ||
-      !document.head ||
-      typeof document.head.appendChild !== "function" ||
-      typeof Deno !== "undefined"
-    ) {
-      const baseUrl = typeof globalThis.__ET_HTTP_BASE === "string" ? globalThis.__ET_HTTP_BASE : "";
-      const url = baseUrl + PYODIDE_CDN;
-      import(url)
-        .then((mod) => {
-          if (mod.loadPyodide) globalThis.loadPyodide = mod.loadPyodide;
-          resolve();
-        })
-        .catch(reject);
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = `${PYODIDE_BASE_PATH}pyodide.js`;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
-  await loadPyodideScript();
-  // `mise install pyodide` extracts the full GitHub-release distribution
-  // (~200 MB of pinned wheels) at /modules/pyodide/, so both the runtime
-  // and `micropip.install("httpx")` resolve from this same origin -- no CDN
-  // dependency at runtime.
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+  const { startPyodide } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  // `mise install pyodide` extracts the full GitHub-release distribution (~200 MB of pinned wheels) at
+  // /modules/pyodide/, so `micropip.install("httpx")` resolves from the same origin as the runtime.
+  pyodide = await startPyodide();
 
   // pydata1's runtime stack: PyPI deps via micropip (httpx + attrs power
   // the generated client; pyodide-http rewires httpx to use the browser's
@@ -67,11 +31,12 @@ export default async function init() {
   await installEtRestClient(pyodide);
 
   const injectWheel = async (wheelName) => {
-    const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then((r) => r.arrayBuffer()));
+    const response = await fetch(new URL(wheelName, import.meta.url));
+    const bytes = new Uint8Array(await response.arrayBuffer());
     pyodide.FS.writeFile(`/tmp/${wheelName}`, bytes);
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheelName}")`);
   };
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
   moduleVersion = pkg.version;
   const distribution = pkg.name.split("/").pop();
   const ownWheel = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
@@ -101,20 +66,20 @@ export async function run() {
 
   client.connect();
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  for (let i = 0; i < 100; i++) {
+  for (let attempt = 0; attempt < 100; attempt++) {
     if (client.get_state() === "connected") break;
     await sleep(100);
-    if (i === 99) throw new Error("Timeout waiting for WebSocket connection");
+    if (attempt === 99) throw new Error("Timeout waiting for WebSocket connection");
   }
 
   let agentId = "";
-  for (let i = 0; i < 100; i++) {
+  for (let attempt = 0; attempt < 100; attempt++) {
     agentId = client.get_agent_id();
     if (agentId) break;
     await sleep(100);
-    if (i === 99) throw new Error("Timeout waiting for agent_id");
+    if (attempt === 99) throw new Error("Timeout waiting for agent_id");
   }
 
   const log = (msg) => {

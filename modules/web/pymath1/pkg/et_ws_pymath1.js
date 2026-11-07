@@ -6,34 +6,21 @@
 // pointer names, hands the raw text to Python, and stores the returned output JSON in this
 // agent's bucket for the test harness to verify.
 
-const PYODIDE_BASE_PATH = "/modules/pyodide/";
-
 let pyodide = null;
 let pyMod = null;
 
-function loadPyodideScript() {
-  return new Promise((resolve, reject) => {
-    if (globalThis.loadPyodide) return resolve();
-    const s = document.createElement("script");
-    s.src = `${PYODIDE_BASE_PATH}pyodide.js`;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
-  await loadPyodideScript();
-  // The full Pyodide distribution is served at /modules/pyodide/, so the runtime resolves from this
-  // same origin -- no CDN dependency. pymath1 has no PyPI deps: its FedAvg kernel is stdlib-only, so
-  // the only wheel to load is its own, served next to this shim.
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+  const { startPyodide } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  // pymath1 has no PyPI deps: its FedAvg kernel is stdlib-only, so the only wheel to load is its own, served next
+  // to this shim.
+  pyodide = await startPyodide();
 
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
   const distribution = pkg.name.split("/").pop();
   const wheelName = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
-  const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then((r) => r.arrayBuffer()));
+  const wheelResponse = await fetch(new URL(wheelName, import.meta.url));
+  const bytes = new Uint8Array(await wheelResponse.arrayBuffer());
   pyodide.FS.writeFile(`/tmp/${wheelName}`, bytes);
   pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheelName}")`);
 
@@ -70,9 +57,9 @@ export async function run() {
 
   client.connect();
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const waitFor = async (what, ready) => {
-    for (let i = 0; i < 100; i++) {
+    for (let attempt = 0; attempt < 100; attempt++) {
       const value = ready();
       if (value) return value;
       await sleep(100);

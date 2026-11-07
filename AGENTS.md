@@ -1320,9 +1320,9 @@ report the added/removed counts the update task prints so the delta is reviewabl
 Upgrading jscpd itself is the one rewrite an agent may make without asking. A new release re-tokenizes the same
 code -- new languages, a changed tokenizer, different line counting -- so its fingerprints move although no
 duplication was added. In the change that bumps the jscpd pin, run `jscpd-baseline-update`, set `declared_clones`
-in `config/conftest/policy/jscpd/jscpd.rego` to the regenerated baseline's fingerprint count, and report the
-added/removed counts. The bump must be the only thing that moves the baseline: duplication the same change
-introduces is still yours to factor out.
+in `config/conftest/policy/jscpd/jscpd.rego` to the smallest multiple of its `ceiling_step` at or above the
+regenerated baseline's fingerprint count, and report the added/removed counts. The bump must be the only thing that
+moves the baseline: duplication the same change introduces is still yours to factor out.
 
 ### A finding from an external analyzer must end up in a local checker
 

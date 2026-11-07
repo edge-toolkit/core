@@ -14,7 +14,9 @@ requires = ["uv_build==0.13.3"]
 module-name = "pymath1"
 module-root = ""
 
-# Browser-side module dependency: the Pyodide runtime served at /modules/pyodide/.
+# Browser-side module dependencies, each resolving to a sibling /modules/<name>/ mount.
+# edge-toolkit's shim starts the Pyodide runtime served at /modules/pyodide/.
 [tool.ws-module.dependencies]
+edge-toolkit = "*"
 et-ws-server-static = "*"
 pyodide = "*"

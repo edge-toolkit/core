@@ -1,24 +1,13 @@
 // Browser adapter: microphone capture + ONNX inference for the Python workflow.
-const PYODIDE_BASE_PATH = "/modules/pyodide/";
-
-let pyodide;
-let py;
-let cfg;
+let pyodide = null;
+let py = null;
+let cfg = null;
 let runtime = null;
 
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
-  if (!globalThis.loadPyodide) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `${PYODIDE_BASE_PATH}pyodide.js`;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+  const edgeToolkit = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  pyodide = await edgeToolkit.startPyodide();
   await pyodide.loadPackage("micropip");
   await pyodide.pyimport("micropip").install("pydantic");
 
@@ -32,8 +21,7 @@ export default async function init() {
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
   const distribution = pkg.name.split("/").pop();
   await installLocalWheel(`${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
-  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
-  await installEdgeToolkit(pyodide);
+  await edgeToolkit.installWheel(pyodide);
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyspeech1");
   py = pyodide.pyimport("pyspeech1");
   cfg = py.config().toJs({ dict_converter: Object.fromEntries });
@@ -66,7 +54,7 @@ export async function run() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     state.client = new wasmAgent.WsClient(new wasmAgent.WsClientConfig(`${protocol}//${window.location.host}/ws`));
     state.client.connect();
-    for (let i = 0; state.client.get_state() !== "connected" && i < 100; i++) await sleep(100);
+    for (let attempt = 0; state.client.get_state() !== "connected" && attempt < 100; attempt++) await sleep(100);
     if (state.client.get_state() !== "connected") throw new Error("Timed out waiting for websocket connection");
 
     configureOnnxRuntime();
@@ -309,12 +297,12 @@ function resample(input, sourceRate, targetRate) {
   if (sourceRate === targetRate) return input;
   const output = new Float32Array(Math.max(1, Math.round((input.length * targetRate) / sourceRate)));
   const ratio = sourceRate / targetRate;
-  for (let i = 0; i < output.length; i++) {
-    const position = i * ratio;
+  for (let index = 0; index < output.length; index++) {
+    const position = index * ratio;
     const left = Math.min(Math.floor(position), input.length - 1);
     const right = Math.min(left + 1, input.length - 1);
     const fraction = position - left;
-    output[i] = input[left] * (1 - fraction) + input[right] * fraction;
+    output[index] = input[left] * (1 - fraction) + input[right] * fraction;
   }
   return output;
 }

@@ -5,10 +5,11 @@ rules:
       exclude:
         - "/.deepsource.toml" # Its own config, where a code is already in that context.
         - "/config/semgrep/deepsource-codes-are-qualified.yaml" # This rule, which spells the shape out.
+        - "/config/semgrep-tests/deepsource-codes-are-qualified.md.yaml" # Writes bare codes to test this rule.
     # Two lookbehinds rather than one, because PCRE allows only fixed-width ones.
     # The second exempts `skipcq: `, the pragma DeepSource itself parses: that grammar is the vendor's, not
     # ours, and qualifying the code inside one would stop it suppressing anything.
-    pattern-regex: '(?<!DeepSource )(?<!skipcq: )\b(RS|JS|CXX|CS|DOK|PYL|SCT|TYP)-[A-Z]{0,2}[0-9]{3,4}\b'
+    pattern-regex: '(?<!DeepSource )(?<!skipcq: )\b(RS|JS|CXX|CS|DOK|PTC|PY|PYL|SCT|TYP)-[A-Z]{0,2}[0-9]{3,4}\b'
     message: >-
       Write a DeepSource finding as `DeepSource RS-W1079`, naming the analyzer in front of the code. A bare
       code is unreadable to anyone who does not already know whose it is: `RS-`, `JS-` and `CXX-` look like

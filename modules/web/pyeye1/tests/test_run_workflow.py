@@ -89,19 +89,23 @@ class FakePlatform:
     async def connect_ws(self) -> None:
         pass
 
-    def ws_state(self) -> str:
+    @staticmethod
+    def ws_state() -> str:
         return "connected"
 
-    def agent_id(self) -> str:
+    @staticmethod
+    def agent_id() -> str:
         return "fake-agent"
 
     def send_event(self, message: str) -> None:
         self.events.append(message)
 
-    async def start_camera(self) -> None:
+    @staticmethod
+    async def start_camera() -> None:
         pass
 
-    def video_size(self) -> list[int]:
+    @staticmethod
+    def video_size() -> list[int]:
         return [640, 480]
 
     async def play_video(self) -> None:
@@ -140,12 +144,14 @@ class FakePlatform:
 
 
 class NeverConnectingPlatform(FakePlatform):
-    def ws_state(self) -> str:
+    @staticmethod
+    def ws_state() -> str:
         return "connecting"
 
 
 class CameraDeniedPlatform(FakePlatform):
-    async def start_camera(self) -> None:
+    @staticmethod
+    async def start_camera() -> None:
         raise RuntimeError("Permission denied")
 
 

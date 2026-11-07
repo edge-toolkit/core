@@ -36,6 +36,8 @@ line-ending = "lf"
 #   "B" -- flake8-bugbear: likely bugs (mutable defaults, `zip` without `strict=`, loop-variable shadowing, ...).
 #   "BLE001" -- broad catches can hide programming errors; narrow operational failures or report/re-raise them.
 #   "C4" -- flake8-comprehensions: unnecessary or unpythonic comprehensions and generator calls.
+#   "C901" -- mccabe: a function whose cyclomatic complexity passes [lint.mccabe]'s ceiling. The local equivalent of
+#   `DeepSource PY-R1000`.
 #   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
 #   "INP" -- flake8-no-pep420: a `.py` file in a directory without `__init__.py`. Every Python package here is a
 #   regular package directory, never a single top-level module or an implicit namespace package.
@@ -46,13 +48,40 @@ line-ending = "lf"
 #   "PIE" -- flake8-pie: unnecessary or duplicated constructs (redundant passes, dict literals, ...).
 #   "PLC" / "PLE" / "PLW" -- pylint conventions / errors / warnings. PLR (its refactor, complexity, and
 #   magic-value rules) is deliberately left out as too subjective for the numeric-heavy CV code here.
+#   "PLR6301" -- the one PLR rule taken: a method that never uses `self`. The local equivalent of
+#   `DeepSource PYL-R0201`.
 #   "RUF" -- ruff-native checks (unsorted `__all__`, unused `noqa`, ...).
 #   "SIM" -- flake8-simplify: simplifiable conditionals, `return`s, and context managers.
 #   "UP" -- pyupgrade: modern syntax for the project's minimum Python.
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
 # rule that openapi-python-client relies on internally -- it generates
 # speculative imports and trims them by re-running ruff with the default rules.
-extend-select = ["ARG", "B", "BLE001", "C4", "D", "I", "INP", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
+extend-select = [
+  "ARG",
+  "B",
+  "BLE001",
+  "C4",
+  "C901",
+  "D",
+  "I",
+  "INP",
+  "N",
+  "PIE",
+  "PLC",
+  "PLE",
+  "PLR6301",
+  "PLW",
+  "RUF",
+  "SIM",
+  "UP",
+]
+# Preview is on only so PLR6301 can be selected; `explicit-preview-rules` keeps every other preview rule off.
+explicit-preview-rules = true
+preview = true
+
+# The same ceiling as clippy's `cognitive-complexity-threshold`.
+[lint.mccabe]
+max-complexity = 15
 
 [lint.pydocstyle]
 convention = "pep257"

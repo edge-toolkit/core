@@ -1,0 +1,53 @@
+id: python-staticmethod-overrides-instance-method
+language: Python
+severity: error
+message: |
+  This `@staticmethod` overrides a method its base class defines as an instance method (pylint `W0221`, pyright
+  `reportIncompatibleMethodOverride`). The base takes `self` and the override takes nothing, so a call through the
+  class, `Base.method(obj)`, breaks on the subclass, and the repo's own type checker does not report the mismatch.
+  Make the base method static too when neither uses `self`, or keep the override an instance method. Only a base
+  class defined in the same file is caught, since one imported from elsewhere is out of sight. Check-only: which
+  side to change depends on whether the base needs `self`.
+rule:
+  kind: decorated_definition
+  all:
+    - has:
+        kind: decorator
+        regex: "^@staticmethod$"
+    - has:
+        field: definition
+        kind: function_definition
+        has:
+          field: name
+          pattern: $METHOD
+    # The class whose body holds the override, and one base it names.
+    - inside:
+        kind: block
+        inside:
+          kind: class_definition
+          has:
+            field: superclasses
+            has:
+              kind: identifier
+              pattern: $BASE
+    # That base, defined at the top of the same file, with an undecorated method of the same name.
+    - inside:
+        kind: module
+        stopBy: end
+        has:
+          kind: class_definition
+          all:
+            - has:
+                field: name
+                pattern: $BASE
+            - has:
+                field: body
+                has:
+                  kind: function_definition
+                  has:
+                    field: name
+                    pattern: $METHOD
+ignores:
+  - generated/**
+  - "**/componentize_py_async_support/**"
+  - "**/wit_world/**"

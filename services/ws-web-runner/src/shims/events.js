@@ -10,7 +10,7 @@ if (typeof globalThis.addEventListener !== "function") {
   };
   globalThis.removeEventListener = (type, fn) => {
     if (!listeners[type]) return;
-    listeners[type] = listeners[type].filter((f) => f !== fn);
+    listeners[type] = listeners[type].filter((listener) => listener !== fn);
   };
   globalThis.dispatchEvent = (evt) => {
     const type = evt.type || evt;

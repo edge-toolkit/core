@@ -1,8 +1,6 @@
 // et_ws_pyface1.js - Browser adapter for the Pyodide workflow.
 // Interface: default(), run(), start(), stop(), is_running()
 
-const PYODIDE_BASE_PATH = "/modules/pyodide/";
-
 // One colour per RetinaFace landmark, keyed by the label the Python decoder emits.
 const LANDMARK_COLORS = {
   left_eye: "#ff4d4d",
@@ -12,26 +10,20 @@ const LANDMARK_COLORS = {
   right_mouth: "#c86bff",
 };
 
-let pyodide;
-let py;
-let cfg;
+let pyodide = null;
+let py = null;
+let cfg = null;
 let runtime = null;
 let workCanvas = null;
 let tensorData = null;
 
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
-  if (!globalThis.loadPyodide) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `${PYODIDE_BASE_PATH}pyodide.js`;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+  // The edge-toolkit wheel, and the et-org and et-ws wheels it imports, are their own ws-modules, declared in
+  // [tool.ws-module.dependencies]; edge-toolkit's shim installs all three, each version read from its own
+  // package.json so a bump there doesn't require touching this file.
+  const edgeToolkit = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  pyodide = await edgeToolkit.startPyodide();
 
   // Install pydantic via micropip; the generated et_ws wheel uses it for the
   // typed WsClientEvent message. Pyodide ships pydantic v2 as a regular
@@ -42,20 +34,17 @@ export default async function init() {
 
   // Install the pyface1 wheel from pkg/ next to this shim.
   const installLocalWheel = async (path) => {
-    const bytes = new Uint8Array(await fetch(new URL(path, import.meta.url)).then((r) => r.arrayBuffer()));
+    const response = await fetch(new URL(path, import.meta.url));
+    const bytes = new Uint8Array(await response.arrayBuffer());
     pyodide.FS.writeFile(`/tmp/${path}`, bytes);
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${path}")`);
   };
 
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
   const distribution = pkg.name.split("/").pop();
   const pyfaceWheel = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await installLocalWheel(pyfaceWheel);
-  // The edge-toolkit wheel, and the et-org and et-ws wheels it imports, are their own ws-modules, declared in
-  // [tool.ws-module.dependencies]; edge-toolkit's shim installs all three, each version read from its own
-  // package.json so a bump there doesn't require touching this file.
-  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
-  await installEdgeToolkit(pyodide);
+  await edgeToolkit.installWheel(pyodide);
   // Start Pyodide coverage before importing so import-time lines count (no-op unless the runner set the gate).
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyface1");
   py = pyodide.pyimport("pyface1");
@@ -83,7 +72,7 @@ export async function run() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     client = new WsClient(new WsClientConfig(`${protocol}//${window.location.host}/ws`));
     client.connect();
-    for (let i = 0; client.get_state() !== "connected" && i < 100; i++) await sleep(100);
+    for (let attempt = 0; client.get_state() !== "connected" && attempt < 100; attempt++) await sleep(100);
     if (client.get_state() !== "connected") throw new Error("Timed out waiting for websocket connection");
     log(`websocket connected with agent_id=${client.get_agent_id()}`);
 
@@ -91,7 +80,7 @@ export async function run() {
     const video = element("video-preview", HTMLVideoElement);
     video.srcObject = stream;
     video.hidden = false;
-    for (let i = 0; video.videoWidth === 0 && i < 50; i++) await sleep(100);
+    for (let attempt = 0; video.videoWidth === 0 && attempt < 50; attempt++) await sleep(100);
     if (video.videoWidth === 0 || video.videoHeight === 0) throw new Error("Video stream metadata did not load");
     await video.play();
 
