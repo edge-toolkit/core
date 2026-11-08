@@ -5749,12 +5749,14 @@ dependencies = [
  "fs-err",
  "jiff",
  "k8s-openapi",
+ "minijinja",
  "pretty_yaml",
  "rand 0.10.3",
  "rand_chacha 0.10.0",
  "reqwest",
  "serde",
  "serde-env",
+ "serde-saphyr",
  "serde_json",
  "serde_yaml",
  "sha2 0.11.1",
@@ -9141,6 +9143,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "minijinja"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "509eeb2603a84eccabb4d75f6ec8ba23b46bbf441aaeb863d6b83a5887fd51e4"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9427,6 +9438,12 @@ dependencies = [
  "serde_json",
  "url",
 ]
+
+[[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"
@@ -12204,6 +12221,19 @@ dependencies = [
  "heapless 0.8.0",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde-saphyr"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d43fb82d550b07e6f929a58d7d0935182602f48ddead875f5ee313c41c8f07fe"
+dependencies = [
+ "base64 0.23.1",
+ "nohash-hasher",
+ "num-traits",
+ "serde_core",
+ "zmij",
 ]
 
 [[package]]

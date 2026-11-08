@@ -1,0 +1,22 @@
+## Run With dekit
+
+From this directory, start the scenario and watch each process in its own pane with:
+
+```bash
+dekit up
+dekit attach
+```
+
+Each task runs one task of `mise.toml`, so these are the processes `mise run generated-scenario`
+starts, but in order: `ws-server` waits for OpenObserve to report healthy, and every runner
+waits for `ws-server`. The tasks keep running after the terminal closes; stop them with:
+
+```bash
+dekit down
+```
+
+Open the OpenObserve UI, once it is up, with:
+
+```bash
+dekit start open-o2
+```

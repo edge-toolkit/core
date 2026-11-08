@@ -212,27 +212,3 @@ pub(crate) fn bindings(settings: &RecoverySettings, workload: &Workload) -> BTre
         ("RECOVERY_SUPERVISOR_AGENT_ID".into(), "recovery-supervisor".into()),
     ])
 }
-
-/// Include the service image in the ordinary image preparation steps before Kubernetes applies the scenario.
-pub(crate) fn image_note(cluster: &ClusterInput) -> String {
-    if cluster.recovery.is_unset() {
-        return String::default();
-    }
-    if matches!(cluster.artifact_source, crate::ArtifactSource::Published) {
-        return format!(
-            "The cluster also pulls `{}/et-recovery-supervisor:latest`.\n\n",
-            crate::IMAGE_REGISTRY
-        );
-    }
-    concat!(
-        "Build and import the recovery service image from the repository root:\n\n",
-        "```bash\n",
-        "image=et-recovery-supervisor:latest\n",
-        "docker build -t \"$image\" -f services/recovery-supervisor/Dockerfile .\n",
-        "docker save \"$image\" | sudo k3s ctr images import -\n",
-        "```\n\n",
-        "The supervisor starts automatically with scoped ServiceAccount credentials and persistent state.\n",
-        "Application modules must implement lifecycle reporting and any required checkpoint restoration.\n\n"
-    )
-    .into()
-}

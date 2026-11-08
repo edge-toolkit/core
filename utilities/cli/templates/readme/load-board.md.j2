@@ -1,0 +1,9 @@
+{# How a board's firmware is built and loaded, which is the same steps whatever the board runs. #}
+Build those modules first, since the firmware takes each one's built package.
+{{ run.network_setup }}
+Then {{ run.load_preparation }}.
+From this directory, build the firmware and load it with:
+
+```bash
+{{ run.flash }}
+```

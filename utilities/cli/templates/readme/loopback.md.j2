@@ -1,0 +1,10 @@
+{#
+  Loopback addresses run every machine's share on one host, which is what a verification scenario wants, and none of
+  them reaches another machine. The commands that follow use the addresses as written, so they have to change in the
+  input, and the deployment regenerated, before it runs across machines.
+#}
+{% if section.loopback %}
+The machines' addresses are loopback, which plays every machine on this one host. To run them on
+separate machines, give each its reachable address in the scenario input and regenerate first.
+
+{% endif %}

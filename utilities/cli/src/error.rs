@@ -50,6 +50,13 @@ pub enum CliError {
     #[error("Failed to serialize mise TOML")]
     SerializeToml(#[from] toml::ser::Error),
 
+    #[error("Failed to serialize compose YAML")]
+    SerializeYaml(#[from] serde_saphyr::SerializeError),
+
+    // The alternate form is minijinja's long one, which quotes the template lines around the one that failed.
+    #[error("Failed to render a deployment template: {0:#}")]
+    Template(#[from] minijinja::Error),
+
     #[error("The hub refused or failed the request: {0}")]
     HubRequest(#[from] reqwest::Error),
 

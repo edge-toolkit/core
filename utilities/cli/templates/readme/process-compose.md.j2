@@ -1,0 +1,27 @@
+{#
+  A local deployment installs process-compose here, since the README's own install step is only written for a published
+  one; a published deployment's install step already fetches it with everything else `mise.toml` names.
+#}
+{% from "readme/commands.j2" import process_compose_up %}
+## Run With process-compose
+
+{% if published %}
+From this directory, start the scenario and watch each process with:
+
+```bash
+{% else %}
+From this directory, install the process-compose `mise.toml` declares, then start the scenario
+and watch each process with:
+
+```bash
+mise install
+{% endif %}
+{{ process_compose_up }}
+```
+
+Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report
+healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each
+tick of its schedule and runs its module once; a tick that finds the previous run still going is
+skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.
+Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the
+`open-o2` process from the TUI.

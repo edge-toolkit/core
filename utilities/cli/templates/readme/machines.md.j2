@@ -1,0 +1,56 @@
+{#
+  How one format runs across the machines a scenario names: a subsection after the single-host instructions rather than
+  a rewrite of them, because most of what those say -- building the images, loading the credential, opening the UIs --
+  holds on the server machine unchanged. What differs is which machine starts what.
+#}
+{% from "readme/commands.j2" import process_compose_up %}
+{% set server = section.machines | first %}
+### Run Across Machines With {{ section.heading }}
+
+{% if section.format == "dekit" %}
+Copy this directory to each machine and start that machine's share there. Every task is tagged
+with its machine and none starts on `dekit up` alone, so `dekit up` on any machine starts nothing
+until its tag is started.
+{% elif section.format == "process-compose" %}
+Copy this directory to each machine and start only that machine's namespace there.
+{% elif section.format == "docker-compose" %}
+Copy this directory to each machine and start only that machine's profile there.
+{% else %}
+Copy this directory to each machine and start that machine's share of the scenario there.
+{% endif %}
+{% if server.board %}
+`{{ server.name }}` is a {{ server.board }} running `ws-server` as firmware,
+and the runners on every other machine reach the hub at `{{ server.address }}`, which the network the board
+joins has to resolve to it. Its share is loading the firmware, which it then runs from power-on.
+{% elif shares_hubs %}
+`{{ server.name }}` runs OpenObserve, `ws-server`, and the NATS server and object store the hubs share,
+which the other machines' hubs reach at `{{ server.address }}`. Each runner joins the hub on its own
+machine, or the one on `{{ server.name }}` when its machine runs none.
+{% else %}
+`{{ server.name }}` runs OpenObserve and `ws-server`, and the runners on every other machine reach
+the hub at `{{ server.address }}`.
+{% endif %}
+
+{% include "readme/loopback.md.j2" %}
+{% for machine in section.machines %}
+On `{{ machine.name }}`:
+
+```bash
+{# A board's share is its firmware, which every format loads the same way. #}
+{%     if machine.board %}
+mise run {{ machine.flash }}
+{%     elif section.format == "dekit" %}
+dekit up
+dekit start +{{ machine.name }}
+{%     elif section.format == "process-compose" %}
+{{ process_compose_up }} -n {{ machine.name }}
+{%     elif section.format == "docker-compose" %}
+docker compose --profile {{ machine.name }} up --build
+{%     else %}
+mise run {{ machine.task }}
+{%     endif %}
+```
+{%     if not loop.last %}
+
+{%     endif %}
+{% endfor %}

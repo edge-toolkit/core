@@ -1,0 +1,48 @@
+{% set profiles = run.profiles | flags("--profile") %}
+## Run With Docker Compose
+
+From this directory, start the scenario with:
+
+```bash
+docker compose{{ profiles }} up --build
+```
+
+{% if shares_hubs %}
+Every hub listens on the same ports, so on one host only the server's starts: this leaves out
+each other machine running a hub, which runs its share on its own machine instead.
+
+{% endif %}
+{#
+  Where the module-less hub image the scenario layers onto comes from. The two answers are structurally different
+  rather than differently worded: a local scenario builds the hub too, so `docker compose up` builds two images; a
+  published one's Dockerfile names the released image and builds one.
+#}
+{% if published %}
+The compose stack starts OpenObserve and builds one image: the `Dockerfile` in this directory,
+which stages this scenario's modules onto the released hub image it names.
+{% else %}
+The compose stack starts OpenObserve and builds `ws-server` in two layers: the module-less hub
+image from the repository's `services/ws-server/Dockerfile`, then the `Dockerfile` in this
+directory, which stages this scenario's modules onto it.
+{% endif %}
+`ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.
+
+### Open The UIs
+
+OpenObserve is available at <http://localhost:5080/>.
+`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.
+
+{# The runners share their host's network like the hub, so a port one listens on is open on that host already. #}
+{% if run.runner_addresses %}
+The runners listen on their host's network too, at:
+
+{%     with addresses = run.runner_addresses %}
+{%     include "readme/addresses.md.j2" %}
+{%     endwith %}
+
+{% endif %}
+Stop the scenario with:
+
+```bash
+docker compose{{ profiles }} down
+```

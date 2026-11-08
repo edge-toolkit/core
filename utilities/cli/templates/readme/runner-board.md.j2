@@ -1,0 +1,8 @@
+{# A board running only the runners placed on it, which reach the server's hub across the network. #}
+{% set machine = run.machine %}
+{% set runners = run.runners | join(", ") %}
+## Load The Runners Onto `{{ machine }}`
+
+`{{ machine }}` is a {{ run.title }} running each {{ runners }} runner the scenario places on it, compiled into the
+firmware from its module's component, and no hub: the runners join the one at `{{ run.hub_url }}`.
+{% include "readme/load-board.md.j2" %}

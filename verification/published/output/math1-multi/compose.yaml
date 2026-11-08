@@ -49,8 +49,7 @@ services:
         - gh_token
     network_mode: host
     environment:
-      MODULES_PATHS: "/app/modules/web/math1,
-        /app/modules/web/math1-sender"
+      MODULES_PATHS: /app/modules/web/math1, /app/modules/web/math1-sender
       MODULES_ROOT: ""
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1

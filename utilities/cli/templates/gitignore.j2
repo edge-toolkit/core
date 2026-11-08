@@ -1,0 +1,13 @@
+# Written by `et-cli`.
+{% if ignores_credential %}
+# The password is derived from the scenario input, so regenerating this deployment rewrites it;
+# committing it would publish the credential of every deployment generated from that input.
+{{ secrets_file }}
+
+{% endif %}
+# What the hub writes into the directory it runs from: its self-signed TLS pair (the key is a
+# credential too), the agent registry it saves on shutdown, and agent storage.
+cert.pem
+key.pem
+registry.yaml
+{{ storage_dir }}/

@@ -155,12 +155,32 @@ jobs:
           # shellcheck disable=SC2086
           docker build $args .
 
+      # Report the runner's disk once the test image is built, as the space the compile below has left to fit in.
+      - name: Report disk before cargo-test
+        if: matrix.base == 'servercore'
+        run: |
+          df -h /c
+          docker system df
+
       # Run the Rust tests, excluding et-ws-web-runner on the gnullvm target.
-      # CARGO_INCREMENTAL=0 has to be passed into the container, not just set on the job: this compiles from
-      # scratch inside `docker run` (Dockerfile.windows's precompile stage deletes `target` after building the
-      # modules), so the incremental caches land on the runner's C: drive. They are pure waste on a
-      # single-shot CI compile and this lane has no disk to spare -- servercore ran out mid-link with
-      # `There is not enough space on the disk. (os error 112)` even after the disk-free step left 43 GB.
+      # This compiles from scratch inside `docker run` (Dockerfile.windows's precompile stage deletes `target` after
+      # building the modules), so the whole target dir lands in the container, on the runner's C: drive beside the
+      # test image. This lane has no disk to spare, so two savings are passed into the container rather than set on
+      # the job. CARGO_INCREMENTAL=0 drops the incremental caches, pure waste on a single-shot compile. Debug info is
+      # cut to line tables, which keeps file and line in a backtrace and sheds the bulk of every statically linked test
+      # binary; no test reads the rest. The container is named rather than run with `--rm`, so the disk report after
+      # this step still counts what it wrote. Servercore first ran out mid-link with 43 GB left by the disk-free step:
+      #     There is not enough space on the disk. (os error 112)
+      # and again with CARGO_INCREMENTAL=0 alone once the suite reached 171 test binaries, on the windows-2025 runner
+      # only: its 150 GB C: drive has 76 GB free after the disk-free step, to windows-2022's 153 GB. There the error
+      # also came out with its message lookup failing, and rustc then died paging in its own code:
+      #     OS Error 112 (FormatMessageW() returned error 433) (os error 112)
+      #     process didn't exit successfully: ... (exit code: 0xc0000006, STATUS_IN_PAGE_ERROR)
+      # Observed twice on commit
+      # https://github.com/edge-toolkit/core/commit/90ab81a9baa47bae3683cacc8dd8a3450edd7e75, at
+      # https://github.com/edge-toolkit/core/actions/runs/42530061047/job/128882052073 and
+      # https://github.com/edge-toolkit/core/actions/runs/42530061047/job/128910749803.
+      #
       # The k3s generator tests are skipped here, and only here.
       # `not test(k3s)` names the two cases in et-cli::scenario_generation whose names carry it, leaving the
       # deployment-type test that also writes a k3s.yaml in place, so the generator still runs on this lane. The
@@ -193,9 +213,17 @@ jobs:
       - name: Run cargo-test
         if: matrix.base == 'servercore'
         run: |
-          args="--rm --pull=never -e CARGO_INCREMENTAL=0"
+          args="--pull=never --name et-windows-cargo-test -e CARGO_INCREMENTAL=0"
+          args="$args -e CARGO_PROFILE_DEV_DEBUG=line-tables-only -e CARGO_PROFILE_TEST_DEBUG=line-tables-only"
           scenarios='not test(pyo3_math1_scenario) and not test(wasi_math1_scenario)'
           skip="not test(k3s) and $scenarios"
           # $args is a word-split flag list by design; do not quote it.
           # shellcheck disable=SC2086
           docker run $args et-windows-test mise run cargo-test -- -E "$skip"
+
+      # The same report after the tests, on a failure too, since running out of disk is the failure it exists to show.
+      - name: Report disk after cargo-test
+        if: always() && matrix.base == 'servercore'
+        run: |
+          df -h /c
+          docker system df

@@ -196,6 +196,16 @@ log = "0.4"
 # `initializeValueProfRuntimeRecord`. Bump both together, never one alone; the `=` lifts once wasm-bindgen-test
 # accepts a newer minicov.
 minicov = "=0.3.8"
+# Renders et-cli's deployment templates.
+# `serde` renders them from the generators' own structs, `multi_template` lets one include another, and `debug`
+# points a failed render at the template line it failed on.
+minijinja = { version = "3.1", default-features = false, features = [
+  "builtins",
+  "debug",
+  "macros",
+  "multi_template",
+  "serde",
+] }
 # Third-party OTLP mock collector, wrapped by et-test-otlp for the workspace's integration tests.
 # Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at the mock's own `/v1` base
 # for `et-otlp`'s `{collector_url}/traces` shape to land on them.
@@ -269,6 +279,8 @@ semver = "1"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-env = "0.3"
 serde-inline-default = "1.0"
+# Writes YAML only for now, so the parser behind its `deserialize` feature stays out of the build.
+serde-saphyr = { version = "2.1", default-features = false, features = ["serialize"] }
 serde_default = "0.2"
 serde_json = { version = "1", default-features = false }
 serde_path_to_error = "0.1"
@@ -566,6 +578,10 @@ ignore = [
   # ndk-sys unmaintained upstream; Android-only, reached via wgpu-hal (deno_webgpu -> wgpu).
   # Never compiled on our target platforms.
   "ndk-sys",
+  # Archived upstream at paritytech/nohash-hasher, untouched since 2020: a pass-through `Hasher` for integer keys.
+  # Pulled only by serde-saphyr's `serialize` feature, which et-cli writes compose.yaml with. serde-saphyr 2.1.1 is
+  # the newest release and its main branch still requires it, so no upgrade drops it.
+  "nohash-hasher",
   # Upstream dignifiedquire/num-bigint reached a year without a commit on 2026-11-06; 0.8.6 still requires rand ^0.8.
   # Pulled by rsa 0.9 (deno_crypto, deno_node_crypto), dsa and deno_node_crypto, all under et-ws-web-runner's Deno.
   # rsa 0.10, still a release candidate, drops it for crypto-bigint; this goes once deno_crypto moves to rsa 0.10.

@@ -1,8 +1,12 @@
+use std::collections::BTreeMap;
+use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 
 use edge_toolkit::ports::Services;
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
+use serde::ser::SerializeMap as _;
+use serde::{Serialize, Serializer};
 
 use super::hub_sharing::{
     BACKPLANE_HEALTH_PATH, BACKPLANE_IMAGE, BACKPLANE_TASK, DATA_DIR, SHARED_STORAGE_HEALTH_PATH, SHARED_STORAGE_IMAGE,
@@ -37,23 +41,6 @@ const OFELIA_IMAGE: &str = "ghcr.io/netresearch/ofelia:1.0.1";
 /// Ofelia reads labels off every container on the daemon unless filtered, so without it two scenarios sharing a Docker
 /// host would each schedule the other's jobs.
 const SCENARIO_LABEL: &str = concat!(et_org::org!(), "/scenario");
-
-/// Characters YAML reserves as indicators, which a plain scalar may not open with.
-///
-/// `@` and a backtick are reserved for future use and are a scanner error outright; the rest introduce anchors, tags,
-/// flow collections, block scalars and the like. A value starting with any of them has to be quoted to be read back as
-/// the string it is.
-const YAML_INDICATORS: [char; 18] = [
-    '@', '`', '-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"',
-];
-
-/// Whether YAML reads `value`, written bare, as a boolean, a null or a number rather than the string it is.
-///
-/// The YAML 1.1 spellings are included, since compose's parser still honours `yes`, `no`, `on` and `off`.
-fn reads_as_non_string(value: &str) -> bool {
-    const RESERVED: [&str; 10] = ["true", "false", "yes", "no", "on", "off", "y", "n", "null", "~"];
-    RESERVED.iter().any(|reserved| value.eq_ignore_ascii_case(reserved)) || value.parse::<f64>().is_ok()
-}
 
 /// The scheduler service for the machine `machines` names, or for the single host when it names none.
 ///
@@ -164,13 +151,13 @@ fn scenario_hub_service(
         Vec::new()
     };
     let shared = shares_hubs(cluster);
-    let mut environment = hub_environment(module_paths, &workspace_root, serves_a_page, shared);
+    let mut environment = hub_environment(&module_paths, &workspace_root, serves_a_page, shared);
     let mut depends_on = vec![healthy(COLLECTOR_TASK)];
     if shared {
         environment.extend(
             shared_hub_env(&hub.server_host, &hub.server_host)
                 .into_iter()
-                .map(|(name, value)| (name.to_string(), ComposeValue::Plain(value))),
+                .map(|(name, value)| (name.to_string(), value)),
         );
         environment.sort_by(|(left, _), (right, _)| left.cmp(right));
         depends_on.extend([healthy(BACKPLANE_TASK), healthy(SHARED_STORAGE_TASK)]);
@@ -252,7 +239,7 @@ fn shared_services(cluster: &ClusterInput, profiles: &[String]) -> [(String, Com
         env_file: vec![SECRETS_ENV_FILE.to_string()],
         environment: shared_storage_env()
             .into_iter()
-            .map(|(name, value)| (name.to_string(), ComposeValue::Plain(value)))
+            .map(|(name, value)| (name.to_string(), value))
             .collect(),
         volumes: vec![format!("{SHARED_STORAGE_TASK}-data:{DATA_DIR}")],
         limits: cluster.services.storage.limits.resolve(),
@@ -369,8 +356,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
         volumes: volumes.into_iter().map(|name| (name, ComposeVolume)).collect(),
         secrets,
     };
-    let content = render_compose_yaml(&compose);
-    fs::write(&output_path, content)?;
+    fs::write(&output_path, render_compose_yaml(&compose)?)?;
 
     Ok(())
 }
@@ -510,30 +496,22 @@ fn job_labels(runner: &RunnerInstance, cluster_name: &str) -> [(String, String);
 /// What wires a runner to its module and its hub, plus whatever the scenario declared for that agent.
 ///
 /// The scenario's entries cannot collide with the derived two: the resolver rejects an `env:` naming either.
-fn runner_environment(runner: &RunnerInstance) -> Vec<(String, ComposeValue)> {
+fn runner_environment(runner: &RunnerInstance) -> Vec<(String, String)> {
     let mut environment = vec![
-        ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
-        (
-            "WS_SERVER_URL".to_string(),
-            ComposeValue::Plain(runner.site.hub_ws_url()),
-        ),
+        ("RUNNER_MODULE".to_string(), runner.module.clone()),
+        ("WS_SERVER_URL".to_string(), runner.site.hub_ws_url()),
     ];
-    environment.extend(
-        runner
-            .env
-            .iter()
-            .map(|(name, value)| (name.clone(), ComposeValue::Plain(value.clone()))),
-    );
+    environment.extend(runner.env.iter().map(|(name, value)| (name.clone(), value.clone())));
     environment
 }
 
 /// The collector's non-secret settings, plus the data directory the named volume below makes meaningful.
-fn collector_environment() -> Vec<(String, ComposeValue)> {
-    let mut environment: Vec<(String, ComposeValue)> = COLLECTOR_SETTINGS
+fn collector_environment() -> Vec<(String, String)> {
+    let mut environment: Vec<(String, String)> = COLLECTOR_SETTINGS
         .iter()
-        .map(|(name, value)| ((*name).to_string(), ComposeValue::Plain((*value).to_string())))
+        .map(|(name, value)| ((*name).to_string(), (*value).to_string()))
         .collect();
-    environment.push(("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string())));
+    environment.push(("ZO_DATA_DIR".to_string(), "/data".to_string()));
     environment
 }
 
@@ -560,45 +538,38 @@ fn openobserve_service() -> ComposeService {
 /// `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the entry
 /// being left out. The hub image names the page it bundles, and a container inherits an image's environment for every
 /// variable the compose file does not set -- so omitting it would serve a page this cluster was not given the modules
-/// for, which the hub rejects at startup. Empty is read as unset.
+/// for, which the hub rejects at startup. Empty is read as unset, and is quoted as YAML's empty string, since written
+/// bare it would be a null, which compose reads as "take this from the host environment".
+///
+/// `MODULES_PATHS` is the comma-and-space list the server's per-segment trim expects, and what the `mise` deployment
+/// writes too.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of the hub service; separate so the root's two spellings are not inlined mid-literal"
 )]
 fn hub_environment(
-    module_paths: Vec<String>,
+    module_paths: &[String],
     workspace_root: &Path,
     serves_a_page: bool,
     shared: bool,
-) -> Vec<(String, ComposeValue)> {
+) -> Vec<(String, String)> {
     let root_module = if serves_a_page {
         super::hub_root_module(&workspace_root.join("services/ws-server"))
     } else {
         String::default()
     };
     let mut environment = vec![
-        (
-            "MODULES_PATHS".to_string(),
-            ComposeValue::WrappedDoubleQuoted(module_paths),
-        ),
-        ("MODULES_ROOT".to_string(), ComposeValue::Plain(root_module)),
-    ];
-    environment.extend([
-        (
-            "OTLP_AUTH_USERNAME".to_string(),
-            ComposeValue::Plain(COLLECTOR_USERNAME.to_string()),
-        ),
+        ("MODULES_PATHS".to_string(), module_paths.join(", ")),
+        ("MODULES_ROOT".to_string(), root_module),
+        ("OTLP_AUTH_USERNAME".to_string(), COLLECTOR_USERNAME.to_string()),
         (
             "OTLP_COLLECTOR_URL".to_string(),
-            ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
+            "http://127.0.0.1:5080/api/default/v1".to_string(),
         ),
-    ]);
+    ];
     // Hubs that share storage are pointed at it by the caller instead.
     if !shared {
-        environment.push((
-            "STORAGE_URL".to_string(),
-            ComposeValue::Plain("file:///app/storage".to_string()),
-        ));
+        environment.push(("STORAGE_URL".to_string(), "file:///app/storage".to_string()));
     }
     environment
 }
@@ -623,37 +594,59 @@ pub fn docker_image_module_paths(
 /// One service of the file, under the name it is written as.
 type NamedService = (String, ComposeService);
 
-#[derive(Debug, Default)]
+/// The whole compose file, each field a top-level key.
+#[derive(Debug, Default, Serialize)]
 struct ComposeFile {
+    #[serde(serialize_with = "map_of")]
     services: Vec<NamedService>,
+    #[serde(serialize_with = "map_of")]
     volumes: Vec<(String, ComposeVolume)>,
     /// Build secrets, by name; each is the registry token, read from the host's environment.
+    #[serde(serialize_with = "registry_token_secrets", skip_serializing_if = "Vec::is_empty")]
     secrets: Vec<String>,
 }
 
-#[derive(Debug, Default)]
+/// One service, its fields declared in the order the file writes them.
+#[derive(Debug, Default, Serialize)]
 struct ComposeService {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     profiles: Vec<String>,
-    build: Option<ComposeBuild>,
-    restart: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     image: Option<String>,
     /// A fixed container name, for a container something outside compose has to find by name.
+    #[serde(skip_serializing_if = "Option::is_none")]
     container_name: Option<String>,
     /// The command replacing the image's `ENTRYPOINT`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     entrypoint: Vec<String>,
     /// Arguments replacing the image's `CMD`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     command: Vec<String>,
-    /// Container labels, in the order they are written; every value is quoted.
+    /// Container labels, in the order they are written.
+    #[serde(serialize_with = "map_of", skip_serializing_if = "Vec::is_empty")]
     labels: Vec<(String, String)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     healthcheck: Option<ComposeHealthcheck>,
-    network_mode: Option<String>,
-    scale: Option<u32>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     ports: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     env_file: Vec<String>,
-    environment: Vec<(String, ComposeValue)>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    build: Option<ComposeBuild>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scale: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    network_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    restart: Option<String>,
+    #[serde(serialize_with = "map_of", skip_serializing_if = "Vec::is_empty")]
+    environment: Vec<(String, String)>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     volumes: Vec<String>,
+    #[serde(serialize_with = "map_of", skip_serializing_if = "Vec::is_empty")]
     depends_on: Vec<(String, ComposeDependsOnCondition)>,
-    /// The resource limits the service runs under.
+    /// The resource limits the service runs under, written as the keys compose spells them.
+    #[serde(flatten, serialize_with = "compose_limits")]
     limits: ResolvedLimits,
 }
 
@@ -676,7 +669,47 @@ enum BuildSource {
     Within { context: String, dockerfile: String },
 }
 
-#[derive(Debug)]
+impl Serialize for ComposeBuild {
+    /// Write a service's `build:` key, as the shorthand `build: .` when nothing would sit beneath it.
+    ///
+    /// A bare `build:` parses as null rather than as compose's defaults of this directory and its Dockerfile.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        /// A build written out in full.
+        #[derive(Serialize)]
+        struct Spec<'build> {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            context: Option<&'build str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            dockerfile: Option<&'build str>,
+            #[serde(serialize_with = "map_of", skip_serializing_if = "<[_]>::is_empty")]
+            additional_contexts: &'build [(String, String)],
+            #[serde(skip_serializing_if = "<[_]>::is_empty")]
+            secrets: &'build [String],
+        }
+        let (context, dockerfile) = match &self.source {
+            BuildSource::Here => (None, None),
+            BuildSource::Within { context, dockerfile } => (Some(context.as_str()), Some(dockerfile.as_str())),
+        };
+        if context.is_none() && self.additional_contexts.is_empty() && self.secrets.is_empty() {
+            // Compose's own spelling of the directory holding the file, written out for it rather than resolved here.
+            // nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- Required to waive the rule for this value.
+            // ast-grep-ignore: no-relative-path-literal
+            return serializer.serialize_str(".");
+        }
+        Spec {
+            additional_contexts: &self.additional_contexts,
+            context,
+            dockerfile,
+            secrets: &self.secrets,
+        }
+        .serialize(serializer)
+    }
+}
+
+#[derive(Debug, Serialize)]
 struct ComposeHealthcheck {
     test: Vec<String>,
     interval: String,
@@ -685,255 +718,182 @@ struct ComposeHealthcheck {
     start_period: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct ComposeDependsOnCondition {
     condition: String,
     /// Whether compose refuses to start without the dependency; written out only when it does not.
+    #[serde(skip_serializing_if = "is_true")]
     required: bool,
 }
 
+/// Whether `value` is set, which leaves a field that only ever says `false` out of the file.
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if passes the field by reference"
+)]
+const fn is_true(value: &bool) -> bool {
+    *value
+}
+
+/// A named volume, which needs nothing set, so it is written as an empty mapping.
 #[derive(Debug, Default)]
 struct ComposeVolume;
 
-#[derive(Debug)]
-enum ComposeValue {
-    Plain(String),
-    WrappedDoubleQuoted(Vec<String>),
+impl Serialize for ComposeVolume {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_map(Some(0))?.end()
+    }
 }
 
-fn render_compose_yaml(compose: &ComposeFile) -> String {
-    let mut renderer = ComposeRenderer::default();
-    renderer.push_line(0, "services:");
-    for (name, service) in &compose.services {
-        renderer.render_service(name, service);
-    }
-    renderer.push_line(0, "volumes:");
-    for (name, _) in &compose.volumes {
-        renderer.push_line(1, &format!("{name}: {{}}"));
-    }
-    if !compose.secrets.is_empty() {
-        renderer.push_line(0, "secrets:");
-        for name in &compose.secrets {
-            renderer.push_line(1, &format!("{name}:"));
-            renderer.push_line(2, &format!("environment: {REGISTRY_TOKEN_ENV}"));
-        }
-    }
-    renderer.finish()
+/// A service's resource limits as compose spells them, every default applied.
+///
+/// Applying the defaults is what makes the service run as the same process does under k3s. The CPU weight is
+/// written as `cpu_shares` even when it comes from the reservation, because compose outside swarm ignores
+/// `deploy.resources.reservations.cpus`: a container started from it keeps the default weight, where a Kubernetes
+/// container requesting the same CPUs is weighted by that request. The memory reservation, by contrast, compose does
+/// apply, as the cgroup's `memory.low`.
+#[derive(Serialize)]
+struct ComposeLimits {
+    deploy: ComposeDeploy,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    blkio_config: Option<ComposeBlkio>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cpu_period: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cpu_quota: Option<u64>,
+    cpu_shares: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cpuset: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    memswap_limit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shm_size: Option<String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    ulimits: BTreeMap<String, ComposeUlimit>,
 }
 
-#[derive(Default)]
-struct ComposeRenderer {
-    output: String,
+#[derive(Serialize)]
+struct ComposeDeploy {
+    resources: ComposeResources,
 }
 
-impl ComposeRenderer {
-    fn finish(self) -> String {
-        self.output
-    }
+#[derive(Serialize)]
+struct ComposeResources {
+    limits: ComposeResourceLimits,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reservations: Option<ComposeReservation>,
+}
 
-    fn push_line(&mut self, indent: usize, line: &str) {
-        self.output.push_str(&"  ".repeat(indent));
-        self.output.push_str(line);
-        self.output.push('\n');
-    }
+#[derive(Serialize)]
+struct ComposeResourceLimits {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cpus: Option<String>,
+    memory: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pids: Option<NonZeroU64>,
+}
 
-    /// Write `key:` and then each of `items` as a `- item` line one level deeper, or nothing when there are none.
-    ///
-    /// An item YAML would read as something other than a string is quoted, since compose wants strings here.
-    fn push_list(&mut self, indent: usize, key: &str, items: &[String]) {
-        if items.is_empty() {
-            return;
-        }
-        self.push_line(indent, &format!("{key}:"));
-        for item in items {
-            let rendered = if reads_as_non_string(item) {
-                format!("\"{item}\"")
-            } else {
-                item.clone()
-            };
-            self.push_line(indent.saturating_add(1), &format!("- {rendered}"));
-        }
-    }
+#[derive(Serialize)]
+struct ComposeReservation {
+    memory: String,
+}
 
-    fn render_healthcheck(&mut self, healthcheck: &ComposeHealthcheck) {
-        self.push_line(2, "healthcheck:");
-        self.push_list(3, "test", &healthcheck.test);
-        self.push_line(3, &format!("interval: {}", healthcheck.interval));
-        self.push_line(3, &format!("timeout: {}", healthcheck.timeout));
-        self.push_line(3, &format!("retries: {}", healthcheck.retries));
-        self.push_line(3, &format!("start_period: {}", healthcheck.start_period));
-    }
+#[derive(Serialize)]
+struct ComposeBlkio {
+    weight: u16,
+}
 
-    /// Write a service's `build:` key, as the shorthand `build: .` when nothing would sit beneath it.
-    ///
-    /// A bare `build:` parses as null rather than as compose's defaults of this directory and its Dockerfile.
-    fn render_build(&mut self, build: &ComposeBuild) {
-        if matches!(build.source, BuildSource::Here) && build.additional_contexts.is_empty() && build.secrets.is_empty()
-        {
-            self.push_line(2, "build: .");
-            return;
-        }
-        self.push_line(2, "build:");
-        if let BuildSource::Within { context, dockerfile } = &build.source {
-            self.push_line(3, &format!("context: {context}"));
-            self.push_line(3, &format!("dockerfile: {dockerfile}"));
-        }
-        if !build.additional_contexts.is_empty() {
-            self.push_line(3, "additional_contexts:");
-            for (name, source) in &build.additional_contexts {
-                self.push_line(4, &format!("{name}: {source}"));
-            }
-        }
-        self.push_list(3, "secrets", &build.secrets);
-    }
+#[derive(Serialize)]
+struct ComposeUlimit {
+    soft: u64,
+    hard: u64,
+}
 
-    fn render_service(&mut self, name: &str, service: &ComposeService) {
-        self.push_line(1, &format!("{name}:"));
-        self.push_list(2, "profiles", &service.profiles);
-        if let Some(image) = &service.image {
-            self.push_line(2, &format!("image: {image}"));
-        }
-        if let Some(container_name) = &service.container_name {
-            self.push_line(2, &format!("container_name: {container_name}"));
-        }
-        self.push_list(2, "entrypoint", &service.entrypoint);
-        self.push_list(2, "command", &service.command);
-        if !service.labels.is_empty() {
-            self.push_line(2, "labels:");
-            for (key, value) in &service.labels {
-                self.push_line(3, &format!("{key}: \"{value}\""));
-            }
-        }
-        if let Some(healthcheck) = &service.healthcheck {
-            self.render_healthcheck(healthcheck);
-        }
-        self.push_list(2, "ports", &service.ports);
-        self.push_list(2, "env_file", &service.env_file);
-        if let Some(build) = &service.build {
-            self.render_build(build);
-        }
-        if let Some(scale) = service.scale {
-            self.push_line(2, &format!("scale: {scale}"));
-        }
-        if let Some(network_mode) = &service.network_mode {
-            self.push_line(2, &format!("network_mode: {network_mode}"));
-        }
-        if let Some(restart) = &service.restart {
-            self.push_line(2, &format!("restart: {restart}"));
-        }
-        if !service.environment.is_empty() {
-            self.push_line(2, "environment:");
-            for (key, value) in &service.environment {
-                self.render_environment_value(key, value);
-            }
-        }
-        self.push_list(2, "volumes", &service.volumes);
-        if !service.depends_on.is_empty() {
-            self.push_line(2, "depends_on:");
-            for (name, condition) in &service.depends_on {
-                self.push_line(3, &format!("{name}:"));
-                self.push_line(4, &format!("condition: {}", condition.condition));
-                if !condition.required {
-                    self.push_line(4, "required: false");
-                }
-            }
-        }
-        self.render_limits(&service.limits);
-    }
-
-    /// Write a service's resource limits, every default applied, so it runs as the same process does under k3s.
-    ///
-    /// The CPU weight is written as `cpu_shares` even when it comes from the reservation, because compose outside swarm
-    /// ignores `deploy.resources.reservations.cpus`: a container started from it keeps the default weight, where a
-    /// Kubernetes container requesting the same CPUs is weighted by that request. The memory reservation, by contrast,
-    /// compose does apply, as the cgroup's `memory.low`.
-    fn render_limits(&mut self, limits: &ResolvedLimits) {
+impl From<&ResolvedLimits> for ComposeLimits {
+    fn from(limits: &ResolvedLimits) -> Self {
         let rest = &limits.rest;
-        self.push_line(2, "deploy:");
-        self.push_line(3, "resources:");
-        self.push_line(4, "limits:");
-        if let CpuCap::Cpus(cpus) = limits.cpu_cap {
-            self.push_line(5, &format!("cpus: \"{cpus}\""));
-        }
-        self.push_line(5, &format!("memory: {}", compose_bytes(limits.memory)));
-        if let Some(pids) = rest.pids {
-            self.push_line(5, &format!("pids: {pids}"));
-        }
-        if let Some(reservation) = limits.memory_low {
-            self.push_line(4, "reservations:");
-            self.push_line(5, &format!("memory: {}", compose_bytes(reservation)));
-        }
-        if let Some(weight) = rest.blkio_weight {
-            self.push_line(2, "blkio_config:");
-            self.push_line(3, &format!("weight: {weight}"));
-        }
-        let (cpu_quota, cpu_period) = match limits.cpu_cap {
-            CpuCap::Quota { quota, period } => (Some(quota.to_string()), Some(period.to_string())),
-            CpuCap::Cpus(_) => (None, None),
+        let (cpus, cpu_quota, cpu_period) = match limits.cpu_cap {
+            CpuCap::Cpus(cpus) => (Some(cpus.to_string()), None, None),
+            CpuCap::Quota { quota, period } => (None, Some(quota), Some(period)),
         };
-        let scalars = [
-            ("cpu_period", cpu_period),
-            ("cpu_quota", cpu_quota),
-            ("cpu_shares", Some(limits.cpu_shares.to_string())),
-            ("cpuset", rest.cpuset.as_ref().map(|cpuset| format!("\"{cpuset}\""))),
-            ("memswap_limit", rest.memswap_limit.map(compose_bytes)),
-            ("shm_size", rest.shm_size.map(compose_bytes)),
-        ];
-        for (key, value) in scalars {
-            if let Some(value) = value {
-                self.push_line(2, &format!("{key}: {value}"));
-            }
-        }
-        if !rest.ulimits.is_empty() {
-            self.push_line(2, "ulimits:");
-            for (name, ulimit) in &rest.ulimits {
-                let (soft, hard) = ulimit.soft_hard();
-                self.push_line(3, &format!("{name}:"));
-                self.push_line(4, &format!("soft: {soft}"));
-                self.push_line(4, &format!("hard: {hard}"));
-            }
+        let resources = ComposeResources {
+            limits: ComposeResourceLimits {
+                cpus,
+                memory: compose_bytes(limits.memory),
+                pids: rest.pids,
+            },
+            reservations: limits.memory_low.map(|memory| ComposeReservation {
+                memory: compose_bytes(memory),
+            }),
+        };
+        Self {
+            blkio_config: rest.blkio_weight.map(|weight| ComposeBlkio { weight }),
+            cpu_period,
+            cpu_quota,
+            cpu_shares: limits.cpu_shares,
+            cpuset: rest.cpuset.clone(),
+            deploy: ComposeDeploy { resources },
+            memswap_limit: rest.memswap_limit.map(compose_bytes),
+            shm_size: rest.shm_size.map(compose_bytes),
+            ulimits: rest
+                .ulimits
+                .iter()
+                .map(|(name, ulimit)| {
+                    let (soft, hard) = ulimit.soft_hard();
+                    (name.clone(), ComposeUlimit { soft, hard })
+                })
+                .collect(),
         }
     }
+}
 
-    fn render_environment_value(&mut self, key: &str, value: &ComposeValue) {
-        match value {
-            // Quoted when the value opens with a character YAML reserves as an indicator. A module name carries
-            // its owner scope, so it begins with `@` -- which unquoted is a scanner error rather than a string, and
-            // produced a compose file nothing could parse.
-            //
-            // An empty value is quoted for a different reason: written bare it is YAML's null, and compose reads a null
-            // entry as "take this from the host environment" rather than as a value. The variable would then be absent
-            // from the container and the image's own default would stand -- the opposite of what stating it empty is
-            // for.
-            //
-            // So is one YAML would read as a boolean or a number, which compose rejects as an environment value.
-            ComposeValue::Plain(value) => {
-                let rendered = if value.is_empty() || value.starts_with(YAML_INDICATORS) || reads_as_non_string(value) {
-                    format!("\"{value}\"")
-                } else {
-                    value.clone()
-                };
-                self.push_line(3, &format!("{key}: {rendered}"));
-            }
-            // Wrapped by YAML's own line folding rather than by escaping the breaks away with a trailing `\`. Both keep
-            // the value one scalar; folding differs only in leaving a space where the break was, so the list arrives
-            // comma-and-space separated -- which is what the `mise` deployment has always written and what the server's
-            // per-segment trim expects. The backslash form is banned repo-wide, and this was the one generator still
-            // emitting it.
-            ComposeValue::WrappedDoubleQuoted(parts) => {
-                if let [only] = parts.as_slice() {
-                    self.push_line(3, &format!("{key}: \"{only}\""));
-                } else if let Some((first, rest)) = parts.split_first() {
-                    self.push_line(3, &format!("{key}: \"{first},"));
-                    let last_index = rest.len().saturating_sub(1);
-                    for (index, part) in rest.iter().enumerate() {
-                        let suffix = if index == last_index { "\"" } else { "," };
-                        self.push_line(4, &format!("{part}{suffix}"));
-                    }
-                } else {
-                    self.push_line(3, &format!("{key}: \"\""));
-                }
-            }
-        }
+/// Serialise the compose file.
+///
+/// With serde-saphyr rather than the `serde_yaml` the other YAML files are written with, for two things compose needs.
+/// It quotes a string YAML 1.1 reads as a boolean, `yes` or `off` among them, which compose's parser still honours and
+/// rejects as an environment value -- and a scenario's own `env:` can hold one. And it writes a long string as a folded
+/// block scalar, broken only at spaces, so the hub's module list fits the line length and still reads back as the one
+/// comma-and-space list. Sequences are indented under their key, as in every other YAML file here, and the result is
+/// restyled as the others are, which settles the quotes it picks.
+fn render_compose_yaml(compose: &ComposeFile) -> Result<String, CliError> {
+    let mut options = serde_saphyr::SerializerOptions::default();
+    options.compact_list_indent = false;
+    let yaml = serde_saphyr::to_string_with_options(compose, options)?;
+    Ok(super::yaml::formatted(&yaml))
+}
+
+/// Serialise `pairs` as a mapping, in the order they are listed.
+fn map_of<S, V>(pairs: &[(String, V)], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    V: Serialize,
+{
+    serializer.collect_map(pairs.iter().map(|pair| (&pair.0, &pair.1)))
+}
+
+/// Serialise the build secrets by name, each read from the host variable the registry token is in.
+fn registry_token_secrets<S>(names: &[String], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    /// A secret compose reads from the host's environment.
+    #[derive(Serialize)]
+    struct FromEnvironment {
+        environment: &'static str,
     }
+    let secret = FromEnvironment {
+        environment: REGISTRY_TOKEN_ENV,
+    };
+    serializer.collect_map(names.iter().map(|name| (name, &secret)))
+}
+
+/// Serialise a service's resource limits as the keys compose spells them.
+fn compose_limits<S>(limits: &ResolvedLimits, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    ComposeLimits::from(limits).serialize(serializer)
 }
