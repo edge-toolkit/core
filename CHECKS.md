@@ -1,12 +1,12 @@
 # Checks
 
-- **Generated:** 2026-11-07
+- **Generated:** 2026-11-08
 - **Checks:** 83
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 369 custom local rules, or non-default strict linter settings
-- **Meta rules:** 20 of those rules are rules about rules
+- **Rules:** 374 custom local rules, or non-default strict linter settings
+- **Meta rules:** 21 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -107,6 +107,11 @@ Rules, from `config/ast-grep/rules`:
 - `inherent-impl-first` -- Put a type's inherent `impl` block before its trait `impl`s in the same module. A reader then
   meets the type's own constructors and methods first, and the trait impls that follow read as what they are: the type's
   conformance to interfaces defined elsewhere.
+- `js-no-function-declaration-in-script` -- A top-level `function` declaration in a file with no `import` or `export`
+  (`DeepSource JS-0067`). Such a file parses as a classic script, where the declaration becomes a property of the global
+  object shared with every other script, and the external analyzer reads it that way even when the file is loaded as a
+  module worker. Bind the function with `const` instead. Check-only: an arrow function is not hoisted and has no `this`
+  or `arguments` of its own, so the rewrite can change behaviour and needs reading per site.
 - `new-fn-returns-option` -- This function returns `Option`, and a new one may not. The return type is where the reason
   a call failed would have gone: `Result` carries it, `Option` discards it at the moment it was known. `None` says
   "there isn't one" and nothing else -- not which input was wrong, not which file was missing, not which subprocess
@@ -150,6 +155,9 @@ Rules, from `config/ast-grep/rules`:
   compile time; both locate the repository root via the `.dprint.jsonc` marker.
 - `no-doctest` -- Doctests are forbidden. Move runnable examples into a `tests/` file (every test file must start with
   `#![cfg(test)]`).
+- `no-empty-new-on-default-type` -- An empty `new()` on a type that implements `Default` (`DeepSource RS-W1079`):
+  construct it with `default()`, which says plainly that the value is the type's zero value rather than something `new`
+  sets up. `String` has a rule of its own; this one covers `PathBuf` and every type the same file derives `Default` for.
 - `no-env-macro` -- `env!` / `option_env!` read a compile-time environment variable and are forbidden for app config --
   read configuration through a `serde`-derived struct deserialised with `serde-env` (see the `no-std-env-var` rule and
   `et-ws-runner-common::config`) so every variable is declared in one typed place. Only these cargo-provided constants,
@@ -303,10 +311,21 @@ Rules, from `config/ast-grep/rules`:
   Write `pub(super) use self::$X::...` to make the local reference explicit.
 - `prefer-self-mod-use-pubsuper-group` -- This file declares `mod $X;` and re-exports it via `pub(super) use $X::{...}`.
   Write `pub(super) use self::$X::{...}` to make the local reference explicit.
+- `python-next-without-default` -- `next()` with no default raises `StopIteration` when the iterator is empty
+  (`DeepSource PTC-W0063`). Inside a generator that ends the generator silently, and anywhere else it surfaces as an
+  exception that names nothing about what was missing. Pass a default and handle it, or unpack the match (`(item,) =
+  [...]`) so an absent or repeated match fails with a `ValueError` saying so. Check-only: the right default, and what to
+  do when it comes back, depends on the call site.
 - `python-process-control-except` -- A bare handler or BaseException catch can intercept shutdown and cancellation
   signals, including KeyboardInterrupt and SystemExit. Catch specific operational exceptions instead, or use
   straight-line cleanup ending in a bare raise. Check-only: choosing the correct exception types requires knowledge of
   the operation being protected.
+- `python-staticmethod-overrides-instance-method` -- This `@staticmethod` overrides a method its base class defines as
+  an instance method (pylint `W0221`, pyright `reportIncompatibleMethodOverride`). The base takes `self` and the
+  override takes nothing, so a call through the class, `Base.method(obj)`, breaks on the subclass, and the repo's own
+  type checker does not report the mismatch. Make the base method static too when neither uses `self`, or keep the
+  override an instance method. Only a base class defined in the same file is caught, since one imported from elsewhere
+  is out of sight. Check-only: which side to change depends on whether the base needs `self`.
 - `semgrep-path-anchored` (meta) -- Every semgrep `paths.include` / `paths.exclude` entry starts with `/`, anchoring it
   at the repository root. A pattern without one is easy to get wrong in either direction -- an exclusion that lost its
   slash silently matches nothing, while a bare `*.rs` matches at any depth only because of a rule nobody reading the
@@ -701,6 +720,7 @@ Rules, from `config/conftest/policy`:
 - `jscpd` (meta) (`config/conftest/policy/jscpd/jscpd.rego`):
   - Module-scope sprintf templates, each on its own line so the source stays inside the line limit.
   - declared_clones may sit at most max_slack above the baseline, so progress gets banked.
+  - declared_clones sits on a multiple of ceiling_step, whichever way it last moved.
 - `mise` (`config/conftest/policy/mise/mise.rego`):
   - A task `run` must be a string, not an array.
   - A multiline `run` must use `shell = "{{ vars.task_shell }}"`.

@@ -16,6 +16,7 @@ import math
 import time
 from collections import deque
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from statistics import fmean
 from typing import Any, TypedDict
@@ -38,7 +39,7 @@ from .gaze_analysis import (
 
 EVENT_SOURCE = served_npm_module_path("et-ws-pyeye1")
 # Served by the MediaPipe tasks-vision runtime module and the model module (see config()).
-EYE_MODEL_PATH = "/modules/et-model-eye1/face_landmarker.task"
+EYE_MODEL_PATH = served_npm_module_path("et-model-eye1") + "/face_landmarker.task"
 VISION_BUNDLE_PATH = "/modules/@mediapipe/tasks-vision/vision_bundle.mjs"
 VISION_WASM_PATH = "/modules/@mediapipe/tasks-vision/wasm"
 
@@ -100,6 +101,77 @@ class FaceEyes(TypedDict):
     face_box: Box
     eyes: list[Eye]
     irises: list[Iris]
+
+
+@dataclass
+class ScreeningWindow:
+    """One screening session's rolling gaze window, smoothed crop, and analysis and capture cadences.
+
+    Each frame is folded in with `observe`, and the `*_tick` methods advance a cadence and say whether the frame
+    falls on it. `sample_loop` drives one, as does any module that feeds pyeye1's screening its own frames.
+    """
+
+    started_at: float
+    history: deque[GazeSample] = field(default_factory=deque)
+    analysis: WindowAnalysis | None = None
+    crop: Box | None = None
+    last_analysis_ms: float = 0.0
+    last_periodic_capture_ms: float = 0.0
+    indicator_was_active: bool = False
+    captured_for_episode: bool = False
+
+    def observe(self, faces: list[Any], results: list[FaceEyes], width: float, height: float, now_s: float) -> None:
+        """Fold one frame into the smoothed crop and the rolling gaze window, dropping samples that aged out."""
+        # The gaze window and the cropped view track the first (and, with numFaces=1, only) face; while no face
+        # is visible the last smoothed crop is kept rather than snapping back to the full frame.
+        if results:
+            self.crop = smooth_crop(self.crop, eye_region_crop(results[0], width, height))
+        if faces:
+            self.history.append(gaze_sample(faces[0], width, height, now_s))
+        while self.history and (now_s - self.history[0]["t"]) * 1000.0 > ANALYSIS_WINDOW_MS:
+            self.history.popleft()
+
+    def analysis_tick(self, now_s: float) -> bool:
+        """Advance the analysis cadence, saying whether this frame falls on it."""
+        if now_s * 1000.0 - self.last_analysis_ms < ANALYSIS_INTERVAL_MS:
+            return False
+        self.last_analysis_ms = now_s * 1000.0
+        return True
+
+    def analyze(self) -> WindowAnalysis:
+        """Re-analyze the gaze window, keeping the result as the session's latest analysis."""
+        self.analysis = analyze_window(list(self.history))
+        return self.analysis
+
+    def detection_capture_due(self, analysis: WindowAnalysis, consent: bool) -> bool:
+        """Track the screening indicator's rising edge, saying whether this analysis owes its episode a capture.
+
+        "Detection" means a screening indicator (eye misalignment or rhythmic oscillation) newly firing, not merely
+        a face or eyes being visible, and each episode gets one capture. The edge is tracked independently of
+        consent: a new episode resets `captured_for_episode` whether or not consent is granted yet, so if consent
+        arrives partway through an already-active episode, that episode still gets its capture rather than the
+        edge having been consumed earlier while consent was off.
+        """
+        indicator_active = analysis["misalignment"]["detected"] or analysis["oscillation"]["detected"]
+        if indicator_active and not self.indicator_was_active:
+            self.captured_for_episode = False
+        self.indicator_was_active = indicator_active
+        if indicator_active and not self.captured_for_episode and consent:
+            self.captured_for_episode = True
+            return True
+        return False
+
+    def periodic_capture_tick(self, now_s: float) -> bool:
+        """Advance the fixed-cadence capture, saying whether this frame falls on it.
+
+        This fires every `PERIODIC_CAPTURE_INTERVAL_MS` whether or not a screening indicator has ever activated,
+        so a long quiet session still stores a periodic image. The cadence tracks elapsed time regardless of
+        consent so it stays on schedule through stretches without it; only the capture itself waits on consent.
+        """
+        if now_s * 1000.0 - self.last_periodic_capture_ms < PERIODIC_CAPTURE_INTERVAL_MS:
+            return False
+        self.last_periodic_capture_ms = now_s * 1000.0
+        return True
 
 
 async def run(platform) -> None:
@@ -185,14 +257,7 @@ async def sample_loop(platform) -> None:
     """Sample frames continuously; re-analyze the gaze window (status + event) per `ANALYSIS_INTERVAL_MS`."""
     sample_count = 0
     started_at = time.monotonic()
-    results: list[FaceEyes] = []
-    history: deque[GazeSample] = deque()
-    analysis: WindowAnalysis | None = None
-    crop: Box | None = None
-    last_analysis_ms = 0.0
-    last_periodic_capture_ms = 0.0
-    indicator_was_active = False
-    captured_for_episode = False
+    window = ScreeningWindow(started_at=started_at)
 
     while not platform.should_stop():
         loop_started = time.monotonic()
@@ -205,49 +270,7 @@ async def sample_loop(platform) -> None:
             width, height = capture["width"], capture["height"]
             results = build_results(capture["faces"], width, height)
             sample_count += 1
-
-            # The gaze window and the cropped view track the first (and, with numFaces=1, only) face; while
-            # no face is visible the last smoothed crop is kept rather than snapping back to the full frame.
-            if results:
-                crop = smooth_crop(crop, eye_region_crop(results[0], width, height))
-            if capture["faces"]:
-                history.append(gaze_sample(capture["faces"][0], width, height, now_s))
-            while history and (now_s - history[0]["t"]) * 1000.0 > ANALYSIS_WINDOW_MS:
-                history.popleft()
-
-            is_analysis_tick = now_s * 1000.0 - last_analysis_ms >= ANALYSIS_INTERVAL_MS
-            if is_analysis_tick:
-                last_analysis_ms = now_s * 1000.0
-                analysis = analyze_window(list(history))
-                platform.set_status(status_text(results, analysis))
-                platform.send_event(client_event_json(event_payload(results, analysis, width, height)))
-
-                # Save one eye capture per detection -- "detection" means a screening indicator (eye
-                # misalignment or rhythmic oscillation) newly firing, not merely a face/eyes being visible.
-                # Edge-triggered on the indicator's own rising edge (not-detected -> detected), tracked
-                # independently of consent: a new episode resets `captured_for_episode` regardless of
-                # whether consent is granted yet, so if consent arrives partway through an already-active
-                # episode, that episode still gets its one capture rather than the edge having been silently
-                # consumed earlier while consent was still off.
-                indicator_active = analysis["misalignment"]["detected"] or analysis["oscillation"]["detected"]
-                if indicator_active and not indicator_was_active:
-                    captured_for_episode = False
-                if indicator_active and not captured_for_episode and platform.upload_consent():
-                    captured_for_episode = True
-                    await attempt_eye_capture(platform)
-                indicator_was_active = indicator_active
-
-            # Independent, fixed-cadence capture on top of the detection-triggered one above: fires every
-            # PERIODIC_CAPTURE_INTERVAL_MS regardless of whether a screening indicator has ever activated, so
-            # a long quiet session still gets a periodic image, not only ever the first detection. The
-            # interval tracks wall-clock time unconditionally (like `last_analysis_ms` above) so it stays on
-            # schedule through stretches with no consent; only the capture attempt itself is gated on consent.
-            is_periodic_capture_tick = now_s * 1000.0 - last_periodic_capture_ms >= PERIODIC_CAPTURE_INTERVAL_MS
-            if is_periodic_capture_tick:
-                last_periodic_capture_ms = now_s * 1000.0
-                if platform.upload_consent():
-                    await attempt_eye_capture(platform)
-            platform.render(results_json(results, analysis, crop))
+            await screen_sample(platform, window, capture["faces"], results, width, height, now_s)
         # Broad by design: MediaPipe/wasm inference and the JS canvas calls raise arbitrary types, and a
         # long-running sample loop must surface the error and keep sampling rather than die on one bad frame.
         except Exception as exc:  # noqa: BLE001
@@ -263,6 +286,28 @@ async def sample_loop(platform) -> None:
     elif (time.monotonic() - started_at) * 1000.0 >= MAX_RUNTIME_MS:
         platform.log("workflow finished automatically after 30 seconds")
     platform.set_status(stopped_status())
+
+
+async def screen_sample(
+    platform,
+    window: ScreeningWindow,
+    faces: list[Any],
+    results: list[FaceEyes],
+    width: float,
+    height: float,
+    now_s: float,
+) -> None:
+    """Screen one sampled frame: report each analysis tick, take the captures it owes, and render the overlay."""
+    window.observe(faces, results, width, height, now_s)
+    if window.analysis_tick(now_s):
+        analysis = window.analyze()
+        platform.set_status(status_text(results, analysis))
+        platform.send_event(client_event_json(event_payload(results, analysis, width, height)))
+        if window.detection_capture_due(analysis, platform.upload_consent()):
+            await attempt_eye_capture(platform)
+    if window.periodic_capture_tick(now_s) and platform.upload_consent():
+        await attempt_eye_capture(platform)
+    platform.render(results_json(results, window.analysis, window.crop))
 
 
 def starting_status() -> str:

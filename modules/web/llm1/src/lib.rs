@@ -1,10 +1,10 @@
 //! llm1: browser LLM chat module -- transformers.js text generation on WebGPU, entirely same-origin.
 //!
-//! `run()` loads the transformers.js runtime the page exposes as `window.loadTransformers`, builds a
-//! text-generation pipeline over the weights the ws-server serves as `et-model-llm1`, then drives the page's
-//! chat panel: every prompt the user sends is appended to the transcript, generated token-by-token through a
-//! transformers.js `TextStreamer`, and reported to the server as an `et-client-event`. No request leaves the
-//! ws-server origin -- runtime, ONNX weights, tokenizer and the ORT wasm binaries are all served as modules.
+//! `run()` loads the transformers.js runtime the page exposes as `window.loadTransformers`, builds a text-generation
+//! pipeline over the weights the ws-server serves as `et-model-llm1`, then drives the page's chat panel: every prompt
+//! the user sends is appended to the transcript, generated token-by-token through a transformers.js `TextStreamer`,
+//! and reported to the server as an `et-client-event`. No request leaves the ws-server origin -- runtime, ONNX weights,
+//! tokenizer and the ORT wasm binaries are all served as modules.
 //!
 //! The chat loop ends when the panel's close button calls `stop()`, or after `MAX_RUNTIME_POLLS` overall.
 
@@ -28,10 +28,12 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{HtmlElement, HtmlTextAreaElement, KeyboardEvent};
 
-/// Model module holding the ONNX weights, tokenizer and configs; served at `/modules/et-model-llm1/`.
+/// Model module holding the ONNX weights, tokenizer and configs.
 const MODEL_ID: &str = "et-model-llm1";
-/// transformers.js resolves a local model as `<local_model_path>/<model_id>/`, so `/modules/` is the root.
-const LOCAL_MODEL_PATH: &str = "/modules/";
+/// Root transformers.js resolves the local model under, as `<local_model_path>/<model_id>/`.
+///
+/// The ws-server serves every module of this project under its scope, the model module included.
+const LOCAL_MODEL_PATH: &str = concat!("/modules/", et_org::npm_scope!());
 /// Weight precision to load. Matches the single `onnx/model_q4f16.onnx` file the fetch task downloads.
 const MODEL_DTYPE: &str = "q4f16";
 /// Directory the module's build task vendors the ORT wasm runtime into, from transformers.js's own pin.
@@ -74,10 +76,10 @@ pub fn is_running() -> bool {
 
 /// Request the active chat loop to stop; it exits at its next poll and cleans up after itself.
 ///
-/// The flag stays registered until `run()` returns, so `is_running()` keeps reporting true while a
-/// generation already in flight finishes. Deregistering it here would open a gap as long as one generation
-/// in which a second `run()` starts a concurrent session -- two sets of panel listeners over one panel, two
-/// sockets -- and the first session's `detach()` would then strip the second session's listeners.
+/// The flag stays registered until `run()` returns, so `is_running()` keeps reporting true while a generation already
+/// in flight finishes. Deregistering it here would open a gap as long as one generation in which a second `run()`
+/// starts a concurrent session -- two sets of panel listeners over one panel, two sockets -- and the first session's
+/// `detach()` would then strip the second session's listeners.
 #[wasm_bindgen]
 pub fn stop() {
     STOP_FLAG.with(|flag| {
@@ -108,9 +110,9 @@ pub async fn run() -> Result<(), JsValue> {
 
 /// Connect, then run a chat session, disconnecting however the session ends.
 ///
-/// The session's own `?` failures are as routine as its success: `create_generator` fails on every browser
-/// without WebGPU. Binding the outcome keeps the socket from being left registered on the server on those
-/// paths, which an early `?` out of the session body would do.
+/// The session's own `?` failures are as routine as its success: `create_generator` fails on every browser without
+/// WebGPU. Binding the outcome keeps the socket from being left registered on the server on those paths, which an early
+/// `?` out of the session body would do.
 async fn chat_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
     log("entered run()");
     set_module_status("llm1: connecting")?;
@@ -124,9 +126,9 @@ async fn chat_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
 
 /// Load the runtime and model, then serve prompts, detaching the panel listeners however serving ends.
 ///
-/// The listeners are detached on the failure paths too: a `Listeners` that drops while its closures are
-/// still registered leaves the panel's buttons calling into dropped `Closure` shims, so a later click
-/// throws instead of doing nothing.
+/// The listeners are detached on the failure paths too: a `Listeners` that drops while its closures are still
+/// registered leaves the panel's buttons calling into dropped `Closure` shims, so a later click throws instead of doing
+/// nothing.
 async fn chat_session(client: &WsClient, stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
     wait_for_connected(client).await?;
     let agent_id = wait_for_agent_id(client).await?;
@@ -281,10 +283,10 @@ async fn answer(context: &ChatContext<'_>, history: &[Turn]) -> Result<String, J
     Reflect::set(&options, &JsValue::from_str("do_sample"), &JsValue::FALSE)?;
     Reflect::set(&options, &JsValue::from_str("streamer"), &streamer)?;
 
-    // Invoked through `Reflect.apply` rather than `Function::call2`: a transformers.js pipeline is a closure
-    // whose prototype was replaced with its class's (their `Callable` base), so it is `typeof "function"` but
-    // has no `Function.prototype.call` to reach -- calling it that way fails with
-    // `TypeError: arg0.call is not a function`. Reflect.apply invokes the callable directly instead.
+    // Invoked through `Reflect.apply` rather than `Function::call2`: a transformers.js pipeline is a closure whose
+    // prototype was replaced with its class's (their `Callable` base), so it is `typeof "function"` but has no
+    // `Function.prototype.call` to reach -- calling it that way fails with `TypeError: arg0.call is not a function`.
+    // Reflect.apply invokes the callable directly instead.
     let messages = chat_messages(history)?;
     let output = Reflect::apply(
         context.generate,
@@ -315,8 +317,8 @@ fn streamer_constructor(transformers: &JsValue) -> Result<Function, JsValue> {
 
 /// Load the transformers.js ES module through the loader the page installs on `window`.
 ///
-/// The page owns the runtime's URL (the same way it owns onnxruntime-web's), and loads it lazily so the
-/// bundle and its wasm only download for a session that actually opens the chat.
+/// The page owns the runtime's URL (the same way it owns onnxruntime-web's), and loads it lazily so the bundle and its
+/// wasm only download for a session that actually opens the chat.
 async fn load_runtime() -> Result<JsValue, JsValue> {
     set_module_status("llm1: loading transformers.js runtime")?;
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
@@ -335,9 +337,9 @@ async fn load_runtime() -> Result<JsValue, JsValue> {
 
 /// Point the runtime at this origin: local weights only, and the ORT wasm pair this module vendors.
 ///
-/// transformers.js picks its ORT wasm filenames itself at import time (a Safari build and an asyncify build
-/// for everyone else) and defaults them to a CDN. Rewriting only the directory keeps upstream's choice while
-/// making sure the bytes come from the ws-server, so a chat session works with no internet access at all.
+/// transformers.js picks its ORT wasm filenames itself at import time (a Safari build and an asyncify build for
+/// everyone else) and defaults them to a CDN. Rewriting only the directory keeps upstream's choice while making sure
+/// the bytes come from the ws-server, so a chat session works with no internet access at all.
 fn configure_runtime(transformers: &JsValue) -> Result<(), JsValue> {
     let env = Reflect::get(transformers, &JsValue::from_str("env"))?;
     Reflect::set(&env, &JsValue::from_str("allowRemoteModels"), &JsValue::FALSE)?;
@@ -373,9 +375,9 @@ fn configure_runtime(transformers: &JsValue) -> Result<(), JsValue> {
 
 /// Build the text-generation pipeline, reporting weight-download progress to the page while it loads.
 ///
-/// WebGPU is required rather than optional: the q4f16 weights this module ships are the WebGPU-friendly
-/// export, and ORT's CPU backend has no usable float16 path for them. Checking `navigator.gpu` up front turns
-/// "no WebGPU in this browser" into that sentence instead of an ORT session-creation error.
+/// WebGPU is required rather than optional: the q4f16 weights this module ships are the WebGPU-friendly export, and
+/// ORT's CPU backend has no usable float16 path for them. Checking `navigator.gpu` up front turns "no WebGPU in this
+/// browser" into that sentence instead of an ORT session-creation error.
 async fn create_generator(transformers: &JsValue) -> Result<JsValue, JsValue> {
     let navigator = web_sys::window()
         .ok_or_else(|| JsValue::from_str("No window available"))?
@@ -452,8 +454,8 @@ fn truncate_history(history: &mut Vec<Turn>) {
 
 /// Read the assistant's reply out of a text-generation pipeline result.
 ///
-/// A chat-array input makes the pipeline echo the whole conversation back as `generated_text`, with its own
-/// turn appended last -- that final `content` is the reply.
+/// A chat-array input makes the pipeline echo the whole conversation back as `generated_text`, with its own turn
+/// appended last -- that final `content` is the reply.
 fn extract_reply(output: &JsValue) -> Result<String, JsValue> {
     let first = Reflect::get(output, &JsValue::from_f64(0.0))?;
     let generated = Reflect::get(&first, &JsValue::from_str("generated_text"))?;
@@ -567,8 +569,8 @@ fn scroll_log_to_end() {
 
 /// Reveal the page's chat panel and focus the input, starting from an empty transcript.
 ///
-/// The transcript is cleared because each run starts with an empty history: leaving the previous session's
-/// turns on screen would imply the model still has them in context when it does not.
+/// The transcript is cleared because each run starts with an empty history: leaving the previous session's turns on
+/// screen would imply the model still has them in context when it does not.
 fn show_panel() -> Result<(), JsValue> {
     chat_log()?.set_text_content(None);
     chat_panel()?.set_hidden(false);

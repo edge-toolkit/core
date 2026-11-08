@@ -14,7 +14,7 @@ from edge_toolkit.events import client_event
 from et_org import served_npm_module_path
 
 EVENT_SOURCE = served_npm_module_path("et-ws-pyface1")
-FACE_MODEL_PATH = "/modules/et-model-face1/video_cv.onnx"
+FACE_MODEL_PATH = served_npm_module_path("et-model-face1") + "/video_cv.onnx"
 FACE_INPUT_WIDTH = 640
 FACE_INPUT_HEIGHT = 608
 FACE_INFERENCE_INTERVAL_MS = 750

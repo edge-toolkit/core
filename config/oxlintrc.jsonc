@@ -33,6 +33,12 @@
     // Cyclomatic-complexity ceiling -- the local twin of `DeepSource JS-R1005`, keeping branchy code in check.
     // 10 is a practical ceiling: eslint's default of 20 is too loose, and that rule's medium=6 too strict here.
     "eslint/complexity": ["error", { "max": 10 }],
+    // The local twins of `DeepSource JS-C1002` and `DeepSource JS-0119`.
+    // The first rejects a one-character name; `x` and `y` stay allowed as a canvas position's own names, as `x1`
+    // and `y1` are in clippy's allowed short identifiers. The second rejects a `let` declared without a value,
+    // which leaves `undefined` standing in for "not set yet" with nothing to say it was meant.
+    "eslint/id-length": ["error", { "exceptions": ["x", "y"] }],
+    "eslint/init-declarations": "error",
   },
   "overrides": [
     {

@@ -1,0 +1,13 @@
+id: python-next-without-default
+valid:
+  - |
+    right = next((iris for iris in irises if iris["label"] == "right_eye"), None)
+  - |
+    (right,) = [iris for iris in irises if iris["label"] == "right_eye"]
+  - |
+    value = iterator.next()
+invalid:
+  - |
+    right = next(iris for iris in irises if iris["label"] == "right_eye")
+  - |
+    first = next(iter(values))

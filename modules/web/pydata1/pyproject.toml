@@ -22,9 +22,9 @@ module-root = ""
 et-rest-client = { workspace = true }
 
 # Browser-side module dependencies, each resolving to a sibling /modules/<name>/ mount.
-# These are other ws-modules in modules/web/ plus the generated et-rest-client
-# at generated/python-rest/.
+# edge-toolkit's shim starts Pyodide, and et-rest-client is the generated client at generated/python-rest/.
 [tool.ws-module.dependencies]
+edge-toolkit = "*"
 et-rest-client = "*"
 et-ws-server-static = "*"
 pyodide = "*"

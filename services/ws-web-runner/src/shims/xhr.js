@@ -83,7 +83,7 @@ if (typeof globalThis.XMLHttpRequest === "undefined") {
           this.statusText = resp.statusText;
           this.responseURL = resp.url;
           const lines = [];
-          resp.headers.forEach((v, k) => lines.push(`${k}: ${v}`));
+          resp.headers.forEach((value, name) => lines.push(`${name}: ${value}`));
           this.#responseHeaders = lines.join("\r\n");
           this.readyState = HEADERS_RECEIVED;
           this.response = await resp.arrayBuffer();

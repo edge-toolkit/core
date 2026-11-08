@@ -46,7 +46,6 @@ expected_test(path) := sprintf("%s_test.rego", [trim_suffix(path, ".rego")])
 untested_policy := {
 	"config/conftest/policy/cross/wasm-bindgen-sync.rego": "one equality between two named values",
 	"config/conftest/policy/gha_action/gha_action.rego": "reads named keys off one action file, no matching",
-	"config/conftest/policy/jscpd/jscpd.rego": "two arithmetic comparisons against one declared number",
 	"config/conftest/policy/pyproject/pyproject.rego": "direct key presence checks over one table",
 	"config/conftest/policy/dockerfile/dockerfile.rego": "pattern-driven; predates the rule, write tests",
 	"config/conftest/policy/gha_combined/gha_combined.rego": "pattern-driven; predates the rule, write tests",

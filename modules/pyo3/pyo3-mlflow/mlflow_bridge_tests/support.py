@@ -169,6 +169,12 @@ class UnexpectedClientError(Exception):
 class BridgeFixtureMixin:
     """Share bridge fixtures and helpers with concrete unittest test classes."""
 
+    timeline: list[tuple[object, ...]]
+    storage: _MemoryStorage
+    sender: _Sender
+    client: _FakeMlflowClient
+    module: types.ModuleType
+
     def setUp(self):
         """Create an isolated module instance and in-memory host interfaces."""
         if not isinstance(self, unittest.TestCase):
@@ -179,9 +185,9 @@ class BridgeFixtureMixin:
         self.client = _FakeMlflowClient()
         mlflow_module = _FakeMlflowModule("mlflow")
         mlflow_module.MlflowClient = self._create_client
-        self.mlflow_patch = patch.dict(sys.modules, {"mlflow": mlflow_module})
-        self.mlflow_patch.start()
-        self.addCleanup(self.mlflow_patch.stop)
+        mlflow_patch = patch.dict(sys.modules, {"mlflow": mlflow_module})
+        mlflow_patch.start()
+        self.addCleanup(mlflow_patch.stop)
         policy_patch = patch.dict(os.environ, {"PYO3_MLFLOW_ARTIFACT_BUCKETS": ""})
         policy_patch.start()
         self.addCleanup(policy_patch.stop)

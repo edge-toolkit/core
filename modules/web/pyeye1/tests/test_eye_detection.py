@@ -2,6 +2,7 @@ import unittest
 
 from pyeye1.eye_detection import (
     CONTOUR_LANDMARK_COUNT,
+    EYE_MODEL_PATH,
     LEFT_EYE_INDICES,
     MESH_LANDMARK_COUNT,
     RIGHT_EYE_INDICES,
@@ -38,6 +39,9 @@ def landmarks_with(points: dict[int, tuple[float, float]]) -> list[float]:
 
 
 class EyeDetectionTests(unittest.TestCase):
+    def test_the_model_loads_from_its_served_module(self) -> None:
+        self.assertEqual(EYE_MODEL_PATH, "/modules/@edge-toolkit/et-model-eye1/face_landmarker.task")
+
     def test_eye_index_sets_are_within_the_mesh(self) -> None:
         self.assertEqual(len(RIGHT_EYE_INDICES), 16)
         self.assertEqual(len(LEFT_EYE_INDICES), 16)
@@ -102,7 +106,7 @@ class EyeDetectionTests(unittest.TestCase):
         for index, (dx, dy) in zip(RIGHT_IRIS_RING, ring_offsets, strict=True):
             points[index] = (0.35 + dx, 0.50 + dy)
         irises = decode_irises(landmarks_with(points), 1000.0, 500.0)
-        right = next(iris for iris in irises if iris["label"] == "right_eye")
+        (right,) = [iris for iris in irises if iris["label"] == "right_eye"]
         self.assertAlmostEqual(right["center"][0], 350.0)
         self.assertAlmostEqual(right["center"][1], 250.0)
         self.assertAlmostEqual(right["radius"], 7.5)

@@ -50,7 +50,7 @@ async function setupAgent() {
   };
   client.set_on_message((data) => {
     if (typeof data !== "string") return;
-    let type;
+    let type = null;
     try {
       type = JSON.parse(data).type;
     } catch {

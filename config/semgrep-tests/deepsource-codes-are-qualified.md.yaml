@@ -1,0 +1,14 @@
+code: |
+  The cases for the analyzer's `PY` and `PTC` code prefixes.
+
+  <!-- ruleid: deepsource-code-must-name-its-analyzer -->
+  The ceiling mirrors a bare PY-R1000.
+
+  <!-- ruleid: deepsource-code-must-name-its-analyzer -->
+  The rule mirrors a bare PTC-W0063.
+
+  <!-- ok: deepsource-code-must-name-its-analyzer -->
+  The ceiling mirrors `DeepSource PY-R1000`.
+
+  <!-- ok: deepsource-code-must-name-its-analyzer -->
+  The rule mirrors `DeepSource PTC-W0063`.

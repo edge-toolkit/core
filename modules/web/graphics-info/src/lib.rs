@@ -23,6 +23,24 @@ const STORAGE: u32 = 0x0080;
 /// Bytes for a 4x4 f32 matrix.
 const MATRIX_BYTES: f64 = 64.0;
 
+/// WGSL compute shader: 4x4 matrix multiply.
+const MATMUL_WGSL: &str = "
+@group(0) @binding(0) var<storage, read>       matA : array<f32, 16>;
+@group(0) @binding(1) var<storage, read>       matB : array<f32, 16>;
+@group(0) @binding(2) var<storage, read_write> matC : array<f32, 16>;
+
+@compute @workgroup_size(4, 4)
+fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
+    let row = gid.y;
+    let col = gid.x;
+    var sum : f32 = 0.0;
+    for (var k : u32 = 0u; k < 4u; k = k + 1u) {
+        sum = sum + matA[row * 4u + k] * matB[k * 4u + col];
+    }
+    matC[row * 4u + col] = sum;
+}
+";
+
 #[wasm_bindgen]
 pub struct GraphicsSupport {
     webgl_supported: bool,
@@ -194,57 +212,74 @@ pub struct GpuComputeResult {
     result_c00: f32,
 }
 
+/// Call `target[name]` with `args`, returning what it returns.
+fn call_method(target: &JsValue, name: &str, args: &[&JsValue]) -> Result<JsValue, JsValue> {
+    let method = js_sys::Reflect::get(target, &JsValue::from_str(name))?.into_function(name)?;
+    method.apply(target, &args.iter().copied().collect())
+}
+
+/// Call `target[name]` with `args` for its effect alone.
+fn invoke(target: &JsValue, name: &str, args: &[&JsValue]) -> Result<(), JsValue> {
+    let _returned: JsValue = call_method(target, name, args)?;
+    Ok(())
+}
+
+/// Call `target[name]` with `args` and await the promise it returns.
+async fn await_method(target: &JsValue, name: &str, args: &[&JsValue]) -> Result<JsValue, JsValue> {
+    JsFuture::from(call_method(target, name, args)?.into_promise(name)?).await
+}
+
+/// A plain object holding `entries`, the shape every WebGPU descriptor takes.
+fn descriptor(entries: &[(&str, &JsValue)]) -> Result<JsValue, JsValue> {
+    let object = js_sys::Object::new();
+    for &(key, value) in entries {
+        let _: bool = js_sys::Reflect::set(&object, &JsValue::from_str(key), value)?;
+    }
+    Ok(object.into())
+}
+
+/// Build a `GPUBuffer` the size of one matrix with the given `usage` flags.
+fn create_buffer(device: &JsValue, usage: u32) -> Result<JsValue, JsValue> {
+    let desc = descriptor(&[
+        ("size", &JsValue::from_f64(MATRIX_BYTES)),
+        ("usage", &JsValue::from_f64(f64::from(usage))),
+    ])?;
+    call_method(device, "createBuffer", &[&desc])
+}
+
 /// Build a `GPUBuffer` with the supplied f32 data and `usage` flags.
 fn create_buffer_with_data(device: &JsValue, data: &[f32], usage: u32) -> Result<JsValue, JsValue> {
-    let buf_desc = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&buf_desc, &JsValue::from_str("size"), &JsValue::from_f64(MATRIX_BYTES))?;
-    let _: bool = js_sys::Reflect::set(
-        &buf_desc,
-        &JsValue::from_str("usage"),
-        &JsValue::from_f64(f64::from(usage)),
-    )?;
-    let _: bool = js_sys::Reflect::set(
-        &buf_desc,
-        &JsValue::from_str("mappedAtCreation"),
-        &JsValue::from_bool(true),
-    )?;
-    let create_buffer =
-        js_sys::Reflect::get(device, &JsValue::from_str("createBuffer"))?.dyn_into::<js_sys::Function>()?;
-    let buf = create_buffer.call1(device, &buf_desc)?;
-    let get_mapped =
-        js_sys::Reflect::get(&buf, &JsValue::from_str("getMappedRange"))?.dyn_into::<js_sys::Function>()?;
-    let mapped = get_mapped.call0(&buf)?;
-    let mapped_array = js_sys::Float32Array::new(&mapped);
-    mapped_array.copy_from(data);
-    let unmap = js_sys::Reflect::get(&buf, &JsValue::from_str("unmap"))?.dyn_into::<js_sys::Function>()?;
-    let _unmap_result: JsValue = unmap.call0(&buf)?;
+    let desc = descriptor(&[
+        ("size", &JsValue::from_f64(MATRIX_BYTES)),
+        ("usage", &JsValue::from_f64(f64::from(usage))),
+        ("mappedAtCreation", &JsValue::from_bool(true)),
+    ])?;
+    let buf = call_method(device, "createBuffer", &[&desc])?;
+    js_sys::Float32Array::new(&call_method(&buf, "getMappedRange", &[])?).copy_from(data);
+    invoke(&buf, "unmap", &[])?;
     Ok(buf)
 }
 
-fn make_bind_group_entry(binding: u32, buf: &JsValue) -> Result<js_sys::Object, JsValue> {
-    let entry = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(
-        &entry,
-        &JsValue::from_str("binding"),
-        &JsValue::from_f64(f64::from(binding)),
-    )?;
-    let resource = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&resource, &JsValue::from_str("buffer"), buf)?;
-    let _: bool = js_sys::Reflect::set(&entry, &JsValue::from_str("resource"), &resource)?;
-    Ok(entry)
+/// A `GPUBindGroupEntry` placing the whole of `buf` at `binding`.
+fn make_bind_group_entry(binding: u32, buf: &JsValue) -> Result<JsValue, JsValue> {
+    let resource = descriptor(&[("buffer", buf)])?;
+    descriptor(&[
+        ("binding", &JsValue::from_f64(f64::from(binding))),
+        ("resource", &resource),
+    ])
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "linear WebGPU compute pipeline setup; splitting further obscures the buffer/binding wiring"
-)]
-async fn run_gpu_compute_inner(device: &JsValue, window: &web_sys::Window) -> Result<(f64, f32), JsValue> {
-    // Catch any silent WebGPU validation errors.
-    let push_error_scope =
-        js_sys::Reflect::get(device, &JsValue::from_str("pushErrorScope"))?.dyn_into::<js_sys::Function>()?;
-    let _push_result: JsValue = push_error_scope.call1(device, &JsValue::from_str("validation"))?;
+/// The buffers one matrix multiply runs over: its two inputs, its output, and the readback copy of the output.
+struct MatmulBuffers {
+    input_a: JsValue,
+    input_b: JsValue,
+    output: JsValue,
+    readback: JsValue,
+}
 
-    // 4x4 matrices stored as f32 arrays (row-major). A = identity, B = 2x identity.
+/// Create the multiply's buffers, with A the identity and B twice the identity, so C is 2x identity.
+fn create_matmul_buffers(device: &JsValue) -> Result<MatmulBuffers, JsValue> {
+    // 4x4 matrices stored as f32 arrays (row-major).
     #[rustfmt::skip]
     let mat_a: [f32; 16] = [
         1.0, 0.0, 0.0, 0.0,
@@ -259,161 +294,101 @@ async fn run_gpu_compute_inner(device: &JsValue, window: &web_sys::Window) -> Re
         0.0, 0.0, 2.0, 0.0,
         0.0, 0.0, 0.0, 2.0,
     ];
-
-    let buf_a = create_buffer_with_data(device, &mat_a, STORAGE)?;
-    let buf_b = create_buffer_with_data(device, &mat_b, STORAGE)?;
-
-    let out_desc = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&out_desc, &JsValue::from_str("size"), &JsValue::from_f64(MATRIX_BYTES))?;
-    let _: bool = js_sys::Reflect::set(
-        &out_desc,
-        &JsValue::from_str("usage"),
-        &JsValue::from_f64(f64::from(STORAGE | COPY_SRC)),
-    )?;
-    let create_buffer_fn =
-        js_sys::Reflect::get(device, &JsValue::from_str("createBuffer"))?.dyn_into::<js_sys::Function>()?;
-    let buf_out = create_buffer_fn.call1(device, &out_desc)?;
-
-    let rb_desc = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&rb_desc, &JsValue::from_str("size"), &JsValue::from_f64(MATRIX_BYTES))?;
-    let _: bool = js_sys::Reflect::set(
-        &rb_desc,
-        &JsValue::from_str("usage"),
-        &JsValue::from_f64(f64::from(COPY_DST | MAP_READ)),
-    )?;
-    let buf_readback = create_buffer_fn.call1(device, &rb_desc)?;
-
-    // WGSL compute shader: 4x4 matrix multiply.
-    let wgsl = "
-@group(0) @binding(0) var<storage, read>       matA : array<f32, 16>;
-@group(0) @binding(1) var<storage, read>       matB : array<f32, 16>;
-@group(0) @binding(2) var<storage, read_write> matC : array<f32, 16>;
-
-@compute @workgroup_size(4, 4)
-fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
-    let row = gid.y;
-    let col = gid.x;
-    var sum : f32 = 0.0;
-    for (var k : u32 = 0u; k < 4u; k = k + 1u) {
-        sum = sum + matA[row * 4u + k] * matB[k * 4u + col];
-    }
-    matC[row * 4u + col] = sum;
+    Ok(MatmulBuffers {
+        input_a: create_buffer_with_data(device, &mat_a, STORAGE)?,
+        input_b: create_buffer_with_data(device, &mat_b, STORAGE)?,
+        output: create_buffer(device, STORAGE | COPY_SRC)?,
+        readback: create_buffer(device, COPY_DST | MAP_READ)?,
+    })
 }
-";
 
-    let shader_desc = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&shader_desc, &JsValue::from_str("code"), &JsValue::from_str(wgsl))?;
-    let create_shader =
-        js_sys::Reflect::get(device, &JsValue::from_str("createShaderModule"))?.dyn_into::<js_sys::Function>()?;
-    let shader = create_shader.call1(device, &shader_desc)?;
+/// Compile `MATMUL_WGSL` into a compute pipeline.
+async fn create_matmul_pipeline(device: &JsValue) -> Result<JsValue, JsValue> {
+    let shader_desc = descriptor(&[("code", &JsValue::from_str(MATMUL_WGSL))])?;
+    let shader = call_method(device, "createShaderModule", &[&shader_desc])?;
+    let compute_stage = descriptor(&[("module", &shader), ("entryPoint", &JsValue::from_str("main"))])?;
+    let pipeline_desc = descriptor(&[("layout", &JsValue::from_str("auto")), ("compute", &compute_stage)])?;
+    await_method(device, "createComputePipelineAsync", &[&pipeline_desc]).await
+}
 
-    let compute_stage = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&compute_stage, &JsValue::from_str("module"), &shader)?;
-    let _: bool = js_sys::Reflect::set(
-        &compute_stage,
-        &JsValue::from_str("entryPoint"),
-        &JsValue::from_str("main"),
-    )?;
-    let cp_desc = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&cp_desc, &JsValue::from_str("layout"), &JsValue::from_str("auto"))?;
-    let _: bool = js_sys::Reflect::set(&cp_desc, &JsValue::from_str("compute"), &compute_stage)?;
-    let create_cp = js_sys::Reflect::get(device, &JsValue::from_str("createComputePipelineAsync"))?
-        .dyn_into::<js_sys::Function>()?;
-    let pipeline = JsFuture::from(create_cp.call1(device, &cp_desc)?.dyn_into::<Promise>()?).await?;
-
-    let get_bgl =
-        js_sys::Reflect::get(&pipeline, &JsValue::from_str("getBindGroupLayout"))?.dyn_into::<js_sys::Function>()?;
-    let bgl = get_bgl.call1(&pipeline, &JsValue::from_f64(0.0))?;
-
-    let bg_entries = js_sys::Array::new();
-    let _len_a: u32 = bg_entries.push(&make_bind_group_entry(0, &buf_a)?.into());
-    let _len_b: u32 = bg_entries.push(&make_bind_group_entry(1, &buf_b)?.into());
-    let _len_c: u32 = bg_entries.push(&make_bind_group_entry(2, &buf_out)?.into());
-    let bg_desc = js_sys::Object::new();
-    let _: bool = js_sys::Reflect::set(&bg_desc, &JsValue::from_str("layout"), &bgl)?;
-    let _: bool = js_sys::Reflect::set(&bg_desc, &JsValue::from_str("entries"), &bg_entries)?;
-    let create_bg =
-        js_sys::Reflect::get(device, &JsValue::from_str("createBindGroup"))?.dyn_into::<js_sys::Function>()?;
-    let bind_group = create_bg.call1(device, &bg_desc)?;
-
-    let perf = js_sys::Reflect::get(window, &JsValue::from_str("performance"))?;
-    let now_fn = js_sys::Reflect::get(&perf, &JsValue::from_str("now"))?.dyn_into::<js_sys::Function>()?;
-    let t0 = now_fn.call0(&perf)?.as_f64().unwrap_or(0.0_f64);
-
-    let create_encoder =
-        js_sys::Reflect::get(device, &JsValue::from_str("createCommandEncoder"))?.dyn_into::<js_sys::Function>()?;
-    let encoder = create_encoder.call0(device)?;
-
-    let begin_compute =
-        js_sys::Reflect::get(&encoder, &JsValue::from_str("beginComputePass"))?.dyn_into::<js_sys::Function>()?;
-    let pass = begin_compute.call0(&encoder)?;
-
-    let set_pipeline =
-        js_sys::Reflect::get(&pass, &JsValue::from_str("setPipeline"))?.dyn_into::<js_sys::Function>()?;
-    let _sp_result: JsValue = set_pipeline.call1(&pass, &pipeline)?;
-
-    let set_bg = js_sys::Reflect::get(&pass, &JsValue::from_str("setBindGroup"))?.dyn_into::<js_sys::Function>()?;
-    let _sbg_result: JsValue = set_bg.call2(&pass, &JsValue::from_f64(0.0), &bind_group)?;
-
-    let dispatch =
-        js_sys::Reflect::get(&pass, &JsValue::from_str("dispatchWorkgroups"))?.dyn_into::<js_sys::Function>()?;
-    let _disp_result: JsValue = dispatch.call2(&pass, &JsValue::from_f64(1.0), &JsValue::from_f64(1.0))?;
-
-    let end_pass = js_sys::Reflect::get(&pass, &JsValue::from_str("end"))?.dyn_into::<js_sys::Function>()?;
-    let _end_result: JsValue = end_pass.call0(&pass)?;
-
-    let copy_buf =
-        js_sys::Reflect::get(&encoder, &JsValue::from_str("copyBufferToBuffer"))?.dyn_into::<js_sys::Function>()?;
-    let _copy_result: JsValue = copy_buf.call5(
-        &encoder,
-        &buf_out,
-        &JsValue::from_f64(0.0),
-        &buf_readback,
-        &JsValue::from_f64(0.0),
-        &JsValue::from_f64(MATRIX_BYTES),
-    )?;
-
-    let finish = js_sys::Reflect::get(&encoder, &JsValue::from_str("finish"))?.dyn_into::<js_sys::Function>()?;
-    let cmd_buf = finish.call0(&encoder)?;
-
-    let queue = js_sys::Reflect::get(device, &JsValue::from_str("queue"))?;
-    let submit = js_sys::Reflect::get(&queue, &JsValue::from_str("submit"))?.dyn_into::<js_sys::Function>()?;
-    let cmds = js_sys::Array::new();
-    let _cmds_len: u32 = cmds.push(&cmd_buf);
-    let _submit_result: JsValue = submit.call1(&queue, &cmds)?;
-
-    let pop_error_scope =
-        js_sys::Reflect::get(device, &JsValue::from_str("popErrorScope"))?.dyn_into::<js_sys::Function>()?;
-    let gpu_error = JsFuture::from(pop_error_scope.call0(device)?.dyn_into::<Promise>()?).await?;
-    if !gpu_error.is_null() && !gpu_error.is_undefined() {
-        let msg = js_sys::Reflect::get(&gpu_error, &JsValue::from_str("message"))
-            .ok()
-            .and_then(|value| value.as_string())
-            .unwrap_or_else(|| "unknown GPU validation error".to_string());
-        return Err(JsValue::from_str(&format!("WebGPU validation error: {msg}")));
-    }
-
-    let map_async =
-        js_sys::Reflect::get(&buf_readback, &JsValue::from_str("mapAsync"))?.dyn_into::<js_sys::Function>()?;
-    let _map_result: JsValue = JsFuture::from(
-        map_async
-            .call1(&buf_readback, &JsValue::from_f64(1.0))?
-            .dyn_into::<Promise>()?,
+/// Bind the multiply's input and output buffers to the pipeline's three storage bindings.
+fn create_bind_group(device: &JsValue, pipeline: &JsValue, buffers: &MatmulBuffers) -> Result<JsValue, JsValue> {
+    let layout = call_method(pipeline, "getBindGroupLayout", &[&JsValue::from_f64(0.0)])?;
+    let entries: JsValue = js_sys::Array::of3(
+        &make_bind_group_entry(0, &buffers.input_a)?,
+        &make_bind_group_entry(1, &buffers.input_b)?,
+        &make_bind_group_entry(2, &buffers.output)?,
     )
-    .await?;
+    .into();
+    let bind_group_desc = descriptor(&[("layout", &layout), ("entries", &entries)])?;
+    call_method(device, "createBindGroup", &[&bind_group_desc])
+}
 
-    let t1 = now_fn.call0(&perf)?.as_f64().unwrap_or(0.0_f64);
+/// Encode the multiply's compute pass and the copy of its output into the readback buffer, and submit them.
+fn submit_matmul(
+    device: &JsValue,
+    pipeline: &JsValue,
+    bind_group: &JsValue,
+    buffers: &MatmulBuffers,
+) -> Result<(), JsValue> {
+    let zero = JsValue::from_f64(0.0);
+    let one = JsValue::from_f64(1.0);
+    let encoder = call_method(device, "createCommandEncoder", &[])?;
+    let pass = call_method(&encoder, "beginComputePass", &[])?;
+    invoke(&pass, "setPipeline", &[pipeline])?;
+    invoke(&pass, "setBindGroup", &[&zero, bind_group])?;
+    invoke(&pass, "dispatchWorkgroups", &[&one, &one])?;
+    invoke(&pass, "end", &[])?;
+    let size = JsValue::from_f64(MATRIX_BYTES);
+    invoke(
+        &encoder,
+        "copyBufferToBuffer",
+        &[&buffers.output, &zero, &buffers.readback, &zero, &size],
+    )?;
+    let commands: JsValue = js_sys::Array::of1(&call_method(&encoder, "finish", &[])?).into();
+    let queue = js_sys::Reflect::get(device, &JsValue::from_str("queue"))?;
+    invoke(&queue, "submit", &[&commands])
+}
 
-    let get_mapped =
-        js_sys::Reflect::get(&buf_readback, &JsValue::from_str("getMappedRange"))?.dyn_into::<js_sys::Function>()?;
-    let mapped = get_mapped.call0(&buf_readback)?;
-    let result_array = js_sys::Float32Array::new(&mapped);
-    let result_c00 = result_array.get_index(0);
+/// Fail with the validation error the device's error scope caught, when it caught one.
+async fn check_validation(device: &JsValue) -> Result<(), JsValue> {
+    let gpu_error = await_method(device, "popErrorScope", &[]).await?;
+    if gpu_error.is_null() || gpu_error.is_undefined() {
+        return Ok(());
+    }
+    let msg = js_sys::Reflect::get(&gpu_error, &JsValue::from_str("message"))
+        .ok()
+        .and_then(|value| value.as_string())
+        .unwrap_or_else(|| "unknown GPU validation error".to_string());
+    Err(JsValue::from_str(&format!("WebGPU validation error: {msg}")))
+}
 
-    let unmap = js_sys::Reflect::get(&buf_readback, &JsValue::from_str("unmap"))?.dyn_into::<js_sys::Function>()?;
-    let _unmap_result: JsValue = unmap.call0(&buf_readback)?;
+/// `performance.now()`, or 0 when it answers with something other than a number.
+fn performance_now(performance: &JsValue) -> Result<f64, JsValue> {
+    Ok(call_method(performance, "now", &[])?.as_f64().unwrap_or(0.0_f64))
+}
 
-    Ok((t1 - t0, result_c00))
+/// Run the multiply on `device`, returning how long it took in milliseconds and the result's top-left element.
+///
+/// The time covers submission through the readback becoming mappable, so it includes the wait for the GPU.
+async fn run_gpu_compute_inner(device: &JsValue, window: &web_sys::Window) -> Result<(f64, f32), JsValue> {
+    // Catch any silent WebGPU validation errors.
+    invoke(device, "pushErrorScope", &[&JsValue::from_str("validation")])?;
+    let buffers = create_matmul_buffers(device)?;
+    let pipeline = create_matmul_pipeline(device).await?;
+    let bind_group = create_bind_group(device, &pipeline, &buffers)?;
+
+    let performance = js_sys::Reflect::get(window, &JsValue::from_str("performance"))?;
+    let started = performance_now(&performance)?;
+    submit_matmul(device, &pipeline, &bind_group, &buffers)?;
+    check_validation(device).await?;
+    let _map_result: JsValue = await_method(&buffers.readback, "mapAsync", &[&JsValue::from_f64(1.0)]).await?;
+    let finished = performance_now(&performance)?;
+
+    let mapped = call_method(&buffers.readback, "getMappedRange", &[])?;
+    let result_c00 = js_sys::Float32Array::new(&mapped).get_index(0);
+    invoke(&buffers.readback, "unmap", &[])?;
+    Ok((finished - started, result_c00))
 }
 
 #[wasm_bindgen]

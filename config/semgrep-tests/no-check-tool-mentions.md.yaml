@@ -1,0 +1,8 @@
+code: |
+  The analyzer's name may qualify one of its codes, including those with the `PY` and `PTC` prefixes.
+
+  The local equivalent of `DeepSource PY-R1000`.
+
+  The local equivalent of `DeepSource PTC-W0063`.
+
+  There is no `ruleid` case: an annotation naming the rule spells out the word the rule bans, so it reports itself.

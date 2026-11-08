@@ -1,0 +1,63 @@
+id: python-staticmethod-overrides-instance-method
+valid:
+  - |
+    class FakePlatform:
+        @staticmethod
+        async def start_camera() -> None:
+            pass
+
+
+    class CameraDeniedPlatform(FakePlatform):
+        @staticmethod
+        async def start_camera() -> None:
+            raise RuntimeError("Permission denied")
+  - |
+    class FakePlatform:
+        async def start_camera(self) -> None:
+            pass
+
+
+    class CameraDeniedPlatform(FakePlatform):
+        async def start_camera(self) -> None:
+            raise RuntimeError(self.reason)
+  - |
+    class FakePlatform:
+        async def start_camera(self) -> None:
+            pass
+
+
+    class NeverConnectingPlatform(FakePlatform):
+        @staticmethod
+        def ws_state() -> str:
+            return "connecting"
+  - |
+    class FakePlatform:
+        async def start_camera(self) -> None:
+            pass
+
+
+    class Unrelated:
+        @staticmethod
+        async def start_camera() -> None:
+            raise RuntimeError("Permission denied")
+invalid:
+  - |
+    class FakePlatform:
+        async def start_camera(self) -> None:
+            pass
+
+
+    class CameraDeniedPlatform(FakePlatform):
+        @staticmethod
+        async def start_camera() -> None:
+            raise RuntimeError("Permission denied")
+  - |
+    class Base:
+        def describe(self) -> str:
+            return "base"
+
+
+    class Child(Base, Mixin):
+        @staticmethod
+        def describe() -> str:
+            return "child"

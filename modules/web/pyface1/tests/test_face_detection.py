@@ -19,6 +19,9 @@ from pyface1.face_detection import (
 
 
 class RetinaFaceTests(unittest.TestCase):
+    def test_config_loads_the_model_from_its_served_module(self) -> None:
+        self.assertEqual(face_detection.config()["model_path"], "/modules/@edge-toolkit/et-model-face1/video_cv.onnx")
+
     def test_softmax_handles_empty_equal_and_large_values(self) -> None:
         self.assertEqual(softmax([]), [])
 

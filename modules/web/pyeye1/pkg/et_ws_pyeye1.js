@@ -5,31 +5,21 @@
 // mesh model) does the inference in JS; the Python layer turns its normalized landmarks into eye boxes,
 // iris circles, and the eye-misalignment / rhythmic-oscillation screening indicators this adapter renders.
 
-const PYODIDE_BASE_PATH = "/modules/pyodide/";
-
 // Stage-2 eye-box outline colours, keyed by the label the Python decoder emits.
 const EYE_COLORS = {
   left_eye: "#ff4d4d",
   right_eye: "#4dff88",
 };
 
-let pyodide;
-let py;
+let pyodide = null;
+let py = null;
 let runtime = null;
 
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
-  if (!globalThis.loadPyodide) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `${PYODIDE_BASE_PATH}pyodide.js`;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+  // edge-toolkit's shim starts Pyodide, and installs its wheel and the et-org and et-ws wheels it imports.
+  const edgeToolkit = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  pyodide = await edgeToolkit.startPyodide();
 
   // pydantic backs the typed WsClientEvent message in the et_ws wheel.
   await pyodide.loadPackage("micropip");
@@ -46,12 +36,11 @@ export default async function init() {
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${path}")`);
   };
 
-  const pkg = await fetch(new URL("package.json", import.meta.url), { cache: "no-cache" }).then((r) => r.json());
+  const pkgResponse = await fetch(new URL("package.json", import.meta.url), { cache: "no-cache" });
+  const pkg = await pkgResponse.json();
   const distribution = pkg.name.split("/").pop();
   await installLocalWheel(`${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
-  // edge-toolkit's shim installs its wheel and the et-org and et-ws wheels it imports, each its own ws-module.
-  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
-  await installEdgeToolkit(pyodide);
+  await edgeToolkit.installWheel(pyodide);
 
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyeye1");
   py = pyodide.pyimport("pyeye1");

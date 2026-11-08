@@ -1,5 +1,4 @@
 // Full-screen browser adapter for the combined Python eye and speech demo.
-const PYODIDE_BASE_PATH = "/modules/pyodide/";
 // Both detections run for the same fixed window: the eye loop and the speech recording each last this long.
 const CAPTURE_SECONDS = 30;
 
@@ -8,11 +7,10 @@ const EYE_COLORS = {
   right_eye: "#56e6b1",
 };
 
-let pyodide;
-let py;
-let cfg;
+let pyodide = null;
+let py = null;
+let cfg = null;
 let runtime = null;
-let pythonScriptPromise = null;
 let pythonRuntimePromise = null;
 
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
@@ -62,10 +60,11 @@ async function loadPythonRuntime() {
 
 async function initializePythonRuntime() {
   setPreparationStatus("Loading the Python runtime script...");
-  await loadPythonRuntimeScript();
+  const edgeToolkit = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  await edgeToolkit.loadPyodideScript();
 
   setPreparationStatus("Starting the local Python interpreter...");
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+  pyodide = await edgeToolkit.startPyodide();
   setPreparationStatus("Installing local Python dependencies...");
   await pyodide.loadPackage("micropip");
   await pyodide.pyimport("micropip").install("pydantic");
@@ -76,8 +75,7 @@ async function initializePythonRuntime() {
     installModuleWheel(new URL(".", import.meta.url)),
   ]);
   setPreparationStatus("Installing the WebSocket Python support module...");
-  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
-  await installEdgeToolkit(pyodide);
+  await edgeToolkit.installWheel(pyodide);
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pydemo1");
   try {
     setPreparationStatus("Importing the combined demo workflow...");
@@ -85,24 +83,6 @@ async function initializePythonRuntime() {
     cfg = py.config().toJs({ dict_converter: Object.fromEntries });
   } finally {
     if (globalThis.__etPyCov) await globalThis.__etPyCov.stop(pyodide, "pydemo1");
-  }
-}
-
-async function loadPythonRuntimeScript() {
-  if (globalThis.loadPyodide) return;
-  if (pythonScriptPromise) return pythonScriptPromise;
-  pythonScriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = `${PYODIDE_BASE_PATH}pyodide.js`;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  try {
-    await pythonScriptPromise;
-  } catch (error) {
-    pythonScriptPromise = null;
-    throw error;
   }
 }
 

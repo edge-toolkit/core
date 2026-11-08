@@ -30,9 +30,9 @@ export default async function init() {
         wsState = "connected";
         ws.send(JSON.stringify({ type: "et-connect" }));
       };
-      ws.onmessage = (e) => {
+      ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(e.data);
+          const msg = JSON.parse(event.data);
           if (msg.type === "et-connect-ack" && SAFE_SEGMENT.test(msg.agent_id)) agentId = msg.agent_id;
           const bucket = msg.bucket;
           const filename = msg.filename;
@@ -53,9 +53,9 @@ export default async function init() {
     wsGetAgentId: () => agentId ?? "",
     hasInput: () => inputPointer !== null,
     loadInput: () =>
-      fetch(`/storage/${inputPointer.bucket}/${inputPointer.filename}`).then((r) => {
-        if (!r.ok) throw new Error(`input GET failed: ${r.status}`);
-        return r.json().then((json) => {
+      fetch(`/storage/${inputPointer.bucket}/${inputPointer.filename}`).then((response) => {
+        if (!response.ok) throw new Error(`input GET failed: ${response.status}`);
+        return response.json().then((json) => {
           input = json;
         });
       }),
@@ -69,8 +69,8 @@ export default async function init() {
     inputDescribe: () => `${input.clients.length} clients x ${input.rounds} rounds x ${input.epochs} local epochs`,
     putOutput: (module, weight, bias) => {
       const body = JSON.stringify({ module, weight, bias });
-      return fetch(`/storage/${agentId}/math1-output.json`, { method: "PUT", body }).then((r) => {
-        if (!r.ok) throw new Error(`output PUT failed: ${r.status}`);
+      return fetch(`/storage/${agentId}/math1-output.json`, { method: "PUT", body }).then((response) => {
+        if (!response.ok) throw new Error(`output PUT failed: ${response.status}`);
       });
     },
     log: (msg) => {
@@ -79,7 +79,7 @@ export default async function init() {
     },
     setStatus: (msg) => appendOutput(msg),
     getWsUrl: () => `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
 
   // Instantiates the WasmGC module (browser path: instantiateStreaming over fetch) and runs Kotlin main(),

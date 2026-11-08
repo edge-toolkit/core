@@ -46,11 +46,11 @@ if (typeof globalThis.document === "undefined") {
     removeChild() {
       return this;
     }
-    setAttribute(k, v) {
-      this[k] = v;
+    setAttribute(name, value) {
+      this[name] = value;
     }
-    getAttribute(k) {
-      return this[k] ?? null;
+    getAttribute(name) {
+      return this[name] ?? null;
     }
     addEventListener() {}
     removeEventListener() {}

@@ -1,0 +1,25 @@
+id: python-next-without-default
+language: Python
+severity: error
+message: |
+  `next()` with no default raises `StopIteration` when the iterator is empty (`DeepSource PTC-W0063`). Inside a
+  generator that ends the generator silently, and anywhere else it surfaces as an exception that names nothing about
+  what was missing. Pass a default and handle it, or unpack the match (`(item,) = [...]`) so an absent or repeated
+  match fails with a `ValueError` saying so. Check-only: the right default, and what to do when it comes back,
+  depends on the call site.
+rule:
+  any:
+    - pattern: next($ITERATOR)
+    # `next(x for x in xs)` parses with the bare generator expression as the call's whole argument node.
+    - kind: call
+      all:
+        - has:
+            field: function
+            regex: "^next$"
+        - has:
+            field: arguments
+            kind: generator_expression
+ignores:
+  - generated/**
+  - "**/componentize_py_async_support/**"
+  - "**/wit_world/**"

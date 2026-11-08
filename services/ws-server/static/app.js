@@ -36,11 +36,11 @@ function clientEventJson(capability, action, data) {
 console.log(`app.js: module loading started (build ${APP_JS_BUILD})`);
 
 await new Promise((resolve, reject) => {
-  const s = document.createElement("script");
-  s.src = "/modules/onnxruntime-web/dist/ort.min.js";
-  s.onload = resolve;
-  s.onerror = reject;
-  document.head.appendChild(s);
+  const script = document.createElement("script");
+  script.src = "/modules/onnxruntime-web/dist/ort.min.js";
+  script.onload = resolve;
+  script.onerror = reject;
+  document.head.appendChild(script);
 });
 
 // llm1's transformers.js runtime, loaded on demand rather than with the page.
@@ -218,7 +218,7 @@ const runSelectedWorkflowModule = async () => {
 };
 
 const handleProtocolMessage = (message) => {
-  let parsed;
+  let parsed = null;
 
   try {
     parsed = JSON.parse(message);

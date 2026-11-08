@@ -147,13 +147,7 @@ impl DeviceSensors {
     #[must_use]
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self {
-            active: false,
-            orientation_state: Rc::new(RefCell::new(None)),
-            motion_state: Rc::new(RefCell::new(None)),
-            orientation_listener: None,
-            motion_listener: None,
-        }
+        Self::default()
     }
 
     #[expect(
@@ -335,13 +329,16 @@ pub fn is_running() -> bool {
     SENSOR_STREAM_RUNTIME.with(|runtime| runtime.borrow().is_some())
 }
 
+/// Start the sensors and re-render their readings every `SENSOR_RENDER_INTERVAL_MS`, stopping after 15 seconds.
+///
+/// Does nothing when a stream is already running.
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     if is_running() {
         return Ok(());
     }
 
-    let mut sensors = DeviceSensors::new();
+    let mut sensors = DeviceSensors::default();
     set_sensor_status("sensor stream: requesting sensor access")?;
     sensors.start().await?;
     render_sensor_output(&sensors)?;

@@ -1,0 +1,61 @@
+id: no-empty-new-on-default-type
+valid:
+  - |
+    fn build() -> PathBuf {
+        PathBuf::default()
+    }
+  - |
+    fn build() -> Vec<u8> {
+        Vec::new()
+    }
+  - |
+    struct Sensors {
+        active: bool,
+    }
+    fn build() -> Sensors {
+        Sensors::new()
+    }
+  - |
+    #[derive(Default)]
+    struct Other;
+    struct Sensors;
+    fn build() -> Sensors {
+        Sensors::new()
+    }
+  - |
+    #[derive(Default)]
+    struct Sensors;
+    fn build() -> Sensors {
+        Sensors::new_with(1)
+    }
+invalid:
+  - |
+    fn build() -> PathBuf {
+        PathBuf::new()
+    }
+  - |
+    fn build() -> std::path::PathBuf {
+        std::path::PathBuf::new()
+    }
+  - |
+    #[derive(Default)]
+    struct Sensors;
+    fn build() -> Sensors {
+        Sensors::new()
+    }
+  - |
+    #[wasm_bindgen] #[derive(Clone, Default)]
+    pub struct Sensors {
+        active: bool,
+    }
+    fn build() -> Sensors {
+        Sensors::new()
+    }
+  - |
+    #[derive(Default)]
+    // A comment between the attributes and the struct.
+    #[wasm_bindgen]
+    pub struct Sensors;
+    fn build() -> Sensors {
+        Sensors::new()
+    }

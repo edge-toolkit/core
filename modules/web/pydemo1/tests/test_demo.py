@@ -29,7 +29,8 @@ class FakePlatform:
     def ws_state(self) -> str:
         return self.state
 
-    def agent_id(self) -> str:
+    @staticmethod
+    def agent_id() -> str:
         return "fake-agent"
 
     async def load_models(self) -> None:
@@ -41,7 +42,8 @@ class FakePlatform:
     async def capture(self) -> None:
         self.calls.append("capture")
 
-    def should_stop(self) -> bool:
+    @staticmethod
+    def should_stop() -> bool:
         return False
 
     def cleanup(self) -> None:
@@ -58,8 +60,8 @@ class DemoTests(unittest.TestCase):
     def test_config_reuses_existing_module_assets(self) -> None:
         value = config()
         self.assertEqual(value["speech"]["capture_seconds"], 30)
-        self.assertIn("face_landmarker.task", value["eye"]["model_path"])
-        self.assertIn("speech1.onnx", value["speech"]["model_path"])
+        self.assertEqual(value["eye"]["model_path"], "/modules/@edge-toolkit/et-model-eye1/face_landmarker.task")
+        self.assertEqual(value["speech"]["model_path"], "/modules/@edge-toolkit/et-model-speech1/speech1.onnx")
 
     def test_empty_eye_capture_has_no_detections(self) -> None:
         reset_eye_capture()

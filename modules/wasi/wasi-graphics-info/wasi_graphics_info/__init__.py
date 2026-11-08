@@ -499,7 +499,7 @@ class Entry(wit_world.exports.Entry):
     typed cause instead of a stringified `Runtime` blob.
     """
 
-    async def run(self) -> None:
+    async def run(self) -> None:  # noqa: PLR6301  # skipcq: PYL-R0201 -- implements the generated instance method
         """Run the workflow, mapping any WASI `Err` to a typed `EntryError_*`."""
         try:
             await _run_workflow()

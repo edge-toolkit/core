@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@edge-toolkit/edge-toolkit": "*",
     "@edge-toolkit/et-rest-client": "*",
     "@edge-toolkit/et-ws-server-static": "*",
     "pyodide": "*"

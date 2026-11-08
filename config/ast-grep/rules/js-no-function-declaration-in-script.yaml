@@ -1,0 +1,31 @@
+id: js-no-function-declaration-in-script
+language: JavaScript
+severity: error
+message: |
+  A top-level `function` declaration in a file with no `import` or `export` (`DeepSource JS-0067`). Such a file parses
+  as a classic script, where the declaration becomes a property of the global object shared with every other script,
+  and the external analyzer reads it that way even when the file is loaded as a module worker. Bind the function with
+  `const` instead. Check-only: an arrow function is not hoisted and has no `this` or `arguments` of its own, so the
+  rewrite can change behaviour and needs reading per site.
+rule:
+  any:
+    - kind: function_declaration
+    - kind: generator_function_declaration
+  inside:
+    kind: program
+    not:
+      has:
+        any:
+          - kind: import_statement
+          - kind: export_statement
+          # A top-level `await` parses only in a module, so the file cannot be a classic script.
+          - kind: expression_statement
+            has:
+              kind: await_expression
+          - kind: lexical_declaration
+            has:
+              kind: variable_declarator
+              has:
+                kind: await_expression
+ignores:
+  - generated/**

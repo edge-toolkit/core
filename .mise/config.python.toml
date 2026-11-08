@@ -190,7 +190,8 @@ run = """
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pymath1-module]
-depends = ["build-et-cli"]
+# Its shim starts Pyodide through edge-toolkit's, which has to be built to be served.
+depends = ["build-edge-toolkit-wheel"]
 description = "Build the pymath1 FedAvg module"
 dir = "modules/web/pymath1"
 run = """
@@ -200,7 +201,7 @@ run = """
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydata1-module]
-depends = ["build-et-rest-client-wheel"]
+depends = ["build-edge-toolkit-wheel", "build-et-rest-client-wheel"]
 description = "Build the pydata1 Python workflow module"
 dir = "modules/web/pydata1"
 # et-rest-client is its own ws-module mounted at /modules/et-rest-client/.
