@@ -1,0 +1,60 @@
+code: |
+  [tasks.example]
+  run = """
+  # ruleid: no-multiline-inline-program
+  goawk '
+  { print }
+  ' "$file"
+
+  # ruleid: no-multiline-inline-program
+  printf '%s\\n' "$json" | jaq -r '. as $doc
+    | $doc.name'
+
+  # ruleid: no-multiline-inline-program
+  goawk -F '\\t' -v label="a b" 'NR == 1 { next }
+    { print $2 }' "$file"
+
+  # ruleid: no-multiline-inline-program
+  gh release view "$tag" --json assets --jq '.assets[]
+    | .name'
+
+  # ruleid: no-multiline-inline-program
+  out=$(mise exec -- yq -p toml "select(.a)
+    | .b" "$file")
+
+  # ruleid: no-multiline-inline-program
+  limited='select(.kind == "Deployment")
+    | .metadata.name'
+  apps=$(yq --no-doc "$limited" "$manifest")
+
+  # ok: no-multiline-inline-program
+  host="$(rustc -vV | goawk '/^host:/ { print $2 }')"
+
+  # ok: no-multiline-inline-program
+  version="$(goawk -F'"' '/^min_version/{print $2; exit}' "$file")"
+
+  # ok: no-multiline-inline-program
+  jaq -r -f .mise/sloc-languages.jq "$file"
+
+  # ok: no-multiline-inline-program
+  coreutils cat .mise/cov-branch-union.jq 'not a program
+    but a path to one'
+
+  # ok: no-multiline-inline-program
+  jqfmt -f "$f" -op pipe 'not the tool
+    whose name it starts with'
+
+  # ok: no-multiline-inline-program
+  read_model='s3() {
+    curl -fsS "$1"
+  }'
+  kubectl exec deploy/ws-server -- sh -c "$read_model"
+
+  # ok: no-multiline-inline-program
+  trap 'status=$?;
+    exit "$status"' EXIT
+
+  # ok: no-multiline-inline-program
+  echo "done" # goawk reads each 'line
+  """
+  shell = "{{ vars.task_shell }}"

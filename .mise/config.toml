@@ -2346,18 +2346,9 @@ project="et-$scenario-verify"
 # The values are read from a probe of each limited process rather than from the process itself.
 # A runner exits once its module has run, so by the time the exchange is verified there may be no container left to
 # read; the probe is the same service definition -- the same limits and, under k3s, the same plugin annotations --
-# with its command replaced by a sleep, and so lives as long as the check needs it. Under k3s it is a bare Pod cut from
-# the Deployment's template, relabelled so the Deployment's ReplicaSet does not adopt it as a surplus replica.
-probe_pod='select(.kind == "Deployment" and .metadata.name == strenv(app)) | .spec.template
-  | .apiVersion = "v1" | .kind = "Pod" | .metadata.name = strenv(app) + "-limits-probe"
-  | .metadata.labels.app = strenv(app) + "-limits-probe" | .spec.restartPolicy = "Never"
-  | .spec.containers[0].command = ["sleep", "600"] | del(.spec.containers[0].args)
-  | del(.spec.containers[0].readinessProbe)'
-limited='select(.kind == "Deployment")
-  | select((.spec.template.metadata.annotations // {}) | keys | any_c(test("memory-qos|ulimits")))
-  | .metadata.name'
+# with its command replaced by a sleep, and so lives as long as the check needs it.
 # `--no-doc` throughout, because yq otherwise separates each document's lines with a `---` of its own.
-apps=$(yq --no-doc "$limited" "$manifest")
+apps=$(yq --no-doc --from-file .mise/verify-limits-apps.yq "$manifest")
 cleanup() {
   for app in $apps; do
     if [ "$format" = "k3s" ]; then
@@ -2370,7 +2361,7 @@ cleanup() {
 trap cleanup EXIT
 for app in $apps; do
   if [ "$format" = "k3s" ]; then
-    app="$app" yq --no-doc "$probe_pod" "$manifest" | kubectl apply -n "$ns" -f - >/dev/null
+    app="$app" yq --no-doc --from-file .mise/verify-limits-probe.yq "$manifest" | kubectl apply -n "$ns" -f - >/dev/null
     kubectl wait -n "$ns" --for=condition=Ready "pod/$app-limits-probe" --timeout=120s >/dev/null
   else
     set -- run --detach --no-deps --name "$project-$app-limits-probe" --entrypoint sleep "$app" 600
@@ -2390,18 +2381,6 @@ in_container() {
   fi
 }
 
-# One `<app> <key> <value>` line per plugin annotation, from every Deployment of the manifest.
-# `$app` is yq's own variable, bound by `as`, so it must reach yq unexpanded.
-# shellcheck disable=SC2016
-annotations='select(.kind == "Deployment") | .metadata.name as $app
-  | (.spec.template.metadata.annotations // {}) | to_entries[] | $app + " " + .key + " " + .value'
-# The same for each rlimit, its value the soft and hard limits the ulimits annotation lists.
-# shellcheck disable=SC2016
-rlimits='select(.kind == "Deployment") | .metadata.name as $app
-  | (.spec.template.metadata.annotations // {}) | to_entries[]
-  | select(.key | contains("ulimits.noderesource.dev/")) | .value | from_yaml | .[]
-  | $app + " " + (.type | downcase | sub("rlimit_"; "")) + " " + (.soft | tostring) + " " + (.hard | tostring)'
-
 checked=0
 while read -r app key expected; do
   case "$key" in
@@ -2415,7 +2394,7 @@ while read -r app key expected; do
     exit 1
   fi
   checked=$((checked + 1))
-done < <(yq --no-doc "$annotations" "$manifest")
+done < <(yq --no-doc --from-file .mise/verify-limits-annotations.yq "$manifest")
 
 while read -r app resource soft hard; do
   actual=$(in_container "$app" prlimit --pid 1 "--$resource" --output SOFT,HARD --noheadings | coreutils tr -s ' ')
@@ -2425,7 +2404,7 @@ while read -r app resource soft hard; do
     exit 1
   fi
   checked=$((checked + 1))
-done < <(yq --no-doc "$rlimits" "$manifest")
+done < <(yq --no-doc --from-file .mise/verify-limits-rlimits.yq "$manifest")
 
 if [ "$checked" -eq 0 ]; then
   echo "verify-limits: $manifest names no limit for the runtime plugins to write, so there was nothing to check" >&2
@@ -2648,9 +2627,8 @@ usage = 'arg "<package>" help="Dependency package name as it appears in Cargo.lo
 [tasks."gen:dockerignore"]
 description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
 # Docker reads only the root .dockerignore (never .gitignore or nested ignore files).
-# A bare pattern there is root-anchored -- whereas a slash-less .gitignore pattern matches at any depth.
 # So mirror .gitignore, add the Docker-only excludes (`.git/`, plus the build recipe and every top-level Markdown
-# file, so editing them doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
+# file, so editing them doesn't bust the `COPY . .` cache), and rewrite each pattern for the way Docker anchors it.
 # `.dockerignore` itself is deliberately NOT excluded any more. Excluding it saved nothing (the file is tiny) and
 # meant it was absent from the build context, so `et-cli` -- which derives each scenario's per-Dockerfile ignore
 # file from it -- could not run inside an image built from this Dockerfile:
@@ -2675,17 +2653,7 @@ trap 'coreutils rm -f "$staged"' EXIT
   {
     coreutils cat .gitignore
     printf '%s\n' '.git/' 'Dockerfile*' '/*.md'
-  } | goawk '
-    /^[[:space:]]*#/ { print; next }
-    /^[[:space:]]*$/ { print; next }
-    {
-      neg = ""; line = $0
-      if (substr(line, 1, 1) == "!") { neg = "!"; line = substr(line, 2) }
-      if (substr(line, 1, 1) == "/") { print neg substr(line, 2); next }
-      core = line; sub(/\/$/, "", core)
-      if (index(core, "/") > 0) print neg line; else print neg "**/" line
-    }
-  '
+  } | goawk -f .mise/gitignore-to-dockerignore.awk
 } | coreutils tr -d '\r' >"$staged"
 coreutils mv -f "$staged" .dockerignore
 '''
@@ -2884,21 +2852,15 @@ run = "cargo run -q -p et-int-gen --bin et-int-gen -- generate bindings"
 depends = ["gen:ws-spec"]
 description = "Render generated/specs/rest.yaml as the Markdown reference generated/specs/rest.md (vimanam)"
 env = { RUMDL_CACHE_DIR = "{{ config_root }}/target/rumdl-cache" }
-# Two constructs in vimanam's output that the Markdown rules reject are rewritten before formatting.
-# It writes `<br/>` between the paragraphs of a table cell, and an emphasis-only line where an operation has no request
-# or response schema; they become a space and a plain sentence. rumdl's fixes and the Markdown formatter then settle
-# the layout, so the committed file is already what both checks want. The work is staged under target/ and lands in
-# one rename, leaving the committed file whole if any step fails.
+# vimanam's output is tidied before formatting, then rumdl's fixes and the Markdown formatter settle the layout.
+# The committed file is therefore already what both checks want. The work is staged under target/ and lands in one
+# rename, leaving the committed file whole if any step fails.
 run = """
 stage=target/int-gen/rest-md
 out=generated/specs/rest.md
 coreutils mkdir -p "$stage"
 vimanam generated/specs/rest.yaml --detail full --include-schemas --include-auth --no-report -o "$stage/raw.md"
-goawk '
-{ gsub("<br/>", " ") }
-/^[*]No (request|response) schema available[*]$/ { gsub("[*]", ""); $0 = $0 "." }
-{ print }
-' "$stage/raw.md" >"$stage/tidy.md"
+goawk -f .mise/rest-md-tidy.awk "$stage/raw.md" >"$stage/tidy.md"
 rumdl check --fix --fail-on never --silent --config config/rumdl.toml "$stage/tidy.md"
 dprint fmt --stdin "$out" <"$stage/tidy.md" >"$stage/rest.md"
 coreutils mv -f "$stage/rest.md" "$out"

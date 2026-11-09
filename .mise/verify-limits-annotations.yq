@@ -1,0 +1,6 @@
+# Prints one `<app> <key> <value>` line per plugin annotation, from every Deployment of the manifest.
+select(.kind == "Deployment")
+| .metadata.name as $app
+| (.spec.template.metadata.annotations // {})
+| to_entries[]
+| $app + " " + .key + " " + .value

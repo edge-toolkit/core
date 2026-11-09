@@ -1,0 +1,4 @@
+# Names every Deployment whose pod template carries a memory-qos or ulimits plugin annotation.
+select(.kind == "Deployment")
+| select((.spec.template.metadata.annotations // {}) | keys | any_c(test("memory-qos|ulimits")))
+| .metadata.name

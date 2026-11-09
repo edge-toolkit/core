@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-11-08
+- **Generated:** 2026-11-09
 - **Checks:** 83
 - **Tools:** 48
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 374 custom local rules, or non-default strict linter settings
+- **Rules:** 376 custom local rules, or non-default strict linter settings
 - **Meta rules:** 21 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -273,6 +273,11 @@ Rules, from `config/ast-grep/rules`:
 - `no-test-in-rust-docs` -- Doc comment in non-test code mentions tests. Document what the item does for every caller;
   why a test needs it belongs in the test that relies on it. A name containing it (`test`, `ws-test-server`,
   `ET_TEST_X`) is allowed.
+- `no-tuple-identity-map` -- A `.map` closure that takes a tuple apart and puts the same names back in the same order
+  reads as an identity map, whatever borrow it changes on the way. Over `&(K, V)` items it turns each into `(&K, &V)`:
+  say so with field access, `.map(|pair| (&pair.0, &pair.1))`, so the conversion is the visible part. Over owned tuples
+  it is the identity and the call can go. This mirrors `DeepSource RS-W1018`. clippy's `map_identity` compares the item
+  types, so the borrowing form, which changes the type, gets past it.
 - `no-uds-listener` -- HTTP servers here listen on TCP only. A Unix-domain-socket listener gives requests no peer
   address, and the handlers take the client address from the socket peer rather than from client-supplied `Forwarded` /
   `X-Forwarded-For` headers -- so `ws_handler` refuses every request arriving on one. Bind a TCP address instead.
@@ -1045,6 +1050,13 @@ Rules, from `config/semgrep`:
 - `no-maintainer-task-name-mentions` -- Do not name an install, prefetch or asset-publishing task outside the jobs,
   images and asset tables that invoke it. These run on a maintainer's machine or a runner, never from the code, so a
   source file naming one is describing an operation it has no part in.
+- `no-multiline-inline-program` -- An awk, sed, jq or yq program in a mise task must fit on one line. One that needs
+  more is a program in its own right, and as a string inside a TOML string it is invisible to every checker: nothing
+  formats or lints it, a diff shows it as config, and its text has to survive TOML's escaping and then the shell's
+  quoting before its interpreter sees the first byte. Move it to a file beside the config in `.mise/`, named for the
+  task and with the extension of whatever reads it (`.awk`, `.jq`, `.yq`), and pass the path instead -- `goawk -f`, `jaq
+  -f`, `yq --from-file`. A program held in a shell variable and expanded into the call is the same program, and moves
+  the same way.
 - `no-nextest-mentions` -- Do not name the test runner outside its config and the jobs that invoke it. A test asserts
   what the code must do, and how it happens to be scheduled is the runner's business rather than the test's -- unless
   the schedule is load-bearing, which is a constraint worth stating and worth allowlisting for.

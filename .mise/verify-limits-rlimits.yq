@@ -1,0 +1,10 @@
+# Prints one `<app> <rlimit> <soft> <hard>` line per rlimit a ulimits annotation lists, from every Deployment.
+select(.kind == "Deployment")
+| .metadata.name as $app
+| (.spec.template.metadata.annotations // {})
+| to_entries[]
+| select(.key | contains("ulimits.noderesource.dev/"))
+| .value
+| from_yaml
+| .[]
+| $app + " " + (.type | downcase | sub("rlimit_"; "")) + " " + (.soft | tostring) + " " + (.hard | tostring)

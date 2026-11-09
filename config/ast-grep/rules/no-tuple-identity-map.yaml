@@ -1,0 +1,17 @@
+id: no-tuple-identity-map
+language: Rust
+severity: error
+message: |
+  A `.map` closure that takes a tuple apart and puts the same names back in the same order reads as an identity map,
+  whatever borrow it changes on the way. Over `&(K, V)` items it turns each into `(&K, &V)`: say so with field access,
+  `.map(|pair| (&pair.0, &pair.1))`, so the conversion is the visible part. Over owned tuples it is the identity and
+  the call can go. This mirrors `DeepSource RS-W1018`. clippy's `map_identity` compares the item types, so the
+  borrowing form, which changes the type, gets past it.
+# Check-only, because the rewrite depends on the item type, which a syntax tree cannot see.
+# Field access is right for borrowed tuples, while for owned ones it would return borrows of the closure's argument
+# and fail to compile. A repeated metavariable has to bind the same name each time, so only the same names in the
+# same order match.
+rule:
+  any:
+    - pattern: $ITER.map(|($A, $B)| ($A, $B))
+    - pattern: $ITER.map(|($A, $B, $C)| ($A, $B, $C))
