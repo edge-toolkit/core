@@ -19,6 +19,11 @@ unpinned(msgs) if {
 	contains(msg, "to match mise's uv")
 }
 
+issues_link(msgs) if {
+	some msg in msgs
+	contains(msg, "links to GitHub issues")
+}
+
 test_a_source_at_the_parent_directory_is_denied if {
 	contents := {"tool": {"uv": {"sources": {"et": {"path": ".."}}}}}
 	parent_source(pyproject.deny) with input as project(contents)
@@ -47,4 +52,19 @@ test_a_uv_build_range_is_denied if {
 test_other_build_requirements_are_not_checked if {
 	contents := {"build-system": {"requires": ["hatchling>=1"]}}
 	not unpinned(pyproject.deny) with input as project(contents)
+}
+
+test_an_issues_link_is_denied if {
+	contents := {"project": {"urls": {"Issues": "https://github.com/edge-toolkit/core/issues"}}}
+	issues_link(pyproject.deny) with input as project(contents)
+}
+
+test_the_issues_url_under_another_label_is_denied if {
+	contents := {"project": {"urls": {"Bug Tracker": "https://GitHub.com/edge-toolkit/core/issues/new"}}}
+	issues_link(pyproject.deny) with input as project(contents)
+}
+
+test_the_other_links_are_accepted if {
+	contents := {"project": {"urls": {"Source": "https://github.com/edge-toolkit/core"}}}
+	not issues_link(pyproject.deny) with input as project(contents)
 }

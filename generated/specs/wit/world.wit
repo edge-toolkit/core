@@ -105,6 +105,33 @@ interface entry {
   run: async func() -> result<_, entry-error>;
 }
 
+// The serial ports a host lends its guests, each under the name its
+// configuration gives it, so a guest reaches a device -- a lidar, a motor
+// board -- without knowing which port it is plugged into on this machine.
+interface serial {
+  variant serial-error {
+    // The host lends no port of that name.
+    unknown-port(string),
+    // The port could not be opened, read or written: the host's account of
+    // why.
+    io(string),
+    // The far end has gone. A port bridged over TCP reports its connection
+    // closing as this; an unplugged device usually reports `io`.
+    closed,
+  }
+  resource port {
+    // The bytes that have arrived, at most `max` of them, waiting up to
+    // `timeout-ms` for the first; empty when none arrived in that time.
+    read: func(max: u32, timeout-ms: u32) -> result<list<u8>, serial-error>;
+    // Send all of `bytes`.
+    write: func(bytes: list<u8>) -> result<_, serial-error>;
+  }
+  // Open the port lent as `name`, at `baud-rate` with 8 data bits, no parity
+  // and one stop bit. A port bridged over TCP runs at the rate its bridge
+  // set, so `baud-rate` does not reach it.
+  open: func(name: string, baud-rate: u32) -> result<port, serial-error>;
+}
+
 world runner {
   import wasi:logging/logging@0.1.0-draft;
   import wasi:keyvalue/store@0.2.0-draft;
@@ -116,8 +143,19 @@ world runner {
 // own `bindgen!` targets `runner`, so anything listed there would need host trait impls in this repo.
 // wasi-nn is served by `wasmtime-wasi-nn` and wasi-webgpu by `wasi-webgpu-wasmtime`, each with its own
 // `add_to_linker`.
+// The serial ports a runner lends when built with its `lidar` feature, which
+// a lidar such as the COIN-D6 on Hiwonder's MentorPi is read through. A world
+// of its own so the runner generates its host bindings apart from `runner`,
+// all of whose imports every runner links: a board, and a runner built
+// without the feature, lend no ports, and a guest that imports `serial` fails
+// to instantiate there, naming the import.
+world serial-host {
+  import serial;
+}
+
 world module {
   include runner;
+  include serial-host;
   import wasi:clocks/wall-clock@0.2.8;
   import wasi:clocks/monotonic-clock@0.2.8;
   import wasi:io/poll@0.2.8;

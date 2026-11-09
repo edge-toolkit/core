@@ -7,7 +7,6 @@
 
 use et_web::{JsCastExt as _, JsFunctionExt as _, JsPromiseExt as _, describe_js_error, websocket_url};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value, wait_for_connected};
-use js_sys::Promise;
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
@@ -41,6 +40,12 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 }
 ";
 
+/// Bytes for the numeric probes' eight f32 inputs.
+const PROBE_INPUT_BYTES: f64 = 32.0;
+
+/// Bytes for one numeric probe's u32 result.
+const PROBE_OUTPUT_BYTES: f64 = 4.0;
+
 #[wasm_bindgen]
 pub struct GraphicsSupport {
     webgl_supported: bool,
@@ -58,12 +63,7 @@ impl GraphicsSupport {
     )]
     pub fn detect() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-        let document = window
-            .document()
-            .ok_or_else(|| JsValue::from_str("No document available"))?;
-        let canvas: HtmlCanvasElement = document
-            .create_element("canvas")?
-            .dyn_into_msg("Failed to create canvas element")?;
+        let canvas = create_canvas(&window)?;
 
         let webgl_supported = canvas.get_context("webgl")?.is_some();
         let webgl2_supported = canvas.get_context("webgl2")?.is_some();
@@ -238,19 +238,34 @@ fn descriptor(entries: &[(&str, &JsValue)]) -> Result<JsValue, JsValue> {
     Ok(object.into())
 }
 
-/// Build a `GPUBuffer` the size of one matrix with the given `usage` flags.
-fn create_buffer(device: &JsValue, usage: u32) -> Result<JsValue, JsValue> {
+/// Request the default WebGPU device.
+///
+/// The answer is `null` or `undefined` where the browser has no WebGPU, no adapter, or no device to give.
+async fn request_gpu_device(window: &web_sys::Window) -> Result<JsValue, JsValue> {
+    let gpu = js_sys::Reflect::get(&window.navigator(), &JsValue::from_str("gpu"))?;
+    if gpu.is_null() || gpu.is_undefined() {
+        return Ok(gpu);
+    }
+    let adapter = await_method(&gpu, "requestAdapter", &[]).await?;
+    if adapter.is_null() || adapter.is_undefined() {
+        return Ok(adapter);
+    }
+    await_method(&adapter, "requestDevice", &[]).await
+}
+
+/// Build a `GPUBuffer` of `size` bytes with the given `usage` flags.
+fn create_buffer(device: &JsValue, size: f64, usage: u32) -> Result<JsValue, JsValue> {
     let desc = descriptor(&[
-        ("size", &JsValue::from_f64(MATRIX_BYTES)),
+        ("size", &JsValue::from_f64(size)),
         ("usage", &JsValue::from_f64(f64::from(usage))),
     ])?;
     call_method(device, "createBuffer", &[&desc])
 }
 
-/// Build a `GPUBuffer` with the supplied f32 data and `usage` flags.
-fn create_buffer_with_data(device: &JsValue, data: &[f32], usage: u32) -> Result<JsValue, JsValue> {
+/// Build a `GPUBuffer` of `size` bytes holding the supplied f32 data, with the given `usage` flags.
+fn create_buffer_with_data(device: &JsValue, data: &[f32], size: f64, usage: u32) -> Result<JsValue, JsValue> {
     let desc = descriptor(&[
-        ("size", &JsValue::from_f64(MATRIX_BYTES)),
+        ("size", &JsValue::from_f64(size)),
         ("usage", &JsValue::from_f64(f64::from(usage))),
         ("mappedAtCreation", &JsValue::from_bool(true)),
     ])?;
@@ -295,41 +310,42 @@ fn create_matmul_buffers(device: &JsValue) -> Result<MatmulBuffers, JsValue> {
         0.0, 0.0, 0.0, 2.0,
     ];
     Ok(MatmulBuffers {
-        input_a: create_buffer_with_data(device, &mat_a, STORAGE)?,
-        input_b: create_buffer_with_data(device, &mat_b, STORAGE)?,
-        output: create_buffer(device, STORAGE | COPY_SRC)?,
-        readback: create_buffer(device, COPY_DST | MAP_READ)?,
+        input_a: create_buffer_with_data(device, &mat_a, MATRIX_BYTES, STORAGE)?,
+        input_b: create_buffer_with_data(device, &mat_b, MATRIX_BYTES, STORAGE)?,
+        output: create_buffer(device, MATRIX_BYTES, STORAGE | COPY_SRC)?,
+        readback: create_buffer(device, MATRIX_BYTES, COPY_DST | MAP_READ)?,
     })
 }
 
-/// Compile `MATMUL_WGSL` into a compute pipeline.
-async fn create_matmul_pipeline(device: &JsValue) -> Result<JsValue, JsValue> {
-    let shader_desc = descriptor(&[("code", &JsValue::from_str(MATMUL_WGSL))])?;
+/// Compile `wgsl` into a compute pipeline whose entry point is `main`.
+async fn create_compute_pipeline(device: &JsValue, wgsl: &str) -> Result<JsValue, JsValue> {
+    let shader_desc = descriptor(&[("code", &JsValue::from_str(wgsl))])?;
     let shader = call_method(device, "createShaderModule", &[&shader_desc])?;
     let compute_stage = descriptor(&[("module", &shader), ("entryPoint", &JsValue::from_str("main"))])?;
     let pipeline_desc = descriptor(&[("layout", &JsValue::from_str("auto")), ("compute", &compute_stage)])?;
     await_method(device, "createComputePipelineAsync", &[&pipeline_desc]).await
 }
 
-/// Bind the multiply's input and output buffers to the pipeline's three storage bindings.
-fn create_bind_group(device: &JsValue, pipeline: &JsValue, buffers: &MatmulBuffers) -> Result<JsValue, JsValue> {
+/// Bind `buffers`, in order, to the pipeline's storage bindings, the first at binding 0.
+fn create_bind_group(device: &JsValue, pipeline: &JsValue, buffers: &[&JsValue]) -> Result<JsValue, JsValue> {
     let layout = call_method(pipeline, "getBindGroupLayout", &[&JsValue::from_f64(0.0)])?;
-    let entries: JsValue = js_sys::Array::of3(
-        &make_bind_group_entry(0, &buffers.input_a)?,
-        &make_bind_group_entry(1, &buffers.input_b)?,
-        &make_bind_group_entry(2, &buffers.output)?,
-    )
-    .into();
+    let entry_list = js_sys::Array::new();
+    for (binding, buffer) in (0_u32..).zip(buffers) {
+        let _length: u32 = entry_list.push(&make_bind_group_entry(binding, buffer)?);
+    }
+    let entries: JsValue = entry_list.into();
     let bind_group_desc = descriptor(&[("layout", &layout), ("entries", &entries)])?;
     call_method(device, "createBindGroup", &[&bind_group_desc])
 }
 
-/// Encode the multiply's compute pass and the copy of its output into the readback buffer, and submit them.
-fn submit_matmul(
+/// Encode one compute pass and the copy of `size` bytes of `output` into `readback`, and submit them.
+fn submit_compute(
     device: &JsValue,
     pipeline: &JsValue,
     bind_group: &JsValue,
-    buffers: &MatmulBuffers,
+    output: &JsValue,
+    readback: &JsValue,
+    size: f64,
 ) -> Result<(), JsValue> {
     let zero = JsValue::from_f64(0.0);
     let one = JsValue::from_f64(1.0);
@@ -339,12 +355,8 @@ fn submit_matmul(
     invoke(&pass, "setBindGroup", &[&zero, bind_group])?;
     invoke(&pass, "dispatchWorkgroups", &[&one, &one])?;
     invoke(&pass, "end", &[])?;
-    let size = JsValue::from_f64(MATRIX_BYTES);
-    invoke(
-        &encoder,
-        "copyBufferToBuffer",
-        &[&buffers.output, &zero, &buffers.readback, &zero, &size],
-    )?;
+    let size = JsValue::from_f64(size);
+    invoke(&encoder, "copyBufferToBuffer", &[output, &zero, readback, &zero, &size])?;
     let commands: JsValue = js_sys::Array::of1(&call_method(&encoder, "finish", &[])?).into();
     let queue = js_sys::Reflect::get(device, &JsValue::from_str("queue"))?;
     invoke(&queue, "submit", &[&commands])
@@ -368,27 +380,65 @@ fn performance_now(performance: &JsValue) -> Result<f64, JsValue> {
     Ok(call_method(performance, "now", &[])?.as_f64().unwrap_or(0.0_f64))
 }
 
+/// Submit the compute pass, fail on any validation error it raised, and wait for `readback` to hold the output.
+///
+/// Returns the mapped range of `readback`, which the caller reads and then unmaps.
+async fn compute_into_readback(
+    device: &JsValue,
+    pipeline: &JsValue,
+    bind_group: &JsValue,
+    output: &JsValue,
+    readback: &JsValue,
+    size: f64,
+) -> Result<JsValue, JsValue> {
+    submit_compute(device, pipeline, bind_group, output, readback, size)?;
+    check_validation(device).await?;
+    let _map_result: JsValue = await_method(readback, "mapAsync", &[&JsValue::from_f64(1.0)]).await?;
+    call_method(readback, "getMappedRange", &[])
+}
+
 /// Run the multiply on `device`, returning how long it took in milliseconds and the result's top-left element.
 ///
-/// The time covers submission through the readback becoming mappable, so it includes the wait for the GPU.
+/// The time covers submission through the readback being mapped, so it includes the wait for the GPU.
 async fn run_gpu_compute_inner(device: &JsValue, window: &web_sys::Window) -> Result<(f64, f32), JsValue> {
     // Catch any silent WebGPU validation errors.
     invoke(device, "pushErrorScope", &[&JsValue::from_str("validation")])?;
     let buffers = create_matmul_buffers(device)?;
-    let pipeline = create_matmul_pipeline(device).await?;
-    let bind_group = create_bind_group(device, &pipeline, &buffers)?;
+    let pipeline = create_compute_pipeline(device, MATMUL_WGSL).await?;
+    let inputs = [&buffers.input_a, &buffers.input_b, &buffers.output];
+    let bind_group = create_bind_group(device, &pipeline, &inputs)?;
 
     let performance = js_sys::Reflect::get(window, &JsValue::from_str("performance"))?;
     let started = performance_now(&performance)?;
-    submit_matmul(device, &pipeline, &bind_group, &buffers)?;
-    check_validation(device).await?;
-    let _map_result: JsValue = await_method(&buffers.readback, "mapAsync", &[&JsValue::from_f64(1.0)]).await?;
+    let mapped = compute_into_readback(
+        device,
+        &pipeline,
+        &bind_group,
+        &buffers.output,
+        &buffers.readback,
+        MATRIX_BYTES,
+    )
+    .await?;
     let finished = performance_now(&performance)?;
 
-    let mapped = call_method(&buffers.readback, "getMappedRange", &[])?;
     let result_c00 = js_sys::Float32Array::new(&mapped).get_index(0);
     invoke(&buffers.readback, "unmap", &[])?;
     Ok((finished - started, result_c00))
+}
+
+/// Evaluate one numeric probe's shader on `device`, returning the bits of its result.
+async fn run_probe_shader(device: &JsValue, wgsl: &str) -> Result<u32, JsValue> {
+    let pipeline = create_compute_pipeline(device, wgsl).await?;
+    invoke(device, "pushErrorScope", &[&JsValue::from_str("validation")])?;
+    let input = create_buffer_with_data(device, &et_gpu_probe::INPUTS, PROBE_INPUT_BYTES, STORAGE)?;
+    let output = create_buffer(device, PROBE_OUTPUT_BYTES, STORAGE | COPY_SRC)?;
+    let readback = create_buffer(device, PROBE_OUTPUT_BYTES, COPY_DST | MAP_READ)?;
+    let bind_group = create_bind_group(device, &pipeline, &[&input, &output])?;
+
+    let mapped = compute_into_readback(device, &pipeline, &bind_group, &output, &readback, PROBE_OUTPUT_BYTES).await?;
+    let bits = js_sys::Uint32Array::new(&mapped).get_index(0);
+    invoke(&readback, "unmap", &[])?;
+    Ok(bits)
 }
 
 #[wasm_bindgen]
@@ -397,30 +447,7 @@ impl GpuComputeResult {
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
-        let navigator = window.navigator();
-        let gpu = js_sys::Reflect::get(&navigator, &JsValue::from_str("gpu"))?;
-        if gpu.is_null() || gpu.is_undefined() {
-            return Ok(Self {
-                success: false,
-                elapsed_ms: 0.0,
-                result_c00: 0.0,
-            });
-        }
-
-        let request_adapter: js_sys::Function = js_sys::Reflect::get(&gpu, &JsValue::from_str("requestAdapter"))?
-            .dyn_into_msg("gpu.requestAdapter not callable")?;
-        let adapter = JsFuture::from(request_adapter.call0(&gpu)?.dyn_into::<Promise>()?).await?;
-        if adapter.is_null() || adapter.is_undefined() {
-            return Ok(Self {
-                success: false,
-                elapsed_ms: 0.0,
-                result_c00: 0.0,
-            });
-        }
-
-        let request_device: js_sys::Function = js_sys::Reflect::get(&adapter, &JsValue::from_str("requestDevice"))?
-            .dyn_into_msg("adapter.requestDevice not callable")?;
-        let device = JsFuture::from(request_device.call0(&adapter)?.dyn_into::<Promise>()?).await?;
+        let device = request_gpu_device(&window).await?;
         if device.is_null() || device.is_undefined() {
             return Ok(Self {
                 success: false,
@@ -470,6 +497,287 @@ impl GpuComputeResult {
     }
 }
 
+/// A canvas element that is not attached to the page, to ask a graphics context of.
+fn create_canvas(window: &web_sys::Window) -> Result<HtmlCanvasElement, JsValue> {
+    window
+        .document()
+        .ok_or_else(|| JsValue::from_str("No document available"))?
+        .create_element("canvas")?
+        .dyn_into_msg("Failed to create canvas element")
+}
+
+/// A WebGL 2 context on a one-pixel canvas, `null` where the browser has none to give.
+///
+/// The drawing buffer keeps its alpha unpremultiplied and is not antialiased, so the one pixel a probe draws
+/// reads back as exactly the four bytes the shader wrote.
+fn create_probe_context(window: &web_sys::Window) -> Result<JsValue, JsValue> {
+    let canvas = create_canvas(window)?;
+    canvas.set_width(1);
+    canvas.set_height(1);
+    let options = descriptor(&[
+        ("antialias", &JsValue::FALSE),
+        ("premultipliedAlpha", &JsValue::FALSE),
+        ("preserveDrawingBuffer", &JsValue::TRUE),
+    ])?;
+    let canvas_value: &JsValue = canvas.as_ref();
+    call_method(canvas_value, "getContext", &[&JsValue::from_str("webgl2"), &options])
+}
+
+/// The value the WebGL context `context` gives the constant `name`.
+fn gl_constant(context: &JsValue, name: &str) -> Result<JsValue, JsValue> {
+    js_sys::Reflect::get(context, &JsValue::from_str(name))
+}
+
+/// Compile `source` as a shader of the kind `context` names `kind`, failing with the compiler's log.
+fn compile_gl_shader(context: &JsValue, kind: &str, source: &str) -> Result<JsValue, JsValue> {
+    let shader = call_method(context, "createShader", &[&gl_constant(context, kind)?])?;
+    invoke(context, "shaderSource", &[&shader, &JsValue::from_str(source)])?;
+    invoke(context, "compileShader", &[&shader])?;
+    let status = gl_constant(context, "COMPILE_STATUS")?;
+    if call_method(context, "getShaderParameter", &[&shader, &status])?.is_truthy() {
+        return Ok(shader);
+    }
+    let log = call_method(context, "getShaderInfoLog", &[&shader])?
+        .as_string()
+        .unwrap_or_default();
+    Err(JsValue::from_str(&format!("{kind} did not compile: {log}")))
+}
+
+/// Link the probe vertex shader with the fragment shader `fragment_source`, failing with the linker's log.
+fn link_probe_program(context: &JsValue, fragment_source: &str) -> Result<JsValue, JsValue> {
+    let vertex = compile_gl_shader(context, "VERTEX_SHADER", et_gpu_probe::VERTEX_SHADER)?;
+    let fragment = compile_gl_shader(context, "FRAGMENT_SHADER", fragment_source)?;
+    let program = call_method(context, "createProgram", &[])?;
+    invoke(context, "attachShader", &[&program, &vertex])?;
+    invoke(context, "attachShader", &[&program, &fragment])?;
+    invoke(context, "linkProgram", &[&program])?;
+    let status = gl_constant(context, "LINK_STATUS")?;
+    if call_method(context, "getProgramParameter", &[&program, &status])?.is_truthy() {
+        return Ok(program);
+    }
+    let log = call_method(context, "getProgramInfoLog", &[&program])?
+        .as_string()
+        .unwrap_or_default();
+    Err(JsValue::from_str(&format!("probe program did not link: {log}")))
+}
+
+/// Draw one probe's fragment shader over the context's single pixel and return the bits that pixel encodes.
+fn run_fragment_probe(context: &JsValue, fragment_source: &str) -> Result<u32, JsValue> {
+    let program = link_probe_program(context, fragment_source)?;
+    invoke(context, "useProgram", &[&program])?;
+    invoke(context, "disable", &[&gl_constant(context, "DITHER")?])?;
+    let location = call_method(
+        context,
+        "getUniformLocation",
+        &[&program, &JsValue::from_str("probeIn")],
+    )?;
+    let inputs: JsValue = js_sys::Float32Array::from(et_gpu_probe::INPUTS.as_slice()).into();
+    invoke(context, "uniform1fv", &[&location, &inputs])?;
+
+    let zero = JsValue::from_f64(0.0);
+    let one = JsValue::from_f64(1.0);
+    invoke(context, "drawArrays", &[&gl_constant(context, "POINTS")?, &zero, &one])?;
+    let pixel = js_sys::Uint8Array::new_with_length(4);
+    let pixel_value: &JsValue = pixel.as_ref();
+    let format = gl_constant(context, "RGBA")?;
+    let kind = gl_constant(context, "UNSIGNED_BYTE")?;
+    invoke(
+        context,
+        "readPixels",
+        &[&zero, &zero, &one, &one, &format, &kind, pixel_value],
+    )?;
+    // The shader wrote the lowest byte to red, so the pixel's four bytes are the result in little-endian order.
+    Ok(js_sys::DataView::new(&pixel.buffer(), 0, 4).get_uint32_endian(0, true))
+}
+
+/// What the device did with the probe called `name` through `interface`, logging the reason where it refused.
+fn probe_answer(interface: &str, name: &str, result: Result<u32, JsValue>) -> et_gpu_probe::Answer {
+    match result {
+        Ok(bits) => et_gpu_probe::Answer::Bits(bits),
+        Err(error) => {
+            let reason = describe_js_error(&error);
+            info!("{interface} numeric probe {name} failed: {reason}");
+            et_gpu_probe::Answer::Refused(reason)
+        }
+    }
+}
+
+/// What this device's GPU answered to the numeric probe set through one interface.
+#[wasm_bindgen]
+pub struct GpuNumericProbe {
+    /// Whether the interface gave a device or context to put the probes to.
+    success: bool,
+    signature: et_gpu_probe::Signature,
+}
+
+#[wasm_bindgen]
+impl GpuNumericProbe {
+    /// Put each numeric probe to the WebGPU device as a compute shader of its own.
+    ///
+    /// Nothing a device does to a probe fails this call. A shader it will not compile, a validation error or a
+    /// failed `mapAsync` is recorded as that probe's answer and the rest still run, because the probes exist to
+    /// run on every GPU and a signature with gaps identifies a device better than none.
+    #[wasm_bindgen(js_name = run)]
+    pub async fn run() -> Result<Self, JsValue> {
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
+        let device = match request_gpu_device(&window).await {
+            Ok(device) => device,
+            Err(error) => {
+                info!("GPU numeric probe: no device: {}", describe_js_error(&error));
+                JsValue::NULL
+            }
+        };
+        if device.is_null() || device.is_undefined() {
+            return Ok(Self {
+                signature: et_gpu_probe::Signature::new(et_gpu_probe::WEBGPU, Vec::new()),
+                success: false,
+            });
+        }
+
+        let mut observed = Vec::new();
+        for (name, wgsl) in et_gpu_probe::shaders() {
+            observed.push(probe_answer("WebGPU", name, run_probe_shader(&device, &wgsl).await));
+        }
+        Ok(Self {
+            signature: et_gpu_probe::Signature::new(et_gpu_probe::WEBGPU, observed),
+            success: true,
+        })
+    }
+
+    /// Put each numeric probe to the GPU through WebGL 2, as a fragment shader drawn over one pixel.
+    ///
+    /// This reaches a GPU that WebGPU does not: a browser without WebGPU, or a page on an origin the browser
+    /// will not give WebGPU to. As with [`Self::run`], nothing a device does to a probe fails this call.
+    #[wasm_bindgen(js_name = runWebgl)]
+    pub fn run_webgl() -> Result<Self, JsValue> {
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
+        let context = match create_probe_context(&window) {
+            Ok(context) => context,
+            Err(error) => {
+                info!("WebGL numeric probe: no context: {}", describe_js_error(&error));
+                JsValue::NULL
+            }
+        };
+        if context.is_null() || context.is_undefined() {
+            return Ok(Self {
+                signature: et_gpu_probe::Signature::new(et_gpu_probe::WEBGL2, Vec::new()),
+                success: false,
+            });
+        }
+
+        let observed = et_gpu_probe::fragment_shaders()
+            .into_iter()
+            .map(|(name, source)| probe_answer("WebGL 2", name, run_fragment_probe(&context, &source)))
+            .collect();
+        Ok(Self {
+            signature: et_gpu_probe::Signature::new(et_gpu_probe::WEBGL2, observed),
+            success: true,
+        })
+    }
+
+    /// How many probes the GPU answered.
+    #[must_use]
+    #[wasm_bindgen(js_name = completed)]
+    pub fn completed(&self) -> usize {
+        self.signature.completed()
+    }
+
+    /// How many probes the GPU answered with bits other than the correctly rounded ones.
+    #[must_use]
+    #[wasm_bindgen(js_name = deviations)]
+    pub fn deviations(&self) -> usize {
+        self.signature.deviations()
+    }
+
+    /// The GPU's answers as hex words joined by `-`: equal on two devices exactly when every probe agrees.
+    #[must_use]
+    #[wasm_bindgen(js_name = fingerprint)]
+    pub fn fingerprint(&self) -> String {
+        self.signature.fingerprint()
+    }
+
+    /// The known GPU that answers the probes exactly as this one did, or `unrecognised`.
+    #[must_use]
+    #[wasm_bindgen(js_name = gpuClass)]
+    pub fn gpu_class(&self) -> String {
+        self.signature.class().to_owned()
+    }
+
+    /// Which of two legal answers the GPU gave to each probe that has two.
+    #[must_use]
+    #[wasm_bindgen(js_name = traits)]
+    pub fn traits(&self) -> String {
+        self.signature.traits()
+    }
+}
+
+/// Everything `probe` found, for the client event: enough to register this GPU from the hub's log alone.
+fn numeric_report(probe: &GpuNumericProbe) -> serde_json::Value {
+    json!({
+        "success": probe.success,
+        "class": probe.signature.class(),
+        "answered": probe.signature.completed(),
+        "deviations": probe.signature.deviations(),
+        "traits": probe.signature.traits(),
+        "fingerprint": probe.signature.fingerprint(),
+        "probes": probe.signature.describe(),
+    })
+}
+
+/// The outcome of `probe` in the few lines the module's status box has room for.
+fn numeric_status(probe: &GpuNumericProbe) -> String {
+    if !probe.success {
+        return "skipped (interface unavailable)".to_string();
+    }
+    format!(
+        "{} ({} answered, {} not correctly rounded)\n{}",
+        probe.signature.class(),
+        probe.signature.completed(),
+        probe.signature.deviations(),
+        probe.signature.fingerprint()
+    )
+}
+
+/// Write what `probe` found through the interface called `interface` to the module's log.
+fn log_numeric(interface: &str, probe: &GpuNumericProbe) {
+    if !probe.success {
+        log(&format!("{interface} numeric probe: skipped (interface unavailable)"));
+        return;
+    }
+    log(&format!(
+        "{interface} numeric probe: class={} answered={} deviations={}",
+        probe.signature.class(),
+        probe.signature.completed(),
+        probe.signature.deviations()
+    ));
+    log(&format!(
+        "{interface} numeric probe: traits: {}",
+        probe.signature.traits()
+    ));
+    log(&format!(
+        "{interface} numeric probe: fingerprint={}",
+        probe.signature.fingerprint()
+    ));
+    for line in probe.signature.describe() {
+        log(&format!("{interface} numeric probe: {line}"));
+    }
+}
+
+/// What the browser says about itself and the page, which decides which interfaces a GPU can be reached through.
+///
+/// A page that is not a secure context is refused WebGPU whatever the GPU, so the two are reported together.
+fn browser_environment(window: &web_sys::Window) -> Result<serde_json::Value, JsValue> {
+    let navigator = window.navigator();
+    let navigator: &JsValue = navigator.as_ref();
+    let window_value: &JsValue = window.as_ref();
+    Ok(json!({
+        "user_agent": js_string_field(navigator, "userAgent"),
+        "platform": js_string_field(navigator, "platform"),
+        "secure_context": js_sys::Reflect::get(window_value, &JsValue::from_str("isSecureContext"))?.is_truthy(),
+        "origin": js_string_field(&js_sys::Reflect::get(window_value, &JsValue::from_str("location"))?, "origin"),
+    }))
+}
+
 #[wasm_bindgen]
 pub struct GpuInfo {
     vendor: String,
@@ -483,8 +791,26 @@ pub struct GpuInfo {
 impl GpuInfo {
     #[wasm_bindgen(js_name = detect)]
     pub async fn detect() -> Result<Self, JsValue> {
+        // A browser may blank the WebGPU adapter's device and description, which leaves no renderer to name.
+        // WebGL's debug renderer string usually still names the GPU, so it fills that gap where it can.
         if let Some(info) = detect_webgpu_info().await? {
-            return Ok(info);
+            if info.renderer != "unknown" {
+                return Ok(info);
+            }
+            let Some(webgl) = detect_webgl_info()? else {
+                return Ok(info);
+            };
+            return Ok(Self {
+                architecture: info.architecture,
+                description: webgl.description,
+                renderer: webgl.renderer,
+                source: "webgpu+webgl_debug_renderer_info".to_string(),
+                vendor: if info.vendor == "unknown" {
+                    webgl.vendor
+                } else {
+                    info.vendor
+                },
+            });
         }
 
         if let Some(info) = detect_webgl_info()? {
@@ -583,12 +909,7 @@ async fn detect_webgpu_info() -> Result<Option<GpuInfo>, JsValue> {
 
 fn detect_webgl_info() -> Result<Option<GpuInfo>, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let document = window
-        .document()
-        .ok_or_else(|| JsValue::from_str("No document available"))?;
-    let canvas: HtmlCanvasElement = document
-        .create_element("canvas")?
-        .dyn_into_msg("Failed to create canvas element")?;
+    let canvas = create_canvas(&window)?;
 
     let context = canvas
         .get_context("webgl")?
@@ -727,6 +1048,18 @@ pub async fn run() -> Result<(), JsValue> {
             log("GPU compute: skipped (WebGPU unavailable)");
         }
 
+        log("running numeric probe through WebGPU");
+        let numeric = GpuNumericProbe::run().await?;
+        log_numeric("WebGPU", &numeric);
+
+        log("running numeric probe through WebGL 2");
+        let numeric_webgl = GpuNumericProbe::run_webgl()?;
+        log_numeric("WebGL 2", &numeric_webgl);
+
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+        let environment = browser_environment(&window)?;
+        log(&format!("environment: {environment}"));
+
         client.send_client_event(
             et_org::served_npm_module_path!(),
             "graphics",
@@ -753,12 +1086,18 @@ pub async fn run() -> Result<(), JsValue> {
                     "success": compute.success(),
                     "elapsed_ms": compute.elapsed_ms(),
                     "result_c00": compute.result_c00(),
-                }
+                },
+                "gpu_numeric_probe": numeric_report(&numeric),
+                "webgl_numeric_probe": numeric_report(&numeric_webgl),
+                "environment": environment,
             }),
         )?;
 
         set_module_status(&format!(
-            "graphics-info: detected\nGPU: {}\nRenderer: {}\nWebGPU: {}\nCompute: {}",
+            concat!(
+                "graphics-info: detected\nGPU: {}\nRenderer: {}\nWebGPU: {}\nCompute: {}\n",
+                "WebGPU probe: {}\nWebGL 2 probe: {}"
+            ),
             gpu.vendor(),
             gpu.renderer(),
             if probe.device_created() {
@@ -770,7 +1109,9 @@ pub async fn run() -> Result<(), JsValue> {
                 format!("C[0][0]={:.1} in {:.2}ms", compute.result_c00(), compute.elapsed_ms())
             } else {
                 "skipped".to_string()
-            }
+            },
+            numeric_status(&numeric),
+            numeric_status(&numeric_webgl)
         ))?;
 
         client.disconnect();

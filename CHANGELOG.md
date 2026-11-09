@@ -7,6 +7,30 @@ Changelog 1.1.0.
 
 ### Added
 
+- The `graphics-info` module tells GPUs apart by their arithmetic. It puts sixteen expressions to the WebGPU device,
+  each as a compute shader of its own so that a device refusing one still answers the rest, and its `info_detected`
+  event gains a `gpu_numeric_probe` object: how many probes were answered, how many were not correctly rounded, which
+  of two legal answers the device gave where there are two, a fingerprint of every result, and the known GPU that
+  answers the same way. The probe set, its shaders and correctly rounded answers are the new `et-gpu-probe` crate,
+  which drives no GPU itself. The module's `gpu.renderer` now falls back to WebGL's renderer string where a browser
+  blanks the WebGPU adapter's.
+- A WASI module can read a lidar. `et-ws-wasi-runner`'s new `lidar` feature, on by default, hosts
+  `et:ws-wasi/serial`, lending a guest the serial ports its `SERIAL_PORTS_<NAME>` variables name: a device, or
+  `tcp://<host>:<port>` for one a bridge such as ser2net serves. The interface's own `serial-host` world, which the
+  `module` world now includes, keeps it out of `runner`. A guest that imports it fails to instantiate on a board or on
+  a runner built without the feature. The new `wasi-lidar1` module reads the COIN-D6 lidar on Hiwonder's MentorPi
+  robot through the port lent as `lidar`, storing each revolution as `lidar-scan.json` in its agent's bucket. The new
+  `et-lidar` crate decodes the COIN-D6's serial stream, `no_std` for a board, and encodes its packets for a simulated
+  lidar such as the one `et_ws_test_server::lidar` serves.
+- Three pyo3 modules read Hiwonder's MentorPi robot, each from a worker thread its `init` starts, storing the latest
+  of what it reads in its agent's bucket. `pyo3-lidar1` stores the same `lidar-scan.json` as `wasi-lidar1`;
+  `pyo3-imu1` reads the IMU on the robot's controller board, from the port `SERIAL_PORTS_CONTROLLER` names, as
+  `imu-reading.json`; and `pyo3-media1` captures the camera that `MEDIA_CAMERA` names as `camera-frame.jpg` and the
+  microphone that `MEDIA_MICROPHONE` names as `microphone-clip.wav`. The `python` mise env installs what they import
+  as `pipx:pyserial`, with OpenCV and sounddevice beside it.
+- `edge-toolkit`'s new `edge_toolkit.serial` opens the port a `SERIAL_PORTS_<NAME>` variable names, a device through
+  pyserial (the new `serial` extra) or a TCP bridge. A pyo3 module imports it from this repository's source by naming
+  `libs/python-edge-toolkit` on `PYO3_PYTHONPATH`.
 - `et-ws-wasi-runner` runs Wasm 1.0 core modules beside WASI components, on NASA's SpaceWasm interpreter, with its
   new `core-modules` feature, on by default. It picks the engine from the fetched module's header, so a scenario's
   `runner: wasi` covers both. A core module reaches the hub through the `et` imports, which the new `et-core-guest`
@@ -152,6 +176,9 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** `et_ws_wasi_runner::run_module` takes the serial ports it lends a component as a fifth argument, a
+  `BTreeMap` from each port's name to its device. Pass an empty map to lend none, as a build without the `lidar`
+  feature does whatever it is given.
 - **Breaking:** The modules moved from `services/ws-modules/` to `modules/<type>/`, the type being the runtime that
   loads them: `web`, `wasi`, `core` or `pyo3`, as `edge_toolkit::config::MODULE_TYPE_DIRS` lists them.
   `default_modules_folders` returns those four in place of `services/ws-modules`, and a generated deployment stages

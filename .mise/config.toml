@@ -2855,7 +2855,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks."gen:wasmtime-bindings"]
 depends = ["gen:ws-spec"]
-description = "Run et-int-gen: emit the ws-wasi-runner host bindings for the `runner` world"
+description = "Run et-int-gen: emit the ws-wasi-runner host bindings for the `runner` and `serial-host` worlds"
 # Output lands in the consuming crate, not generated/.
 # `cargo package` only includes files under a crate's own directory, so bindings that live anywhere else
 # leave et-ws-wasi-runner unable to build from its own tarball -- which is what retired the

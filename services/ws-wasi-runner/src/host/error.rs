@@ -1,6 +1,8 @@
-//! Error conversions for the runner's std host impls: from its HTTP client and its websocket.
+//! Error conversions for the runner's std host impls: from its HTTP client, its websocket and its serial ports.
 
 use crate::bindings::et::ws_wasi::ws::WsError;
+#[cfg(feature = "lidar")]
+use crate::bindings::serial_host::et::ws_wasi::serial::SerialError;
 use crate::bindings::wasi::keyvalue::store::Error as KvError;
 
 /// Conversions into `wasi:keyvalue/store`'s `error.other(message)` variant.
@@ -45,5 +47,34 @@ impl From<tokio_tungstenite::tungstenite::Error> for WsError {
 impl From<et_ws_runner_common::ConnectError> for WsError {
     fn from(err: et_ws_runner_common::ConnectError) -> Self {
         Self::Transport(err.to_string())
+    }
+}
+
+/// Conversions into `et:ws-wasi/serial`'s `serial-error.io(message)` variant, one per source a port call can fail on.
+#[cfg(feature = "lidar")]
+impl From<std::io::Error> for SerialError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err.to_string())
+    }
+}
+
+#[cfg(feature = "lidar")]
+impl From<serialport::Error> for SerialError {
+    fn from(err: serialport::Error) -> Self {
+        Self::Io(err.to_string())
+    }
+}
+
+#[cfg(feature = "lidar")]
+impl From<wasmtime::component::ResourceTableError> for SerialError {
+    fn from(err: wasmtime::component::ResourceTableError) -> Self {
+        Self::Io(err.to_string())
+    }
+}
+
+#[cfg(feature = "lidar")]
+impl From<tokio::task::JoinError> for SerialError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        Self::Io(err.to_string())
     }
 }

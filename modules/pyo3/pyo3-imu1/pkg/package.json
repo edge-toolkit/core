@@ -1,0 +1,8 @@
+{
+  "name": "@edge-toolkit/et-ws-pyo3-imu1",
+  "type": "module",
+  "description": "MentorPi controller-board IMU reader",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pyo3_imu1.py"
+}

@@ -11,7 +11,7 @@
 [coverage]: https://codecov.io/gh/edge-toolkit/core
 [crate-badge]: https://img.shields.io/crates/v/et-ws-server
 [crate]: https://crates.io/crates/et-ws-server
-[checks-badge]: https://img.shields.io/badge/checks-%3E%3D360-blue
+[checks-badge]: https://img.shields.io/badge/checks-%3E%3D380-blue
 [checks]: CHECKS.md
 [license-badge]: https://img.shields.io/badge/license-MIT%2BApache--2.0-blue
 [license]: #licence
@@ -210,10 +210,15 @@ Modules built as WASI Preview 2 components and run under wasmtime:
 - Rust
 - Python, via [componentize-py](https://github.com/bytecodealliance/componentize-py)
 
+Unlike a browser module, a WASI module can be lent the host's serial ports, which is how it reaches a robot's
+sensors. The `wasi-lidar1` module reads the COIN-D6 lidar on Hiwonder's MentorPi robot that way, keeping the latest
+revolution of distances in its agent's storage, where any other agent reads it.
+
 ### PyO3 runner ([ws-pyo3-runner](services/ws-pyo3-runner))
 
 Native CPython modules linked via [PyO3](https://pyo3.rs) -- used for workloads that need a real CPython runtime
-(e.g. PyTorch inference).
+(e.g. PyTorch inference). Three read Hiwonder's MentorPi robot from worker threads: `pyo3-lidar1` its lidar, as
+`wasi-lidar1` does, `pyo3-imu1` the IMU on its controller board, and `pyo3-media1` its camera and microphone.
 
 ### The math1 family
 
@@ -337,7 +342,8 @@ that same memory, so an agent elsewhere reads what a runner on the board stored.
 The board's firmware decides which runners it can run. Only `firmware-pico-plus2`, for the Pimoroni Pico Plus 2 W,
 runs any: its 8 MiB of PSRAM holds the memory a guest needs, so it runs each `wasi` runner beside the hub, its guest
 compiled into the firmware. The firmware's build refuses a guest that imports what a board does not host, such as
-`wasi:webgpu` or `wasi:nn`, or guests needing more memory than the board holds for them. Every other board refuses a
+`wasi:webgpu`, `wasi:nn` or the serial ports of `et:ws-wasi/serial`, or guests needing more memory than the board
+holds for them. Every other board refuses a
 scenario with a runner, and the Pico Plus 2 W refuses any runner but `wasi`, or one with `limits:`.
 
 ### Multiple machines

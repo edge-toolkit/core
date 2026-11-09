@@ -50,19 +50,30 @@ search-path = [
 replace-imports-with-any = [
   "componentize_py_types",
   "cowsay",
+  "cv2",
   "et_rest_client",
   "et_rest_client.*",
   "et_ws",
   "et_ws.*",
   "pyodide_http",
   "pytest",
+  "serial",
+  "sounddevice",
   "torch",
   "wit_world",
   "wit_world.*",
 ]
 
+# Pin an empty container literal to its declared type, never to the type its first use suggests.
+# Without this, `items = []` followed by `items.append(1)` is inferred as `list[int]` and never reported, so
+# `implicit-any-empty-container` below would have nothing to fire on.
+infer-with-first-use = false
+
 # Error kinds raised above their default severity.
 # `implicitly-defined-attribute` -- an attribute first assigned outside `__init__` and undeclared in the class body.
 # The local equivalent of `DeepSource PYL-W0201`.
+# `implicit-any-empty-container` -- an empty `[]`, `{}` or `set()` whose element type nothing declares. The local
+# equivalent of `DeepSource TYP-068`.
 [errors]
+implicit-any-empty-container = true
 implicitly-defined-attribute = true

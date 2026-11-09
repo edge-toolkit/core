@@ -125,7 +125,7 @@ class _FakeMlflowClient:
         return "experiment-1"
 
     @staticmethod
-    def search_runs(**_kwargs):
+    def search_runs(**_kwargs) -> list[object]:
         """Report no remote matches unless a test overrides the lookup."""
         return []
 
@@ -207,7 +207,7 @@ class BridgeFixtureMixin:
 
     def persist_pending(self, event, *, next_attempt_at=0.0):
         """Seed a durable pending event to exercise restoration and deferred processing through public hooks."""
-        document = {
+        document: dict[str, object] = {
             "schema_version": 1,
             "runs": {},
             "processed": [],

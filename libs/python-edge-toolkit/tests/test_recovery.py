@@ -36,7 +36,7 @@ class MemoryStorage:
 
 def test_lifecycle_uses_existing_direct_cloudevent_transport():
     """Verify ordered lifecycle events use the existing acknowledged agent-message envelope."""
-    sent = []
+    sent: list[str] = []
     lifecycle = Lifecycle(sent.append, "supervisor", "/modules/example", "job")
     for action, progress in [("started", 0), ("progress", 1), ("failed", 1), ("completed", 2)]:
         lifecycle.emit(action, progress)
@@ -82,7 +82,7 @@ def test_lifecycle_rejects_invalid_or_unannounced_evidence():
 
 def test_checkpoint_measurements_share_lifecycle_and_failed_send_does_not_advance_sequence():
     """Preserve sequence order across delivery failures and attach checkpoint measurements to lifecycle evidence."""
-    sent = []
+    sent: list[str] = []
     send = Mock(side_effect=OSError("transport unavailable"))
     lifecycle = Lifecycle(send, "supervisor", "/modules/example", "job")
     with pytest.raises(OSError):

@@ -548,9 +548,10 @@ Languages:
 - **Kotlin -> WASM (WasmGC)**: kotlin-data1, kotlin-math1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target;
   each module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1, pymath1
-- **Python (native CPython)**: pyo3-math1 -- runs in `et-ws-pyo3-runner` rather than the browser, so it is plain
-  `.py` source committed as-is rather than a wheel or a wasm binary. The runner fetches the single file its
-  `main` field names and compiles it in process; the same file also runs from `PYO3_PYTHONPATH` unchanged.
+- **Python (native CPython)**: pyo3-imu1, pyo3-lidar1, pyo3-math1, pyo3-media1 -- run in `et-ws-pyo3-runner` rather
+  than the browser, so each is plain `.py` source committed as-is rather than a wheel or a wasm binary. The runner
+  fetches the single file its `main` field names and compiles it in process; the same file also runs from
+  `PYO3_PYTHONPATH` unchanged.
 - **C# (.NET WASM)**: dotnet-data1, dotnet-math1
 - **Java (TeaVM -> JS)**: java-data1, java-math1 -- both built by the single root `pom.xml` (one compilation, one
   teavm-maven-plugin execution per module)
@@ -1545,23 +1546,33 @@ new deps there, not in individual crate `[dependencies]`.
 Before adding, changing or dropping an entry in `config/deny.toml`'s `[advisories] ignore` list, read the comments
 above that list and follow them -- they say which date an entry takes and when one may go.
 
-## Avoid GPL and LGPL dependencies
+## Avoid GPL dependencies, and link an LGPL C or C++ library only dynamically
 
-Every license `config/deny.toml`'s `[licenses] allow` list currently accepts is permissive (Apache-2.0, MIT,
-BSD, Zlib, ISC, MPL-2.0, etc.) -- none copyleft. Keep it that way: do not add a new direct or transitive
-dependency whose license is GPL (any version) or LGPL (any version), and do not add GPL/LGPL to the
-`config/deny.toml` allow list, even when the license is individually OSI-approved (LGPL is). Being OSI-approved is
-not sufficient on its own here -- copyleft obligations are a different category of concern from a permissive
-license, and accepting one is a project-policy decision, not a mechanical license check.
+Every license `config/deny.toml`'s `[licenses] allow` list currently accepts is permissive (Apache-2.0, MIT, BSD,
+Zlib, ISC, MPL-2.0, etc.) -- none copyleft. Keep it that way: do not add a new direct or transitive dependency whose
+license is GPL (any version), and do not add GPL or LGPL to the `config/deny.toml` allow list, even when the license
+is individually OSI-approved. Being OSI-approved is not sufficient on its own here -- copyleft obligations are a
+different category of concern from a permissive license, and accepting one is a project-policy decision, not a
+mechanical license check.
+
+The one exception is a C or C++ library under the LGPL (any version), such as libusb or libudev, which a `-sys` crate
+may link **dynamically**: loaded at run time from the system's shared library, so whoever runs our binary can swap in
+their own build of it, which is what the LGPL asks. It must never be compiled into one of our binaries. Keep off any
+`-sys` feature that builds the library from bundled source (`vendored`, `static`, `bundled`), and read the build
+script for a fallback that does the same when the system library is missing -- `libusb1-sys` compiles its bundled
+libusb whenever `pkg-config` cannot find one. No license check sees any of this, because the `-sys` crate carries
+its own permissive license (`libusb1-sys` is MIT), so it is settled in review. A Rust crate under the LGPL is not
+covered: cargo links Rust dependencies statically.
 
 Concrete precedent: `viuer` (added for the storage service's tty image-preview feature) pulled in
 `ansi_colours` under LGPL-3.0-or-later as an unconditional dependency for its RGB-to-256-color quantization
 path. Rather than allow-listing LGPL, the feature was reimplemented as a small hand-rolled ANSI truecolor
 renderer in `services/storage/src/tty_image.rs`, built on the `image` crate the workspace already depended on
 via `deno_image`/`ws-web-runner` -- truecolor output needs no palette quantization at all, so there was
-nothing left for the LGPL dependency to do. If a future dependency's only viable path involves a GPL/LGPL
-component, treat that the same way: look for a permissively-licensed alternative or a narrower reimplementation
-first, and only bring the question to the user if neither is workable -- don't add the exception yourself.
+nothing left for the LGPL dependency to do. If a future dependency's only viable path involves a GPL component,
+or an LGPL one that would be linked statically, treat that the same way: look for a permissively-licensed
+alternative or a narrower reimplementation first, and only bring the question to the user if neither is workable --
+don't add the exception yourself.
 
 ## Clippy lints
 

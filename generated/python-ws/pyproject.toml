@@ -26,7 +26,6 @@ version = "0.1.0"
 [project.urls]
 Changelog = "https://github.com/edge-toolkit/core/blob/main/CHANGELOG.md"
 Homepage = "https://github.com/edge-toolkit/core"
-Issues = "https://github.com/edge-toolkit/core/issues"
 Source = "https://github.com/edge-toolkit/core/tree/main/generated/python-ws"
 
 [build-system]

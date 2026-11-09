@@ -1,3 +1,5 @@
+#[cfg(feature = "lidar")]
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -41,6 +43,11 @@ pub struct HostState {
     /// Upstream's defaults, so a device gets wgpu's own default memory hints.
     #[cfg(feature = "webgpu")]
     pub wgpu_options: wasi_webgpu_wasmtime::WasiWebGpuOptions,
+
+    /// The serial ports `et:ws-wasi/serial` lends the guest: each name it may open, and the device behind it.
+    /// Empty from [`HostState::new`], so a store lends no port until its runner fills this from its configuration.
+    #[cfg(feature = "lidar")]
+    pub serial_ports: BTreeMap<String, String>,
 }
 
 impl HostState {
@@ -109,6 +116,8 @@ impl HostState {
             )),
             #[cfg(feature = "webgpu")]
             wgpu_options: wasi_webgpu_wasmtime::WasiWebGpuOptions::default(),
+            #[cfg(feature = "lidar")]
+            serial_ports: BTreeMap::new(),
         }
     }
 }

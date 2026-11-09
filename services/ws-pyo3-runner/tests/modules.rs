@@ -18,7 +18,7 @@
 )]
 
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf, Prefix};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -113,7 +113,7 @@ async fn module_behaves(
     let server = et_ws_test_server::start();
     // Control client registers first so the runner has a peer to broadcast to.
     let (mut control, control_id) = control_client(&server.ws_url).await?;
-    let mut runner = spawn_runner(module, &server.ws_url);
+    let mut runner = spawn_runner(module, &server.ws_url, &[]);
 
     // torch's cold import + first op is slow; the rest are quick.
     let budget = if matches!(gate, Gate::Torch) {
@@ -338,7 +338,7 @@ async fn run_exchange(
 async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
     let module = format!("{}et-ws-pyo3-math1", et_org::NPM_SCOPE);
-    let mut runner = spawn_runner(&module, &server.ws_url);
+    let mut runner = spawn_runner(&module, &server.ws_url, &[]);
     let outcome =
         et_ws_test_server::math1::drive_math1_exchange(&server.ws_url, server.storage_dir.path(), EXCHANGE_BUDGET)
             .await;
@@ -347,6 +347,69 @@ async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
     let (weight, bias) = outcome?;
     et_ws_test_server::math1::verify_math1_model(weight, bias)?;
     Ok(())
+}
+
+/// Run the published device module `module` with `envs` naming its devices, until `verify` judges what it stored.
+///
+/// Like math1, each is fetched from the hub. Its persistent worker, which `init` starts, waits for `on_connect` to
+/// give the agent a bucket and then stores what it reads; the runner is long-lived, so it is killed once `verify`
+/// has decided, whichever way.
+fn stores_from_devices<F>(module: &str, envs: &[(&str, &str)], verify: F) -> Result<(), Box<dyn Error>>
+where
+    F: FnOnce(&Path) -> Result<(), et_ws_test_server::device::DeviceError>,
+{
+    let server = et_ws_test_server::start();
+    let mut runner = spawn_runner(&format!("{}{module}", et_org::NPM_SCOPE), &server.ws_url, envs);
+    let outcome = verify(server.storage_dir.path());
+    // A runner that has already exited cannot be killed, which is no failure here; it is reaped either way.
+    let _killed: std::io::Result<()> = runner.kill();
+    let _status = runner.wait()?;
+    outcome?;
+    Ok(())
+}
+
+/// The pyo3 twin of wasi-lidar1 stores the last whole revolution a simulated COIN-D6 sends.
+#[test]
+fn lidar1_stores_the_latest_revolution() -> Result<(), Box<dyn Error>> {
+    if !mise_env_includes(Language::Python) {
+        return Ok(());
+    }
+    let lidar = et_ws_test_server::lidar::SimulatedLidar::start();
+    let device = lidar.device().to_owned();
+    stores_from_devices("et-ws-pyo3-lidar1", &[("SERIAL_PORTS_LIDAR", &device)], |storage| {
+        lidar.verify(storage, EXCHANGE_BUDGET)
+    })
+}
+
+/// The IMU module stores the last reading a simulated controller board reports, past a corrupt one and a button press.
+#[test]
+fn imu1_stores_the_latest_reading() -> Result<(), Box<dyn Error>> {
+    if !mise_env_includes(Language::Python) {
+        return Ok(());
+    }
+    let controller = et_ws_test_server::imu::SimulatedController::start();
+    let device = controller.device().to_owned();
+    stores_from_devices("et-ws-pyo3-imu1", &[("SERIAL_PORTS_CONTROLLER", &device)], |storage| {
+        controller.verify(storage, EXCHANGE_BUDGET)
+    })
+}
+
+/// The media module stores a frame from a camera and the last clip from a microphone, both simulated by files.
+#[test]
+fn media1_stores_a_frame_and_the_latest_clip() -> Result<(), Box<dyn Error>> {
+    if !mise_env_includes(Language::Python) {
+        return Ok(());
+    }
+    let media = et_ws_test_server::media::SimulatedMedia::write();
+    let camera = media.camera().display().to_string();
+    let microphone = media.microphone().display().to_string();
+    let envs = [
+        ("MEDIA_CAMERA", camera.as_str()),
+        ("MEDIA_MICROPHONE", microphone.as_str()),
+    ];
+    stores_from_devices("et-ws-pyo3-media1", &envs, |storage| {
+        media.verify(storage, EXCHANGE_BUDGET)
+    })
 }
 
 /// Torch case checker: matmul + tiny-classifier summary from `torch_inference.py`.
@@ -372,15 +435,43 @@ fn python_dir() -> PathBuf {
     edge_toolkit::config::get_project_root().join("services/ws-pyo3-runner/python")
 }
 
-/// Spawn the runner subprocess for `module`, pointed at `ws_url`.
-fn spawn_runner(module: &str, ws_url: &str) -> Child {
+/// `path` in the form a colon-separated `PYO3_PYTHONPATH` holds whole.
+///
+/// On Windows that is the UNC path to its drive's administrative share, `\\localhost\C$\Users\...` for
+/// `C:\Users\...`; elsewhere the path is unchanged.
+fn colon_free(path: &Path) -> PathBuf {
+    let mut components = path.components();
+    let Some(Component::Prefix(prefix)) = components.next() else {
+        return path.to_path_buf();
+    };
+    let (Prefix::Disk(drive) | Prefix::VerbatimDisk(drive)) = prefix.kind() else {
+        return path.to_path_buf();
+    };
+    let share = PathBuf::from(format!(r"\\localhost\{}$\", char::from(drive)));
+    share.join(
+        components
+            .filter(|component| *component != Component::RootDir)
+            .collect::<PathBuf>(),
+    )
+}
+
+/// Spawn the runner subprocess for `module`, pointed at `ws_url`, with `envs` set beside what every case sets.
+fn spawn_runner(module: &str, ws_url: &str, envs: &[(&str, &str)]) -> Child {
     // Silence the runner unless invoked with --nocapture and RUST_LOG opted in.
     let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
+    // edge-toolkit from this repository's source, which the lidar, IMU and media modules import.
+    let edge_toolkit = edge_toolkit::config::get_project_root().join("libs/python-edge-toolkit");
+    let python_path = format!(
+        "{}:{}",
+        colon_free(&python_dir()).display(),
+        colon_free(&edge_toolkit).display()
+    );
     Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", module)
-        .env("PYO3_PYTHONPATH", python_dir())
+        .env("PYO3_PYTHONPATH", python_path)
         .env("WS_SERVER_URL", ws_url)
         .env("RUST_LOG", rust_log)
+        .envs(envs.iter().copied())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn_checked()

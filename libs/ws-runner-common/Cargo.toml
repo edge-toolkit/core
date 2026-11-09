@@ -20,6 +20,8 @@ path = "src/lib.rs"
 env-schema = ["dep:schemars", "edge-toolkit/env-schema"]
 ## Internal: adds the `ET_TEST_COVERAGE` switch to the WASI and web runners' configs, for their coverage builds.
 coverage = []
+## Adds the `SERIAL_PORTS_<NAME>` ports to the WASI runner's config, for its own `lidar` feature to lend to guests.
+lidar = []
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
@@ -46,6 +48,7 @@ tracing = { workspace = true, features = ["attributes", "std"] }
 [dev-dependencies]
 et-rest-client.workspace = true
 et-test-helpers.workspace = true
+et-ws-runner-common = { workspace = true, features = ["lidar"] }
 serde-env.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt", "test-util"] }
 tokio-tungstenite = { workspace = true, features = ["handshake"] }

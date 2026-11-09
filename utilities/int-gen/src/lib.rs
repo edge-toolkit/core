@@ -130,7 +130,7 @@ pub fn first_difference(committed: &str, rendered: &str) -> String {
     }
 }
 
-/// Emit the wasmtime host bindings for the `runner` world.
+/// Emit the wasmtime host bindings for the `runner` and `serial-host` worlds.
 ///
 /// Writes `services/ws-wasi-runner/src/bindings.rs`, which used to be expanded from `wasmtime::component::bindgen!` at
 /// build time against a WIT path outside that crate -- a path `cargo package` cannot include, leaving the crate unable

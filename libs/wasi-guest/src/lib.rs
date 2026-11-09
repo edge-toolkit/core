@@ -26,6 +26,7 @@ pub mod bindings;
 #[cfg(feature = "coverage")]
 mod coverage;
 
+use self::bindings::et::ws_wasi::serial::SerialError;
 use self::bindings::et::ws_wasi::ws::WsError;
 use self::bindings::exports::et::ws_wasi::entry::EntryError;
 use self::bindings::wasi::keyvalue::store;
@@ -62,6 +63,15 @@ impl From<WsError> for EntryError {
 impl From<store::Error> for EntryError {
     fn from(err: store::Error) -> Self {
         Self::Store(err)
+    }
+}
+
+// `entry-error` has no arm for `et:ws-wasi/serial`: `entry` is in the `runner` world every runner hosts, and naming a
+// serial type there would make every runner host the ports, which only the WASI runner's `lidar` feature does. A
+// port's error therefore travels as `runtime`, carrying the host's account of what went wrong.
+impl From<SerialError> for EntryError {
+    fn from(err: SerialError) -> Self {
+        Self::Runtime(format!("serial port: {err}"))
     }
 }
 

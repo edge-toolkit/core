@@ -58,7 +58,7 @@ class ValidationTests(BridgeFixtureMixin, unittest.TestCase):
 
     def test_invalid_event_payloads_are_rejected_before_persistence(self):
         """Validate operation kinds, names, mappings, metrics, steps and artifact pointers at ingestion."""
-        cases = [
+        cases: list[dict[str, object]] = [
             {"event": "unknown-operation"},
             {"producer": None},
             {"producer": "../other-agent"},

@@ -10,6 +10,8 @@ mod core_module;
 mod error;
 mod log;
 mod run;
+#[cfg(feature = "lidar")]
+pub mod serial;
 mod state;
 pub mod wasi_keyvalue;
 #[cfg(feature = "nn")]

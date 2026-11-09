@@ -16,6 +16,8 @@ actix-web.workspace = true
 edge-toolkit = { workspace = true, features = ["std"] }
 et-modules-service = { workspace = true, features = ["std"] }
 et-storage-service = { workspace = true, features = ["std"] }
+# Encodes what the simulated COIN-D6 sends.
+et-lidar.workspace = true
 et-test-helpers.workspace = true
 et-ws-service = { workspace = true, features = ["nats", "otel"] }
 fs-err.workspace = true

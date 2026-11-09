@@ -26,11 +26,13 @@ version = "0.1.0"
 [project.urls]
 Changelog = "https://github.com/edge-toolkit/core/blob/main/CHANGELOG.md"
 Homepage = "https://github.com/edge-toolkit/core"
-Issues = "https://github.com/edge-toolkit/core/issues"
 Source = "https://github.com/edge-toolkit/core/tree/main/libs/python-edge-toolkit"
 
+[project.optional-dependencies]
+serial = ["pyserial>=3.5"]
+
 [dependency-groups]
-dev = ["pytest", "pytest-cov"]
+dev = ["pyserial>=3.5", "pytest", "pytest-cov"]
 
 [build-system]
 build-backend = "uv_build"

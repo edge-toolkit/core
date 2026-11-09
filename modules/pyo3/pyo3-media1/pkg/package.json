@@ -1,0 +1,8 @@
+{
+  "name": "@edge-toolkit/et-ws-pyo3-media1",
+  "type": "module",
+  "description": "MentorPi camera and microphone capture",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pyo3_media1.py"
+}

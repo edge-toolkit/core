@@ -309,7 +309,7 @@ def _next_pending_item() -> tuple[str, dict[str, Any]] | None:
     with _state["lock"]:
         # Preserve ordering within each producer/run while allowing an outage
         # in one run to leave unrelated producers free to make progress.
-        eligible = []
+        eligible: list[tuple[str, dict[str, Any]]] = []
         observed_runs: set[str] = set()
         for identity, record in _state["pending"].items():
             run_identity = _run_identity(record["event"])
@@ -479,14 +479,12 @@ def _restore_state() -> None:
     except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
         _logger.exception("failed to restore MLflow bridge state; starting with an empty outbox")
         with _state["lock"]:
-            _state["runs"] = {}
-            _state["processed"] = []
-            _state["pending"] = {}
+            _state.update({"runs": {}, "processed": [], "pending": {}})
 
 
 def _restore_pending(records: list[Any]) -> dict[str, Any]:
     """Recover queued records with valid event identities without discarding unrelated saved work."""
-    pending = {}
+    pending: dict[str, Any] = {}
     for record in records:
         try:
             if not isinstance(record, dict) or not isinstance(record.get("event"), dict):

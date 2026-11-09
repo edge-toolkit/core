@@ -86,6 +86,7 @@ ignore:
   - modules/web/video1/pkg
   - modules/wasi/wasi-comm1/pkg
   - modules/wasi/wasi-data1/pkg
+  - modules/wasi/wasi-lidar1/pkg
   - modules/wasi/wasi-math1/pkg
   - modules/wasi/wasi-graphics-info/pkg
   - modules/web/zig-data1/pkg

@@ -48,6 +48,17 @@ Type: string.
 
 Optional wall-clock timeout, from `RUNNER_TIMEOUT` (e.g. `120s`, `3m`); `None` runs without a timeout.
 
+### `SERIAL_PORTS`
+
+Type: object. Default: `{}`.
+
+The serial ports lent to guests through `et:ws-wasi/serial`, each from a `SERIAL_PORTS_<NAME>` variable.
+
+A guest opens a port by the name the variable's suffix gives it, lowercased: `SERIAL_PORTS_LIDAR` lends the port
+`lidar`. The value is the device, such as `/dev/ttyUSB0` or `COM3`, or `tcp://<host>:<port>` for one a bridge such as
+ser2net serves over TCP. serde-env also records each `_`-separated prefix of a longer name with an empty device, which
+lends nothing. Only under the `lidar` cargo feature, which is what lends ports.
+
 ### `WS_CONNECT_ACK_TIMEOUT`
 
 Type: string. Default: `5s`.

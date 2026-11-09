@@ -58,6 +58,14 @@ backend = "pipx:pyrefly"
 specifiers = ["latest"]
 uv = { path = "locks/mise.python/pipx-pyrefly/1.4.0", digest = "sha256:daf51047dd6b56e8a6c46b2dc8038c718247c4711104a38260ede49422acaefa" }
 
+[[tools."pipx:pyserial"]]
+version = "3.5"
+backend = "pipx:pyserial"
+specifiers = ["latest"]
+
+[tools."pipx:pyserial".options]
+uvx_args = "--with opencv-python-headless --with sounddevice"
+
 [[tools."pipx:pytest"]]
 version = "9.1.1"
 backend = "pipx:pytest"

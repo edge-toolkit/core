@@ -5,7 +5,7 @@
 - **Tools:** 49
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 379 custom local rules, or non-default strict linter settings
+- **Rules:** 381 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -760,6 +760,7 @@ Rules, from `config/conftest/policy`:
 - `pyproject` (`config/conftest/policy/pyproject/pyproject.rego`):
   - A `path = ".."` uv source points at the parent directory, which isn't a package -- almost always a mistake.
   - A pyproject's uv_build requirement must pin the uv version mise installs.
+  - A pyproject may not link this repository's GitHub issues in [project.urls], under `Issues` or any other label.
 - `tera_comment` (`config/conftest/policy/tera_comment/tera_comment.rego`):
   - A mise config value must not contain `{#`, which Tera reads as the start of a comment.
 
@@ -1199,6 +1200,9 @@ Rules, from `config/semgrep`:
   path is relative to wherever a command happens to run rather than to anything the deployment fixes. Fetch what the
   deployment needs from its releases, and let each tool's own default stand for "this directory", so the deployment
   builds and runs from its directory alone.
+- `pyo3-assigned-hooks-in-all` -- A runner hook bound by assignment rather than `def` is a global the module itself
+  never reads, so CodeQL reports it as unused. et-ws-pyo3-runner reads it by name, so export it: list every hook the
+  module binds this way in an `__all__` placed after the module docstring and any `from __future__` import.
 - `python-silent-broad-except` -- Silently discarding every ordinary exception can conceal programming errors and lost
   work. Catch the expected exception types and explicitly report, recover from, or propagate the failure. Check-only: a
   safe recovery policy cannot be inferred from the handler alone.
