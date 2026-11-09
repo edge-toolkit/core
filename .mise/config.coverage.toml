@@ -655,28 +655,12 @@ count generated "generated source (a subset of non-test, shown for reference)"
 # scc counts one partition per run, so the split has to be assembled here rather than read off a single table.
 {
   printf 'language\\tnon_test_code\\ttest_code\\ttotal_code\\n'
-  # $doc and $l are jaq bindings, not shell variables, so the program stays single-quoted.
-  # shellcheck disable=SC2016
   printf '{"nontest":%s,"test":%s}' "$(coreutils cat "$out/non-test.json")" "$(coreutils cat "$out/test.json")" |
-    jaq -r '. as $doc
-      | (reduce $doc.nontest[] as $l ({}; .[$l.Name] = {nontest: $l.Code, test: 0}))
-      | (reduce $doc.test[] as $l (.; .[$l.Name] = {nontest: (.[$l.Name].nontest // 0), test: $l.Code}))
-      | to_entries
-      | map({lang: .key, nontest: .value.nontest, test: .value.test, total: (.value.nontest + .value.test)})
-      | sort_by(-.total)
-      | .[]
-      | [.lang, .nontest, .test, .total]
-      | @tsv'
+    jaq -r -f .mise/sloc-languages.jq
 } >"$out/by-language.tsv"
 
-# The test share is derived at print time rather than stored, so the tsv holds only measured counts.
 echo "== per-language test vs non-test =="
-goawk -F '\\t' 'NR == 1 { printf "%-30s %10s %10s %10s %7s\\n", "Language", $2, $3, $4, "test%"; next }
-  { nt += $2; t += $3; total += $4
-    printf "%-30s %10d %10d %10d %7s\\n", substr($1, 1, 30), $2, $3, $4,
-      ($4 > 0 ? sprintf("%.1f", 100 * $3 / $4) : "-") }
-  END { printf "%-30s %10d %10d %10d %7s\\n", "TOTAL", nt, t, total,
-      (total > 0 ? sprintf("%.1f", 100 * t / total) : "-") }' "$out/by-language.tsv"
+goawk -f .mise/sloc-table.awk "$out/by-language.tsv"
 
 # Every counted line must fall in exactly one partition, so a classification miss fails instead of passing.
 code() { jaq '[.[].Code] | add' <"$out/$1.json"; }

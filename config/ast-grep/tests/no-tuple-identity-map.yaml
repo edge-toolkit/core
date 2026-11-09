@@ -1,0 +1,17 @@
+id: no-tuple-identity-map
+valid:
+  - |
+    let map = serializer.collect_map(pairs.iter().map(|pair| (&pair.0, &pair.1)));
+  - |
+    let swapped = pairs.iter().map(|(key, value)| (value, key));
+  - |
+    let keys = pairs.iter().map(|(key, _value)| key);
+  - |
+    let owned = pairs.iter().map(|(key, value)| (key.clone(), value));
+  - |
+    let rotated = rows.iter().map(|(first, second, third)| (second, third, first));
+invalid:
+  - |
+    let map = serializer.collect_map(pairs.iter().map(|(key, value)| (key, value)));
+  - |
+    let same = rows.into_iter().map(|(first, second, third)| (first, second, third));

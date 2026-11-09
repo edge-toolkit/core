@@ -122,41 +122,21 @@ shell = "{{ vars.task_shell }}"
 depends = ["gen:ws-spec"]
 description = "Emit the Dart REST client via swagger_parser + build_runner (consumes generated/specs/rest.yaml)"
 dir = "generated/dart-rest"
-# Regenerate the Dart REST client, applying two swagger_parser output fixups.
+# Regenerate the Dart REST client, fixing up two of swagger_parser's output files before build_runner reads them.
 # `rm -rf lib` first so a renamed output (e.g. client_postfix change) can't leave orphaned files behind. The
 # goawk rewrites pipe through `tr -d '\r'` because goawk emits CRLF on Windows and dart format preserves
 # whatever line endings it finds.
 #
-# Fixup 1 (storage.dart): swagger_parser renders the application/octet-stream storage endpoints unusably for the
-# browser -- a `dart:io` `File` PUT body and a `void` GET response. goawk rewrites it before build_runner so putFile
-# takes a Uint8List (dio sends Uint8List as raw bytes; a List<int> would be JSON-encoded) and getFile returns the
-# bytes. The END guard fails loudly if a swagger_parser bump moves those sites.
-#
-# Fixup 2 (rest_client.dart): with client_postfix = "" (which drops the `_client` suffix) swagger_parser emits the
-# root client's sub-client imports as `clients/<name>_.dart` -- a stray trailing underscore that export.dart does
-# not have. goawk strips it. Idempotent: a no-op if upstream fixes the inconsistency.
+# rest_client.dart: with client_postfix = "" (which drops the `_client` suffix) swagger_parser emits the root
+# client's sub-client imports as `clients/<name>_.dart` -- a stray trailing underscore that export.dart does not
+# have. goawk strips it. Idempotent: a no-op if upstream fixes the inconsistency.
 run = """
 dart pub get
 coreutils rm -rf lib
 dart run swagger_parser
 s=../../target/scratch
 coreutils mkdir -p "$s"
-goawk 'BEGIN { q = sprintf("%c", 39) }
-/^import / && /dart:io/ { print "import " q "dart:typed_data" q ";"; io++; next }
-/^  Future<void> getFile\\(\\{$/ {
-  print "  @DioResponseType(ResponseType.bytes)"
-  print "  Future<List<int>> getFile({"
-  get++
-  next
-}
-/@Body\\(\\) required File body,/ { sub(/File body/, "Uint8List body"); print; body++; next }
-{ print }
-END {
-  if (io != 1 || get != 1 || body != 1) {
-    printf("gen:dart-rest storage fixup miss: io=%d get=%d body=%d\\n", io, get, body) > "/dev/stderr"
-    exit 1
-  }
-}' lib/clients/storage.dart | coreutils tr -d '\\r' >"$s/storage.dart"
+goawk -f ../../.mise/dart-rest-storage.awk lib/clients/storage.dart | coreutils tr -d '\\r' >"$s/storage.dart"
 coreutils mv "$s/storage.dart" lib/clients/storage.dart
 goawk '/^import / && /clients/ { gsub(/_\\.dart/, ".dart") } { print }' lib/rest_client.dart |
   coreutils tr -d '\\r' >"$s/rest_client.dart"

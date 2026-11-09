@@ -13,6 +13,7 @@ rules:
         - "/**/*.sh"
         - "/**/*.toml"
         - "/**/*.yaml"
+        - "/**/*.yq"
         - "/**/.dockerignore"
         - "/**/.gitignore"
         - "/**/.semgrepignore"

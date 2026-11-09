@@ -1,0 +1,12 @@
+# Cuts a bare probe Pod, sleeping in place of its command, from the template of the Deployment `app` names.
+# It is relabelled so the Deployment's ReplicaSet does not adopt it as a surplus replica.
+select(.kind == "Deployment" and .metadata.name == strenv(app))
+| .spec.template
+| .apiVersion = "v1"
+| .kind = "Pod"
+| .metadata.name = strenv(app) + "-limits-probe"
+| .metadata.labels.app = strenv(app) + "-limits-probe"
+| .spec.restartPolicy = "Never"
+| .spec.containers[0].command = ["sleep", "600"]
+| del(.spec.containers[0].args)
+| del(.spec.containers[0].readinessProbe)

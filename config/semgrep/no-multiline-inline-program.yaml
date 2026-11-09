@@ -1,0 +1,36 @@
+rules:
+  - id: no-multiline-inline-program
+    languages: [generic]
+    paths:
+      include:
+        - "/.mise/config*.toml"
+    # Flag an awk, sed, jq or yq program whose quoted text runs past the line it opens on, in either of two shapes.
+    # Inline: the tool in command position -- not part of a path or a longer word, so `cov-branch-assert.jq` and
+    # `jqfmt` never match -- then any flags and operands that close on the same line, then a quote that does not.
+    # The prefix stops at `#`, so a comment that names a tool and then quotes something is left alone. In a
+    # variable: a multi-line single-quoted assignment whose variable a later line of the same body hands to one of
+    # the tools; a multi-line string the tools never read, such as shell for another shell to run, is not a
+    # program of theirs. A one-line program stays inline, since the line limit already keeps it short. No autofix:
+    # the fix is a new file, which a rewrite of the matched text cannot create.
+    #
+    # The operand quantifiers are possessive because a word can otherwise be split into its runs in exponentially
+    # many ways. On a line that does not match, the engine tries them all and gives up on the file once it hits its
+    # backtracking limit, which reports nothing for every line of it, matches included.
+    pattern-either:
+      - pattern-regex: >-
+          (?mx) ^ [^#\n]*? (?<![\w./-]) (?: goawk | awk | jaq | jq | yq | sed | --jq ) (?![\w.-])
+          (?: [ \t]++ (?: [^\s'"#]++ | '[^'\n]*+' | "(?: [^"\\\n]++ | \\. )*+" )++ )*
+          [ \t]+ \$? (?: '[^'\n]*+ | "(?: [^"\\\n]++ | \\. )*+ ) $
+      - pattern-regex: >-
+          (?msx) ^ [ \t]* (?: (?: export | local | readonly ) [ \t]+ )? ([A-Za-z_]\w*) = '[^'\n]*\n [^']* '
+          (?: (?! ^ (?: """ | ''' ) $ ) . )*?
+          ^ [^#\n]*? (?<![\w./-]) (?: goawk | awk | jaq | jq | yq | sed | --jq ) (?![\w.-]) [^\n]*? \$ \{? \1 (?!\w)
+    message: >-
+      An awk, sed, jq or yq program in a mise task must fit on one line. One that needs more is a program in its
+      own right, and as a string inside a TOML string it is invisible to every checker: nothing formats or lints
+      it, a diff shows it as config, and its text has to survive TOML's escaping and then the shell's quoting
+      before its interpreter sees the first byte. Move it to a file beside the config in `.mise/`, named for the
+      task and with the extension of whatever reads it (`.awk`, `.jq`, `.yq`), and pass the path instead --
+      `goawk -f`, `jaq -f`, `yq --from-file`. A program held in a shell variable and expanded into the call is
+      the same program, and moves the same way.
+    severity: ERROR
