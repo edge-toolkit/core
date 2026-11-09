@@ -58,10 +58,9 @@ services:
         hub: service:hub-image-build
     network_mode: host
     environment:
-      MODULES_PATHS: "/app/node_modules/onnxruntime-web,
-        /app/node_modules/stats-gl,
-        /app/services/ws-server/static,
-        /app/services/ws-wasm-agent"
+      MODULES_PATHS: >-
+        /app/node_modules/onnxruntime-web, /app/node_modules/stats-gl,
+        /app/services/ws-server/static, /app/services/ws-wasm-agent
       MODULES_ROOT: "@edge-toolkit/et-ws-server-static"
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1

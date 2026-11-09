@@ -1,0 +1,7 @@
+{#
+  The command that starts a process-compose deployment, naming its file outright.
+
+  process-compose looks for `compose.yaml` among its default names and takes it first, so in a directory that also
+  holds the Docker Compose file it would load that one instead.
+#}
+{% set process_compose_up = "process-compose up --no-server -f process-compose.yaml" %}

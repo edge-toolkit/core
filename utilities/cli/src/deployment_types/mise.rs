@@ -16,6 +16,7 @@ use super::process_compose::PROCESS_COMPOSE_TOOL;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput, Delivery};
 use crate::placement::{hubs, server_delivery, shares_hubs};
+use crate::templates::render;
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
     cluster_module_names, module_registry, resolve_cluster_modules, resolve_module_paths, runner_crate, task_runners,
@@ -36,8 +37,7 @@ const STAGED_PREFIX: &str = "npm:";
 ///
 /// A file beside `mise.toml` rather than a setting, because a registry and its credential are npm's own config
 /// rather than mise's, and mise reads user-level npm config while deliberately ignoring a project `.npmrc` --
-/// `NPM_CONFIG_USERCONFIG` is the one handle that reaches it. The credential is written as a `${GITHUB_TOKEN}`
-/// reference that npm expands when it reads the file, so the deployment carries no secret.
+/// `NPM_CONFIG_USERCONFIG` is the one handle that reaches it.
 const NPMRC_FILE: &str = "npmrc";
 
 /// Directory, beside `mise.toml`, a published deployment's hub keeps agent storage in.
@@ -230,7 +230,7 @@ pub fn generate_mise_deployment(
 
     fs::write(&output_path, toml::to_string(&Value::Table(root))?)?;
     if matches!(artifacts, ArtifactSource::Published) {
-        fs::write(output_dir.join(NPMRC_FILE), npmrc_contents())?;
+        fs::write(output_dir.join(NPMRC_FILE), npmrc_contents()?)?;
     }
 
     Ok(())
@@ -678,10 +678,17 @@ fn mise_env(artifacts: ArtifactSource) -> Table {
 }
 
 /// The npm config a published deployment carries, pointing the owner scope at GitHub Packages.
-pub(crate) fn npmrc_contents() -> String {
-    format!(
-        "{scope}:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${{GITHUB_TOKEN}}\n",
-        scope = MODULE_SCOPE.trim_end_matches('/'),
+pub(crate) fn npmrc_contents() -> Result<String, CliError> {
+    /// What the npm config is rendered from.
+    #[derive(serde::Serialize)]
+    struct Npmrc {
+        scope: &'static str,
+    }
+    render(
+        "npmrc.j2",
+        &Npmrc {
+            scope: MODULE_SCOPE.trim_end_matches('/'),
+        },
     )
 }
 

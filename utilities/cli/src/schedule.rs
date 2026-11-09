@@ -10,7 +10,6 @@ use croner::parser::{CronParser, Seconds, Year};
 use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::error::CliError;
-use crate::input::{ClusterInput, OutputType};
 
 /// The `@` shorthands robfig's standard parser expands, and so the only ones every scheduler here understands.
 ///
@@ -133,24 +132,6 @@ pub(crate) fn validate_schedule(agent: &str, schedule: &Schedule) -> Result<(), 
         }),
         _ => Ok(()),
     }
-}
-
-/// Render how the compose deployment runs its scheduled agents, or nothing for any other format or an unscheduled one.
-///
-/// Compose is the one format whose schedule differs visibly from a `CronJob`, and the one that asks for a privilege, so
-/// both are said where the operator starting it will read them.
-pub(crate) fn schedule_note(output_type: OutputType, cluster: &ClusterInput) -> &'static str {
-    let scheduled = cluster.agents.iter().any(|agent| !agent.schedule.is_unset());
-    if !scheduled || !matches!(output_type, OutputType::DockerCompose) {
-        return "";
-    }
-    concat!(
-        "\n### Scheduled Agents With Docker Compose\n\n",
-        "`docker compose up` runs each scheduled agent's runner once, as it does every service. The\n",
-        "`scheduler` service, Ofelia, then starts that same container again on each tick of its schedule,\n",
-        "skipping a tick while the previous run is still going. It mounts the Docker socket to do so, which\n",
-        "gives it the Docker daemon's privileges.\n"
-    )
 }
 
 /// Check one field uses only the standard grammar: numbers, `*`, ranges, steps, lists, and names where they belong.

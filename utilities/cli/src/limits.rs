@@ -13,7 +13,7 @@
 //! each process directly on the host, outside any container, and apply none of them.
 
 use std::collections::BTreeMap;
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::num::NonZeroU64;
 
 use bytesize::ByteSize;
@@ -22,7 +22,7 @@ use thiserror::Error;
 
 use crate::deployment_types::{BACKPLANE_TASK, COLLECTOR_TASK, HUB_TASK, SHARED_STORAGE_TASK};
 use crate::error::CliError;
-use crate::input::{ClusterInput, OutputType};
+use crate::input::ClusterInput;
 
 /// The CPU limit a process runs under when its scenario sets none.
 ///
@@ -516,7 +516,7 @@ pub(crate) fn k8s_cpus(cpus: Cpus) -> String {
 }
 
 /// Every process the scenario sets limits for, by the name each deployment format gives it.
-fn limited_processes(cluster: &ClusterInput) -> Vec<&str> {
+pub(crate) fn limited_processes(cluster: &ClusterInput) -> Vec<&str> {
     let fixed = [
         (BACKPLANE_TASK, &cluster.services.backplane.limits),
         (COLLECTOR_TASK, &cluster.services.collector.limits),
@@ -530,44 +530,4 @@ fn limited_processes(cluster: &ClusterInput) -> Vec<&str> {
         .filter(|(_, limits)| !limits.is_unset())
         .map(|(process, _)| process)
         .collect()
-}
-
-/// Render that a format which runs processes on the host applies none of the scenario's limits, or nothing otherwise.
-///
-/// Said in the README rather than left out of the output silently, so an operator relying on a limit learns which
-/// deployments do not hold it.
-pub(crate) fn limits_note(output_type: OutputType, cluster: &ClusterInput) -> String {
-    // Named per format, because every format's section lands in the one README and markdownlint rejects a repeated
-    // heading.
-    let heading = match output_type {
-        // A board runs no agent, or refuses a runner that sets limits, since it has no way to hold one to them.
-        OutputType::DockerCompose
-        | OutputType::K3s
-        | OutputType::FirmwarePico2
-        | OutputType::FirmwareEsp32c6
-        | OutputType::FirmwarePicoPlus2 => {
-            return String::default();
-        }
-        OutputType::Mise => "Mise",
-        OutputType::Dekit => "dekit",
-        OutputType::ProcessCompose => "process-compose",
-    };
-    let processes = limited_processes(cluster);
-    if processes.is_empty() {
-        return String::default();
-    }
-    let lines = processes.iter().fold(String::default(), |mut lines, process| {
-        let _write_result = writeln!(lines, "- `{process}`");
-        lines
-    });
-    format!(
-        concat!(
-            "\n### Limits Not Applied With {heading}\n\n",
-            "Each process runs directly on the host rather than in a container, so the limits the scenario\n",
-            "sets for these are not applied; the compose and k3s deployments enforce them:\n\n",
-            "{lines}"
-        ),
-        heading = heading,
-        lines = lines,
-    )
 }

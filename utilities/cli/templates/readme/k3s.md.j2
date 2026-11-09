@@ -1,0 +1,171 @@
+{#
+  The k3s section, longer than the others because a Kubernetes deployment needs two things done before `kubectl apply`
+  that neither `mise` nor compose does: the images have to exist on the node, since manifests reference images rather
+  than building them, and the credential has to be loaded as a `Secret`, since it is the one generated file the
+  repository does not carry.
+
+  Only where the hub comes from differs between the two image sources; everything else about producing the scenario
+  image is the same either way. A published scenario's Dockerfile names the released hub image itself, so its build
+  needs no hub of its own and no context to hand one over in.
+
+  Where the build runs follows from what the image reads: a checkout when it copies anything out of one, and otherwise
+  this directory. A build from this directory names no Dockerfile, since `Dockerfile` is docker's own default; one from
+  the repository root has to name the scenario's. The token is said wherever the build runs: a scenario staging a
+  mise-provisioned package builds from the repository root and can still fetch released modules, and then needs the
+  token just the same. The secret's id and the variable it is read from go straight to the flag, since held in a shell
+  variable of its own the pair reads to a secret scanner as a credential assigned in the clear. The template variable
+  holding that flag is named for the registry rather than the secret for the same reason.
+#}
+{% set place = "From the repository root" if run.repository else "From this directory" %}
+{% set location = place ~ ("," if run.registry_token else ":") %}
+{% set build_contexts = run.build_contexts | map("quote") | flags("--build-context") %}
+{% set hub_context = "" if published else ' --build-context "hub=docker-image://$hub"' %}
+{% set registry_flag = " --secret id=" ~ token_secret ~ ",env=" ~ token_env if run.registry_token else "" %}
+{% set dockerfile_flag = ' -f "$dockerfile"' if run.repository else "" %}
+## Run With k3s
+
+{% if published %}
+The manifests reference images by name and never build them, so this scenario's own image has
+to reach the node first. It layers its modules onto the released hub image, which its Dockerfile
+names and the build pulls. {{ location }}
+{% else %}
+The manifests reference images by name and never build them, so build and import each one first.
+This scenario's image layers its modules onto the module-less hub image and takes that hub as a
+_named build context_ rather than building it, so the hub has to exist first -- a plain
+`docker build` of the scenario Dockerfile fails on `FROM hub`. {{ location }}
+{% endif %}
+{% if run.registry_token %}
+with `GITHUB_TOKEN` set to a token that can read the GitHub Packages the build fetches this
+scenario's released modules from:
+{% endif %}
+
+```bash
+scenario={{ name }}
+{% if not published %}
+hub=et-ws-server-hub:latest
+{% endif %}
+image="et-ws-server-$scenario:latest"
+{% if run.repository %}
+dockerfile="{{ run.dockerfile }}"
+{% endif %}
+{% if not published %}
+docker build -t "$hub" -f services/ws-server/Dockerfile .
+{% endif %}
+docker build{{ hub_context }}{{ build_contexts }}{{ registry_flag }} -t "$image"{{ dockerfile_flag }} .
+docker save "$image" | sudo k3s ctr images import -
+```
+
+{#
+  Commands for a locally sourced scenario and a plain list for a published one, because that is the difference the
+  reader has to act on: in the first case a runner image the node does not have leaves its pod in `ErrImagePull` and
+  nothing in the deployment builds it, and in the second the cluster fetches it and there is nothing to run at all. The
+  published case still names the refs, since a reader who just built the scenario image by hand will otherwise go
+  looking for the step that produces these. A scenario whose agents are all browser-side names no runner image, so the
+  whole paragraph is left out rather than left as an empty code fence.
+#}
+{% if run.runners %}
+{%     if published %}
+The cluster pulls this scenario's runner images, so nothing has to be built or imported for
+them:
+
+{%         for kind in run.runners %}
+- `{{ registry }}/et-ws-{{ kind }}-runner:latest`
+{%         endfor %}
+{%     else %}
+Then this scenario's runner images, which need no build context of their own:
+
+```bash
+{%         for kind in run.runners %}
+docker build -t et-ws-{{ kind }}-runner:latest -f services/ws-{{ kind }}-runner/Dockerfile .
+docker save et-ws-{{ kind }}-runner:latest | sudo k3s ctr images import -
+{%         endfor %}
+```
+{%     endif %}
+
+{% endif %}
+{% if run.recovery %}
+{%     if published %}
+The cluster also pulls `{{ registry }}/et-recovery-supervisor:latest`.
+{%     else %}
+Build and import the recovery service image from the repository root:
+
+```bash
+image=et-recovery-supervisor:latest
+docker build -t "$image" -f services/recovery-supervisor/Dockerfile .
+docker save "$image" | sudo k3s ctr images import -
+```
+
+The supervisor starts automatically with scoped ServiceAccount credentials and persistent state.
+Application modules must implement lifecycle reporting and any required checkpoint restoration.
+{%     endif %}
+
+{% endif %}
+{% if run.plugins %}
+### Prepare The Nodes
+
+Some of this scenario's limits have no field in the Pod API, so `k3s.yaml` runs these container
+runtime plugins on every node to write them into each container's cgroup:
+{{ run.plugins | map("code") | join(" and ") }}.
+
+Each limited pod names the plugins it needs, and containerd refuses it on a node where one of them
+did not adjust it -- once NRI's validator is on, which k3s leaves off. Before applying `k3s.yaml`,
+copy the template below from this directory to every machine of the cluster and restart k3s there
+(`k3s-agent` on a machine that joined as an agent):
+
+```bash
+sudo install -D -m 0644 {{ run.containerd_template_file }} {{ run.containerd_template_path }}
+sudo systemctl restart k3s
+```
+
+{% endif %}
+{# Nothing from here on depends on how the images were produced. #}
+### Load The Credential
+
+The credential reaches the pods as a `Secret` created from `{{ secrets_file }}`, rather than written into
+`k3s.yaml` where it would be committed alongside the manifests. From this directory:
+
+```bash
+ns=et-{{ name }}
+kubectl create namespace "$ns" --save-config
+kubectl create secret generic "$ns-secrets" --from-env-file={{ secrets_file }} -n "$ns"
+```
+
+### Apply
+
+```bash
+kubectl apply -f k3s.yaml
+```
+
+The runners exit and restart until the hub reports ready, so `CrashLoopBackOff` while the hub
+starts is expected here rather than a fault. Watch it settle with:
+
+```bash
+kubectl get pods -n "$ns" --watch
+```
+{#
+  Where the scenario is reached from outside the cluster, or nothing for one nobody outside needs. A scenario whose hub
+  serves a page but is not exposed is still told so, since without it no browser can load the page the deployment
+  exists to serve.
+#}
+{% if run.addresses or run.hidden_page %}
+
+### Open From Outside The Cluster
+
+{%     if run.hidden_page %}
+Nothing outside the cluster can reach `ws-server`, so no browser can open its page. List `ws`
+and `wss` under `services.hub.expose` in the scenario input and regenerate to publish them.
+{%     endif %}
+{%     if run.addresses %}
+{%         if run.hidden_page %}
+
+{%         endif %}
+Each exposed port is published on the machine its process runs on:
+
+{%         with addresses = run.addresses %}
+{%         include "readme/addresses.md.j2" %}
+{%         endwith %}
+
+Each binds its port on that node, so another scenario on this cluster exposing the same port
+cannot publish it until this one is deleted.
+{%     endif %}
+{% endif %}

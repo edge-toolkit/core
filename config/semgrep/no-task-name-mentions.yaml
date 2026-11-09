@@ -127,7 +127,9 @@ rules:
         - "/config/otelcol-winperf.yaml" # Likewise.
         - "/config/conftest/policy/mise/mise.rego" # Names the task each os-scoped exporter tool exists for.
         - "/services/ws-wasi-runner/tests/o2_ingest_search.rs" # Its subject is the server those tasks run.
-        - "/utilities/cli/src/lib.rs" # Emits those task names into the deployments it generates.
+        - "/utilities/cli/templates/readme/dekit.md.j2" # Emits those task names into the deployments it generates.
+        - "/utilities/cli/templates/readme/mise.md.j2" # Likewise.
+        - "/utilities/cli/templates/readme/process-compose.md.j2" # Likewise.
         - "/utilities/cli/src/deployment_types/mise.rs" # Likewise.
         - "/utilities/cli/src/deployment_types/dekit.rs" # Likewise.
         - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.

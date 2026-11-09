@@ -1,0 +1,6 @@
+{#
+  The credential is a `${GITHUB_TOKEN}` reference that npm expands when it reads the file, so the deployment carries no
+  secret.
+#}
+{{ scope }}:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}

@@ -1,11 +1,11 @@
 # Checks
 
 - **Generated:** 2026-11-09
-- **Checks:** 83
-- **Tools:** 48
+- **Checks:** 84
+- **Tools:** 49
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 376 custom local rules, or non-default strict linter settings
+- **Rules:** 377 custom local rules, or non-default strict linter settings
 - **Meta rules:** 21 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -815,6 +815,10 @@ Rules, from `config/conftest/policy`:
 - `hadolint-check` (`default` env; run by `check:rust`) -- Lint the Dockerfiles with hadolint. Config:
   `config/hadolint.yaml`.
 
+## `j2lint`
+
+- `j2lint-check` (`default` env; run by `check:rust`) -- Lint the Jinja templates with j2lint.
+
 ## `jscpd`
 
 - `jscpd-check` (`default` env; run by `check:rust`) -- Detect copy/pasted code across every language (jscpd). Config:
@@ -1034,6 +1038,8 @@ Rules, from `config/semgrep`:
 - `no-hadolint-mentions` -- Do not name the Dockerfile linter outside its config, its `hadolint ignore=` pragmas, and
   the code that emits them. Say what the instruction does and why it is written that way; a pragma already carries the
   code it suppresses.
+- `no-j2lint-mentions` -- Do not name the Jinja linter outside the files that install and run it. Say what a template
+  renders and why it is written that way, rather than which linter asked for its layout.
 - `no-jscpd-mentions` -- Do not name the duplication checker outside its config, its baseline, and the policy that
   ratchets them. A reported clone is a request to remove duplication: factor the shared part out so it exists once.
   Where a clone is genuinely irreducible -- the same few lines every caller must write verbatim -- leave the code plain

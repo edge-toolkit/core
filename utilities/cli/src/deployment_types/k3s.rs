@@ -175,7 +175,7 @@ const REQUIRED_PLUGINS_ANNOTATION: &str = "required-plugins.noderesource.dev/con
 pub(crate) const CONTAINERD_TEMPLATE_FILE: &str = "containerd-config-v3.toml.tmpl";
 
 /// Where k3s reads a containerd configuration template from, on every machine of the cluster.
-const CONTAINERD_TEMPLATE_PATH: &str = "/var/lib/rancher/k3s/agent/etc/containerd/config-v3.toml.tmpl";
+pub(crate) const CONTAINERD_TEMPLATE_PATH: &str = "/var/lib/rancher/k3s/agent/etc/containerd/config-v3.toml.tmpl";
 
 /// k3s's own containerd configuration with NRI's default validator turned on.
 ///
@@ -772,36 +772,9 @@ fn cluster_plugins(cluster: &ClusterInput) -> Vec<&'static RuntimePlugin> {
     needed
 }
 
-/// Render the README step that readies every machine for the plugins, or nothing when the scenario needs none.
-pub(crate) fn node_preparation_note(cluster: &ClusterInput) -> String {
-    let plugins = cluster_plugins(cluster);
-    if plugins.is_empty() {
-        return String::default();
-    }
-    let names = plugins
-        .iter()
-        .map(|plugin| format!("`{}`", plugin.name))
-        .collect::<Vec<_>>()
-        .join(" and ");
-    format!(
-        concat!(
-            "### Prepare The Nodes\n\n",
-            "Some of this scenario's limits have no field in the Pod API, so `k3s.yaml` runs these container\n",
-            "runtime plugins on every node to write them into each container's cgroup:\n",
-            "{names}.\n\n",
-            "Each limited pod names the plugins it needs, and containerd refuses it on a node where one of them\n",
-            "did not adjust it -- once NRI's validator is on, which k3s leaves off. Before applying `k3s.yaml`,\n",
-            "copy the template below from this directory to every machine of the cluster and restart k3s there\n",
-            "(`k3s-agent` on a machine that joined as an agent):\n\n",
-            "```bash\n",
-            "sudo install -D -m 0644 {file} {path}\n",
-            "sudo systemctl restart k3s\n",
-            "```\n\n"
-        ),
-        file = CONTAINERD_TEMPLATE_FILE,
-        names = names,
-        path = CONTAINERD_TEMPLATE_PATH,
-    )
+/// The names of the plugins every machine has to be readied for, in name order; none when the scenario needs none.
+pub(crate) fn plugin_names(cluster: &ClusterInput) -> Vec<&'static str> {
+    cluster_plugins(cluster).iter().map(|plugin| plugin.name).collect()
 }
 
 /// The documents that run each plugin any process of the scenario relies on, or none when no process relies on one.

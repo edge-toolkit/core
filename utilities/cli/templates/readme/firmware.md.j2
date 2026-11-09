@@ -1,0 +1,28 @@
+{#
+  A board's firmware running the hub, built for the board and loaded onto one: the whole scenario as a `firmware-*`
+  format, or the server of a scenario spanning machines.
+#}
+{% set runners = run.runners | join(", ") %}
+## {{ run.heading }}
+
+{% if run.runners %}
+The board runs the hub, and beside it each {{ runners }} runner the scenario places on it, compiled into the
+firmware from its module's component. The build refuses a runner that imports what the board
+does not host, or runners needing more memory than it holds.
+The board serves this scenario's modules from its {{ run.flash_size }} of flash.
+{% else %}
+The board runs the hub alone and serves this scenario's modules from its {{ run.flash_size }} of flash.
+{% endif %}
+{% include "readme/load-board.md.j2" %}
+
+To check what the board will serve without one, serve the same modules from this host and fetch
+each, as a page would:
+
+```bash
+{{ run.host_test }}
+```
+
+The board takes an address over DHCP and serves the page at port 8080 of it. npm packages the
+modules use that are too big for its flash, such as onnxruntime-web, are not built in: the board
+redirects a request for one to the same path under `{{ run.elsewhere }}`, which the browser has to be
+able to reach.

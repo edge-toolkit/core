@@ -58,8 +58,7 @@ services:
         hub: service:hub-image-build
     network_mode: host
     environment:
-      MODULES_PATHS: "/app/modules/web/math1,
-        /app/modules/web/math1-sender"
+      MODULES_PATHS: /app/modules/web/math1, /app/modules/web/math1-sender
       MODULES_ROOT: ""
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
@@ -95,7 +94,7 @@ services:
   math1-trigger:
     container_name: et-math1-cron-math1-trigger
     labels:
-      edge-toolkit/scenario: "math1-cron"
+      edge-toolkit/scenario: math1-cron
     build:
       context: ../../../..
       dockerfile: services/ws-web-runner/Dockerfile
@@ -120,10 +119,10 @@ services:
       - --docker-filter
       - label=edge-toolkit/scenario=math1-cron
     labels:
-      edge-toolkit/scenario: "math1-cron"
+      edge-toolkit/scenario: math1-cron
       ofelia.enabled: "true"
-      ofelia.job-run.math1-trigger.schedule: "CRON_TZ=UTC * * * * *"
-      ofelia.job-run.math1-trigger.container: "et-math1-cron-math1-trigger"
+      ofelia.job-run.math1-trigger.schedule: CRON_TZ=UTC * * * * *
+      ofelia.job-run.math1-trigger.container: et-math1-cron-math1-trigger
       ofelia.job-run.math1-trigger.no-overlap: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -21,7 +21,7 @@ useDefault = true
 description = "Literal value assigned to a variable named for a secret"
 id = "secret-variable-literal"
 keywords = ["secret"]
-regex = '''(?i)\b[a-z0-9_]*secret[a-z0-9_]*\s*=\s*["']([^"'$\s]+)["']'''
+regex = '''(?i)\b[a-z0-9_]*secret[a-z0-9_]*\s*=\s*["']([^"'$\n]+)["']'''
 
 [[allowlists]]
 description = "Untracked build, tool and cache trees; gitleaks has no .gitignore support of its own."

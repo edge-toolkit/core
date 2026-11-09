@@ -1,0 +1,47 @@
+{#
+  The step that locks the tools `mise.toml` names, and for a published deployment installs them.
+
+  Every deployment that runs the tasks declares tools there -- at least the UI opener, and a published one its binaries
+  as `cargo:` tools -- each requested as `latest`, so without a committed lockfile two machines can install different
+  releases from the same files. A local deployment compiles what it runs from the working tree, so locking is all it
+  needs here. A published one also installs, since `task.run_auto_install` is off and the first task would otherwise
+  die on a command it cannot find rather than fetching it.
+
+  `NPM_CONFIG_USERCONFIG` is exported rather than left to the `[env]` beside it, which carries the same value. mise
+  computes that entry but does not apply it to its own tool resolution, so the npm client it embeds reads no user
+  config, falls back to registry.npmjs.org, and reports the scoped module packages as `package not found` -- they exist
+  only on GitHub Packages. Exported into the process, the same file resolves against the right registry, for the lock
+  and the install alike. The `[env]` entry stays because the tasks do get it.
+#}
+{% if published %}
+## Install
+
+Lock and fetch the binaries and module packages the `mise.toml` tasks name before the first run.
+`GITHUB_TOKEN` has to be set: GitHub Packages rejects an unauthenticated read even for a public
+package. The registry configuration is exported rather than relied on from `mise.toml`, because
+mise does not apply its own `[env]` to the resolution these commands perform:
+
+```bash
+export NPM_CONFIG_USERCONFIG="$PWD/npmrc"
+mise lock
+mise install --locked
+```
+
+`--locked` installs exactly what the lockfile records, and fails rather than resolving anew
+when it is missing an entry.
+{% else %}
+## Lock The Tools
+
+Before the first run, lock the tools `mise.toml` names:
+
+```bash
+mise lock
+```
+{% endif %}
+
+Commit `mise.lock` alongside the deployment, together with the `.mise/locks/` directory when
+mise writes one -- it holds the dependency graph of each npm tool, which `mise.lock` refers to.
+The two record the version and checksum every `latest` in `mise.toml` resolved to, for each of
+mise's common platforms, so every later install -- on any machine -- fetches the same binaries
+rather than whatever is newest that day. Move to newer releases deliberately, with
+`mise lock --bump`, and commit the result.

@@ -1,0 +1,63 @@
+{#
+  The README a deployment directory carries: what it holds, then how to run each format it was written in.
+
+  Every section ends with a single newline, and whatever follows one opens with the blank line that separates them.
+#}
+# {{ name }}
+
+{% if output_files | length == 1 %}
+This directory contains the generated `{{ output_files | first }}` for the `{{ name }}` scenario.
+{% else %}
+This directory contains generated deployment configs for the `{{ name }}` scenario.
+{# Broken only between names, so the list fits the line length however many formats it holds. #}
+{{ ("Files: " ~ output_files | map("code") | join(", ") ~ ".") | fill }}
+{% endif %}
+
+{% if module_names %}
+The scenario exposes these workflow modules: {{ module_names | join(", ") }}.
+{% else %}
+No workflow modules were selected in the scenario input.
+{% endif %}
+
+{#
+  Where a published scenario's artifacts come from, above the run sections rather than inside one, because it is true
+  of every way the scenario starts: the `mise` deployment runs released binaries, and the compose and Kubernetes ones
+  run published images. Said once per run mode it would be three copies of one fact, and said inside `mise` alone it
+  would read as a property of that mode. A local scenario says nothing here -- building what it runs is the
+  unremarkable case, and the run sections already show the builds.
+#}
+{% if published %}
+This scenario is rendered against released artifacts rather than builds of this repository:
+the images it names are published, and the binaries it runs are the released ones. Only the
+image carrying its own module set is still built locally, since no release can hold a module
+set particular to one deployment.
+
+{% endif %}
+{#
+  The credential file is worth explaining because its absence is silent: `mise` skips an `_.file` it cannot find
+  without a warning, and Docker Compose treats a missing `env_file` the same way, so a copy without it starts a
+  collector with no root password rather than failing.
+#}
+{% set credentials = "OpenObserve, OTLP and object store" if shares_hubs else "OpenObserve and OTLP" %}
+`{{ secrets_file }}` holds the scenario's derived {{ credentials }} credentials. It is derived from the
+scenario input, so regenerating this deployment rewrites it; if it is missing, regenerate before
+starting the stack. A deployment generated outside the repository is written with a `.gitignore`
+covering it, so its credential is not committed by whatever repository it lands in.
+
+{# Every way of running the tasks needs what they name installed first, so the step comes once, ahead of them all. #}
+{% if installs %}
+{%     include "readme/install.md.j2" %}
+
+{% endif %}
+{% for section in sections %}
+{%     if not loop.first %}
+
+{%     endif %}
+{%     include "readme/run.md.j2" %}
+{% endfor %}
+{% for board in boards %}
+
+{%     with run = board %}
+{%     include "readme/" ~ run.kind ~ ".md.j2" %}
+{%     endwith %}
+{% endfor %}

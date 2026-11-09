@@ -30,8 +30,16 @@
   "yaml": {},
   // Package-manager lockfiles are excluded because their generator owns the formatting.
   // Any reformatting dprint applied would be rewritten wholesale by the next `install` and surface as drift. mise's
-  // .mise/locks/ dependency graphs are the same case, manifests included.
-  "excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.yaml", ".mise/locks/", "data/"],
+  // .mise/locks/ dependency graphs are the same case, manifests included. et-cli's Jinja templates render Markdown,
+  // Dockerfiles and ignore files rather than HTML, so the markup formatter would reflow their text as if it were.
+  "excludes": [
+    "**/node_modules",
+    "**/*-lock.json",
+    "**/*-lock.yaml",
+    ".mise/locks/",
+    "data/",
+    "utilities/cli/templates/",
+  ],
   "plugins": [
     "https://github.com/speakeasy-api/dprint-plugin-java/releases/latest/download/dprint_plugin_java.wasm",
     "https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",

@@ -1,0 +1,42 @@
+{#
+  How the machines of a k3s scenario become one cluster and receive the images their pods run. Each machine is labelled
+  as it joins rather than afterwards, so the manifests' node selectors have something to match the moment the node
+  exists.
+#}
+{% set server = section.machines | first %}
+### Run Across Machines With k3s
+
+{% include "readme/loopback.md.j2" %}
+The machines have to form one k3s cluster first, each labelled with the machine name the manifests
+pin pods to. With `k3s` installed on every machine, start the server on `{{ server.name }}`. It stays in
+the foreground, so read the token the others join with from a second shell once it is up:
+
+```bash
+sudo k3s server{{ server.labels | flags("--node-label") }}
+```
+
+```bash
+sudo cat /var/lib/rancher/k3s/server/node-token
+```
+
+Then join each other machine, with that token in `token`:
+
+```bash
+server={{ server.address }}
+{% for machine in section.machines[1:] %}
+sudo k3s agent --server "https://${server}:6443" --token "$token"{{ machine.labels | flags("--node-label") }}
+{% endfor %}
+```
+
+Each image goes to the machines that run it rather than to one node, so the import steps above
+become these, with each machine reachable over `ssh` by its address:
+
+```bash
+image="et-ws-server-{{ name }}:latest"
+{% for address in section.run.hub_imports %}
+docker save "$image" | ssh {{ address }} sudo k3s ctr images import -
+{% endfor %}
+{% for shipped in section.run.image_imports %}
+docker save {{ shipped.image }} | ssh {{ shipped.address }} sudo k3s ctr images import -
+{% endfor %}
+```

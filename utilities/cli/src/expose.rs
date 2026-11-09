@@ -6,9 +6,9 @@
 //! not anything declared the port, which is why the hub's and the collector's ports are always reserved.
 
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 
 use edge_toolkit::ports::Services as Ports;
+use serde::Serialize;
 
 use crate::error::CliError;
 use crate::input::{Agent, ClusterInput, ExposedPort, Protocol};
@@ -230,29 +230,37 @@ fn validate_collisions(cluster: &ClusterInput) -> Result<(), CliError> {
     Ok(())
 }
 
-/// Render the list of every exposed port, as the address it is reached at from outside, or nothing when none is.
+/// One exposed port, as the README lists it: whose it is, its name, and where it is reached from outside.
+#[derive(Debug, Serialize)]
+pub(crate) struct ExposedAddress {
+    owner: String,
+    name: String,
+    /// The address as Markdown: a link for a port named after a web scheme, and its address and transport otherwise.
+    address: String,
+}
+
+/// Every exposed port, as the address it is reached at from outside; none when nothing is exposed.
 ///
-/// A port named after a web scheme is a link with that scheme; anything else is its address and transport. The hub's
-/// are left out unless `with_hubs`, for a README that already gives the hub's addresses itself.
-pub(crate) fn address_list(cluster: &ClusterInput, with_hubs: bool) -> String {
-    let mut list = String::default();
+/// The hub's are left out unless `with_hubs`, for a README that already gives the hub's addresses itself.
+pub(crate) fn addresses(cluster: &ClusterInput, with_hubs: bool) -> Vec<ExposedAddress> {
+    let mut list = Vec::new();
     let hub_ports = if with_hubs { hub_ports(cluster) } else { Vec::new() };
     for hub in hubs(cluster) {
         for exposed in &hub_ports {
-            push_address(&mut list, cluster, &hub.name, &hub.site, exposed);
+            list.push(exposed_address(cluster, &hub.name, &hub.site, exposed));
         }
     }
     for agent in &cluster.agents {
         let site = agent_site(cluster, &agent.name);
         for exposed in &agent.expose {
-            push_address(&mut list, cluster, &agent.name, &site, exposed);
+            list.push(exposed_address(cluster, &agent.name, &site, exposed));
         }
     }
     list
 }
 
-/// Append one exposed port of `owner` at `site` to the list [`address_list`] renders.
-fn push_address(list: &mut String, cluster: &ClusterInput, owner: &str, site: &Site, exposed: &ExposedPort) {
+/// One exposed port of `owner` at `site`, as [`addresses`] lists it.
+fn exposed_address(cluster: &ClusterInput, owner: &str, site: &Site, exposed: &ExposedPort) -> ExposedAddress {
     let machine = site.machine_names().join("");
     let host = cluster
         .machines
@@ -270,5 +278,9 @@ fn push_address(list: &mut String, cluster: &ClusterInput, owner: &str, site: &S
     } else {
         format!("<{scheme}://{host}:{port}/>")
     };
-    let _write_result = writeln!(list, "- `{owner}` `{name}`: {address}");
+    ExposedAddress {
+        address,
+        name: name.clone(),
+        owner: owner.to_owned(),
+    }
 }

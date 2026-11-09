@@ -746,7 +746,8 @@ fn a_published_scenario_with_no_modules_of_its_own_needs_no_token() {
     assert!(!files["Dockerfile"].contains("AS released"));
     assert!(!files["compose.yaml"].contains("context:"));
     assert!(!files["compose.yaml"].contains("secrets:"));
-    assert!(files["compose.yaml"].contains("    build: .\n"));
+    let compose: serde_yaml::Value = serde_yaml::from_str(&files["compose.yaml"]).unwrap();
+    assert_eq!(compose["services"]["ws-server"]["build"].as_str(), Some("."));
     assert!(files["README.md"].contains("From this directory:\n\n```bash\nscenario=bare\n"));
 }
 

@@ -1,0 +1,32 @@
+{# One format's section, then what it adds when the scenario spans machines, sets limits, or schedules. #}
+{% with run = section.run %}
+{% include "readme/" ~ run.kind ~ ".md.j2" %}
+{% endwith %}
+{% if section.machines %}
+
+{%     if section.format == "k3s" %}
+{%         include "readme/k3s-machines.md.j2" %}
+{%     else %}
+{%         include "readme/machines.md.j2" %}
+{%     endif %}
+{% endif %}
+{% if section.unapplied_limits %}
+
+### Limits Not Applied With {{ section.heading }}
+
+Each process runs directly on the host rather than in a container, so the limits the scenario
+sets for these are not applied; the compose and k3s deployments enforce them:
+
+{%     for process in section.unapplied_limits %}
+- `{{ process }}`
+{%     endfor %}
+{% endif %}
+{% if section.scheduled %}
+
+### Scheduled Agents With Docker Compose
+
+`docker compose up` runs each scheduled agent's runner once, as it does every service. The
+`scheduler` service, Ofelia, then starts that same container again on each tick of its schedule,
+skipping a tick while the previous run is still going. It mounts the Docker socket to do so, which
+gives it the Docker daemon's privileges.
+{% endif %}

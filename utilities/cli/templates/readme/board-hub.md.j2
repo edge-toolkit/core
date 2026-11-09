@@ -1,0 +1,10 @@
+{#
+  A format whose server is a board, which leaves the format only the runners elsewhere. Only a format that runs
+  `mise.toml` tasks gets here, since the others are refused a board before anything is written.
+#}
+## Run With {{ section.heading }}
+
+The hub runs on `{{ run.server }}`, a {{ run.title }},
+as firmware the section loading it describes. The board runs no OpenObserve, so there is no UI to
+open. Each runner on another machine reaches the hub across the network, and starts as that
+machine's share below.

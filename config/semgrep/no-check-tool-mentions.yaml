@@ -344,7 +344,7 @@ rules:
         - "/Dockerfile.windows" # Same pragmas.
         - "/services/ws-server/Dockerfile" # Same, and why one code is suppressed inline rather than in config.
         - "/config/hadolint.yaml" # Its own config, and the shellcheck code it emits from its embedded copy.
-        - "/utilities/cli/src/deployment_types/scenario_image.rs" # Emits those pragmas into generated images.
+        - "/utilities/cli/templates/scenario-image.j2" # Emits those pragmas into generated images.
         - "/verification/**" # The generated images holding them.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
@@ -353,6 +353,20 @@ rules:
       Do not name the Dockerfile linter outside its config, its `hadolint ignore=` pragmas, and the code that
       emits them. Say what the instruction does and why it is written that way; a pragma already carries the
       code it suppresses.
+    severity: ERROR
+
+  - id: no-j2lint-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
+        - "/Dockerfile.nanoserver" # Disables the tool for an image that cannot install it.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: "(?i)j2lint"
+    message: >-
+      Do not name the Jinja linter outside the files that install and run it. Say what a template renders and why
+      it is written that way, rather than which linter asked for its layout.
     severity: ERROR
 
   - id: no-jscpd-mentions
@@ -644,7 +658,7 @@ rules:
         - "/Dockerfile.nanoserver" # Same, plus the tool's own MISE_DISABLE_TOOLS entry.
         - "/Dockerfile.windows" # Same pragmas.
         - "/config/hadolint.yaml" # Ignores a code raised by the copy embedded in the Dockerfile linter.
-        - "/utilities/cli/src/deployment_types/scenario_image.rs" # Emits those pragmas into generated images.
+        - "/utilities/cli/templates/scenario-image.j2" # Emits those pragmas into generated images.
         - "/verification/**" # The generated images holding them.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
