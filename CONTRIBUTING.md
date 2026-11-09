@@ -160,3 +160,15 @@ This is the same workaround both Docker builds bake in, so reach for it first if
 
 Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers. [CHECKS.md](CHECKS.md) lists every
 check across every `MISE_ENV`, the tool and config each one uses, and every rule those tools are configured with.
+
+## Contributor License Agreement
+
+A pull request can be merged only once everyone who authored its commits has signed the
+[Contributor License Agreement](CLA.md). CLA assistant asks for the signature in a comment on your first pull request,
+and you can also sign at <https://cla-assistant.io/edge-toolkit/core>.
+
+You keep the copyright in your contributions. The agreement gives Curtin University a non-exclusive licence to them
+that it can sublicense on any terms, commercial ones included.
+
+If you create a contribution as part of your employment, your employer has to approve the agreement before you sign
+it. Where a company holds the copyright, it signs the agreement itself.

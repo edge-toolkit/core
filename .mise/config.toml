@@ -1502,6 +1502,26 @@ fi
 """
 shell = "{{ vars.task_shell }}"
 
+[tasks.conftest-check-commit-identities]
+description = "Fail when a commit on the branch credits a coding agent as author, committer or -by trailer (conftest)"
+# Lists every commit since the merge base with origin/main, one line per identity it credits.
+# Each commit gives its author, its committer and every message line whose key ends in `-by`, prefixed with the
+# commit's short hash. A clone with no origin/main has nothing to compare against, and skips as
+# branch-up-to-date-check does.
+run = """
+if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+  echo "conftest-check-commit-identities: origin/main not available (shallow clone?); skipping"
+  exit 0
+fi
+base="$(git merge-base origin/main HEAD)"
+for commit in $(git rev-list "$base..HEAD"); do
+  short="$(git rev-parse --short "$commit")"
+  git log -1 --format="$short author %an <%ae>%n$short committer %cn <%ce>" "$commit"
+  git log -1 --format=%B "$commit" | goawk -v c="$short" 'tolower($0) ~ /^[a-z0-9-]+-by:/ { print c " trailer " $0 }'
+done | conftest test --combine --parser ignore --namespace commit_identities -p config/conftest/policy -
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.conftest-check-ast-grep-rules]
 description = "Check every ast-grep rule declares severity error (conftest)"
 run = "conftest test --combine --namespace ast_grep_rules -p config/conftest/policy config/ast-grep/rules"

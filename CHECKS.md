@@ -1,11 +1,11 @@
 # Checks
 
 - **Generated:** 2026-11-09
-- **Checks:** 84
+- **Checks:** 85
 - **Tools:** 49
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 378 custom local rules, or non-default strict linter settings
+- **Rules:** 379 custom local rules, or non-default strict linter settings
 - **Meta rules:** 21 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -578,6 +578,8 @@ Rules, from `Cargo.toml`:
   CodeRabbit reviews in one pull request (conftest). Config: `config/conftest/policy`.
 - `conftest-check-checks-badge` (`default` env; run by `conftest-check`) -- Check the README checks badge keeps step
   with CHECKS.md's rules count (conftest). Config: `config/conftest/policy`.
+- `conftest-check-commit-identities` (`default` env; run by `conftest-check`) -- Fail when a commit on the branch
+  credits a coding agent as author, committer or -by trailer (conftest). Config: `config/conftest/policy`.
 - `conftest-check-dockerfile` (`default` env; run by `conftest-check`) -- Cross-check Dockerfiles against mise [tools]
   pins + heredoc body-first-line invariants. Config: `config/conftest/policy`.
 - `conftest-check-dockerignore` (`default` env; run by `conftest-check`) -- Check .dockerignore keeps every top-level
@@ -662,6 +664,8 @@ Rules, from `config/conftest/policy`:
   - Every recorded asset must name its `upstream` project URL.
   - Every recorded asset must carry its `license` as an SPDX expression.
   - Every recorded asset must carry a `sha256`, left empty only while bootstrapping.
+- `commit_identities` (`config/conftest/policy/commit_identities/commit_identities.rego`):
+  - No commit on the branch may credit a coding agent anywhere it names a person.
 - `pyrefly_python_sync` (`config/conftest/policy/cross/pyrefly_python_sync.rego`):
   - pyrefly must pin the Python version it type-checks against.
   - pyrefly's pinned Python version must equal the mise `python` pin, the version every lane installs.

@@ -1317,6 +1317,13 @@ A baseline gets rewritten only for a change that is genuinely not about the find
 move, a vendored tree landing wholesale. Even then, say so explicitly, get the operator's sign-off first, and
 report the added/removed counts the update task prints so the delta is reviewable rather than opaque.
 
+Duplication an accepted plan calls for is the other case for asking. When the plan the operator approved needs the
+same text in two places -- two documents that each have to stand alone -- the clones it produces cannot be factored
+out without undoing what was agreed. Do not restructure the planned work to dodge the check, and do not reach for a
+path exclusion. Request the baseline update instead: name each new clone pair and the part of the plan that requires
+it, run `jscpd-baseline-update` once the operator agrees, and report the added/removed counts. If the new entries push
+the count past `declared_clones`, raising it still needs its own sign-off.
+
 Upgrading jscpd itself is the one rewrite an agent may make without asking. A new release re-tokenizes the same
 code -- new languages, a changed tokenizer, different line counting -- so its fingerprints move although no
 duplication was added. In the change that bumps the jscpd pin, run `jscpd-baseline-update`, set `declared_clones`
