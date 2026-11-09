@@ -5,7 +5,7 @@
 - **Tools:** 49
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 377 custom local rules, or non-default strict linter settings
+- **Rules:** 378 custom local rules, or non-default strict linter settings
 - **Meta rules:** 21 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -738,6 +738,7 @@ Rules, from `config/conftest/policy`:
   - No per-platform URL of an `http:` tool may point at a forge either.
   - A tool must not be os-scoped unless allowlisted, since every tool must work on every OS.
   - A mise install path that a config string embeds must name the version [tools] pins.
+  - A [vars] value must double every `$` that is meant for a shell.
   - python must be pinned to a full version triple (X.Y.Z), not a minor alias.
   - Each OS's preinstall task must read its package lists from the Dockerfile ARGs.
   - Every usage arg a task declares must be read by its run body.

@@ -7,11 +7,9 @@ dotnet = "10.0.300"
 
 [vars]
 # MSBuild dir inside the mise dotnet SDK, for the roslynator `-m` flags below.
-# `$$DOTNET_ROOT` escapes mise's config-load `$VAR` expansion (`$$` -> literal `$`), so the value stays
-# `$DOTNET_ROOT/...` for the task shell to expand at run time. DOTNET_ROOT is a tool-plugin env var that mise
-# only injects once the dotnet tool is active; at config-parse time (e.g. mid `mise install`) it isn't set, so
-# a bare `$DOTNET_ROOT` would emit a spurious "not defined" warning. The version segment is the [tools] dotnet
-# pin above -- bump together.
+# DOTNET_ROOT is left for the task shell rather than read with `{{ env.DOTNET_ROOT }}`: it is a tool-plugin env var
+# that mise only injects once the dotnet tool is active, so it is unset while the config loads (e.g. mid
+# `mise install`). The version segment is the [tools] dotnet pin above -- bump together.
 dotnet_msbuild = "$$DOTNET_ROOT/sdk/10.0.300"
 # The publish-and-stage step both C# WASM modules share.
 # `set -x` echoes every command: the Windows lane is newly re-enabled, so keep the trace until it is reliably
@@ -32,9 +30,6 @@ dotnet_msbuild = "$$DOTNET_ROOT/sdk/10.0.300"
 # while the process-environment PATH stays untouched. The compile step never needed this (absolute emcc path,
 # no PATH lookup), and emcc's own subprocesses find python/node via EMSDK_PYTHON / DOTNET_EMSCRIPTEN_NODE_JS
 # rather than PATH -- verified: the compile succeeds even when cmd can read no PATH whatsoever.
-#
-# Every `$` here is doubled: a [vars] value goes through mise's config-load `$VAR` expansion (a task `run` body
-# does not), so a bare `$PUBLISH` would resolve against the loading environment and warn when unset.
 dotnet_publish_sh = '''
 set -x
 

@@ -100,6 +100,53 @@ test_underscore_flattened_install_dir_is_recognised if {
 	reports(msgs, "keep them in sync")
 }
 
+# mise expands `$name` in a [vars] value when it loads the config, so a shell variable there must be `$$name`.
+# The first case is the tsgolint_env regression itself: the command substitution escaped, the variable not.
+test_bare_shell_variable_in_a_var_is_flagged if {
+	value := "dir=\"$$(mise where npm:x)\"\nexport X_PATH=\"$dir/x.exe\""
+	msgs := mise.deny with input as config(".mise/config.toml", {"vars": {"x_env": value}})
+	reports(msgs, `[vars] "x_env" has unescaped $dir`)
+}
+
+test_braced_expansion_in_a_var_is_flagged if {
+	value := `if [ "${OS:-}" = "Windows_NT" ]; then echo win; fi`
+	msgs := mise.deny with input as config(".mise/config.toml", {"vars": {"os_sh": value}})
+	reports(msgs, "has unescaped ${OS")
+}
+
+# mise's directive-table form loads its `default` exactly as it loads a plain string value.
+test_table_form_default_in_a_var_is_flagged if {
+	contents := {"vars": {"x_env": {"default": "echo $HOME"}}}
+	msgs := mise.deny with input as config(".mise/config.toml", contents)
+	reports(msgs, `[vars] "x_env" has unescaped $HOME`)
+}
+
+# `$$` pairs off first, so a third `$` is still a bare one: mise renders `$$$x` as `$` then expands `$x`.
+test_odd_run_of_dollars_in_a_var_is_flagged if {
+	msgs := mise.deny with input as config(".mise/config.toml", {"vars": {"odd": "echo $$$x"}})
+	reports(msgs, "has unescaped $x")
+}
+
+test_doubled_dollars_in_a_var_are_accepted if {
+	value := `src="$$(mise where x)"; [ "$${OS:-}" = "Windows_NT" ] && echo "$$src"`
+	msgs := mise.deny with input as config(".mise/config.toml", {"vars": {"x_sh": value}})
+	count(msgs) == 0
+}
+
+# mise leaves a command substitution and a positional parameter alone, so neither needs escaping.
+test_command_substitution_and_positionals_in_a_var_are_accepted if {
+	value := "dirname $(xcrun --find clang) $1"
+	msgs := mise.deny with input as config(".mise/config.toml", {"vars": {"clang": value}})
+	count(msgs) == 0
+}
+
+# A task `run` body gets no config-load expansion, and an [env] value names the environment on purpose.
+test_run_bodies_and_env_values_keep_single_dollars if {
+	contents := object.union(task("probe", {"run": "echo $HOME"}), {"env": {"TOOL_HOME": "$HOME/tool"}})
+	msgs := mise.deny with input as config(".mise/config.toml", contents)
+	count(msgs) == 0
+}
+
 # A multiline run needs the strict shell, or a failing command in the middle is masked.
 test_multiline_run_without_the_strict_shell_is_flagged if {
 	msgs := mise.deny with input as config(".mise/config.toml", task("build", {"run": "cd x\nmake"}))

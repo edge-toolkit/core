@@ -107,8 +107,8 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/ox
 # https://github.com/edge-toolkit/core/actions/runs/39880984044/job/120178425913 (check windows-latest lane).
 # Inside the install, aube hoists the platform package into the flat `node_modules/.mise/node_modules` farm.
 tsgolint_env = """{% if os() == "windows" -%}
-tsgolint="$(mise where npm:oxlint-tsgolint)/node_modules/.mise/node_modules/@oxlint-tsgolint/win32-x64"
-export OXLINT_TSGOLINT_PATH="$tsgolint/tsgolint.exe"
+tsgolint="$$(mise where npm:oxlint-tsgolint)/node_modules/.mise/node_modules/@oxlint-tsgolint/win32-x64"
+export OXLINT_TSGOLINT_PATH="$$tsgolint/tsgolint.exe"
 {%- endif -%}
 """
 
