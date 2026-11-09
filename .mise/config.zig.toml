@@ -56,8 +56,7 @@ version = "20261006"
 #     xargs: ...\.mise-bins\clang-format.cmd: exited with status 255; aborting
 # Naming the conda-forge binary under `Library/bin` instead keeps cmd.exe out of the chain entirely, so the limit
 # becomes CreateProcess's 32767 and no amount of PATH growth reaches it. Same shape as the `llvm_ct` line below,
-# which has always addressed llvm-mingw's clang-tidy by absolute path. Every `$` is doubled because a [vars] value
-# goes through mise's config-load `$VAR` expansion, which a task `run` body does not.
+# which has always addressed llvm-mingw's clang-tidy by absolute path.
 #
 # `Library/bin` holds only for a native conda package; the msys2 mirror ones (every `conda:m2-*`) put their
 # binaries under `Library/usr/bin` instead, so this resolves the two clang tools and nothing else by luck. Both

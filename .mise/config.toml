@@ -29,6 +29,11 @@ cargo.binstall = true
 # proactively iterating every registry tool with `idiomatic_files` declared. The rest (forgejo, gem, gitlab,
 # pkgx, s3, spm, ubi) are belt-and-braces.
 disable_backends = ["forgejo", "gem", "gitlab", "pkgx", "s3", "spm", "ubi", "vfox"]
+# Pinned to its default, because every [vars] shell snippet relies on it.
+# Each literal `$` in one is written `$$`, and only this expansion turns it back into one; with it off, the `$$`
+# reaches the shell, which reads it as its own PID. Pinning it outranks a user's global `false`; only an explicit
+# MISE_ENV_SHELL_EXPAND=false still overrides it.
+env_shell_expand = true
 exec_auto_install = false
 experimental = true
 http_retries = 10

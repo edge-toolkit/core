@@ -302,13 +302,20 @@ tool_versions contains [dir, version] if {
 }
 
 # Every [vars]/[env] string, tagged with where it came from for the message.
+# An entry is either the string itself or mise's directive table, whose `default` mise loads the same way.
 config_strings contains entry if {
 	some file in input
 	is_mise(file)
 	some kind in ["vars", "env"]
 	some key, value in object.get(file.contents, kind, {})
-	is_string(value)
-	entry := {"path": file.path, "kind": kind, "key": key, "value": value}
+	entry := {"path": file.path, "kind": kind, "key": key, "value": entry_string(value)}
+}
+
+entry_string(value) := value if is_string(value)
+
+entry_string(value) := value.default if {
+	is_object(value)
+	is_string(value.default)
 }
 
 # An install path embeds a tool's version as the segment right after the tool's install dir.
@@ -334,6 +341,31 @@ deny contains msg if {
 	msg := sprintf(
 		"%s: %s %q embeds %q version %q, but [tools] pins it to %q -- keep them in sync",
 		[entry.path, entry.kind, entry.key, d.dir, d.seg, d.pinned],
+	)
+}
+
+# A [vars] value must double every `$` that is meant for a shell.
+# mise expands `$NAME` and `${NAME}` in a [vars] value against the environment it loads the config in, before any
+# task runs; a task `run` body gets no such pass. A shell snippet kept in [vars] -- a variable it sets, a `${OS:-}`
+# guard -- therefore reaches mise first, which substitutes a name the loading environment happens to set and leaves
+# an unset one in place, warning on every load:
+#     mise WARN  env var 'tsgolint' is not defined and will be left unexpanded, referenced by `tsgolint_env` in
+#     D:\a\core\core\.mise\config.js.toml. Use ${tsgolint:-} to default to an empty string and suppress this warning.
+# `$$` is mise's escape for a literal `$`, so write `$$name` for the shell, and `{{ env.NAME }}` to read the loading
+# environment on purpose. An odd run of `$` before a name or `{` is the unescaped case; `$(` and `$1` are never
+# expanded, so either spelling passes. A warning only fires where the template around the snippet renders it, which
+# can be one OS alone, so this reads the TOML unrendered to catch it on every lane. Check-only: conftest has no fix
+# pass, and the right rewrite depends on whether the value meant the shell or the loading environment.
+unescaped_dollar := `(?:^|[^$])(?:\$\$)*(\$\{?[A-Za-z_][A-Za-z0-9_]*)`
+
+deny contains msg if {
+	some entry in config_strings
+	entry.kind == "vars"
+	tokens := {m[1] | some m in regex.find_all_string_submatch_n(unescaped_dollar, entry.value, -1)}
+	count(tokens) > 0
+	msg := sprintf(
+		"%s: [vars] %q has unescaped %s -- write $$ for the shell, or {{ env.NAME }} for the environment",
+		[entry.path, entry.key, concat(", ", sort(tokens))],
 	)
 }
 

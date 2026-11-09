@@ -22,9 +22,6 @@ version = "0.6.0"
 # module's pkg/webr/. `http:webr` downloads and unpacks it flat; copy that install dir into the module's
 # pkg/webr/ (dropping mise's own metadata.json). The module's package.json makes pkg/ a served package, so the
 # copied webr/ subtree rides along as static assets under /modules/<module>/webr/.
-#
-# Every `$` here is doubled: a [vars] value goes through mise's config-load `$VAR` expansion (a task `run` body
-# does not), so a bare `$src` would resolve against the loading environment and warn when unset.
 webr_vendor_sh = """
 src="$$(mise where "http:webr")"
 [ -n "$$src" ] || {
