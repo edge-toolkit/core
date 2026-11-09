@@ -1,0 +1,21 @@
+# Custom fields CLA assistant asks a contributor to fill in before they sign CLA.md.
+# Published to the agreement's gist as the JSON file `metadata`, in the shape of CLA assistant's custom-fields JSON
+# Schema. `githubKey` prefills a field from the signer's GitHub profile, and the form follows the key order below.
+name:
+  title: Full name
+  type: string
+  githubKey: name
+  required: true
+email:
+  title: Email
+  type: string
+  githubKey: email
+  required: true
+employment:
+  title: Employment
+  type:
+    enum:
+      - I did not create my Contributions as part of any employment.
+      - I created my Contributions as part of my employment, and my employer has approved this Agreement.
+      - I am signing on behalf of the Legal Entity that holds the Copyright in the Contributions.
+  required: true

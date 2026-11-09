@@ -69,6 +69,11 @@ RP_WORK = "{{ config_root }}/target/scratch/rp-publish"
 # runtime `${VAR:-default}` rather than a mise [env] entry whose value would mask the shell override).
 RUSTPYTHON_URL = "https://github.com/RustPython/RustPython.git"
 
+[vars]
+# Id of the public gist CLA assistant reads CLA.md and its custom fields from.
+# Empty until the first publish-cla-gist run creates the gist and prints the id to record here.
+cla_gist = ""
+
 [tasks.bootstrap-hf-cache-release]
 description = "Create the hf-cache-v<N> GitHub release if it doesn't exist (idempotent)"
 # Idempotent release creation.
@@ -1055,3 +1060,23 @@ flag "--index <index>" help="Which index to publish to; pypi needs the same vers
 }
 flag "--skip-testpypi-check" help="With --index pypi, publish even if TestPyPI does not hold these versions"
 """
+
+[tasks.publish-cla-gist]
+description = "Copy CLA.md and its CLA assistant custom fields to the CLA gist, creating it if unset"
+# Every new gist revision makes CLA assistant ask each contributor to sign again.
+# So run this only for a deliberate change to the agreement or its fields. The gist's `metadata` file is the JSON
+# rendering of config/cla-assistant-metadata.yaml, and the gist holds exactly these two files.
+run = """
+work="{{ config_root }}/target/scratch/cla-gist"
+coreutils mkdir -p "$work"
+yq -o=json '.' config/cla-assistant-metadata.yaml >"$work/metadata.json"
+files=(-F "files[CLA.md][content]=@CLA.md" -F "files[metadata][content]=@$work/metadata.json")
+gist="{{ vars.cla_gist }}"
+if [ -z "$gist" ]; then
+  gist=$(gh api -X POST /gists -F public=true "${files[@]}" --jq .id)
+  echo "created gist $gist; record it as cla_gist in .mise/config.maint.toml"
+else
+  gh api -X PATCH "/gists/$gist" "${files[@]}" --jq .html_url
+fi
+"""
+shell = "{{ vars.task_shell }}"
