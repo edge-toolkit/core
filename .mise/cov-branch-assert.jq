@@ -6,9 +6,10 @@
 # vacuously: a crate dropping out of the report is how coverage silently stops being measured.
 # $nocode inverts that for the crates that are constants and macros only, which llvm-cov cannot record even
 # when their tests run -- an empty report is expected there, and records appearing mean the crate grew code.
+# Windows records each filename with backslashes, so they are folded to `/` before the `/libs/<name>/` match.
 ($libs | split(" ") | map(select(length > 0))) as $names
 | ($nocode | split(" ") | map(select(length > 0))) as $constants
-| .data[0].files as $files
+| (.data[0].files | map(.filename |= (split("\\") | join("/")))) as $files
 | [ ( $names[]
       | . as $n
       | ("/libs/" + $n + "/") as $dir

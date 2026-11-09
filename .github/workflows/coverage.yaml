@@ -29,12 +29,12 @@ jobs:
       contents: read
       # Codecov's tokenless upload uses an OIDC id-token instead of a repository upload token.
       id-token: write
-    # Two lanes, both uploading to Codecov and only one to DeepSource.
+    # Three lanes, every one uploading to both Codecov and DeepSource.
     # ubuntu-latest is the canonical lane: it is the only one that can run the wasm/browser half of the pipeline.
-    # macos-latest re-runs the native half as a second platform, which is what catches a branch reachable only
-    # under a different target's cfg. Codecov merges every upload on a commit, so the macOS report adds the paths
-    # only it reaches, and `os_flag` tags each upload with its lane. DeepSource instead keeps one report per
-    # `--key`, where the macOS lane's partial picture would replace the Linux one, so only Linux sends it there.
+    # macos-latest and windows-latest re-run the native half on two more platforms, which is what catches a branch
+    # reachable only under a different target's cfg. Both services merge every report sent for a commit rather than
+    # keeping the last one, so each partial lane adds the paths only it reaches. `os_flag` tags each Codecov upload
+    # with its lane; DeepSource has no such tag and folds every lane into the one report per `--key`.
     strategy:
       fail-fast: false
       matrix:
@@ -48,9 +48,22 @@ jobs:
           - os: macos-latest
             os_flag: macos
             timeout: 150
+          # gnullvm, the default Windows target, so et-ws-web-runner stays out of the build as on every gnullvm lane.
+          - os: windows-latest
+            os_flag: windows
+            timeout: 150
     env:
       MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig,coverage
       ET_TEST_COVERAGE: "true"
+    # Windows steps run under busybox-w32 ash, the shell the Windows mise tasks themselves run on.
+    # Git Bash's MSYS fork emulation breaks down on long task chains. A job's `shell` default is resolved before
+    # any step runs, so it cannot read the MISE_INSTALLS_DIR install-mise exports and spells its `C:\i` root out.
+    defaults:
+      run:
+        shell: >-
+          ${{ startsWith(matrix.os, 'windows') &&
+              'C:\i\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
+              || 'bash --noprofile --norc -euo pipefail {0}' }}
     steps:
       - name: Checkout
         # DeepSource's test-coverage analyzer keys the uploaded artifact to the checked-out commit's SHA.
@@ -77,7 +90,7 @@ jobs:
       # Running it early means the figures land in the job summary even when a later coverage step fails, and a
       # misclassification (the task's partition-sum check) fails in seconds rather than after the long run.
       # sloc-crosscheck depends on sloc, so this one invocation emits both the tables and the gocloc deltas.
-      # Linux only: the count is of the checked-out tree, so the second lane would recompute the same figures.
+      # Linux only: the count is of the checked-out tree, so the other lanes would recompute the same figures.
       - name: Count source lines (scc, cross-checked with gocloc)
         if: runner.os == 'Linux'
         timeout-minutes: 5
@@ -104,9 +117,22 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
 
+      # MISE_JOBS=1 serializes mise's task scheduler, because parallel module builds race on Windows.
+      # Their cargo invocations contend for the package cache lock, which Windows cargo fails on rather than waits
+      # for. mise rejects an empty MISE_JOBS, so it is set from a conditional step rather than in `env:`.
+      - name: Serialize mise tasks on Windows
+        if: runner.os == 'Windows'
+        run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
+
+      # Windows builds the modules uninstrumented, because nothing on that lane reads their coverage.
+      # Every consumer of the guests' profiles is Linux-only: the wasm merges and wasm-cov-branch-check below.
+      # The instrumented browser builds also look for their coverage wrapper under target/debug, which
+      # CARGO_BUILD_TARGET moves to target/<triple>/debug on Windows. The `"false"` is read at render time by
+      # the module build vars, which instrument only on `"true"`; the coverage run below keeps the job's value.
       - name: Build WASM modules
         timeout-minutes: 25
         env:
+          ET_TEST_COVERAGE: ${{ runner.os == 'Windows' && 'false' || 'true' }}
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
@@ -114,12 +140,20 @@ jobs:
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
-      # Deliberately unguarded, unlike the merges and uploads below.
-      # Those carry `!cancelled()` so a failing test still publishes a report; this is a gate, and a gate has
-      # nothing to say about a run whose tests did not pass. Leaving it on the default "skip if an earlier step
-      # failed" means a red test run reports the test failure, not a coverage shortfall caused by it. It reads
-      # the profile data the step above already wrote, so it re-runs nothing.
+      # No `!cancelled()` here, unlike the merges and uploads below.
+      # Those carry it so a failing test still publishes a report; this is a gate, and a gate has nothing to say
+      # about a run whose tests did not pass. Leaving it on the default "skip if an earlier step failed" means a
+      # red test run reports the test failure, not a coverage shortfall caused by it. It reads the profile data
+      # the step above already wrote, so it re-runs nothing.
+      #
+      # Linux and macOS hold libs/ to 100%; the Windows lane's report is too partial to be held to it.
+      # Crates whose tests pass there contribute no records at all, and et-otlp falls a branch short:
+      #   libs/et-otlp: D:/a/core/core/libs/et-otlp/src/lib.rs 7/8 branches
+      #   libs/math1: no records in the report -- this run never exercised the crate
+      # on commit https://github.com/edge-toolkit/core/commit/65e78dc834455a2a24cfece0feb36c7e3352bbd9 at
+      # https://github.com/edge-toolkit/core/actions/runs/42537545904/job/128905082309.
       - name: Check native libs/ branch coverage
+        if: runner.os != 'Windows'
         timeout-minutes: 10
         run: mise run cargo-llvm-cov-branch-check
 
@@ -134,7 +168,8 @@ jobs:
       #
       # Linux only, here and for the two browser merges below. The instrumented guest builds need the
       # wasm-capable conda clang resolving as bare `clang`, and the headless-Chrome steps need the image's
-      # chromedriver; neither holds on the macOS lane, which is why wasm-cov-branch-check is Linux-gated too.
+      # chromedriver; neither holds on the macOS lane, and the Windows lane builds no instrumented guests at all.
+      # That is why wasm-cov-branch-check is Linux-gated too.
       - name: Merge wasm guest coverage into lcov.info
         if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
         timeout-minutes: 10
@@ -168,7 +203,7 @@ jobs:
       # After all three merges, because it reads what they leave behind.
       # That is the guests' profiles and objects under target/wasi-cov, and the two browser runs' under
       # target/agent-cov and target/pic-viewer-cov.
-      # The task is Linux-gated internally as well as here: this `if` keeps the step off the macOS lane at all,
+      # The task is Linux-gated internally as well as here: this `if` keeps the step off the other lanes at all,
       # and the gate inside it keeps a direct `mise run` on a workstation from passing on an empty report.
       - name: Check wasm libs/ branch coverage
         if: runner.os == 'Linux'
@@ -183,7 +218,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run pytest-cov
 
-      # Per-OS name because both lanes produce one and artifact names have to be unique within a run.
+      # Per-OS name because every lane produces one and artifact names have to be unique within a run.
       - name: Upload coverage reports as artifacts
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -200,8 +235,7 @@ jobs:
       # second, misleading failure: when an earlier step (a tool install, say) means nothing was ever produced,
       # these skip instead of erroring on a missing file and burying the real cause.
       #
-      # Every upload names its language and lane in `flags`, so Codecov can report each on its own. The two
-      # DeepSource uploads carry `runner.os == 'Linux'`, for the one-report-per-key reason given on the job.
+      # Every Codecov upload names its language and lane in `flags`, so Codecov can report each on its own.
       #
       # `disable_search` keeps each upload to the one report it names. With search on, the action also sends every
       # coverage-looking file in the workspace, including the unfiltered intermediates the coverage tasks leave
@@ -232,11 +266,11 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload Rust coverage to DeepSource (OIDC)
-        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
 
       - name: Upload Python coverage to DeepSource (OIDC)
-        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('coverage-python.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
         run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.
@@ -302,7 +336,7 @@ jobs:
           path: target/test-badge
 
   # Separate from the coverage job so only this one holds the Pages write permissions.
-  # `needs` waits on both matrix lanes, and the artifact exists only when the Linux lane got through the steps above.
+  # `needs` waits on every matrix lane, and the artifact exists only when the Linux lane got through the steps above.
   pages:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: coverage
