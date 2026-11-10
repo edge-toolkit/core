@@ -1,0 +1,22 @@
+rules:
+  - id: rego-iterate-normalised-files
+    languages: [generic]
+    metadata:
+      meta: true
+    paths:
+      include:
+        - "/**/*.rego"
+    # Only iteration over `input` itself is matched, the shape a combined-input policy uses to walk its files.
+    # A single-document policy reading `input.jobs` or `input.runs.steps` has no file paths to normalise, so an
+    # `input` followed by a `.` or `[` is left alone; anything else after it -- a line end, a `{`, or the `]` or `}`
+    # closing a one-line comprehension -- is iteration over the raw file list.
+    # No autofix: the rewrite also needs an `import data.paths` added to the file, which a regex fix cannot place.
+    pattern-regex: '\b(?:some|every)\s+(?:\w+\s*,\s*)?\w+\s+in\s+input\b(?!\s*[.\[])'
+    message: >-
+      Iterate `paths.files` (with `import data.paths`) instead of `input`. The policy runner reports each path with
+      the native separator of the OS it runs on, so on Windows a rule matching `file.path` against
+      `.mise/config.toml` or `.github/workflows/` sees backslashes and matches nothing -- and that fails open, with
+      the namespace reporting clean on that lane while checking nothing. `paths.files` is the same input with every
+      path normalised to forward slashes, so a rule written once works on every OS. Where `input` is one document
+      rather than a list of files, bind it to a name that says so and iterate that.
+    severity: ERROR

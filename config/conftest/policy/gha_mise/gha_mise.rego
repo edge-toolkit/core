@@ -5,17 +5,18 @@
 package gha_mise
 
 import data.mise
+import data.paths
 
 # The mise-managed .NET SDK pin (.mise/config.dotnet.toml: dotnet = "<ver>").
 dotnet_pin := version if {
-	some file in input
+	some file in paths.files
 	mise.is_mise(file)
 	version := file.contents.tools.dotnet
 }
 
 # Every setup-dotnet `dotnet-version` must equal the mise `dotnet` pin.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	some job in file.contents.jobs
 	some step in job.steps
@@ -36,7 +37,7 @@ deny contains msg if {
 # busybox shell path out of the matcher's reach without a word. version_drift keys on `<tool-dir>/<version>`,
 # which is selective enough by itself.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	walk(file.contents, [_, value])
 	is_string(value)
@@ -52,15 +53,15 @@ deny contains msg if {
 # that literal still matches the repo. Anchoring here instead makes ALL_LANGS the thing everything else tracks:
 # adding a config.<lang>.toml and updating ALL_LANGS lights up every workflow that was left behind.
 all_langs := value if {
-	some file in input
+	some file in paths.files
 	mise.is_mise(file)
-	endswith(replace(file.path, "\\", "/"), ".mise/config.toml")
+	endswith(file.path, ".mise/config.toml")
 	value := file.contents.env.ALL_LANGS
 }
 
 # A workflow's env.MISE_ENV must match .mise/config.toml's ALL_LANGS.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	declared := file.contents.env.MISE_ENV
 	declared != all_langs

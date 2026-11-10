@@ -15,16 +15,11 @@
 #   meta: true
 package generated_trees
 
+import data.paths
+
 source_path := "config/generated-trees.toml"
 
-# Path separators, normalised so a Windows lane compares equal to the declaration.
-# conftest reports each path the way the OS handed it over, so on Windows a file found by walking a directory
-# arrives as `config\semgrep\x.yaml` while one named directly on the command line keeps the `/` it was typed with.
-# Both must match the forward-slash paths the declaration uses, or every forward check fails on that lane while
-# the reverse checks stay silent -- exactly the shape the Windows job showed.
-normalised(path) := replace(path, "\\", "/")
-
-is_source(file) if normalised(file.path) == source_path
+is_source(file) if file.path == source_path
 
 # Module-scope sprintf templates each live on their own line so the source stays readable.
 missing_msg := "%s: missing the %q exclusion for the %q generated tree, which config/generated-trees.toml requires"
@@ -35,14 +30,14 @@ no_anchor_msg := "config/generated-trees.toml: [tree.%s] requires %q, which matc
 
 # The declared trees, keyed by name.
 trees[name] := tree if {
-	some file in input
+	some file in paths.files
 	is_source(file)
 	some name, tree in file.contents.tree
 }
 
 # The declared per-tool path templates, keyed by config path or path prefix.
 anchors[prefix] := template if {
-	some file in input
+	some file in paths.files
 	is_source(file)
 	some prefix, template in file.contents.anchor
 }
@@ -60,8 +55,8 @@ expected(config, tree) := pattern if {
 # The values it skips are the scope lists, semgrep's `paths.include` and an ast-grep rule's top-level `files`,
 # each naming the only files a rule scans: a rule held to a generated tree is aimed into it on purpose, the
 # opposite of a skip.
-config_strings contains [normalised(file.path), value] if {
-	some file in input
+config_strings contains [file.path, value] if {
+	some file in paths.files
 	not is_source(file)
 	walk(file.contents, [path, value])
 	is_string(value)

@@ -5,9 +5,8 @@
 # loudly red -- but the opposite break, a policy file that stops being recognised as one, makes the requirement
 # silently apply to nothing. The real run over the real tree passes either way once the tree complies.
 #
-# A fixture holds a handful of paths rather than the whole policy tree, so every real `untested_policy` entry is
-# absent from it and the stale-entry rule reports each one. That noise is expected here, and is why these assert
-# on the message they are about rather than on a count.
+# The tests assert on the message they are about rather than on a count, so that an entry later added to the real
+# `untested_policy` map -- absent from every fixture here, and so reported as stale -- does not break them.
 package policy_pairing_test
 
 import data.policy_pairing
@@ -66,30 +65,33 @@ test_non_rego_files_are_ignored if {
 	not names(msgs, "README")
 }
 
+# The real map is empty, so the exception tests supply an entry of their own.
+excepted := "config/conftest/policy/excused/excused.rego"
+
+exceptions := {excepted: "fixture reason"}
+
 # An exception excuses the policy it names, and only that one.
 test_excepted_policy_needs_no_test if {
-	msgs := policy_pairing.deny with input as files(["config/conftest/policy/gha_action/gha_action.rego"])
-	not names(msgs, "add config/conftest/policy/gha_action/gha_action_test.rego")
+	msgs := policy_pairing.deny with input as files([excepted])
+		with policy_pairing.untested_policy as exceptions
+	not names(msgs, "excused_test.rego")
 }
 
 test_exception_does_not_cover_other_policies if {
-	msgs := policy_pairing.deny with input as files([
-		"config/conftest/policy/gha_action/gha_action.rego",
-		"config/conftest/policy/demo/demo.rego",
-	])
+	msgs := policy_pairing.deny with input as files([excepted, "config/conftest/policy/demo/demo.rego"])
+		with policy_pairing.untested_policy as exceptions
 	names(msgs, demo_wanted)
 }
 
 # Writing the test is what retires the entry, so an entry that outlives its answer reports.
 test_excepted_policy_that_gained_a_test_reports_the_stale_entry if {
-	msgs := policy_pairing.deny with input as files([
-		"config/conftest/policy/gha_action/gha_action.rego",
-		"config/conftest/policy/gha_action/gha_action_test.rego",
-	])
+	msgs := policy_pairing.deny with input as files([excepted, "config/conftest/policy/excused/excused_test.rego"])
+		with policy_pairing.untested_policy as exceptions
 	names(msgs, "drop its untested_policy entry")
 }
 
 test_excepted_policy_that_was_deleted_reports_the_stale_entry if {
 	msgs := policy_pairing.deny with input as files(["config/conftest/policy/demo/demo.rego"])
+		with policy_pairing.untested_policy as exceptions
 	names(msgs, "names a policy that no longer exists")
 }

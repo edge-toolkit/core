@@ -1,0 +1,40 @@
+code: |
+  package demo
+
+  import data.paths
+
+  raw contains file.path if {
+      # ruleid: rego-iterate-normalised-files
+      some file in input
+  }
+
+  indexed contains file.path if {
+      # ruleid: rego-iterate-normalised-files
+      some i, file in input
+  }
+
+  universal if {
+      # ruleid: rego-iterate-normalised-files
+      every file in input {
+          file.path != ""
+      }
+  }
+
+  # ruleid: rego-iterate-normalised-files
+  inline := [file.path | some file in input]
+
+  # ruleid: rego-iterate-normalised-files
+  inline_set := {file.path | some file in input}
+
+  normalised contains file.path if {
+      # ok: rego-iterate-normalised-files
+      some file in paths.files
+  }
+
+  jobs contains name if {
+      # ok: rego-iterate-normalised-files
+      some name, _ in input.jobs
+  }
+
+  # ok: rego-iterate-normalised-files
+  first_steps := [step | some step in input[0].steps]

@@ -3,6 +3,8 @@
 # its lines; the `Original` field of each is the line's text.
 package checks_md
 
+import data.paths
+
 # How many whole days may pass since generation before the document has to be regenerated.
 max_age_days := 7
 
@@ -13,7 +15,7 @@ stamp_pattern := `^- \*\*Generated:\*\* ([0-9]{4}-[0-9]{2}-[0-9]{2})$`
 
 # The date on each `- **Generated:** YYYY-MM-DD` line of CHECKS.md, one entry per line, so repeats are counted.
 stamps := [match[1] |
-	some file in input
+	some file in paths.files
 	endswith(file.path, "CHECKS.md")
 	some line in file.contents
 	some match in regex.find_all_string_submatch_n(stamp_pattern, line.Original, 1)

@@ -3,6 +3,8 @@
 # `--namespace cargo` evaluation.
 package cargo
 
+import data.paths
+
 # An internal crate is one whose name carries the int- marker, as a prefix or after this repo's own `et-`.
 # A plain substring test would also catch third-party names such as `color-print-proc-macro`.
 internal_crate_name(name) if startswith(name, "int-")
@@ -38,7 +40,7 @@ inherits_rename(name, spec) if {
 
 # Each root [workspace.dependencies] key that renames its package, mapped to the package it names.
 workspace_package_rename[name] := spec.package if {
-	some file in input
+	some file in paths.files
 	file.path == "Cargo.toml"
 	some name, spec in file.contents.workspace.dependencies
 	is_object(spec)
@@ -62,7 +64,7 @@ standalone_crates := {"et-actix-web-config"}
 
 # A standalone crate must not depend on any of this repo's `et-` crates.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	crate := file.contents.package.name
 	crate in standalone_crates

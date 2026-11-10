@@ -5,17 +5,14 @@
 # `dockerfile` package's rule that the heredoc interpreter must be `bash`.
 package dockerfile_heredoc
 
-# Each parsed file is an array of entries; conftest wraps them per file as input[N].contents = [[entry, entry, ...]].
-# The outer wrapping array is the whole file's set of items.
-entries(file) := items if {
-	is_array(file.contents)
-	items := file.contents[0]
-}
+import data.paths
 
 # A RUN heredoc's first body line must be `set -euo pipefail`.
+# Run combined, so each Dockerfile arrives as {path, contents} with `contents` the array of its lines.
 deny contains msg if {
-	some file in input
-	items := entries(file)
+	some file in paths.files
+	items := file.contents
+	is_array(items)
 	some i, entry in items
 	is_string(entry.Original)
 

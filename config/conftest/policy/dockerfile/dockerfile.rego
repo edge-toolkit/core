@@ -12,11 +12,12 @@
 package dockerfile
 
 import data.mise
+import data.paths
 
 # Collect every string argument of an ENV/RUN instruction in the Dockerfile.
 # A Dockerfile's parsed contents is the array of instruction objects; the TOMLs parse to objects.
 docker_strings contains entry if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd in {"env", "run"}
@@ -46,7 +47,7 @@ deny contains msg if {
 # scenario images carry `ENV STAGE_TOOL="npm:..."` and similar -- and a pipx tool named in one of those would
 # satisfy the deny rule below without ever appearing in Nano's disable list, silently weakening the check.
 disabled_tools contains tool if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	endswith(file.path, "Dockerfile.nanoserver")
 	some instr in file.contents
@@ -54,7 +55,9 @@ disabled_tools contains tool if {
 	some value in instr.Value
 	some token in split(value, ",")
 	contains(token, ":")
-	tool := trim_space(token)
+
+	# An ARG arrives as one `NAME=a,b` string, so the first token carries the `NAME=` that has to come off.
+	tool := trim_space(regex.replace(token, `^[A-Za-z_][A-Za-z0-9_]*=`, ""))
 }
 
 # The guest languages Nano Server enables, read from its `ENV MISE_ENV=<langs>`.
@@ -67,7 +70,7 @@ disabled_tools contains tool if {
 # full guest list, which made this demand that every pipx tool in config.python.toml be disabled on Nano even
 # though Nano's own MISE_ENV names no python.
 nano_langs contains lang if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	endswith(file.path, "Dockerfile.nanoserver")
 	some instr in file.contents
@@ -80,13 +83,13 @@ nano_langs contains lang if {
 # The pipx tools Nano can try to install come only from config.toml and its enabled guest configs.
 # Collect the always-loaded config.toml plus each config.<lang>.toml whose lang is in MISE_ENV.
 pipx_scope_path contains path if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".mise/config.toml")
 	path := file.path
 }
 
 pipx_scope_path contains path if {
-	some file in input
+	some file in paths.files
 	some lang in nano_langs
 	endswith(file.path, $".mise/config.{lang}.toml")
 	path := file.path
@@ -100,7 +103,7 @@ pipx_scope_path contains path if {
 # stayed ENABLED on Nano so the build exercised the bootstrap end-to-end) was dropped together with the bootstrap;
 # re-introduce when the bootstrap is fixed upstream and re-enabled by default.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	file.path in pipx_scope_path
 	some name, _ in file.contents.tools
 	startswith(name, "pipx:")
@@ -128,7 +131,7 @@ deny contains msg if {
 # The `set -euo pipefail` first-line check itself lives in a raw-text rule: the Dockerfile parser flattens heredoc
 # bodies out of the AST, so this policy never sees them.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "run"
@@ -143,7 +146,7 @@ deny contains msg if {
 
 # A RUN heredoc must quote its delimiter so bash, not the outer shell, does the expansion.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "run"
@@ -160,7 +163,7 @@ deny contains msg if {
 
 # A Dockerfile `apt-get install` must pass --no-install-recommends on the same line.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "run"
@@ -174,7 +177,7 @@ deny contains msg if {
 
 # A Dockerfile must use `apt-get`, never `apt`.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "run"
@@ -198,9 +201,9 @@ package_arg_names := {"APT_PACKAGES", "COMMON_PACKAGES", "DNF_PACKAGES"}
 # scenario Dockerfiles, which declare a COMMON_PACKAGES of their own, and a second value for the same key makes
 # this rule abort the whole evaluation with `object keys must be unique` rather than fail a test.
 arg_packages[name] := pkgs if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
-	replace(file.path, "\\", "/") == "Dockerfile"
+	file.path == "Dockerfile"
 	some instr in file.contents
 	instr.Cmd == "arg"
 	some value in instr.Value
@@ -212,7 +215,7 @@ arg_packages[name] := pkgs if {
 
 # The packages each manager declares in config.linux.toml's [bootstrap.packages], keyed by manager.
 bootstrap_packages[mgr] := pkgs if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".mise/config.linux.toml")
 	some mgr in {"apt", "dnf"}
 	pkgs := {p |
@@ -263,8 +266,8 @@ deny contains msg if {
 # without updating a copy would otherwise leave that image loading a stale env set, and the only symptom would be
 # a tool the image cannot resolve much later in the build.
 all_langs := value if {
-	some file in input
-	endswith(replace(file.path, "\\", "/"), ".mise/config.toml")
+	some file in paths.files
+	endswith(file.path, ".mise/config.toml")
 	value := file.contents.env.ALL_LANGS
 }
 
@@ -272,7 +275,7 @@ all_langs := value if {
 # The parser hands an ARG back as one `NAME=value` string, and an ENV as adjacent Value elements, so both shapes
 # are collected separately.
 mise_env_decls contains entry if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "arg"
@@ -282,7 +285,7 @@ mise_env_decls contains entry if {
 }
 
 mise_env_decls contains entry if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "env"
@@ -295,7 +298,7 @@ mise_env_decls contains entry if {
 # A value starting with `$` is an indirection such as `ENV MISE_ENV=${MISE_ENV}`, which carries no list to check.
 deny contains msg if {
 	some decl in mise_env_decls
-	not endswith(replace(decl.path, "\\", "/"), "Dockerfile.nanoserver")
+	not endswith(decl.path, "Dockerfile.nanoserver")
 	not startswith(decl.value, "$")
 	decl.value != all_langs
 	msg := sprintf(
@@ -311,14 +314,14 @@ deny contains msg if {
 # added to one image while the root build was never taught to install it, which surfaces only as a missing binary
 # partway through a build on whichever distro arm lacks it.
 common_packages_decls contains entry if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "arg"
 	some value in instr.Value
 	startswith(value, "COMMON_PACKAGES=")
 	entry := {
-		"path": replace(file.path, "\\", "/"),
+		"path": file.path,
 		"packages": split(trim(substring(value, count("COMMON_PACKAGES="), -1), "\""), " "),
 	}
 }
@@ -349,13 +352,13 @@ deny contains msg if {
 # one and refuses the install; anchoring each copy to min_version makes a bump a single edit that fails loudly
 # everywhere it was not followed through. The `v` prefix is the release tag's, not part of the version.
 mise_min_version := value if {
-	some file in input
-	endswith(replace(file.path, "\\", "/"), ".mise/config.toml")
+	some file in paths.files
+	endswith(file.path, ".mise/config.toml")
 	value := file.contents.min_version
 }
 
 mise_version_args contains entry if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "arg"

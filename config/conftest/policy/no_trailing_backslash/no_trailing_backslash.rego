@@ -15,12 +15,14 @@
 #   Dockerfile RUN bodies legitimately need line continuations.
 package no_trailing_backslash
 
+import data.paths
+
 # Flag any string leaf containing `\` followed by `\n` (LF), reporting its path key in the message.
 # The path key is an array of indices/keys from the root of the parsed document down to the offending string.
 # Rego's `walk` yields [path, value] pairs over every node, so we filter to string leaves and regex-test for `\`
 # followed by `\n` (LF).
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	walk(file.contents, [path, value])
 	is_string(value)
 	regex.match(`\\\n`, value)

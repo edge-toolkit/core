@@ -12,13 +12,11 @@
 #   meta: true
 package policy_pairing
 
-# conftest reports native separators when it walks a directory, so a Windows lane sees backslashes.
-normalised(path) := replace(path, "\\", "/")
+import data.paths
 
-rego_files contains path if {
-	some file in input
-	path := normalised(file.path)
-	endswith(path, ".rego")
+rego_files contains file.path if {
+	some file in paths.files
+	endswith(file.path, ".rego")
 }
 
 # Named away from a `test_` prefix: conftest verify treats any rule so named as a unit test to execute.
@@ -34,24 +32,10 @@ policy_files contains path if {
 
 expected_test(path) := sprintf("%s_test.rego", [trim_suffix(path, ".rego")])
 
-# Policies deliberately left without tests, each with the reason.
-#
-# The first group is exempt for good: their matching is direct -- a named key read and compared against another
-# named key -- so a break is a rename, which turns the check red or shows up in the diff that caused it. There is
-# no silent-failure mode for synthetic input to catch, and a test would only restate the rule.
-#
-# The second group is not a judgement, it is debt. These are pattern-driven in the same way as the policies that
-# do carry tests, and the same silent-failure mode applies to them; they simply have not been written yet. Delete
-# the entry as each one gets its test rather than letting the group settle in.
-untested_policy := {
-	"config/conftest/policy/cross/wasm-bindgen-sync.rego": "one equality between two named values",
-	"config/conftest/policy/gha_action/gha_action.rego": "reads named keys off one action file, no matching",
-	"config/conftest/policy/pyproject/pyproject.rego": "direct key presence checks over one table",
-	"config/conftest/policy/dockerfile/dockerfile.rego": "pattern-driven; predates the rule, write tests",
-	"config/conftest/policy/gha_combined/gha_combined.rego": "pattern-driven; predates the rule, write tests",
-	"config/conftest/policy/gha_mise/gha_mise.rego": "pattern-driven; predates the rule, write tests",
-	"config/conftest/policy/gha_uses/gha_uses.rego": "pattern-driven; predates the rule, write tests",
-}
+# Policies deliberately left without tests, as path -> the reason it is safe to leave that one untested.
+# Built through `object.union` so its type is a string-keyed object even while it holds no entries: a bare `{}`
+# types as an object with no keys at all, and the compiler then rejects every lookup below as an undefined ref.
+untested_policy := object.union({}, {})
 
 # Every policy must have a test file beside it, or a reasoned untested_policy entry.
 deny contains msg if {

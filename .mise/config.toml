@@ -1594,11 +1594,14 @@ published=$(git ls-files 'verification/published/**/Dockerfile')
 # shellcheck disable=SC2086
 conftest test --namespace dockerfile_stages -p config/conftest/policy $published
 # Filter to Dockerfiles that actually use heredocs before the `ignore` parser.
-for f in $files; do
-  if rg -q '^RUN[^\\n]*<<' "$f"; then
-    conftest test --parser ignore --namespace dockerfile_heredoc -p config/conftest/policy "$f"
-  fi
-done
+# Combined so each file arrives as {path, contents}, the shape the heredoc policy reads its entries from.
+# rg exits 1 when no file matches, which leaves nothing to check rather than an error.
+# shellcheck disable=SC2086
+heredoc_files=$(rg -l '^RUN[^\\n]*<<' $files) || [ $? -eq 1 ]
+if [ -n "$heredoc_files" ]; then
+  # shellcheck disable=SC2086
+  conftest test --combine --parser ignore --namespace dockerfile_heredoc -p config/conftest/policy $heredoc_files
+fi
 """
 shell = "{{ vars.task_shell }}"
 

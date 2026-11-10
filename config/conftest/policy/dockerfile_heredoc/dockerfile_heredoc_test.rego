@@ -8,10 +8,10 @@ package dockerfile_heredoc_test
 
 import data.dockerfile_heredoc
 
-# One Dockerfile, shaped the way the `ignore` parser hands it over.
-# That parser emits every source line as its own {Kind, Original, Value} entry, and conftest wraps a file's
-# entries in one more array.
-dockerfile(originals) := [{"path": "Dockerfile", "contents": [lines]}] if {
+# One Dockerfile, shaped the way `--combine --parser ignore` hands it over.
+# That parser emits every source line as its own {Kind, Original, Value} entry, and combining puts that list of
+# lines straight into the file's `contents`.
+dockerfile(originals) := [{"path": "Dockerfile", "contents": lines}] if {
 	lines := [line | some o in originals; line := {"Original": o}]
 }
 

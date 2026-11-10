@@ -17,10 +17,11 @@ deny contains msg if {
 	is_composite_action
 	some step in input.runs.steps
 	step.run
-	step.shell != required_shell
+	shell := object.get(step, "shell", "")
+	shell != required_shell
 	msg := sprintf(
 		"step %q uses shell %q; composite-action steps must use shell %q",
-		[step.name, step.shell, required_shell],
+		[step.name, shell, required_shell],
 	)
 }
 

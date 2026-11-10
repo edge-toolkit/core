@@ -3,16 +3,14 @@
 # `--all-namespaces`).
 package mise
 
-# The separator replace keeps this true on Windows-local runs.
-# conftest reports native backslash paths when handed the `.mise` DIRECTORY (as conftest-check-yaml's
-# gha_mise pass and conftest-check-dockerfile do), which would otherwise silently empty every cross-check
-# derived from this predicate there; CI's Linux runs were unaffected.
-is_mise(file) if startswith(replace(file.path, "\\", "/"), ".mise/config")
+import data.paths
+
+is_mise(file) if startswith(file.path, ".mise/config")
 
 # A task `run` must be a string, not an array.
 # taplo's reorder_arrays would re-sort the commands of an array form and scramble the sequence.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_array(task.run)
@@ -28,7 +26,7 @@ deny contains msg if {
 allowed_run_shells := {"{{ vars.task_shell }}", "{{ vars.task_shell_trace }}"}
 
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_string(task.run)
@@ -47,7 +45,7 @@ deny contains msg if {
 
 # Task descriptions must be single-line.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_string(task.description)
@@ -63,9 +61,9 @@ deny contains msg if {
 # extension-agnostic existence check, and `for f in "$prefix/bin/foo"*` to walk a literal glob (no-match leaves the
 # literal as the loop var).
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
-	replace(file.path, "\\", "/") != ".mise/config.maint.toml"
+	file.path != ".mise/config.maint.toml"
 	some name, task in file.contents.tasks
 	is_string(task.run)
 	regex.match(`\bcompgen\b`, task.run)
@@ -83,9 +81,9 @@ deny contains msg if {
 # config.maint.toml is exempt: its maintainer-only investigation/publish tasks narrate and probe specific
 # upstream versions by design.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
-	replace(file.path, "\\", "/") != ".mise/config.maint.toml"
+	file.path != ".mise/config.maint.toml"
 	some name, task in file.contents.tasks
 	is_string(task.run)
 	some m in regex.find_all_string_submatch_n(`[0-9]+\.[0-9]+\.[0-9]+`, task.run, -1)
@@ -127,7 +125,7 @@ cargo_scoped_to_second_tier(spec) if {
 
 # A `cargo:` tool must not build from source unless allowlisted or os-scoped to a second-tier platform.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	not file.path == ".mise/config.maint.toml"
 	some name, spec in file.contents.tools
@@ -142,7 +140,7 @@ deny contains msg if {
 
 # `ubi:` is deprecated; the `http:` backend replaces it.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, _ in file.contents.tools
 	startswith(name, "ubi:")
@@ -182,7 +180,7 @@ http_forge_msg := "%s: tool %q fetches %s over http:; use the github: backend so
 
 # An `http:` tool must not fetch from a forge URL; use the github: backend instead.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, tool in file.contents.tools
 	startswith(name, "http:")
@@ -193,7 +191,7 @@ deny contains msg if {
 
 # No per-platform URL of an `http:` tool may point at a forge either.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, tool in file.contents.tools
 	startswith(name, "http:")
@@ -262,7 +260,7 @@ allowed_os_scoped_tool := {
 
 # A tool must not be os-scoped unless allowlisted, since every tool must work on every OS.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, spec in file.contents.tools
 	is_object(spec)
@@ -285,7 +283,7 @@ install_dirs(name) := {base, replace(base, "_", "-")} if {
 }
 
 tool_versions contains [dir, version] if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, version in file.contents.tools
 	is_string(version)
@@ -293,7 +291,7 @@ tool_versions contains [dir, version] if {
 }
 
 tool_versions contains [dir, version] if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, spec in file.contents.tools
 	is_object(spec)
@@ -304,7 +302,7 @@ tool_versions contains [dir, version] if {
 # Every [vars]/[env] string, tagged with where it came from for the message.
 # An entry is either the string itself or mise's directive table, whose `default` mise loads the same way.
 config_strings contains entry if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some kind in ["vars", "env"]
 	some key, value in object.get(file.contents, kind, {})
@@ -377,7 +375,7 @@ tool_version_str(spec) := spec.version if is_object(spec)
 # mise installs it under a dir named after the request and only symlinks the X.Y alias, and that symlink isn't created
 # on the Windows runner -- so the py3_* interpreter paths (and the version_drift check above) need the exact patch dir.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	version := tool_version_str(file.contents.tools.python)
 	not regex.match(`^[0-9]+\.[0-9]+\.[0-9]+$`, version)
@@ -397,7 +395,7 @@ required_package_args := {
 
 # Each OS's preinstall task must read its package lists from the Dockerfile ARGs.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	some required in required_package_args[file.path]
 	task := file.contents.tasks.preinstall
 	not contains(task.run, required)
@@ -438,7 +436,7 @@ usage_vars(spec) := vars if {
 
 # Every usage arg a task declares must be read by its run body.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_string(task.usage)
@@ -456,7 +454,7 @@ deny contains msg if {
 # given" branch. Flagged wherever it appears, including in a body whose declared args are read correctly elsewhere,
 # so the two spellings never get mixed within one task.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_string(task.run)

@@ -11,6 +11,8 @@
 # reason this cannot parse, fails immediately rather than quietly becoming the one exception with no deadline.
 package advisories
 
+import data.paths
+
 # The `reason` spelling the date is read from, anchored so trailing prose cannot hide a second date.
 expiry_pattern := `^expires ([0-9]{4}-[0-9]{2}-[0-9]{2})$`
 
@@ -21,7 +23,7 @@ lapsed_msg := "config/deny.toml: advisory ignore %q lapsed on %s -- drop it, fix
 mixed_msg := "config/deny.toml: advisory ignores expire on %d dates, %v; a new entry takes the date the others carry"
 
 entries contains entry if {
-	some file in input
+	some file in paths.files
 	file.path == "config/deny.toml"
 	some entry in file.contents.advisories.ignore
 }

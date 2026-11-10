@@ -9,10 +9,12 @@
 # the last `*.md` can name a top-level Markdown file; one before it is overridden and harmless.
 package dockerignore
 
+import data.paths
+
 top_level_markdown := "*.md"
 
 lines := [line.Original |
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".dockerignore")
 	some line in file.contents
 ]

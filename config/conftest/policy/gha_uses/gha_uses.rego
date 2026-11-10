@@ -8,16 +8,12 @@
 # `no such command: llvm-cov`.) This promotes that class of typo to a hard failure.
 package gha_uses
 
-# Path separators, normalised so the Windows lane compares equal to the forward-slash paths written here.
-# conftest reports each path the way the OS handed it over, so a rule splitting or ending on `/` sees
-# `.github\actions\x\action.yaml` on Windows and matches nothing. That fails open: the namespace reports
-# clean there while checking nothing, so a violation only ever surfaces on the Linux lanes.
-normalised(path) := replace(path, "\\", "/")
+import data.paths
 
 # action dir name -> set of declared input keys, one entry per parsed .github/actions/<name>/action.yaml.
 declared_inputs[name] := names if {
-	some file in input
-	parts := split(normalised(file.path), "/")
+	some file in paths.files
+	parts := split(file.path, "/")
 	n := count(parts)
 	parts[n - 1] == "action.yaml"
 	name := parts[n - 2]
@@ -26,7 +22,7 @@ declared_inputs[name] := names if {
 
 # {path, step} for every step in a workflow job (jobs.<id>.steps[]) ...
 caller_steps contains entry if {
-	some file in input
+	some file in paths.files
 	some job in file.contents.jobs
 	some step in job.steps
 	entry := {"path": file.path, "step": step}
@@ -34,7 +30,7 @@ caller_steps contains entry if {
 
 # ... and every step in a composite action's runs block (runs.steps[]).
 caller_steps contains entry if {
-	some file in input
+	some file in paths.files
 	some step in file.contents.runs.steps
 	entry := {"path": file.path, "step": step}
 }
@@ -60,8 +56,8 @@ deny contains msg if {
 # shell and every step of the job dies at once on `Second path fragment must not be a drive or UNC name`,
 # which names neither mise nor the path at fault -- so this pins the literal to the exported value.
 mise_installs_dir := dir if {
-	some file in input
-	endswith(normalised(file.path), "install-mise/action.yaml")
+	some file in paths.files
+	endswith(file.path, "install-mise/action.yaml")
 	some step in file.contents.runs.steps
 	some m in regex.find_all_string_submatch_n(`MISE_INSTALLS_DIR=([^'"\s]+)`, step.run, -1)
 	dir := m[1]
@@ -69,7 +65,7 @@ mise_installs_dir := dir if {
 
 # Every workflow string naming a mise-installed Windows tool, keyed on the install dir of the shell we pin.
 windows_tool_path contains entry if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	walk(file.contents, [_, value])
 	is_string(value)
