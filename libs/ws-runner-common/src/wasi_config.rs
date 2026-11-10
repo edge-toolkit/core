@@ -2,11 +2,23 @@
 //!
 //! It lives beside the shared settings rather than in `et-ws-wasi-runner`, so documenting it needs no wasmtime build.
 
+#[cfg(feature = "lidar")]
+use std::collections::BTreeMap;
+
 use crate::runner_config;
 
 runner_config! {
 /// WASI-runner configuration sourced from the environment.
 pub struct Config {
+    /// The serial ports lent to guests through `et:ws-wasi/serial`, each from a `SERIAL_PORTS_<NAME>` variable.
+    ///
+    /// A guest opens a port by the name the variable's suffix gives it, lowercased: `SERIAL_PORTS_LIDAR` lends the
+    /// port `lidar`. The value is the device, such as `/dev/ttyUSB0` or `COM3`, or `tcp://<host>:<port>` for one a
+    /// bridge such as ser2net serves over TCP. serde-env also records each `_`-separated prefix of a longer name
+    /// with an empty device, which lends nothing. Only under the `lidar` cargo feature, which is what lends ports.
+    #[cfg(feature = "lidar")]
+    #[serde(default)]
+    pub serial_ports: BTreeMap<String, String>,
     /// Runtime activation of the guest-coverage preopen, read from `ET_TEST_COVERAGE`.
     ///
     /// Only present under the `coverage` cargo feature -- the preopen code is compiled in only there. When the

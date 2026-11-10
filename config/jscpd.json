@@ -9,6 +9,8 @@
     "verification/**",
     "**/HELP.md",
     "**/pkg/package.json",
+    "modules/**/Cargo.toml",
+    "modules/**/pyproject.toml",
     "services/ws-wasi-runner/src/bindings.rs"
   ]
 }

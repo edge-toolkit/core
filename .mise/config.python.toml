@@ -8,6 +8,11 @@
 "pipx:openapi-python-client" = "0.29.1"
 "pipx:pyrefly" = "latest"
 "pipx:pytest" = "latest"
+# The libraries the pyo3 modules reach a robot's devices through.
+# pyserial for serial ports, OpenCV for cameras and sounddevice for microphones, which the runner's embedded
+# interpreter imports from mise's site-packages. OpenCV and sounddevice have no command, which a pipx tool needs, so
+# they install beside pyserial's.
+"pipx:pyserial" = { version = "latest", uvx_args = "--with opencv-python-headless --with sounddevice" }
 # PyTorch, for the et-ws-pyo3-runner `torch_inference` test.
 # Python-only (not in the always-loaded config) -- it's a large optional dependency, and the test skips itself
 # when torch isn't among the mise-installed packages on sys.path. Skipped on macos/x64: PyTorch dropped macOS

@@ -1,0 +1,17 @@
+[package]
+name = "et-lidar"
+publish = true
+description = "Decoders for the serial streams of 2D lidars, turning their bytes into whole revolutions of samples"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+thiserror.workspace = true
+
+[lints]
+workspace = true

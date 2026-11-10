@@ -67,3 +67,25 @@ Your module may define any of these top-level functions; the runner calls them a
 
 That is the whole interface: a module is "just a Python file with some of those functions." The smallest example
 is [`python/echo.py`](https://github.com/edge-toolkit/core/blob/main/services/ws-pyo3-runner/python/echo.py).
+
+## Persistent workers
+
+Work that outlives any one message, such as reading a sensor, belongs on a thread `init` starts. Hooks run on a
+thread of the runner's own and `storage` waits for the hub with the interpreter released, so the worker runs
+beside them. It can `send` at any time, but `storage.put` raises until `on_connect` has given the agent its bucket,
+so a worker that stores waits for that first. Make it a daemon thread and stop it from `on_shutdown`, and it never
+holds up the runner's exit.
+
+The modules that read Hiwonder's MentorPi robot work this way, each storing the latest of what it reads in its agent's
+bucket:
+
+- `pyo3-lidar1` reads the COIN-D6 lidar, as the WASI runner's `wasi-lidar1` does, from the port `SERIAL_PORTS_LIDAR`
+  names.
+- `pyo3-imu1` reads the IMU on the robot's controller board, from the port `SERIAL_PORTS_CONTROLLER` names.
+- `pyo3-media1` captures the camera through OpenCV and the microphone through sounddevice, from the sources
+  `MEDIA_CAMERA` and `MEDIA_MICROPHONE` name.
+
+The two serial-port readers open their ports with `edge_toolkit.serial`, which takes a device, or `tcp://<host>:<port>`
+for one a bridge such as ser2net serves. They import it from this repository's own source, so `PYO3_PYTHONPATH` names
+`libs/python-edge-toolkit`; pyserial, OpenCV and sounddevice come from mise's site-packages once the `python` mise
+env installs them. On the robot, stop Hiwonder's ROS 2 drivers first, since they hold the same devices.

@@ -116,6 +116,17 @@ ignore = [
   # when deno_crypto moves to elliptic-curve 0.14. cargo-deny ignores by id only, so this also mutes the 0.7 copy
   # elliptic-curve 0.14 pulls -- Cargo.lock pins the patched 0.7.10 there, so re-check that copy when touching this.
   { id = "RUSTSEC-2026-0387", reason = "expires 2026-11-13" },
+  # libsqlite3-sys 0.38.2 bundles SQLite 3.53.2, which can return stale page-cache memory, fixed in SQLite 3.54.0.
+  # Needs a database file opened together with a sibling `-wal` file of a different page size that a less trusted
+  # party wrote. rusqlite's `bundled` feature compiles the affected copy in, and the patched libsqlite3-sys 0.39 needs
+  # rusqlite 0.41, but deno_cache, deno_kv, deno_node_sqlite, deno_webstorage and denokv_sqlite all require ^0.40.0
+  # through their newest releases, so no bump reaches it. The web runner sets neither `origin_storage_dir` nor
+  # `cache_storage_dir`, so localStorage is unsupported, sessionStorage is in memory and the Cache API has no
+  # database; a file is opened only when guest JS names one through `Deno.openKv` or `node:sqlite`, which our modules
+  # never do. That is the whole of the mitigation: the runner grants every module all permissions, so a deployer's own
+  # module that opens a database and `-wal` a less trusted party can write is exposed, and nothing in the runner stops
+  # it. Drop when those crates move to rusqlite 0.41.
+  { id = "RUSTSEC-2026-0459", reason = "expires 2026-11-13" },
   # h2 0.3.27 unbounded empty DATA frames (low-severity HTTP/2 DoS: undrained streams grow memory).
   # Accepted for the 0.3 copy only. hyperium patched the 0.4 line (>= 0.4.16; Cargo.lock now pins 0.4.20 for the
   # hyper/reqwest path) and shipped no 0.3 backport, so 0.3.27 is the last release of a dead line. It arrives

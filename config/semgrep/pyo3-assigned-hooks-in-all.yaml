@@ -1,0 +1,32 @@
+rules:
+  - id: pyo3-assigned-hooks-in-all
+    languages: [python]
+    paths:
+      include:
+        - "/modules/pyo3/**/*.py"
+    # The local equivalent of CodeQL's `py/unused-global-variable`, for the one shape of it the pyo3 modules produce.
+    # Check-only: the fix lists every hook a tuple binds in an `__all__` placed after the module docstring, which no
+    # single rewrite of the matched assignment can express.
+    patterns:
+      - pattern-either:
+          - pattern: $HOOK = $VALUE
+          - pattern: $HOOK, ... = $VALUE
+          - pattern: ..., $HOOK = $VALUE
+          - pattern: ..., $HOOK, ... = $VALUE
+      - metavariable-regex:
+          metavariable: $HOOK
+          regex: ^(init|on_binary_frame|on_connect|on_shutdown|on_text_frame)$
+      - pattern-not-inside: |
+          def $FUNCTION(...):
+              ...
+      - pattern-not-inside: |
+          class $CLASS:
+              ...
+      - pattern-not-inside: |
+          __all__ = $NAMES
+          ...
+    message: >-
+      A runner hook bound by assignment rather than `def` is a global the module itself never reads, so CodeQL reports
+      it as unused. et-ws-pyo3-runner reads it by name, so export it: list every hook the module binds this way in an
+      `__all__` placed after the module docstring and any `from __future__` import.
+    severity: ERROR

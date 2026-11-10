@@ -27,7 +27,11 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tracing_actix_web::TracingLogger;
 
+pub mod device;
+pub mod imu;
+pub mod lidar;
 pub mod math1;
+pub mod media;
 
 /// Actix workers per test hub; test traffic never needs more, and each worker repeats the module scan at startup.
 const TEST_HUB_WORKERS: usize = 2;

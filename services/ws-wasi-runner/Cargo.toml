@@ -54,6 +54,10 @@ name = "otel_propagation"
 required-features = ["std"]
 
 [[test]]
+name = "serial"
+required-features = ["lidar", "std"]
+
+[[test]]
 name = "vector_otlp_relay"
 required-features = ["std"]
 
@@ -65,7 +69,7 @@ required-features = ["std"]
 #! Each standardised WASI interface hosted beyond `et:ws-wasi` and WASI Preview 2 is a feature, all on by default.
 #! A guest that imports an interface the build left out fails to instantiate, naming the import.
 
-default = ["core-modules", "nn", "std", "webgpu"]
+default = ["core-modules", "lidar", "nn", "std", "webgpu"]
 ## The runner for a host with an operating system.
 ## It fetches a component from the hub, compiles it, and hosts WASI Preview 2 through `wasmtime-wasi`. Without it the
 ## crate is `no_std`: the message conversions, and with `board` the runner for a board.
@@ -101,6 +105,10 @@ board = ["dep:edge-ws", "dep:embassy-sync", "dep:embedded-io-async", "dep:spin",
 ## The module's header picks the engine. A core module imports the `et` functions `et-core-guest` defines in place of
 ## the `et:ws-wasi` world, and needs no `std`, so a board can host one too.
 core-modules = ["dep:et-core-guest", "dep:spacewasm"]
+## Hosts `et:ws-wasi/serial`, the serial ports a guest reads a lidar through.
+## The ports are those `SERIAL_PORTS_<NAME>` names, such as the COIN-D6 lidar's on Hiwonder's MentorPi. A device is
+## opened through the `serialport` crate, and a port a bridge serves over TCP through a socket.
+lidar = ["dep:serialport", "et-ws-runner-common/lidar", "std"]
 ## Hosts `wasi:nn` (graph, tensor, inference) on ONNX Runtime through `wasmtime-wasi-nn`.
 ## Guests can then load an ONNX model and run inference on it.
 nn = ["dep:ort", "dep:wasmtime-wasi-nn", "std"]
@@ -146,9 +154,11 @@ et-ws-runner-common = { workspace = true, optional = true }
 fs-err = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json", "rustls", "stream"], optional = true }
+# The serial devices the `lidar` feature lends guests.
+serialport = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
 tokio-tungstenite = { workspace = true, features = ["connect"], optional = true }
-tracing = { workspace = true, features = ["std"], optional = true }
+tracing = { workspace = true, features = ["attributes", "std"], optional = true }
 # Tells a fetched core module from a component, to pick the engine that runs it.
 wasmparser = { workspace = true, optional = true }
 wasmtime-wasi = { workspace = true, optional = true }

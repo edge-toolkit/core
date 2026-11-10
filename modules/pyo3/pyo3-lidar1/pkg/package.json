@@ -1,0 +1,8 @@
+{
+  "name": "@edge-toolkit/et-ws-pyo3-lidar1",
+  "type": "module",
+  "description": "COIN-D6 lidar reader",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pyo3_lidar1.py"
+}

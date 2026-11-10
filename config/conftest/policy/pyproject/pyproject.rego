@@ -32,3 +32,19 @@ deny contains msg if {
 	req != $"uv_build=={uv_version}"
 	msg := sprintf("%s: pin uv_build==%s to match mise's uv (found %q)", [file.path, uv_version, req])
 }
+
+# A pyproject may not link this repository's GitHub issues in [project.urls], under `Issues` or any other label.
+# Issues are switched off here, so the link would lead a package index's visitors to a page that does not exist;
+# Source and Homepage remain.
+deny contains msg if {
+	some file in paths.files
+	endswith(file.path, "pyproject.toml")
+	some label, url in file.contents.project.urls
+	issue_tracker_link(label, url)
+	msg := sprintf("%s: [project.urls] %s links to GitHub issues, which are switched off here", [file.path, label])
+}
+
+# A link is to the issue tracker when its label says so, or when its URL leads to this repository's issues.
+issue_tracker_link("Issues", _)
+
+issue_tracker_link(_, url) if contains(lower(url), "github.com/edge-toolkit/core/issues")

@@ -19,3 +19,7 @@ extend-exclude = ["config/jscpd-baseline.json", "data/"]
 # the file is fetched verbatim by fetch-wit-deps, so it cannot be corrected here. Anchored to the whole
 # phrase so the misspelling is still caught in prose we write.
 extend-ignore-re = ["Functionality is equivelant to", "MIS Quarterly", "lod-(min|max)-clamp"]
+
+# ser2net is the serial-to-network bridge daemon, whose "ser" is short for serial rather than a misspelling of "set".
+[default.extend-identifiers]
+ser2net = "ser2net"

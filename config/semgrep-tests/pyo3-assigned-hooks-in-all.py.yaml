@@ -1,0 +1,37 @@
+code: |
+  # ruleid: pyo3-assigned-hooks-in-all
+  init, on_connect, on_shutdown = persistent_workers({"work": work})
+
+  # ruleid: pyo3-assigned-hooks-in-all
+  helper, on_text_frame = handlers()
+
+  # ruleid: pyo3-assigned-hooks-in-all
+  on_binary_frame = binary_handler
+
+  # ok: pyo3-assigned-hooks-in-all
+  start, stop = persistent_workers({"work": work})
+
+
+  def init(send, storage):
+      """A hook defined with `def` is a function, which CodeQL does not report."""
+      # ok: pyo3-assigned-hooks-in-all
+      on_connect = storage
+
+
+  def test_hooks():
+      """A local binding is not a global."""
+      # ok: pyo3-assigned-hooks-in-all
+      init, on_connect, on_shutdown = persistent_workers({"work": work})
+
+
+  class Hooks:
+      """A class attribute is not a global either."""
+
+      # ok: pyo3-assigned-hooks-in-all
+      on_shutdown = None
+
+
+  __all__ = ["init", "on_connect", "on_shutdown"]
+
+  # ok: pyo3-assigned-hooks-in-all
+  init, on_connect, on_shutdown = persistent_workers({"work": work})

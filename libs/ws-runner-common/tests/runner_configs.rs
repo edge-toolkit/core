@@ -12,6 +12,20 @@ fn wasi_config_reads_the_shared_groups_and_reports_no_otlp_when_unset() {
 
     assert_eq!(config.runner.module, "et-ws-wasi-data1");
     assert!(config.otlp().is_none());
+    assert!(config.serial_ports.is_empty());
+}
+
+#[test]
+fn wasi_config_lends_each_serial_port_under_its_variables_suffix() {
+    let config: wasi_config::Config = serde_env::from_iter([
+        ("RUNNER_MODULE", "et-ws-wasi-lidar1"),
+        ("SERIAL_PORTS_LIDAR", "/dev/ttyUSB0"),
+        ("SERIAL_PORTS_MOTOR_BOARD", "tcp://robot.local:4001"),
+    ])
+    .unwrap();
+
+    assert_eq!(config.serial_ports["lidar"], "/dev/ttyUSB0");
+    assert_eq!(config.serial_ports["motor_board"], "tcp://robot.local:4001");
 }
 
 #[test]

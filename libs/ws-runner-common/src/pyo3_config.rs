@@ -24,7 +24,9 @@ runner_config! {
 pub struct Pyo3Config {
     /// `PYO3_PYTHONPATH` -- colon-separated paths prepended to `sys.path`.
     ///
-    /// Prepended before importing the module; empty by default.
+    /// Prepended before importing the module; empty by default. A directory such as `libs/python-edge-toolkit` makes
+    /// the package at its root importable. On Windows, where a drive letter's colon would split a path in two, write
+    /// an absolute path as a UNC path: `\\localhost\C$\Users\...` for `C:\Users\...`.
     #[serde(default)]
     pub pythonpath: String,
     /// `PYO3_AGENT_ID` -- request this `agent_id` on connect; unset gets a fresh one.

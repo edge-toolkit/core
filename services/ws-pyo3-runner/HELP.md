@@ -48,7 +48,9 @@ Type: string. Default: empty.
 
 `PYO3_PYTHONPATH` -- colon-separated paths prepended to `sys.path`.
 
-Prepended before importing the module; empty by default.
+Prepended before importing the module; empty by default. A directory such as `libs/python-edge-toolkit` makes the
+package at its root importable. On Windows, where a drive letter's colon would split a path in two, write an absolute
+path as a UNC path: `\\localhost\C$\Users\...` for `C:\Users\...`.
 
 ### `RUNNER_MODULE`
 

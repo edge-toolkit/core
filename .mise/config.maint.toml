@@ -848,9 +848,9 @@ crates=(
   et-otlp et-web et-rest-client et-ws-runner-common et-ws-wasm-agent
   et-wasi-guest et-ws-comm1 et-ws-data1 et-ws-math1 et-ws-math1-sender
   et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1 et-ws-wasi-math1-sender et-modules-service
-  et-storage-service et-websockify-service et-ws-service et-ws-test-server et-ws-pyo3-runner
-  et-actix-web-config et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli
-  et-onnx
+  et-storage-service et-websockify-service et-ws-service et-lidar et-ws-test-server
+  et-ws-pyo3-runner et-actix-web-config et-ws-server et-ws-wasi-runner et-ws-web-runner
+  et-cli et-onnx et-ws-wasi-lidar1
 )
 per_batch=5
 # `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.

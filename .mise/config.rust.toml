@@ -110,7 +110,7 @@ run = """
 target=thumbv8m.main-none-eabihf
 features=et-modules-service/board,et-storage-service/board,et-ws-service/board
 set -- -p et-org -p edge-toolkit -p et-modules-service -p et-storage-service -p et-ws-service
-set -- "$@" -p et-core-guest -p et-math1
+set -- "$@" -p et-core-guest -p et-lidar -p et-math1
 cargo build --lib --target "$target" --no-default-features --features "$features" "$@"
 cargo build --lib --target "$target" --no-default-features --features board,core-modules -p et-ws-wasi-runner
 """
@@ -247,6 +247,18 @@ coreutils mkdir -p modules/wasi/wasi-math1/pkg
 wasm=et_ws_wasi_math1.wasm
 coreutils cp "target/wasm32-wasip2/release/$wasm" "modules/wasi/wasi-math1/pkg/$wasm"
 {{ vars.et_cli }} module-package-json --module-dir modules/wasi/wasi-math1
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.build-ws-wasi-lidar1-module]
+depends = ["build-et-cli"]
+description = "Build the Rust WASI lidar1 module as a WASI Preview 2 component"
+run = """
+{{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-lidar1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
+coreutils mkdir -p modules/wasi/wasi-lidar1/pkg
+wasm=et_ws_wasi_lidar1.wasm
+coreutils cp "target/wasm32-wasip2/release/$wasm" "modules/wasi/wasi-lidar1/pkg/$wasm"
+{{ vars.et_cli }} module-package-json --module-dir modules/wasi/wasi-lidar1
 """
 shell = "{{ vars.task_shell }}"
 

@@ -10,6 +10,8 @@ members = [
   "libs/core-guest",
   "libs/edge-toolkit",
   "libs/et-otlp",
+  "libs/gpu-probe",
+  "libs/lidar",
   "libs/math1",
   "libs/org",
   "libs/path",
@@ -24,6 +26,7 @@ members = [
   "modules/core/core-math1",
   "modules/wasi/wasi-comm1",
   "modules/wasi/wasi-data1",
+  "modules/wasi/wasi-lidar1",
   "modules/wasi/wasi-math1",
   "modules/wasi/wasi-math1-sender",
   "modules/web/audio1",
@@ -130,7 +133,9 @@ et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
 et-core-guest = { path = "libs/core-guest", version = "0.1.0" }
 et-firmware-modules = { path = "services/firmware-modules", version = "0.1.0" }
+et-gpu-probe = { path = "libs/gpu-probe", version = "0.1.0" }
 et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
+et-lidar = { path = "libs/lidar", version = "0.1.0" }
 et-math1 = { path = "libs/math1", version = "0.1.0" }
 et-modules-service = { path = "services/modules", version = "0.3.0", default-features = false }
 et-onnx = { path = "utilities/onnx", version = "0.2.0" }
@@ -286,6 +291,8 @@ serde_json = { version = "1", default-features = false }
 serde_path_to_error = "0.1"
 serde_with = { version = "3.24", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
+# Default features off: its only one, `libudev`, enumerates ports, which no caller does, and needs libudev's headers.
+serialport = { version = "4.10", default-features = false }
 sha2 = { version = "0.11", default-features = false }
 shlex = "2"
 # NASA JPL's Wasm 1.0 interpreter, which et-ws-wasi-runner runs core modules on.

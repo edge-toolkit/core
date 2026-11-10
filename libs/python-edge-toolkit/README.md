@@ -28,6 +28,22 @@ frame = message.model_dump_json()
 The event's `type` is `et.<capability>.<action>` -- `et.app.loaded` here -- and its `source` is the path the hub
 serves the module from. Each call gets a fresh UUID `id` and the current UTC `time`.
 
+## Serial ports
+
+A native module reads a device such as a robot's lidar through `edge_toolkit.serial`. A port is named as the WASI
+runner lends one, by a `SERIAL_PORTS_<NAME>` variable holding the device -- `/dev/ttyUSB0`, `COM3` -- or
+`tcp://<host>:<port>` for a port a bridge such as ser2net serves:
+
+```python
+from edge_toolkit.serial import PortClosedError, lent_device, open_port
+
+port = open_port(lent_device("lidar"), 230_400, timeout=0.1)
+data = port.read(4096)  # empty when nothing arrived within the timeout
+```
+
+A device needs pyserial, which `pip install edge-toolkit[serial]` brings in. A read raises `PortClosedError` once the
+port has closed.
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](https://github.com/edge-toolkit/core/blob/main/LICENSE-APACHE)

@@ -39,6 +39,18 @@ Plus, attached to the same `Linker` but defined by external WIT packages, each b
   wasmtime-wasi-nn 48 still uses). Guests load model bytes via `graph.load`, build `Tensor`s, and call `compute` --
   the same shape of calls Spin / wasmCloud / Fermyon production wasi-nn workloads use. Inference runs on the CPU
   unless the `cuda` feature is on.
+- `lidar`: `et:ws-wasi/serial` -- the serial ports the runner's `SERIAL_PORTS_<NAME>` variables lend a guest, each a
+  device the `serialport` crate opens or a port a bridge such as ser2net serves over TCP. It is this repository's own
+  interface, in the `serial-host` world rather than `runner`, so that its host bindings link only in a build with the
+  feature; no WASI proposal covers serial ports. It is how the `wasi-lidar1` module reads a lidar, the COIN-D6 on
+  Hiwonder's MentorPi robot, keeping the latest revolution in its agent's storage:
+
+  ```sh
+  export SERIAL_PORTS_LIDAR=/dev/ttyUSB0 RUNNER_MODULE=@edge-toolkit/et-ws-wasi-lidar1
+  WS_SERVER_URL=ws://hub:8080/ws et-ws-wasi-runner
+  ```
+
+  On the MentorPi, Hiwonder's ROS 2 lidar driver holds that port while it runs, so stop it first.
 
 ## Core modules
 
@@ -70,7 +82,7 @@ the one `MemoryBudget` the firmware hands them too: growth past what is left fai
 returning -1, rather than the board running out of heap, and what a guest held is returned when it ends. Of WASI
 Preview 2 it hosts only
 what the ws-module guests import -- their standard streams, an empty environment, the monotonic clock and polling --
-since `wasmtime-wasi` needs `std`; `wasi:nn` and `wasi:webgpu` are host-only.
+since `wasmtime-wasi` needs `std`; `wasi:nn`, `wasi:webgpu` and `et:ws-wasi/serial` are host-only.
 
 With `core-modules`, `board::run_core_module` runs a core module on SpaceWasm with its `et` imports hosted on the same
 `Platform` and `Transport`. SpaceWasm decodes the module as it is, so a firmware builds one in with nothing compiled

@@ -153,7 +153,7 @@ class MisalignmentTests(unittest.TestCase):
 class OscillationTests(unittest.TestCase):
     def test_conjugate_oscillation_is_detected(self) -> None:
         # A 4 Hz, 0.08-amplitude horizontal oscillation of both eyes, sampled at 20 Hz for 2.4 seconds.
-        samples = []
+        samples: list[GazeSample] = []
         for i in range(48):
             t = i * 0.05
             h = 0.5 + 0.08 * math.sin(2.0 * math.pi * 4.0 * t)
@@ -167,7 +167,7 @@ class OscillationTests(unittest.TestCase):
         self.assertGreaterEqual(metrics["amplitude"] or 0.0, 0.04)
 
     def test_vertical_oscillation_reports_the_vertical_axis(self) -> None:
-        samples = []
+        samples: list[GazeSample] = []
         for i in range(48):
             t = i * 0.05
             v = 0.5 + 0.08 * math.sin(2.0 * math.pi * 4.0 * t)

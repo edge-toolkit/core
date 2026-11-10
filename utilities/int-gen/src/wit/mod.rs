@@ -1,6 +1,6 @@
 //! Everything that produces or fetches a `.wit` file.
 //!
-//! * [`bindings`] -- emits the wasmtime host bindings for the `runner` world
+//! * [`bindings`] -- emits the wasmtime host bindings for the `runner` and `serial-host` worlds
 //!   into `services/ws-wasi-runner/src/bindings.rs`.
 //! * [`messages`] -- emits `generated/specs/wit/deps/et-ws-messages/messages.wit`
 //!   from the schemars JSON Schemas for `ClientMessage` and `ServerMessage`.

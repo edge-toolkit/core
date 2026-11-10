@@ -1,8 +1,10 @@
 //! Fetch a module's WASI component from the hub, compile it, and run it with WASI Preview 2 and the `et:ws-wasi`
 //! world hosted.
 
+use std::collections::BTreeMap;
+
 use et_ws_runner_common::{derive_http_base, fetch_main_field};
-use tracing::{Instrument as _, info, info_span};
+use tracing::{Instrument as _, info, info_span, instrument};
 use wasmparser::Parser;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
@@ -18,28 +20,22 @@ use crate::{HostState, RunnerError, bindings};
 /// The whole call is wrapped in a `run_module` span -- every outgoing
 /// request inherits its trace context, and ws-server's request span ends
 /// up as a child of it.
+///
+/// `serial_ports` are the ports `et:ws-wasi/serial` lends a component, by name, and are lent only in a `lidar` build.
+#[cfg_attr(
+    not(feature = "lidar"),
+    expect(
+        unused_variables,
+        reason = "lidar gates the serial ports, linked only under the feature"
+    )
+)]
+#[instrument(name = "run_module", skip_all, fields(module = module_name))]
 pub async fn run_module(
     module_name: &str,
     ws_url: &str,
     connect_ack_timeout: Option<std::time::Duration>,
     coverage: bool,
-) -> Result<(), RunnerError> {
-    let span = info_span!("run_module", module = module_name);
-    run_module_inner(module_name, ws_url, connect_ack_timeout, coverage)
-        .instrument(span)
-        .await
-}
-
-#[expect(
-    clippy::cognitive_complexity,
-    clippy::single_call_fn,
-    reason = "span-instrumented body of run_module, split to scope the span; its score is mostly info! expansion"
-)]
-async fn run_module_inner(
-    module_name: &str,
-    ws_url: &str,
-    connect_ack_timeout: Option<std::time::Duration>,
-    coverage: bool,
+    serial_ports: BTreeMap<String, String>,
 ) -> Result<(), RunnerError> {
     let http_base = derive_http_base(ws_url)?;
 
@@ -85,8 +81,18 @@ async fn run_module_inner(
     wasmtime_wasi_nn::wit::add_to_linker(&mut linker, super::wasi_nn::view)?;
     #[cfg(feature = "webgpu")]
     wasi_webgpu_wasmtime::add_to_linker(&mut linker)?;
+    #[cfg(feature = "lidar")]
+    bindings::serial_host::SerialHost::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
 
-    let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout, coverage);
+    #[cfg_attr(
+        not(feature = "lidar"),
+        expect(unused_mut, reason = "only the lidar feature lends it ports")
+    )]
+    let mut host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout, coverage);
+    #[cfg(feature = "lidar")]
+    {
+        host_state.serial_ports = serial_ports;
+    }
     let mut store = Store::new(&engine, host_state);
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
