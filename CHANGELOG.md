@@ -185,6 +185,12 @@ Changelog 1.1.0.
   each module at `/app/modules/<type>/<name>`. A hub configured with the old path, or a deployment generated before
   this change, must be pointed at the new one or regenerated. The Zig modules' shared build moved to
   `libs/zig-shared`.
+- **Breaking:** The pyo3 modules' directories no longer repeat the `pyo3-` of their parent: `modules/pyo3/math1`,
+  `modules/pyo3/lidar1` and the rest, in place of `modules/pyo3/pyo3-math1`. A scenario names them as before, as
+  `type: "pyo3-math1"`, because `et-cli` now keys a module under `modules/<type>/` by its package name less
+  `@edge-toolkit/et-ws-` rather than by its directory, which for every other module is the same name. A deployment
+  generated before this change stages them at the old paths and must be regenerated, and a `PYO3_PYTHONPATH` naming an
+  old directory must name the new one.
 - **Breaking:** `et_ws_server::routes::HealthResponse`, the answer to `GET /health`, is now
   `et_ws_service::health::HealthResponse`, since a board's hub gives the same answer; import it from there.
 - **Breaking:** `et-ws-wasi-runner`'s host runner, its binary and `run_module` are behind the new default `std`

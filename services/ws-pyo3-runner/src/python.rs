@@ -355,7 +355,7 @@ fn nul_free(value: &str, what: &str) -> Result<CString, PythonError> {
 /// Called once per load attempt, and a load can be attempted twice -- [`module_is_importable`] probes before
 /// [`Dispatcher::import`] runs -- so the same entries would otherwise pile up and `sys.path` would grow a
 /// duplicate for every extra.
-fn prepend_sys_path(py: Python<'_>, extras: &[PathBuf]) -> Result<(), PythonError> {
+pub(crate) fn prepend_sys_path(py: Python<'_>, extras: &[PathBuf]) -> Result<(), PythonError> {
     if extras.is_empty() {
         return Ok(());
     }
@@ -388,6 +388,16 @@ pub fn module_is_importable(module_name: &str, extras: &[PathBuf]) -> Result<boo
             .call_method1("find_spec", (module_name,))
             .is_ok_and(|spec| !spec.is_none()))
     })
+}
+
+/// Run one hook with the GIL held, measured by coverage.py when the `coverage` feature has started it.
+fn attach_hook<T, F>(hook: F) -> Result<T, PythonError>
+where
+    F: FnOnce(Python<'_>) -> Result<T, PythonError>,
+{
+    #[cfg(feature = "coverage")]
+    let hook = crate::coverage::measured(hook);
+    Python::attach(hook)
 }
 
 /// Holds the imported user module across the lifetime of the agent loop.
@@ -477,7 +487,7 @@ impl Dispatcher {
 
     /// Forward the assigned `agent_id` to the optional `on_connect` hook.
     pub fn on_connect(&self, agent_id: &str) -> Result<(), PythonError> {
-        Python::attach(|py| -> Result<(), PythonError> {
+        attach_hook(|py| {
             let module = self.module.bind(py);
             if !module.hasattr(HOOK_ON_CONNECT)? {
                 return Ok(());
@@ -493,7 +503,7 @@ impl Dispatcher {
     /// utf-8). Outbound frames the handler queued via `WsSender` go out
     /// independently.
     pub fn on_text_frame(&self, text: &str) -> Result<Option<String>, PythonError> {
-        Python::attach(|py| -> Result<Option<String>, PythonError> {
+        attach_hook(|py| {
             let module = self.module.bind(py);
             if !module.hasattr(HOOK_ON_TEXT_FRAME)? {
                 return Ok(None);
@@ -518,7 +528,7 @@ impl Dispatcher {
     ///
     /// Returns the handler's optional reply (`bytes`, or `str` encoded as utf-8).
     pub fn on_binary_frame(&self, frame: &[u8]) -> Result<Option<Vec<u8>>, PythonError> {
-        Python::attach(|py| -> Result<Option<Vec<u8>>, PythonError> {
+        attach_hook(|py| {
             let module = self.module.bind(py);
             if !module.hasattr(HOOK_ON_BINARY_FRAME)? {
                 return Ok(None);
@@ -542,7 +552,7 @@ impl Dispatcher {
 
     /// Call the optional `on_shutdown` hook, best-effort.
     pub fn on_shutdown(&self) -> Result<(), PythonError> {
-        Python::attach(|py| -> Result<(), PythonError> {
+        attach_hook(|py| {
             let module = self.module.bind(py);
             if !module.hasattr(HOOK_ON_SHUTDOWN)? {
                 return Ok(());

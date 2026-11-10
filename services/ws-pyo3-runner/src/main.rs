@@ -31,6 +31,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("module={module} python_path={python_path:?} ws_url={ws_url}");
 
+    // Measurement exists only under the `coverage` feature, and there `ET_TEST_COVERAGE` starts it, before the
+    // module's top level runs.
+    #[cfg(feature = "coverage")]
+    if config.et_test_coverage {
+        et_ws_pyo3_runner::coverage::start(&resolved_python_path(&python_path))?;
+    }
+
     // Only a module that does not resolve locally is fetched, so a runner pointed at a module on
     // PYO3_PYTHONPATH never asks the hub for one.
     let fetched = fetch_if_absent(&module, &resolved_python_path(&python_path), &ws_url).await?;

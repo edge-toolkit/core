@@ -133,6 +133,9 @@ const REPO_MODULE_DIRS: [&str; 6] = [
 /// Registry scope this project's own module packages carry, and which the hub drops when naming a module.
 pub(crate) const MODULE_SCOPE: &str = et_org::NPM_SCOPE;
 
+/// The start of every module package's name after its scope, which the key a scenario names a module by leaves out.
+const MODULE_NAME_PREFIX: &str = "et-ws-";
+
 /// Environment a runner gets from the deployment rather than from the scenario, and so cannot be overridden.
 pub(crate) const DERIVED_RUNNER_ENV: [&str; 2] = ["RUNNER_MODULE", "WS_SERVER_URL"];
 
@@ -307,7 +310,7 @@ pub(crate) struct ModuleRegistryEntry {
     /// The module's published package name, as `pkg/package.json` declares it.
     ///
     /// This is what a runner has to be told: `RUNNER_MODULE` is resolved against the names the hub serves modules
-    /// under, which is the package name (`et-ws-math1`) and not the directory a scenario names it by (`math1`). `None`
+    /// under, which is the package name (`et-ws-math1`) and not the name a scenario refers to it by (`math1`). `None`
     /// for a mise-staged package, which is already keyed by its published name.
     pub package_name: Option<String>,
 }
@@ -729,6 +732,7 @@ pub(crate) fn module_registry(
             &project_root.join(parent),
             ws_server_dir,
             &format!("/app/{parent}"),
+            MODULE_TYPE_DIRS.contains(&parent),
         );
     }
     for module in REPO_MODULE_DIRS {
@@ -847,11 +851,15 @@ fn register_scenario_paths(
     }
 }
 
+/// Register every module directory under `root`.
+///
+/// Each is keyed by [`runtime_module_key`] when `by_package`, and otherwise by its directory name.
 fn register_modules_under(
     registry: &mut BTreeMap<String, ModuleRegistryEntry>,
     root: &Path,
     ws_server_dir: &Path,
     docker_root: &str,
+    by_package: bool,
 ) {
     let Ok(entries) = fs::read_dir(root) else {
         return;
@@ -869,14 +877,29 @@ fn register_modules_under(
         let Some(directory_name) = module_path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        register_module(
-            registry,
-            &module_path,
-            directory_name,
-            ws_server_dir,
-            &format!("{docker_root}/{directory_name}"),
-        );
+        let module = module_entry(&module_path, ws_server_dir, &format!("{docker_root}/{directory_name}"));
+        let key = if by_package {
+            runtime_module_key(directory_name, &module)
+        } else {
+            directory_name.to_owned()
+        };
+        insert_module(registry, &key, module);
     }
+}
+
+/// The key a module of a module type directory is registered by.
+///
+/// It is the module's package name, less the scope and the [`MODULE_NAME_PREFIX`] every module's name starts with.
+/// That name carries the runtime as well as the module -- `et-ws-pyo3-math1`, `et-ws-wasi-math1`, `et-ws-math1` -- so
+/// the key stays unique across the type directories even where two of them hold a directory of the same name, as
+/// `modules/pyo3/math1` and `modules/web/math1` do. A module that declares no package, such as one the pyo3 runner
+/// imports straight from disk, is registered by its directory name.
+fn runtime_module_key(directory_name: &str, module: &ModuleRegistryEntry) -> String {
+    let Some(package) = module.package_name.as_deref() else {
+        return directory_name.to_owned();
+    };
+    let unscoped = package.strip_prefix(MODULE_SCOPE).unwrap_or(package);
+    unscoped.strip_prefix(MODULE_NAME_PREFIX).unwrap_or(unscoped).to_owned()
 }
 
 /// Register a single module by its filesystem path (not a parent dir).
@@ -914,16 +937,12 @@ fn register_module(
     );
 }
 
-/// Add a module under its directory name and, when it declares one, the package name it is served as.
-fn insert_module(
-    registry: &mut BTreeMap<String, ModuleRegistryEntry>,
-    directory_name: &str,
-    entry: ModuleRegistryEntry,
-) {
+/// Add a module under `key` and, when it declares one, the package name it is served as.
+fn insert_module(registry: &mut BTreeMap<String, ModuleRegistryEntry>, key: &str, entry: ModuleRegistryEntry) {
     if let Some(served_name) = entry.package_name.clone() {
         let _previous: Option<ModuleRegistryEntry> = registry.insert(served_name, entry.clone());
     }
-    let _previous: Option<ModuleRegistryEntry> = registry.insert(directory_name.to_string(), entry);
+    let _previous: Option<ModuleRegistryEntry> = registry.insert(key.to_string(), entry);
 }
 
 /// The registry entry for a module directory of this repository.

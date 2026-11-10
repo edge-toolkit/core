@@ -1,13 +1,14 @@
 # coverage.py config for the combined Python report (referenced via COVERAGE_RCFILE by the pytest-cov task).
-# Data sources feed one report: pytest plus web-runner Pyodide runs. The web runner drops its .coverage files
-# into target/pycov/. `[tool.coverage.paths]` remaps each source's recorded path to the repo-relative one so
-# `coverage combine` merges them into a single file entry. The first entry is the canonical on-disk source.
+# Data sources feed one report: pytest plus the web-runner Pyodide runs and the pyo3-runner runs, whose .coverage
+# files land in target/pycov/. `[tool.coverage.paths]` remaps each source's recorded path to the repo-relative one
+# so `coverage combine` merges them into a single file entry. The first entry is the canonical on-disk source.
 
 [tool.coverage.run]
 # Branch coverage must be enabled identically on every data source `coverage combine` merges.
-# This rcfile covers the pytest runs (via COVERAGE_RCFILE); the Pyodide runs set branch=True on their Coverage()
-# constructor directly because no COVERAGE_RCFILE env reaches the in-browser interpreter. A mismatch makes
-# `coverage combine` refuse to merge arc data with line data for the same source files.
+# This rcfile covers the pytest runs (via COVERAGE_RCFILE) and the pyo3 runner (via its Coverage() config_file);
+# the Pyodide runs set branch=True on their Coverage() constructor directly because no COVERAGE_RCFILE env reaches
+# the in-browser interpreter. A mismatch makes `coverage combine` refuse to merge arc data with line data for the
+# same source files.
 branch = true
 relative_files = true
 
@@ -18,4 +19,6 @@ pydemo1 = ["modules/web/pydemo1/pydemo1", "pydemo1", "**/pydemo1"]
 pyeye1 = ["modules/web/pyeye1/pyeye1", "pyeye1", "**/pyeye1"]
 pyface1 = ["modules/web/pyface1/pyface1", "pyface1", "**/pyface1"]
 pymath1 = ["modules/web/pymath1/pymath1", "pymath1", "**/pymath1"]
+# Every pyo3 module at once: the runner records absolute paths, and each one's own directory survives the remap.
+pyo3 = ["modules/pyo3", "**/modules/pyo3"]
 pyspeech1 = ["modules/web/pyspeech1/pyspeech1", "pyspeech1", "**/pyspeech1"]

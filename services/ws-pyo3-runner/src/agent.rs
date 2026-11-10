@@ -188,9 +188,15 @@ pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), Runne
     let _shutdown_sent = inbound_tx.send(InboundEvent::Shutdown);
     drop(inbound_tx);
     let _joined = worker.join();
+    // The module has run its last hook, so this is the whole of what coverage can measure.
+    #[cfg(feature = "coverage")]
+    let finished = crate::coverage::finish();
     let _close_sent = socket.send(tungstenite::Message::Close(None)).await;
     storage_task.abort();
-    result
+    result?;
+    #[cfg(feature = "coverage")]
+    finished?;
+    Ok(())
 }
 
 /// Run every Python hook on a dedicated OS thread, owning the `Dispatcher`.

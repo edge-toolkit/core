@@ -4,7 +4,7 @@
 # parse legacy `# type:` comments -- a rule of our own bans those, so the annotation form Pyrefly does check is
 # the only one in the tree.
 
-project-includes = ["../libs/python-*/**/*.py", "../modules/**/*.py", "../services/**/*.py"]
+project-includes = ["../libs/python-*/**/*.py", "../modules/**/*.py"]
 
 # The Python the code is checked against, rather than whichever interpreter the host's PATH yields first.
 # Must equal the mise `python` pin.
@@ -32,14 +32,13 @@ project-excludes = [
 search-path = [
   "../libs/python-edge-toolkit",
   "../libs/python-org",
-  "../modules/pyo3/pyo3-mlflow",
+  "../modules/pyo3/mlflow",
   "../modules/web/pydata1",
   "../modules/web/pydemo1",
   "../modules/web/pyeye1",
   "../modules/web/pyface1",
   "../modules/web/pymath1",
   "../modules/web/pyspeech1",
-  "../services/ws-pyo3-runner/python",
 ]
 
 # Third-party deps and generated packages that are absent from (or opaque to) the lint environment.

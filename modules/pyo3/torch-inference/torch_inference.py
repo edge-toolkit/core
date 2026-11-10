@@ -1,4 +1,4 @@
-# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
+# noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """PyTorch analogue of the wasi-graphics-info module, for `et-ws-pyo3-runner`.
 
 Where wasi-graphics-info runs a deterministic 4x4 matmul (verifying C[0][0]) and
@@ -13,7 +13,7 @@ CPython interpreter:
 `torch` is declared as `pipx:torch` in the python-only mise config and reaches
 `sys.path` via `edge_toolkit::config::mise_python_site_packages`, exactly like
 cowsay. The top-level `import torch` fails the whole module load if torch isn't
-wired in -- so `tests/torch_inference.rs` checks for torch up front and SKIPS,
+wired in -- so `services/ws-pyo3-runner/tests/modules.rs` checks for torch up front and SKIPS,
 rather than letting the runner fail, when torch isn't installed.
 
 On any inbound text frame the module runs the workflow and returns a JSON

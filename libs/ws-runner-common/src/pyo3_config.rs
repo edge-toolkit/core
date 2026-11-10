@@ -14,6 +14,16 @@ runner_config! {
         /// `PYO3_*` settings unique to this runner.
         #[serde(default)]
         pub pyo3: Pyo3Config,
+        /// Runtime activation of the user module's coverage.py measurement, read from `ET_TEST_COVERAGE`.
+        ///
+        /// Only present under the `coverage` cargo feature -- the measurement code is compiled in only there. When
+        /// the feature is on, `ET_TEST_COVERAGE=true` measures the module the runner loads and writes the data under
+        /// `target/pycov/` for the combined Python coverage; `false` (the default) leaves the compiled-in measurement
+        /// inert. Left out of the env schema, so a runner's HELP.md documents only what every build reads.
+        #[cfg(feature = "coverage")]
+        #[cfg_attr(feature = "env-schema", schemars(skip))]
+        #[serde(default)]
+        pub et_test_coverage: bool,
     }
 }
 

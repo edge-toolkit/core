@@ -315,7 +315,7 @@ fn a_board_as_the_server_runs_the_hub_and_its_guests_as_firmware() {
     let run = build["run"].as_str().unwrap();
     assert!(run.contains("mise -E rust run build-firmware-pico-plus2w"));
     // The twin's module too, since it is fetched from the board's hub.
-    assert!(run.contains("$PWD/modules/pyo3/pyo3-math1"));
+    assert!(run.contains("$PWD/modules/pyo3/math1"));
     let flash = toml::Value::from("firmware-flash-hub-board");
     assert_eq!(
         tasks["machine-hub-board"]["depends"].as_array().unwrap(),

@@ -590,8 +590,7 @@ rules:
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/utilities/int-gen/src/checks.rs" # Names the root config the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
-        - "/services/ws-pyo3-runner/python/*.py" # Single-file runner payloads, each exempt from the package rule.
-        - "/modules/pyo3/pyo3-math1/pkg/et_ws_pyo3_math1.py" # A single-file payload, the same exemption.
+        - "/modules/pyo3/math1/pkg/et_ws_pyo3_math1.py" # Single-file runner payload, exempt from the package rule.
         - "/modules/web/pywasm1/main.py" # A single file the browser runs verbatim, the same exemption.
     pattern-regex: '(?i)\bruff\b'
     message: >-

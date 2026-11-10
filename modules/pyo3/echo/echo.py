@@ -1,4 +1,4 @@
-# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
+# noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Example Python module for `et-ws-pyo3-runner`.
 
 This file demonstrates the contract the runner expects. Every function is
@@ -22,18 +22,18 @@ Two ways to emit outbound frames:
   number of times during a handler -- or later from a background thread.
   Both styles compose: anything you `send.*()` during a handler goes
   out *before* the value you `return`, in submission order. See
-  `python/fanout.py` and `python/storage_pingpong.py` for modules that
+  `modules/pyo3/fanout/` and `modules/pyo3/storage-pingpong/` for modules that
   stash and use the host handles.
 
-State lives in module-level globals. The runner instantiates one copy
-per process, so this is the same as a singleton -- no classes, no state
-threading across the FFI boundary.
+State lives in a module-level dict the hooks mutate in place. The runner
+instantiates one copy per process, so this is the same as a singleton --
+no classes, no state threading across the FFI boundary.
 
 To use this module, set these env vars and run the runner:
 
   WS_SERVER_URL=ws://127.0.0.1:8080/ws
   RUNNER_MODULE=echo
-  PYO3_PYTHONPATH=services/ws-pyo3-runner/python
+  PYO3_PYTHONPATH=modules/pyo3/echo
   cargo run -p et-ws-pyo3-runner
 """
 
@@ -45,7 +45,7 @@ _logger = logging.getLogger(__name__)
 
 # --- module state ----------------------------------------------------------
 
-_echoed: int = 0
+_state: dict[str, int] = {"echoed": 0}
 
 
 # --- runner hooks ----------------------------------------------------------
@@ -63,18 +63,16 @@ def on_connect(agent_id: str) -> None:
 
 def on_text_frame(text: str) -> str | None:
     """Echo the incoming text frame back verbatim (return-style)."""
-    global _echoed  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
-    _echoed += 1
+    _state["echoed"] += 1
     return text
 
 
 def on_binary_frame(frame: bytes) -> bytes | None:
     """Echo the incoming binary frame back verbatim (return-style)."""
-    global _echoed  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
-    _echoed += 1
+    _state["echoed"] += 1
     return frame
 
 
 def on_shutdown() -> None:
     """Log the running echo count as the connection closes."""
-    _logger.info("echo agent shutting down after %d frames", _echoed)
+    _logger.info("echo agent shutting down after %d frames", _state["echoed"])
