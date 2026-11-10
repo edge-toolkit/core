@@ -11,17 +11,19 @@
 #   meta: true
 package ast_grep_rules
 
+import data.paths
+
 severity_msg := "%s: ast-grep rule %q has severity %q; every rule here is a gate, so it declares `severity: error`"
 
 # Every rule in the input, paired with the file defining it.
 rules contains [file.path, rule] if {
-	some file in input
+	some file in paths.files
 	is_object(file.contents)
 	rule := file.contents
 }
 
 rules contains [file.path, rule] if {
-	some file in input
+	some file in paths.files
 	is_array(file.contents)
 	some rule in file.contents
 }

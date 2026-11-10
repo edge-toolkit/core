@@ -8,9 +8,12 @@
 # where it is used.
 package dockerfile_stages
 
+# One Dockerfile's instructions, which is all `input` holds here: not a combined list of files, so no paths.
+instructions := input
+
 # The `AS` name of each `FROM`, with the stage it opens.
 declared contains {"name": lower(instr.Value[2]), "stage": instr.Stage} if {
-	some instr in input
+	some instr in instructions
 	instr.Cmd == "from"
 	count(instr.Value) == 3
 	lower(instr.Value[1]) == "as"
@@ -31,7 +34,7 @@ flag_sources(flag) := {lower(trim_prefix(option, "from=")) |
 
 # Every stage name an instruction's flags take a source from, with the stage the instruction is in.
 referenced contains {"name": name, "stage": instr.Stage} if {
-	some instr in input
+	some instr in instructions
 	some flag in instr.Flags
 	some name in flag_sources(flag)
 }

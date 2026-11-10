@@ -1,12 +1,12 @@
 # Checks
 
-- **Generated:** 2026-11-09
+- **Generated:** 2026-11-10
 - **Checks:** 84
 - **Tools:** 49
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 22
-- **Rules:** 378 custom local rules, or non-default strict linter settings
-- **Meta rules:** 21 of those rules are rules about rules
+- **Rules:** 379 custom local rules, or non-default strict linter settings
+- **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -665,7 +665,7 @@ Rules, from `config/conftest/policy`:
 - `pyrefly_python_sync` (`config/conftest/policy/cross/pyrefly_python_sync.rego`):
   - pyrefly must pin the Python version it type-checks against.
   - pyrefly's pinned Python version must equal the mise `python` pin, the version every lane installs.
-- `wasm-bindgen-sync` (`config/conftest/policy/cross/wasm-bindgen-sync.rego`):
+- `wasm_bindgen_sync` (`config/conftest/policy/cross/wasm_bindgen_sync.rego`):
   - The mise wasm-bindgen pin must match the wasm-bindgen version Cargo.lock resolves.
 - `dockerfile` (`config/conftest/policy/dockerfile/dockerfile.rego`):
   - A version a Dockerfile hard-codes must match the [tools] pin for the same tool.
@@ -1202,6 +1202,12 @@ Rules, from `config/semgrep`:
 - `python-silent-broad-except` -- Silently discarding every ordinary exception can conceal programming errors and lost
   work. Catch the expected exception types and explicitly report, recover from, or propagate the failure. Check-only: a
   safe recovery policy cannot be inferred from the handler alone.
+- `rego-iterate-normalised-files` (meta) -- Iterate `paths.files` (with `import data.paths`) instead of `input`. The
+  policy runner reports each path with the native separator of the OS it runs on, so on Windows a rule matching
+  `file.path` against `.mise/config.toml` or `.github/workflows/` sees backslashes and matches nothing -- and that fails
+  open, with the namespace reporting clean on that lane while checking nothing. `paths.files` is the same input with
+  every path normalised to forward slashes, so a rule written once works on every OS. Where `input` is one document
+  rather than a list of files, bind it to a name that says so and iterate that.
 - `rego-rule-summary` (meta) -- This Rego rule has no summary comment. The generated catalogue of every check lists each
   policy rule by the first line of the comment above it, and refuses to build without one, so describe what the rule
   enforces in a comment opening at column 0 between the previous rule's closing brace and this rule. The file's header

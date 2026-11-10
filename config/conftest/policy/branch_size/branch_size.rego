@@ -7,6 +7,8 @@
 # branches that each stay at or under it.
 package branch_size
 
+import data.paths
+
 # The most files a pull request may modify and still be reviewed by CodeRabbit.
 max_files := 100
 
@@ -14,7 +16,7 @@ too_many_msg := "this branch modifies %d files, over the %d CodeRabbit reviews i
 
 # Every path in the list, blank lines aside.
 changed contains line.Original if {
-	some file in input
+	some file in paths.files
 	some line in file.contents
 	line.Original != ""
 }

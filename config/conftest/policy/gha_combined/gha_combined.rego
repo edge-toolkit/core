@@ -3,11 +3,13 @@
 # Per-file rules live in `gha.rego`.
 package gha_combined
 
+import data.paths
+
 # Every workflow must trigger on pull_request so PR CI runs it when relevant code changes.
 # Skip the file-name allowlist here; the path-self-reference rule below ensures workflows that DO scope by paths still
 # re-run when their own YAML is touched.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	startswith(file.path, ".github/workflows/")
 	not file.contents.on.pull_request
@@ -19,7 +21,7 @@ deny contains msg if {
 # Every workflow must support manual workflow_dispatch: re-running a failed/flaky run shouldn't need a no-op commit.
 # `workflow_dispatch:` with no body parses to `null`, so check for the key directly.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	startswith(file.path, ".github/workflows/")
 	not "workflow_dispatch" in object.keys(file.contents.on)
@@ -30,12 +32,12 @@ deny contains msg if {
 # Otherwise edits to the workflow itself don't re-run it on the PR that introduces them, and the change ships
 # unverified. Workflows without `paths` (always-run on every PR) are fine and need no entry.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".yaml")
 	startswith(file.path, ".github/workflows/")
-	paths := file.contents.on.pull_request.paths
-	is_array(paths)
-	not file.path in paths
+	filter := file.contents.on.pull_request.paths
+	is_array(filter)
+	not file.path in filter
 	msg := sprintf(
 		"%s: `on.pull_request.paths` must include the workflow itself (%q) so edits to it re-run",
 		[file.path, file.path],

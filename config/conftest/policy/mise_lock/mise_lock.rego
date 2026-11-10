@@ -8,7 +8,9 @@
 # both images failed with it.
 package mise_lock
 
-is_lock(file) if regex.match(`^\.mise/mise(\.[a-z]+)?\.lock$`, replace(file.path, "\\", "/"))
+import data.paths
+
+is_lock(file) if regex.match(`^\.mise/mise(\.[a-z]+)?\.lock$`, file.path)
 
 # Tools allowed to lock a glibc Linux build, each with the glibc floor it was measured to need.
 #
@@ -40,7 +42,7 @@ gnu_allowed := {
 
 # Every (lockfile, tool, platform) whose locked Linux asset is a glibc build.
 gnu_locks contains [file.path, name, platform] if {
-	some file in input
+	some file in paths.files
 	is_lock(file)
 	some name, entries in file.contents.tools
 	some entry in entries

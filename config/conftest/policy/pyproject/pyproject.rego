@@ -2,11 +2,13 @@
 # Evaluated over conftest's --combine input ({path, contents}).
 package pyproject
 
+import data.paths
+
 # A `path = ".."` uv source points at the parent directory, which isn't a package -- almost always a mistake.
 # Sibling packages are referenced by their specific relative path (e.g. ../../../generated/python-rest), not the
 # bare parent.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "pyproject.toml")
 	some name, src in file.contents.tool.uv.sources
 	src.path == ".."
@@ -16,14 +18,14 @@ deny contains msg if {
 # uv_build must be pinned to exactly the mise uv version.
 # This makes `uv build` use the matching backend with no out-of-range warning. Bump both together when upgrading uv.
 uv_version := v if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".mise/config.toml")
 	v := file.contents.tools.uv
 }
 
 # A pyproject's uv_build requirement must pin the uv version mise installs.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "pyproject.toml")
 	some req in file.contents["build-system"].requires
 	startswith(req, "uv_build")

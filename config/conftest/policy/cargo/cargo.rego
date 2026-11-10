@@ -3,6 +3,8 @@
 # exactly "Cargo.toml" and any other match is a member crate.
 package cargo
 
+import data.paths
+
 is_member(file) if {
 	endswith(file.path, "Cargo.toml")
 	file.path != "Cargo.toml"
@@ -10,20 +12,20 @@ is_member(file) if {
 
 # Every dependency spec across the dep tables, as [path, name, spec] triples.
 dep contains [file.path, name, spec] if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "Cargo.toml")
 	some table in {"dependencies", "dev-dependencies", "build-dependencies"}
 	some name, spec in file.contents[table]
 }
 
 dep contains [file.path, name, spec] if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "Cargo.toml")
 	some name, spec in file.contents.workspace.dependencies
 }
 
 dep contains [file.path, name, spec] if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "Cargo.toml")
 	some tgt in file.contents.target
 	some table in {"dependencies", "dev-dependencies", "build-dependencies"}
@@ -92,7 +94,7 @@ wildcard(spec) if {
 # Member [dependencies]/[dev-dependencies] must inherit via workspace = true so pins stay in [workspace.dependencies].
 # (build-dependencies not covered yet.)
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	some table in {"dependencies", "dev-dependencies"}
 	some name, spec in file.contents[table]
@@ -103,7 +105,7 @@ deny contains msg if {
 # A crate with a [lib] must disable the doctest harness and must not rename the lib.
 # Runnable examples belong in tests/ files; keep the lib name as the package name.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	file.contents.lib
 	not file.contents.lib.doctest == false
@@ -112,7 +114,7 @@ deny contains msg if {
 
 # A member crate's [lib] must not rename the library away from the package name.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	file.contents.lib.name
 	msg := sprintf("%s: [lib] must not set name (keep it the package name)", [file.path])
@@ -121,7 +123,7 @@ deny contains msg if {
 # Every member must inherit the workspace lint tables.
 # generated/rust-rest is exempt: progenitor's emitted source trips lints the workspace table denies.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	file.path != "generated/rust-rest/Cargo.toml"
 	not file.contents.lints.workspace == true
@@ -131,14 +133,14 @@ deny contains msg if {
 # Every crate must be a registered workspace member, with no orphan crates.
 # Its directory must appear in the root manifest's explicit [workspace].members list.
 workspace_member contains m if {
-	some file in input
+	some file in paths.files
 	file.path == "Cargo.toml"
 	some m in file.contents.workspace.members
 }
 
 # Every member crate must be registered in the root [workspace].members.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	dir := trim_suffix(file.path, "/Cargo.toml")
 	not workspace_member[dir]
@@ -150,7 +152,7 @@ deny contains msg if {
 inherited_package_field := {"edition", "license", "repository"}
 
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	some field in inherited_package_field
 	not file.contents.package[field].workspace == true
@@ -165,7 +167,7 @@ allowed_crate_name(name) if startswith(name, "et-")
 allowed_crate_name(name) if startswith(name, "int-")
 
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	name := file.contents.package.name
 	not allowed_crate_name(name)
@@ -176,7 +178,7 @@ deny contains msg if {
 # Publishing is the consequential choice here (a crates.io upload cannot be withdrawn), so each crate declares
 # its intent where a reader looks for it instead of the reader having to know the default.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	not is_boolean(file.contents.package.publish)
 	msg := sprintf("%s: [package] must set publish explicitly (true, or false for an int- crate)", [file.path])
@@ -187,7 +189,7 @@ deny contains msg if {
 # Keeping it biconditional means the crate list cannot drift into a state where a reader has to open the
 # manifest to learn whether a crate ships -- the name alone answers it.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	name := file.contents.package.name
 	contains(name, "int-")
@@ -197,7 +199,7 @@ deny contains msg if {
 
 # A crate without the int- marker must set publish = true.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	name := file.contents.package.name
 	not contains(name, "int-")
@@ -207,7 +209,7 @@ deny contains msg if {
 
 # The version each member crate declares, keyed by crate name.
 member_version[name] := version if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	name := file.contents.package.name
 	version := file.contents.package.version
@@ -218,7 +220,7 @@ member_version[name] := version if {
 # so a stale pin here stays invisible to check/test/clippy and first fails during `cargo publish` -- partway
 # through a workspace release, once earlier crates are already uploaded and cannot be withdrawn.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	file.path == "Cargo.toml"
 	some name, spec in file.contents.workspace.dependencies
 	is_object(spec)
@@ -265,7 +267,7 @@ path_dep(spec) if {
 }
 
 root_dep[name] := spec if {
-	some file in input
+	some file in paths.files
 	file.path == "Cargo.toml"
 	some name, spec in file.contents.workspace.dependencies
 }
@@ -297,7 +299,7 @@ deny contains msg if {
 # cargo only warns locally, which means a missing description fails at upload time -- partway through a
 # workspace release, leaving some crates published at the new version and the rest behind.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	file.contents.package.publish == true
 	not is_string(file.contents.package.description)
@@ -322,7 +324,7 @@ is_dep_name(file, name) if {
 
 # A member crate's feature must not share its name with one of its dependencies.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	file.path != "generated/rust-rest/Cargo.toml"
 	some feat, _ in file.contents.features
@@ -334,21 +336,21 @@ dep_feature_hint := "name it for what it gives the crate's user (where it runs, 
 
 # The feature names config/cargo-features.toml allows, which a human keeps.
 allowed_features contains name if {
-	some file in input
+	some file in paths.files
 	file.path == "config/cargo-features.toml"
 	some name, _ in file.contents.features
 }
 
 # Every feature name a member crate declares.
 declared_features contains name if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	some name, _ in file.contents.features
 }
 
 # A member crate's feature must be one config/cargo-features.toml lists.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	some feat, _ in file.contents.features
 	not allowed_features[feat]
@@ -437,7 +439,7 @@ docs_rs_renders(file) if "docs" in file.contents.package.metadata.docs.rs.featur
 # The member crates the feature-docs contract applies to.
 # generated/rust-rest is exempt: et-int-gen regenerates its src/lib.rs, which carries no `document_features!` call.
 feature_docs_subject contains file if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	file.path != "generated/rust-rest/Cargo.toml"
 	declares_feature(file)
@@ -477,7 +479,7 @@ deny contains msg if {
 # Dependency overrides ([patch]/[replace]) belong in the root manifest, not a member crate.
 # There they apply workspace-wide and stay in one place; a member can't override deps.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_member(file)
 	some table in {"patch", "replace"}
 	file.contents[table]

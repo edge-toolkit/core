@@ -7,6 +7,8 @@
 #   meta: true
 package checks_badge
 
+import data.paths
+
 # How far the rules count moves before the badge has to follow: the badge records it rounded down to this.
 step := 20
 
@@ -14,7 +16,7 @@ badge_prefix := "[checks-badge]: "
 
 # The rules count from the `- **Rules:** N ...` line of CHECKS.md's header.
 rules_count := to_number(match[1]) if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "CHECKS.md")
 	some line in file.contents
 	some match in regex.find_all_string_submatch_n(`^- \*\*Rules:\*\* ([0-9]+) `, line.Original, 1)
@@ -28,7 +30,7 @@ expected_badge := concat("", [badge_prefix, badge_url_prefix, format_int(rounded
 badge_url_prefix := "https://img.shields.io/badge/checks-%3E%3D"
 
 badge_lines contains line.Original if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "README.md")
 	some line in file.contents
 	startswith(line.Original, badge_prefix)

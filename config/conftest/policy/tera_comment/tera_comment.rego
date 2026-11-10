@@ -12,9 +12,11 @@
 # the pitfall is free to spell it out -- and keeps every string mise does render, task bodies included.
 package tera_comment
 
+import data.paths
+
 # A mise config value must not contain `{#`, which Tera reads as the start of a comment.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	walk(file.contents, [path, value])
 	is_string(value)
 	contains(value, "{#")

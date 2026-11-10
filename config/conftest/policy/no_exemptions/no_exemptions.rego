@@ -13,6 +13,8 @@
 #   meta: true
 package no_exemptions
 
+import data.paths
+
 # The rules no config may narrow and no comment may suppress, by id, whichever linter carries them.
 unexemptable := {"no-non-ascii"}
 
@@ -28,7 +30,7 @@ missing_msg := "no semgrep rule %q flags inline suppressions of the unexemptable
 
 # Every semgrep rule in the input, paired with the file defining it.
 semgrep_rules contains [file.path, rule] if {
-	some file in input
+	some file in paths.files
 	some rule in file.contents.rules
 }
 
@@ -42,7 +44,7 @@ deny contains msg if {
 
 # An unexemptable ast-grep rule may not set `files` or `ignores`, the two ways ast-grep narrows a rule.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	file.contents.id in unexemptable
 	some key in {"files", "ignores"}
 	file.contents[key]

@@ -11,6 +11,8 @@
 # upstream-cache release before the first upload -- every other field is required.
 package checksums
 
+import data.paths
+
 is_mise(file) if startswith(file.path, ".mise/config")
 
 is_upstream_cache(file) if file.path == "config/upstream-cache/data.toml"
@@ -24,7 +26,7 @@ unreferenced_msg := "is recorded but no `_asset` var in .mise/config*.toml refer
 
 # Asset filenames declared in any .mise/config*.toml's [vars].
 mise_assets contains filename if {
-	some file in input
+	some file in paths.files
 	is_mise(file)
 	some key, filename in file.contents.vars
 	endswith(key, "_asset")
@@ -32,7 +34,7 @@ mise_assets contains filename if {
 
 # Filenames present in config/upstream-cache/data.toml's [asset.*] tables.
 recorded_assets contains filename if {
-	some file in input
+	some file in paths.files
 	is_upstream_cache(file)
 	some filename, _ in file.contents.asset
 }
@@ -54,7 +56,7 @@ deny contains msg if {
 # Per-entry shape check on each asset table.
 # url + license are required strings; sha256 must be present (may be empty during bootstrap).
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.url
@@ -63,7 +65,7 @@ deny contains msg if {
 
 # Every recorded asset must name its `upstream` project URL.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.upstream
@@ -72,7 +74,7 @@ deny contains msg if {
 
 # Every recorded asset must carry its `license` as an SPDX expression.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.license
@@ -81,7 +83,7 @@ deny contains msg if {
 
 # Every recorded asset must carry a `sha256`, left empty only while bootstrapping.
 deny contains msg if {
-	some file in input
+	some file in paths.files
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.sha256

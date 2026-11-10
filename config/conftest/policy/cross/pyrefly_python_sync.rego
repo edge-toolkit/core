@@ -1,22 +1,24 @@
 # Cross-file invariant, run with `--namespace cross` over conftest's `--combine` input.
 package cross
 
+import data.paths
+
 # The mise `python` pin, in either the string or the `{ version = ... }` form.
 mise_python := version if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".mise/config.toml")
 	version := file.contents.tools.python
 	is_string(version)
 }
 
 mise_python := version if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, ".mise/config.toml")
 	version := file.contents.tools.python.version
 }
 
 pyrefly_files contains file if {
-	some file in input
+	some file in paths.files
 	endswith(file.path, "config/pyrefly.toml")
 }
 
