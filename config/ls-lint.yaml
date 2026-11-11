@@ -116,7 +116,12 @@ ignore:
   - modules/wasi/wasi-graphics-info/wit_world/__pycache__
   - modules/wasi/wasi-graphics-info/wit_world/exports/__pycache__
   - modules/wasi/wasi-graphics-info/wit_world/imports/__pycache__
-  - services/ws-pyo3-runner/python/__pycache__
+  - modules/pyo3/cowsay-probe/__pycache__
+  - modules/pyo3/echo/__pycache__
+  - modules/pyo3/fanout/__pycache__
+  - modules/pyo3/no-hooks/__pycache__
+  - modules/pyo3/storage-pingpong/__pycache__
+  - modules/pyo3/torch-inference/__pycache__
   - modules/web/pydata1/.venv
   - modules/web/pydata1/.pytest_cache
   - modules/web/pydemo1/.venv

@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
 path = "src/lib.rs"
@@ -15,9 +18,18 @@ path = "src/lib.rs"
 name = "et-ws-pyo3-runner"
 path = "src/main.rs"
 
+[features]
+## Internal: compiles in coverage.py measurement of the user module for the repo's coverage workflow.
+## `ET_TEST_COVERAGE` still gates the measurement at runtime.
+coverage = ["dep:fs-err", "et-ws-runner-common/coverage"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
 [dependencies]
+document-features = { workspace = true, optional = true }
 edge-toolkit = { workspace = true, features = ["std"] }
 et-otlp.workspace = true
+fs-err = { workspace = true, optional = true }
 # Typed ws-server REST client (storage GET/PUT).
 # `tracing` injects the W3C traceparent on each request, matching the other native runners.
 et-rest-client = { workspace = true, features = ["tracing"] }
@@ -35,6 +47,7 @@ tracing = { workspace = true, features = ["std"] }
 backon = { workspace = true, features = ["tokio-sleep"] }
 command-error.workspace = true
 et-org.workspace = true
+et-test-helpers.workspace = true
 et-ws-test-server.workspace = true
 rstest.workspace = true
 serde_json = { workspace = true, features = ["std"] }

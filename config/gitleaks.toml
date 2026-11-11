@@ -58,8 +58,9 @@ paths = [
 [[allowlists]]
 description = "Untracked artifacts matched by extension rather than location, per .gitignore's file patterns."
 paths = [
+  '''(^|/)registry\.yaml$''',
   '''\.coverage$''',
-  '''\.local\.md$''',
+  '''\.local\.[^/]+$''',
   '''\.o$''',
   '''\.onnx$''',
   '''\.pem$''',

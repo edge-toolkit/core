@@ -1,4 +1,4 @@
-# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
+# noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Module that exercises `WsStorage.get` / `WsStorage.put`.
 
 On the first inbound binary frame, the module reads `key` (the first
@@ -7,8 +7,8 @@ the value, then calls `storage.put(key, value)`. On the second inbound
 binary frame containing just `key`, it calls `storage.get(my_agent_id,
 key)` and pushes the resulting bytes back via `send.binary(...)`.
 
-Used by `tests/storage.rs` to verify the storage path lands bytes on
-the ws-server and reads them back.
+Used by `services/ws-pyo3-runner/tests/modules.rs` to verify the storage
+path lands bytes on the ws-server and reads them back.
 """
 
 from __future__ import annotations
@@ -18,22 +18,18 @@ from typing import Any
 
 _logger = logging.getLogger(__name__)
 
-_send: Any = None
-_storage: Any = None
-_agent_id: str | None = None
+_state: dict[str, Any] = {}  # "send", "storage" and "agent_id", from init() and on_connect()
 
 
 def init(send, storage) -> None:
     """Stash the WsSender and WsStorage handles."""
-    global _send, _storage  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
-    _send = send
-    _storage = storage
+    _state["send"] = send
+    _state["storage"] = storage
 
 
 def on_connect(agent_id: str) -> None:
     """Record the assigned agent id for later get/put calls."""
-    global _agent_id  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
-    _agent_id = agent_id
+    _state["agent_id"] = agent_id
 
 
 def on_binary_frame(frame: bytes) -> None:
@@ -41,15 +37,15 @@ def on_binary_frame(frame: bytes) -> None:
     if b"\x00" in frame:
         key_bytes, value = frame.split(b"\x00", 1)
         key = key_bytes.decode("utf-8")
-        _storage.put(key, value)
+        _state["storage"].put(key, value)
         _logger.info("stored %d bytes at key=%s", len(value), key)
         return
 
     key = frame.decode("utf-8")
-    value = _storage.get(_agent_id, key)
+    value = _state["storage"].get(_state["agent_id"], key)
     if value is None:
-        _send.binary(b"")
+        _state["send"].binary(b"")
     else:
-        _send.binary(value)
+        _state["send"].binary(value)
     _logger.info("fetched key=%s (%d bytes)", key, 0 if value is None else len(value))
     return

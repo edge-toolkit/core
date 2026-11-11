@@ -30,6 +30,9 @@
 # platform would fall back to host perl. gocloc is the closest thing that installs as a prebuilt binary.
 "aqua:hhatto/gocloc" = "latest"
 "conda:clang" = { version = "latest", os = ["linux", "macos"] }
+# coverage.py for et-ws-pyo3-runner's embedded interpreter, which imports it from mise's pipx site-packages.
+# Pinned to the release uv.lock gives the pytest runs, because `coverage combine` merges the two sets of data.
+"pipx:coverage" = "7.15.0"
 
 [tools."github:taiki-e/cargo-llvm-cov"]
 asset_pattern = "{{ vars.musl_pattern }}"
@@ -121,10 +124,10 @@ eval "$(cargo llvm-cov show-env --sh)"
 # (RUSTUP_TOOLCHAIN above), so every cargo invocation below hits the same build-script layout.
 ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
 coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
-# nextest SIGKILLs the spawned et-ws-pyo3-runner (services/ws-pyo3-runner/tests/modules.rs) after each exchange.
-# LLVM flushes a process's counters only at exit, so a SIGKILLed process contributes nothing: the runner's async
-# run/drive/worker paths reported 0% while its in-process initialize() was covered. Continuous mode (%c) memory-maps
-# the counter file so increments persist live and survive the kill. %c is incompatible with the merge-pool (%Nm)
+# A spawned workspace binary that a test kills, rather than lets exit, contributes no coverage.
+# LLVM flushes a process's counters only at exit, and services/ws-server-firmware/tests/serves_modules.rs ends
+# et-ws-server-firmware that way, on drop. Continuous mode (%c) memory-maps the counter file so increments persist
+# live and survive the kill. %c is incompatible with the merge-pool (%Nm)
 # specifier show-env emits, so use a per-process (%p) continuous file in the same profile dir -- `cargo llvm-cov
 # report` globs every *.profraw there regardless of name. Branch coverage: `show-env` has no --branch flag (only
 # the top-level `cargo llvm-cov` does), so the nightly `-Zcoverage-options=branch` is appended to the wrapper
@@ -143,9 +146,9 @@ coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # numbers under the merge-pool pattern and zeros under %c. The relocation flag above is what makes %c work
 # on Linux and has no Mach-O counterpart to reach for. Windows has never run %c here, and the way it fails on
 # macOS is silent -- a report of zeros, not an error -- so that lane takes the pattern known to work rather
-# than finding out from its numbers. The carve-out costs exactly what %c was added for: the pyo3 runner that
-# nextest SIGKILLs contributes nothing on macOS or Windows, so its async paths read 0% there and the Linux lane
-# is the one that measures them. The wrapper flags env is CARGO_ENCODED_RUSTFLAGS format (ASCII
+# than finding out from its numbers. The carve-out costs exactly what %c was added for: a killed binary
+# contributes nothing on macOS or Windows, so the Linux lane is the one that measures it. The wrapper flags env is
+# CARGO_ENCODED_RUSTFLAGS format (ASCII
 # unit separator 0x1f between flags), not space-separated -- a space append glues the llvm-arg onto the last
 # existing flag and rustc rejects `--cfg=coverage_nightly -Cllvm-args=...` as one invalid --cfg value. goawk
 # generates the separator byte at run time: bash dollar-quote hex is not a valid escape in this TOML basic
@@ -165,14 +168,15 @@ fi
 export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="$flags"
 # The --features flags compile each runner's coverage code, off by default so non-coverage builds omit it.
 # et-ws-web-runner/coverage adds the browser-module capture (shims + the __et_capture_coverage PUT);
-# et-ws-wasi-runner/coverage adds the guest `/cov` preopen. ET_TEST_COVERAGE (set by the coverage job) still
-# gates capture at runtime within each build.
+# et-ws-wasi-runner/coverage adds the guest `/cov` preopen; et-ws-pyo3-runner/coverage adds coverage.py
+# measurement of the module it loads. ET_TEST_COVERAGE (set by the coverage job) still gates capture at runtime
+# within each build.
 # The run takes the same workspace exclusions as cargo-test, and the web runner's feature goes with its crate.
 # cargo_ws_excludes leaves et-ws-web-runner out on the gnullvm Windows target, and cargo refuses a feature of
 # an unselected package outright:
 #   error: none of the selected packages contains this feature: et-ws-web-runner/coverage
 excludes="{{ vars.cargo_ws_excludes }}"
-features=et-ws-wasi-runner/coverage
+features=et-ws-pyo3-runner/coverage,et-ws-wasi-runner/coverage
 case " $excludes " in
   *" et-ws-web-runner "*) ;;
   *) features="$features,et-ws-web-runner/coverage" ;;
@@ -418,11 +422,12 @@ cargo llvm-cov report -p et-test-recovery --summary-only --fail-under-lines 100
 shell = "{{ vars.task_shell }}"
 
 [tasks.pytest-cov]
-description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Cobertura, plus pytest JUnit results"
-# One Python report is combined from several data sources: the pytest runs plus the web-runner Pyodide runs.
-# The Python workflow pytest runs and the web-runner integration test (which drops the modules' .coverage files
-# into target/pycov/ when ET_TEST_COVERAGE is set) all feed `coverage combine`. The paths in
-# config/coverage.toml remap them into a single Cobertura report.
+description = "Combined Python coverage (pytest + web and pyo3 runner runs) -> Cobertura, plus pytest JUnit results"
+# One Python report is combined from several data sources: the pytest runs plus the runner integration tests.
+# The Python workflow pytest runs, the web-runner integration test (which drops the Pyodide modules' .coverage
+# files into target/pycov/ when ET_TEST_COVERAGE is set) and et-ws-pyo3-runner (which writes its module's data
+# there itself) all feed `coverage combine`. The paths in config/coverage.toml remap them into a single Cobertura
+# report.
 # Each pytest run also writes target/pycov/junit-<module>.xml for the Codecov test-results upload. The path is
 # absolute because `uv run --directory` moves pytest into the module dir, and `junit_family=legacy` is the
 # schema that records each test's file, which Codecov's test analytics reads.
@@ -442,7 +447,7 @@ cov_args="--cov=edge_toolkit --cov-report=term-missing --cov-fail-under=100"
 # shellcheck disable=SC2086
 uv run --directory "$sdk" pytest $cov_args --junitxml="$junit" -o junit_family=legacy
 coreutils cp "$sdk/.coverage" "$pycov/.coverage.edge_toolkit_pytest"
-bridge=modules/pyo3/pyo3-mlflow
+bridge=modules/pyo3/mlflow
 junit="$PWD/$pycov/junit-pyo3-mlflow.xml"
 uv run --project "$pyface" pytest "$bridge" --cov="$bridge/pkg" --cov-report= --junitxml="$junit" -o junit_family=legacy
 coreutils cp .coverage "$pycov/.coverage.pyo3-mlflow_pytest"

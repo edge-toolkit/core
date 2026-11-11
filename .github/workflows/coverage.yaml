@@ -245,6 +245,15 @@ jobs:
       # https://github.com/edge-toolkit/core/commit/e2f650920e0179f4ff877fc2faf704e0b7a02684, upload log
       # `Found 10 coverage files to report` at
       # https://github.com/edge-toolkit/core/actions/runs/39376279480/job/118475035669.
+      #
+      # `plugins: noop` turns off the CLI's report generators (xcode, gcov, pycoverage), which run before an upload
+      # whatever it names. With each upload already naming its report they can only add a failure: pycoverage runs
+      # `coverage xml` on the root `.coverage` whenever `shutil.which("coverage")` finds one, and on Windows it found
+      # a `coverage` its subprocess call could not then start, failing the whole upload with
+      #   FileNotFoundError: [WinError 2] The system cannot find the file specified
+      #   ==> Failed to run upload-coverage
+      # on commit https://github.com/edge-toolkit/core/commit/bc3da2243096fcd6ee0805bf57a176a4785931a2 at
+      # https://github.com/edge-toolkit/core/actions/runs/42927591780/job/130218105614.
       - name: Upload Rust coverage to Codecov (OIDC)
         if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         uses: codecov/codecov-action@v7
@@ -252,6 +261,7 @@ jobs:
           use_oidc: true
           files: lcov.info
           disable_search: true
+          plugins: noop
           flags: rust,${{ matrix.os_flag }}
           fail_ci_if_error: true
 
@@ -262,6 +272,7 @@ jobs:
           use_oidc: true
           files: coverage-python.xml
           disable_search: true
+          plugins: noop
           flags: python,${{ matrix.os_flag }}
           fail_ci_if_error: true
 

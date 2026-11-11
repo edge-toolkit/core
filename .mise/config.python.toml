@@ -115,7 +115,7 @@ depends = [
 description = "Run Python tests"
 
 [tasks.test-pyo3-mlflow]
-dir = "modules/pyo3/pyo3-mlflow"
+dir = "modules/pyo3/mlflow"
 run = "python -m unittest discover -p 'test_*.py'"
 
 [tasks.test-edge-toolkit]

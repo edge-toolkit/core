@@ -26,7 +26,7 @@ exclude_private = true
 # those paths).
 # Each entry is an unanchored regex over the path, so it is anchored to a whole directory name: a bare "data" also
 # dropped every file under the `*-data1` modules.
-exclude_path = ['(^|/)node_modules/', '(^|/)target/', '\.local\.md$', '^(\./)?data/', '^(\./)?generated/']
+exclude_path = ['(^|/)node_modules/', '(^|/)target/', '\.local\.[^/]+$', '^(\./)?data/', '^(\./)?generated/']
 
 # URL patterns (regex) to skip, none of which are real links.
 # doc/test placeholder hosts (e.g. http://host:8080/) and `{...}` format-string templates

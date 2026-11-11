@@ -141,7 +141,7 @@ spec:
       containers:
         - env:
             - name: MODULES_PATHS
-              value: /app/modules/pyo3/pyo3-math1,/app/modules/wasi/wasi-math1-sender
+              value: /app/modules/pyo3/math1,/app/modules/wasi/wasi-math1-sender
             - name: MODULES_ROOT
               value: ""
             - name: OTLP_AUTH_USERNAME

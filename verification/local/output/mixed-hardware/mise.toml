@@ -8,7 +8,7 @@ file = "secrets.env"
 description = "Build the Raspberry Pi Pico 2 W firmware serving mixed-hardware"
 dir = "../../../.."
 run = """
-MODULES_PATHS="$PWD/modules/pyo3/pyo3-math1, $PWD/modules/wasi/wasi-math1-sender, $PWD/services/ws-server/static"
+MODULES_PATHS="$PWD/modules/pyo3/math1, $PWD/modules/wasi/wasi-math1-sender, $PWD/services/ws-server/static"
 MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
 export MODULES_PATHS
 mise -E rust run build-firmware-pico2w
@@ -54,7 +54,7 @@ run = "picotool load -x -t elf target/firmware/runner-board/thumbv8m.main-none-e
 description = "Serve mixed-hardware's modules from this host as the board would, and fetch each"
 dir = "../../../.."
 run = """
-MODULES_PATHS="$PWD/modules/pyo3/pyo3-math1, $PWD/modules/wasi/wasi-math1-sender, $PWD/services/ws-server/static"
+MODULES_PATHS="$PWD/modules/pyo3/math1, $PWD/modules/wasi/wasi-math1-sender, $PWD/services/ws-server/static"
 MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
 export MODULES_PATHS
 mise run cargo-test-pkg et-int-ws-server-firmware

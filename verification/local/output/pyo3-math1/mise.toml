@@ -48,7 +48,7 @@ WS_SERVER_URL = "ws://localhost:8080/ws"
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="../../modules/pyo3/pyo3-math1, ../../modules/wasi/wasi-math1-sender"
+MODULES_PATHS="../../modules/pyo3/math1, ../../modules/wasi/wasi-math1-sender"
 export MODULES_PATHS
 cargo run
 """

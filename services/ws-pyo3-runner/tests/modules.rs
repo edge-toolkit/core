@@ -19,13 +19,14 @@
 
 use std::error::Error;
 use std::path::{Component, Path, PathBuf, Prefix};
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use backon::{ExponentialBuilder, RetryableWithContext as _};
 use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, mise_env_includes, mise_python_site_packages, mise_where};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use et_test_helpers::ChildGuard;
 use futures_util::{SinkExt as _, StreamExt as _};
 use rstest::rstest;
 use tokio_tungstenite::{connect_async, tungstenite};
@@ -50,6 +51,8 @@ const POLL_BACKOFF_MIN: Duration = Duration::from_millis(50);
 const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
 /// How long each poll round drains inbound frames looking for the peer before backing off.
 const POLL_DRAIN_WINDOW: Duration = Duration::from_millis(250);
+/// How long a runner gets to exit by itself once its hub has stopped, which takes it well under a second.
+const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
 const RUST_LOG: &str = "RUST_LOG";
 
 type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
@@ -74,10 +77,12 @@ enum Exchange {
     },
     /// Broadcast text; parse the reply as JSON and run the checker.
     TextJson(&'static str, fn(&serde_json::Value) -> Result<(), Box<dyn Error>>),
-    /// Send `key\0value` then `key`; expect the binary reply to equal `value`.
+    /// Send `key` while nothing is stored, then `key\0value`, then `key`; expect an empty reply, then `value`.
     StoragePutGet { key: &'static str, value: &'static [u8] },
     /// Send `[count]`; expect exactly `count` one-byte frames `0..count`.
     Fanout(u8),
+    /// Send the bytes as a binary frame; expect the same bytes back.
+    BinaryEcho(&'static [u8]),
 }
 
 #[rstest]
@@ -96,6 +101,7 @@ enum Exchange {
 // proving the module imported the mise-provided cowsay and rendered our input.
 #[case::cowsay("cowsay_probe", Gate::Python, Exchange::TextContains { send: "cowsay-round-trip", extra: &["^__^"] })]
 #[case::torch("torch_inference", Gate::Torch, Exchange::TextJson("run-torch", check_torch))]
+#[case::echo_binary("echo", Gate::Always, Exchange::BinaryEcho(b"\x00binary\xffframe"))]
 #[tokio::test(flavor = "current_thread")]
 async fn module_behaves(
     #[case] module: &str,
@@ -113,7 +119,7 @@ async fn module_behaves(
     let server = et_ws_test_server::start();
     // Control client registers first so the runner has a peer to broadcast to.
     let (mut control, control_id) = control_client(&server.ws_url).await?;
-    let mut runner = spawn_runner(module, &server.ws_url, &[]);
+    let mut runner = spawn_runner(module, &[module_dir(module)], &server.ws_url, &[]);
 
     // torch's cold import + first op is slow; the rest are quick.
     let budget = if matches!(gate, Gate::Torch) {
@@ -127,15 +133,17 @@ async fn module_behaves(
     // the steps do, this call cuts them off at it. Deriving an inner deadline from the remaining time instead
     // would restore the nested-deadline shape that made the torch case fail at 122.2s with ~58s of its three
     // minutes unspent, the inner bound deciding an outcome the outer one still had room for.
-    let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange, budget)).await;
+    // Reduced to its message, in the one expression, before the hub is stopped: the boxed error is not `Send`, so a
+    // binding holding it across that await would make this test's future not `Send` either.
+    let verdict = match tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange, budget)).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(err)) => Err(err.to_string()),
+        Err(_elapsed) => Err(format!("`{module}` exchange timed out")),
+    };
 
-    runner.kill().unwrap();
-    let _status = runner.wait().unwrap();
-
-    match outcome {
-        Ok(result) => result,
-        Err(_elapsed) => Err(format!("`{module}` exchange timed out").into()),
-    }
+    let stopped = stop_hub(&server, &mut runner).await;
+    verdict?;
+    stopped
 }
 
 /// Load-time sanity check: a module defining none of the runner hooks must fail to load.
@@ -148,7 +156,7 @@ fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
     // we must inspect `output.status`/`output.stderr` rather than have a checked call turn it into an error.
     let output = Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", "no_hooks")
-        .env("PYO3_PYTHONPATH", python_dir())
+        .env("PYO3_PYTHONPATH", module_dir("no_hooks"))
         // Safety net: if the check regressed and import succeeded, bound the
         // otherwise-forever connect retry so the assertion below fires instead.
         .env("RUNNER_TIMEOUT", "10s")
@@ -171,15 +179,19 @@ fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
 /// worker, close the socket). `echo` loads without any gated toolchain, so the runner reaches its connected run
 /// loop before the short timeout trips; a clean (zero) exit code then confirms the teardown path ran to
 /// completion.
+///
+/// It runs with `ET_TEST_COVERAGE=false`, the one case here that does, so that a coverage build also runs its
+/// hooks with measurement compiled in but never started, as it is whenever that variable is not `true`.
 #[tokio::test(flavor = "current_thread")]
 async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
     let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
     let mut runner = Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", "echo")
-        .env("PYO3_PYTHONPATH", python_dir())
+        .env("PYO3_PYTHONPATH", module_dir("echo"))
         .env("WS_SERVER_URL", &server.ws_url)
         .env("RUNNER_TIMEOUT", "3s")
+        .env("ET_TEST_COVERAGE", "false")
         .env("RUST_LOG", rust_log)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -263,12 +275,21 @@ async fn exchange_text_json(
     check(&value)
 }
 
-/// Send `key\0value`, then `key`, and require the binary reply to be `value` again.
+/// Read `key` before it is stored, then send `key\0value` and `key`, and require the reply to be `value` again.
+///
+/// The first read must come back empty: a key nothing has stored is an empty frame, not a missing reply.
 #[expect(
     clippy::single_call_fn,
     reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
 )]
 async fn exchange_storage_put_get(control: &mut ControlSocket, key: &str, value: &[u8]) -> Result<(), Box<dyn Error>> {
+    control
+        .send(tungstenite::Message::binary(key.as_bytes().to_vec()))
+        .await?;
+    let unstored = drain_binary(control).await?;
+    if !unstored.is_empty() {
+        return Err(format!("key {key:?} read back {unstored:?} before anything stored it").into());
+    }
     let mut put_frame = Vec::with_capacity(key.len() + 1 + value.len());
     put_frame.extend_from_slice(key.as_bytes());
     put_frame.push(0);
@@ -301,10 +322,24 @@ async fn exchange_fanout(control: &mut ControlSocket, count: u8) -> Result<(), B
     Ok(())
 }
 
+/// Send `frame` as a binary frame and require the same bytes back.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_binary_echo(control: &mut ControlSocket, frame: &[u8]) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::binary(frame.to_vec())).await?;
+    let reply = drain_binary(control).await?;
+    if reply.as_slice() != frame {
+        return Err(format!("binary reply {reply:?} did not echo {frame:?}").into());
+    }
+    Ok(())
+}
+
 /// Send the module's trigger and assert on its reply.
 ///
 /// Each variant's send-and-check sequence lives in its own function above rather than in an arm here. Inline,
-/// the four of them made one 55-line body whose cyclomatic complexity was 19 against a ceiling of 10, and
+/// the first four of them made one 55-line body whose cyclomatic complexity was 19 against a ceiling of 10, and
 /// they share nothing but the socket -- the reply is text, JSON, one binary frame or many, per variant.
 async fn run_exchange(
     control: &mut ControlSocket,
@@ -318,6 +353,7 @@ async fn run_exchange(
         Exchange::TextJson(payload, check) => exchange_text_json(control, payload, *check).await,
         Exchange::StoragePutGet { key, value } => exchange_storage_put_get(control, key, value).await,
         Exchange::Fanout(count) => exchange_fanout(control, *count).await,
+        Exchange::BinaryEcho(frame) => exchange_binary_echo(control, frame).await,
     }
 }
 
@@ -325,47 +361,49 @@ async fn run_exchange(
 ///
 /// The fake-agent side lives in `et_ws_test_server::math1`; the module reads the input through the
 /// runner's storage handle, computes, and stores its global model, which is verified against the
-/// expected weights for the canonical input. The runner is long-lived, so it is killed once the
+/// expected weights for the canonical input. The runner is long-lived, so its hub is stopped once the
 /// exchange resolves (mirroring `module_behaves`).
 ///
-/// This is the hub-fetch case, and the only one: the module is a published ws-module rather than a file under
-/// `python/`, so it is asked for by the scoped name its `package.json` declares -- which the hub serves it
-/// under, and which is not a legal Python identifier, so it cannot resolve on `sys.path` at all.
-/// `spawn_runner` still sets `PYO3_PYTHONPATH`, which is the point -- a configured python path that does not
-/// happen to contain the module must fall through to the hub rather than fail. Every other case here names a
-/// module under `python/` and so still takes the local import.
+/// This case fetches its module from the hub: the module is a published ws-module rather than a test module in a
+/// directory of its own, so it is asked for by the scoped name its `package.json` declares -- which the hub serves
+/// it under, and which is not a legal Python identifier, so it cannot resolve on `sys.path` at all.
+/// `PYO3_PYTHONPATH` still names the module's own directory, which is the point -- a configured python path that
+/// does not resolve the requested name must fall through to the hub rather than fail. Each `module_behaves` case
+/// names a test module by the name its file defines, and so takes the local import.
 #[tokio::test(flavor = "current_thread")]
 async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
-    let module = format!("{}et-ws-pyo3-math1", et_org::NPM_SCOPE);
-    let mut runner = spawn_runner(&module, &server.ws_url, &[]);
+    let name = "et-ws-pyo3-math1";
+    let module = format!("{}{name}", et_org::NPM_SCOPE);
+    let mut runner = spawn_runner(&module, &[published_module_dir(name)], &server.ws_url, &[]);
     let outcome =
         et_ws_test_server::math1::drive_math1_exchange(&server.ws_url, server.storage_dir.path(), EXCHANGE_BUDGET)
             .await;
-    runner.kill().unwrap();
-    let _status = runner.wait().unwrap();
+    let stopped = stop_hub(&server, &mut runner).await;
     let (weight, bias) = outcome?;
     et_ws_test_server::math1::verify_math1_model(weight, bias)?;
-    Ok(())
+    stopped
 }
 
 /// Run the published device module `module` with `envs` naming its devices, until `verify` judges what it stored.
 ///
 /// Like math1, each is fetched from the hub. Its persistent worker, which `init` starts, waits for `on_connect` to
-/// give the agent a bucket and then stores what it reads; the runner is long-lived, so it is killed once `verify`
-/// has decided, whichever way.
+/// give the agent a bucket and then stores what it reads; the runner is long-lived, so its hub is stopped once
+/// `verify` has decided, whichever way.
 fn stores_from_devices<F>(module: &str, envs: &[(&str, &str)], verify: F) -> Result<(), Box<dyn Error>>
 where
     F: FnOnce(&Path) -> Result<(), et_ws_test_server::device::DeviceError>,
 {
     let server = et_ws_test_server::start();
-    let mut runner = spawn_runner(&format!("{}{module}", et_org::NPM_SCOPE), &server.ws_url, envs);
+    let scoped = format!("{}{module}", et_org::NPM_SCOPE);
+    let mut runner = spawn_runner(&scoped, &[published_module_dir(module)], &server.ws_url, envs);
     let outcome = verify(server.storage_dir.path());
-    // A runner that has already exited cannot be killed, which is no failure here; it is reaped either way.
-    let _killed: std::io::Result<()> = runner.kill();
-    let _status = runner.wait()?;
+    let stopped = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(stop_hub(&server, &mut runner));
     outcome?;
-    Ok(())
+    stopped
 }
 
 /// The pyo3 twin of wasi-lidar1 stores the last whole revolution a simulated COIN-D6 sends.
@@ -430,9 +468,22 @@ fn check_torch(value: &serde_json::Value) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Directory of the bundled test Python modules -- the single source of truth for `PYO3_PYTHONPATH`.
-fn python_dir() -> PathBuf {
-    edge_toolkit::config::get_project_root().join("services/ws-pyo3-runner/python")
+/// Directory of the test module `module` under `modules/pyo3/` -- the single source of truth for its `PYO3_PYTHONPATH`.
+fn module_dir(module: &str) -> PathBuf {
+    let dir = format!("modules/pyo3/{}", module.replace('_', "-"));
+    edge_toolkit::config::get_project_root().join(dir)
+}
+
+/// Directory holding the file of the published module `module` (`et-ws-pyo3-math1`, say) under `modules/pyo3/`.
+///
+/// On `PYO3_PYTHONPATH` it changes nothing about how the module loads, since the runner asks for the scoped package
+/// name, which no file provides. It is where coverage.py finds the file the fetched source was compiled from.
+fn published_module_dir(module: &str) -> PathBuf {
+    let dir = module.strip_prefix("et-ws-pyo3-").unwrap_or(module);
+    edge_toolkit::config::get_project_root()
+        .join("modules/pyo3")
+        .join(dir)
+        .join("pkg")
 }
 
 /// `path` in the form a colon-separated `PYO3_PYTHONPATH` holds whole.
@@ -456,16 +507,19 @@ fn colon_free(path: &Path) -> PathBuf {
 }
 
 /// Spawn the runner subprocess for `module`, pointed at `ws_url`, with `envs` set beside what every case sets.
-fn spawn_runner(module: &str, ws_url: &str, envs: &[(&str, &str)]) -> Child {
+///
+/// `module_dirs` go on `PYO3_PYTHONPATH` ahead of edge-toolkit's source.
+fn spawn_runner(module: &str, module_dirs: &[PathBuf], ws_url: &str, envs: &[(&str, &str)]) -> ChildGuard {
     // Silence the runner unless invoked with --nocapture and RUST_LOG opted in.
     let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
     // edge-toolkit from this repository's source, which the lidar, IMU and media modules import.
     let edge_toolkit = edge_toolkit::config::get_project_root().join("libs/python-edge-toolkit");
-    let python_path = format!(
-        "{}:{}",
-        colon_free(&python_dir()).display(),
-        colon_free(&edge_toolkit).display()
-    );
+    let python_path = module_dirs
+        .iter()
+        .chain(std::iter::once(&edge_toolkit))
+        .map(|dir| colon_free(dir).display().to_string())
+        .collect::<Vec<_>>()
+        .join(":");
     Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", module)
         .env("PYO3_PYTHONPATH", python_path)
@@ -475,8 +529,21 @@ fn spawn_runner(module: &str, ws_url: &str, envs: &[(&str, &str)]) -> Child {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn_checked()
+        .map(|spawned| ChildGuard::new(spawned.into_child()))
         .unwrap()
-        .into_child()
+}
+
+/// Stop `server` and give `runner` [`RUNNER_EXIT_TIMEOUT`] to exit by itself, failing if it has to be killed.
+///
+/// Stopping the hub closes the runner's socket, so the runner leaves its run loop, runs `on_shutdown` and exits.
+/// Killing it instead skips that teardown, and in a coverage build loses whatever it ran since its last save.
+async fn stop_hub(server: &et_ws_test_server::TestServer, runner: &mut ChildGuard) -> Result<(), Box<dyn Error>> {
+    server.stop().await;
+    if runner.wait_for_exit(RUNNER_EXIT_TIMEOUT) {
+        Ok(())
+    } else {
+        Err("runner did not exit after its hub stopped".into())
+    }
 }
 
 /// Open a control client and drive et-connect until we have an `agent_id`.

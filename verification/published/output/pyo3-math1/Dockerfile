@@ -25,7 +25,7 @@ printf '%s\n' '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}' >> /released.np
 EOF
 
 ENV STAGE_PACKAGE="@edge-toolkit/et-ws-pyo3-math1"
-ENV STAGE_DEST="/staged/app/modules/pyo3/pyo3-math1/pkg"
+ENV STAGE_DEST="/staged/app/modules/pyo3/math1/pkg"
 RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN bash <<'EOF'
 set -euo pipefail
 cd /tmp

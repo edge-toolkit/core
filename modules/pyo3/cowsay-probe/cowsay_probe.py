@@ -1,4 +1,4 @@
-# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
+# noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Prove a mise-preinstalled pipx package imports under the embedded interpreter.
 
 `cowsay` is declared as `pipx:cowsay` in the always-loaded mise config, and the
@@ -6,7 +6,7 @@ runner puts every mise `pipx:` package's site-packages on `sys.path` via
 `edge_toolkit::config::mise_python_site_packages`. So the top-level `import
 cowsay` below succeeds WITHOUT the operator adding it to PYO3_PYTHONPATH -- if
 the runner didn't wire that path in, this import would fail the whole module
-load. Exercised by `tests/cowsay.rs`.
+load. Exercised by `services/ws-pyo3-runner/tests/modules.rs`.
 """
 
 from __future__ import annotations

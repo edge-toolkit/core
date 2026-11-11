@@ -38,7 +38,7 @@ fn an_unknown_module_is_not_importable() {
 fn an_extra_path_makes_its_modules_importable() {
     // The non-empty branch: `echo` is only findable once PYO3_PYTHONPATH's directory is on sys.path, so this
     // also proves the probe searches the same paths the import will.
-    let python_dir = edge_toolkit::config::get_project_root().join("services/ws-pyo3-runner/python");
+    let python_dir = edge_toolkit::config::get_project_root().join("modules/pyo3/echo");
     assert!(
         !module_is_importable("echo", &[]).unwrap(),
         "echo must not be importable before its directory is added"
