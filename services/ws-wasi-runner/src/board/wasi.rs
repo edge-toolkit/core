@@ -6,13 +6,10 @@
 //! these are all a guest needs; one importing any other fails to instantiate, naming it. Its standard streams go to the
 //! board's console, its environment is empty, it has no terminal, and a pollable is ready at once or at a deadline on
 //! the board's clock.
-#![expect(
-    clippy::integer_division_remainder_used,
-    reason = "wasmtime's ComponentType derive, on StreamError, aligns with `%` in the impls it generates"
-)]
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, vec::Vec};
+use core::convert::Infallible;
 
 pub(super) use edge_toolkit::board::PREVIEW2;
 use wasmtime::StoreContextMut;
@@ -46,14 +43,14 @@ pub(super) enum OutputStream {
 /// A `wasi:io/streams` input stream, the guest's stdin, which never has anything to read.
 pub(super) struct InputStream;
 
-/// A `wasi:io/error`, which a board never raises.
-pub(super) enum IoError {}
+/// A `wasi:io/error`, which a board never raises, so there is no value of one.
+pub(super) struct IoError(Infallible);
 
-/// A `wasi:cli/terminal-input`, which a board never has.
-pub(super) enum TerminalInput {}
+/// A `wasi:cli/terminal-input`, which a board never has, so there is no value of one.
+pub(super) struct TerminalInput(Infallible);
 
-/// A `wasi:cli/terminal-output`, which a board never has.
-pub(super) enum TerminalOutput {}
+/// A `wasi:cli/terminal-output`, which a board never has, so there is no value of one.
+pub(super) struct TerminalOutput(Infallible);
 
 /// `wasi:io/streams`' `stream-error`, which a board's console never fails with.
 #[derive(ComponentType, Lift, Lower)]

@@ -46,6 +46,10 @@ name = "modules"
 required-features = ["std"]
 
 [[test]]
+name = "nn_probe"
+required-features = ["nn", "std"]
+
+[[test]]
 name = "o2_ingest_search"
 required-features = ["std"]
 
@@ -186,6 +190,7 @@ libc = { workspace = true, optional = true }
 [dev-dependencies]
 command-error.workspace = true
 critical-section = { workspace = true, features = ["std"] }
+et-gpu-probe = { workspace = true, features = ["registry"] }
 et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true

@@ -164,15 +164,6 @@ py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.16/python.exe"
 # ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).
 ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
-# The same install's DLL dir, prepended by the [env] `_.path` below so a binary linking ORT can start.
-# ORT_LIB_LOCATION only tells the build where to link from; at load time Windows resolves onnxruntime.dll
-# through the classic search, which reaches PATH but not the mise install dir. Until a test linked the
-# et-ws-wasi-runner library nothing exercised that -- the runner binary is built but never started in the
-# image -- so the servercore container aborted test enumeration outright:
-#     error: creating test list failed
-#     for `et-ws-wasi-runner::ws_backend`, command `...\ws_backend-<hash>.exe --list --format terse`
-#     aborted with code 0xc0000135: The specified module could not be found. (os error 126)
-ort_bin_win = '{{ vars.ort_loc_win }}\lib'
 # llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
 # The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
 # cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH: a bare `clang`
@@ -246,12 +237,8 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
-# Force ort-sys to prefer dynamic linkage on Windows.
-# Otherwise it defaults to static ("could not find native static library `onnxruntime`"), but the Microsoft
-# ORT release ships only a DLL + import lib, no static archive. Not needed on Linux/macOS where the dynamic
-# default already matches the .so / .dylib that ship in the release. The workspace `ort` dep keeps `copy-dylibs`
-# so the DLL lands next to linked binaries.
-ORT_PREFER_DYNAMIC_LINK = "1"
+# The ONNX Runtime library et-ws-wasi-runner opens: the Windows install's, in place of the one config.toml names.
+ORT_DYLIB_PATH = '{{ vars.ort_loc_win }}\lib\onnxruntime.dll'
 # Prepend conda:m2-gnupg's nested binary dir to PATH.
 # mise's per-tool .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly, but
 # msys2-format packages put binaries one level deeper at `<install>/Library/usr/bin/X`. Without this,
@@ -267,7 +254,6 @@ _.path = [
   "{{ vars.m2_gnupg_bin }}",
   "{{ vars.m2_make_bin }}",
   "{{ vars.maven_bin }}",
-  "{{ vars.ort_bin_win }}",
   "{{ vars.win_libclang }}",
 ]
 

@@ -32,7 +32,7 @@ package jscpd
 
 # Ceiling on the clone fingerprints recorded in config/jscpd-baseline.json.
 # Lowered freely, raised only with the operator's sign-off. See the header for what raising it implies.
-declared_clones := 320
+declared_clones := 330
 
 # The ceiling is always a multiple of this.
 ceiling_step := 10

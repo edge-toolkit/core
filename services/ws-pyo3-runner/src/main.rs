@@ -5,11 +5,6 @@
 //! list (`RUNNER_MODULE`, `RUNNER_TIMEOUT`, `WS_SERVER_URL`, `PYO3_PYTHONPATH`,
 //! `PYO3_AGENT_ID`).
 
-#![expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select! expands to % internally"
-)]
-
 use et_ws_pyo3_runner::agent::{AgentConfig, initialize, resolved_python_path, run as run_agent};
 use et_ws_pyo3_runner::config::Config;
 use et_ws_pyo3_runner::hub_module::fetch_if_absent;

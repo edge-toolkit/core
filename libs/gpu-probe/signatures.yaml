@@ -1,0 +1,2588 @@
+# Every signature the probe set has been seen to give, one entry per distinct signature.
+# An entry is one GPU, driver, backend, interface and browser combination, or a CPU and math library where no GPU
+# is involved. A numeric signature is filed under its interface and the mode it was taken in: webgpu-split,
+# webgl2-split or webgl1-split when a browser compiled each expression in a shader of its own, and the -combined
+# forms when it compiled them all in one shader, because the two can differ on one device. WebGPU is filed the same
+# way whoever implemented it, a row with no browser being wgpu called directly. host and wasi-nn are not WebGPU: the
+# CPU answering as f32 arithmetic and its math library, and the probes as ONNX operators behind wasi:nn. canvas is a
+# classic 2-D canvas fingerprint kept for comparison: a page's own scene, read with getImageData from a canvas the
+# page made. canvas-browserleaks is the BrowserLeaks canvas test, read with toDataURL from a canvas made in a
+# sandboxed frame; its md5 result is the signature that site shows. A new mechanism brings its own interface name.
+# A signature can be shared by several devices, so each entry lists every place it has been seen, one row each, under
+# "seen"; when a new sighting matches an existing entry, add a row rather than a duplicate entry. The label is only a
+# summary of the rows. A row names, from fixed sets of values:
+#   browser    chrome, firefox, safari, opera (and whatever else the webbrowser crate names), brave, chromium, deno,
+#              edge, librewolf, samsung-internet, tor-browser, or none where no browser was involved
+#   os         android, linux, macos, windows
+#   cpu_arch   an architecture as a target triple spells it (aarch64, x86_64), or unknown
+#   gpu        the GPU's vendor as wgpu names it (amd, apple, arm, broadcom, imgtec, intel, mesa, nvidia, qualcomm),
+#              google or microsoft for their software renderers, none where no GPU was involved, or unknown
+#   backend    metal, d3d11, d3d12, vulkan, opengl, opengl-es, none, or unknown
+#   window     normal, private (an incognito window), or none where no browser was involved
+# and may add, as free text: browser_version, os_version, cpu_version (the chip), gpu_version (the model and driver),
+# device (the machine), runtime (what ran the probes where no browser did), defence (a privacy setting in force),
+# reported (what the interface said the GPU was, where that is not what it is), date and source (where the sighting
+# is on record).
+# Each result is keyed by a name its mechanism gives it (a probe, a hash lane) so fields can be added.
+# An interface a browser blocks or does not offer is recorded as an entry with "blocked: true" and a "reason"
+# instead of results, so the registry also shows which browsers withhold which interface, and why.
+# probe_set numbers the probes and inputs the numeric signatures answer. It goes up when either changes, since a
+# signature taken before the change cannot be compared with one taken after.
+probe_set: 1
+signatures:
+  - interface: webgl2-split
+    label: "AMD Radeon Graphics (0x15E7) through Direct3D 11 on Windows, HP EliteBook -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon Graphics (0x15E7)"
+        backend: d3d11
+        device: "HP EliteBook"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087707"
+      tanh: "3dcc1ebe"
+      dot: "3f800000"
+  - interface: webgl2-split
+    label: "Qualcomm Adreno on Android -- WebGL 2 on Chrome: Oppo (Adreno 610), Samsung Galaxy S22 Ultra (Adreno 730)"
+    seen:
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 610"
+        backend: opengl-es
+        device: "Oppo phone"
+        window: normal
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 730"
+        backend: opengl-es
+        device: "Samsung Galaxy S22 Ultra"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc758b"
+      cos: "3f7eb898"
+      tan: "3dcd7c58"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Intel UHD Graphics 630 through Metal on macOS -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "UHD Graphics 630"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "40000000"
+  - interface: webgl2-combined
+    label: "ARM Mali-G76, OpenGL ES, Galaxy S10 -- WebGL 2 on Chrome 157, Samsung Internet 31, Brave 1.99, Firefox 159"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: samsung-internet
+        browser_version: "31"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: brave
+        browser_version: "1.99"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: firefox
+        browser_version: "159"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa on Linux, Dell Precision 5570 -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Iris Xe (Alder Lake GT2), Mesa"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: webgpu-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium and Brave"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: brave
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Safari, Brave and Firefox"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: safari
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: brave
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: firefox
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari"
+    seen:
+      - browser: safari
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU as wgpu implements it: Firefox, Deno and wgpu 29 alone"
+    seen:
+      - browser: firefox
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-12"
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-12"
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Mesa / llvmpipe, or similar on Linux (Firefox 159.0)"
+    seen:
+      - browser: firefox
+        browser_version: "159.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        reported: "Mesa / llvmpipe, or similar"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgl2-split
+    label: "NVIDIA GB10/PCIe through OpenGL on Linux -- WebGL 2 on Chromium and Firefox"
+    seen:
+      - browser: chromium
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: opengl
+        window: normal
+      - browser: firefox
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: opengl
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "NVIDIA GB10 through Vulkan on Linux -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: vulkan
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "NVIDIA GB10 through Vulkan on Linux -- WebGL 2 on Chromium"
+    seen:
+      - browser: chromium
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: vulkan
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-split
+    label: "Intel Xe-LPG on Windows -- WebGPU on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: unknown
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Intel Xe-LPG through Direct3D 11 on Windows -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: d3d11
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "ARM Mali-G76, Vulkan, Galaxy S10 -- WebGPU on Chrome 157, Samsung Internet 31, Brave 1.99"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: samsung-internet
+        browser_version: "31"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: brave
+        browser_version: "1.99"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "Qualcomm Adreno 730 (Samsung Galaxy S22 Ultra) through Vulkan on Android -- WebGPU on Chrome"
+    seen:
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 730"
+        backend: vulkan
+        device: "Samsung Galaxy S22 Ultra"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc758b"
+      cos: "3f7eb898"
+      tan: "3dcd7c58"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Imagination PowerVR Rogue GE8300 through OpenGL ES on Android, Laser tablet -- WebGL 2 on Chrome 135, 157"
+    seen:
+      - browser: chrome
+        browser_version: "135"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "Laser tablet"
+        window: normal
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "Laser tablet"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c42"
+      exp: "3f8d763e"
+      log: "3f8c9f53"
+      pow: "3f8edd1f"
+      atan2: "3d087b98"
+      tanh: "3dcc1ec2"
+      dot: "3f800000"
+  - interface: webgpu-split
+    label: "Google SwiftShader (software renderer) on Linux -- WebGPU on Chrome, Dell Precision 5570"
+    seen:
+      - browser: chrome
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc6e85"
+      cos: "3f7eadd1"
+      tan: "3dcd7dfb"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "AMD Radeon RDNA 2 (HP EliteBook) through Direct3D 12 on Windows -- WebGPU on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RDNA 2"
+        backend: d3d12
+        device: "HP EliteBook"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "AMD Radeon Pro (RDNA 1) through Metal on macOS, Intel MacBook Pro -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon Pro (RDNA 1)"
+        backend: metal
+        device: "Intel MacBook Pro"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Qualcomm Adreno 830 (Samsung Galaxy S25 Ultra) through Vulkan on Android -- WebGPU on Chrome"
+    seen:
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 830"
+        backend: vulkan
+        device: "Samsung Galaxy S25 Ultra"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7578"
+      cos: "3f7eb898"
+      tan: "3dcd7c45"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "Qualcomm Adreno 830 (Galaxy S25 Ultra), OpenGL ES, Android -- WebGL 2 on Chrome (mixed shader grouping)"
+    seen:
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 830"
+        backend: opengl-es
+        device: "Samsung Galaxy S25 Ultra"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7578"
+      cos: "3f7eb898"
+      tan: "3dcd7c45"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: canvas
+    label: "Apple M5 Pro, macOS -- canvas 2D on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    results:
+      lane0: "4e31fa9b"
+      lane1: "76b62595"
+      lane2: "5debc5c0"
+      lane3: "52ef3664"
+  - interface: webgl2-combined
+    label: "Intel / HD Graphics 400, or similar on Linux (Firefox 149.0)"
+    seen:
+      - browser: firefox
+        browser_version: "149.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        backend: unknown
+        reported: "Intel / HD Graphics 400, or similar"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: canvas
+    label: "Firefox 149.0 on Linux -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "149.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      lane0: "b11cf4d5"
+      lane1: "9f52fa33"
+      lane2: "1d528dc3"
+      lane3: "205c1f18"
+  - interface: canvas
+    label: "Firefox 160.0 on macOS -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      lane0: "e713762c"
+      lane1: "7af1305a"
+      lane2: "a45f2769"
+      lane3: "4b50c285"
+  - interface: canvas
+    label: "Safari 27.0 on macOS -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      lane0: "a6b65bfe"
+      lane1: "5086a288"
+      lane2: "656c1bac"
+      lane3: "3da9f222"
+  - interface: canvas
+    label: "Chrome 157.0.8103.50 and Microsoft Edge on Windows -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.50"
+        os: windows
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+      - browser: edge
+        os: windows
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      lane0: "6f919589"
+      lane1: "21590c7f"
+      lane2: "99fa99fb"
+      lane3: "459a0e48"
+  - interface: canvas
+    label: "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise, not reproducible across sessions)"
+    seen:
+      - browser: brave
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "Shields farbling: noise keyed to the session"
+        window: normal
+    results:
+      lane0: "c8310eb1"
+      lane1: "6d12025f"
+      lane2: "25aa14b4"
+      lane3: "453e64a3"
+  - interface: webgpu
+    label: "Tor Browser (reports itself as Firefox 153.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: tor-browser
+        browser_version: "reports itself as Firefox 153.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"
+  - interface: webgl2
+    label: "Tor Browser (reports itself as Firefox 153.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: tor-browser
+        browser_version: "reports itself as Firefox 153.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGL 2 is unavailable (getContext returned null; only WebGL 1 is available, not WebGL 2)"
+  - interface: canvas
+    label: "Tor Browser (reports itself as Firefox 153.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: tor-browser
+        browser_version: "reports itself as Firefox 153.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        defence: "canvas reads carry per-read noise"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Samsung Galaxy S10, Android 12 -- canvas 2D on Chrome 157 and Samsung Internet 31"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: unknown
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: samsung-internet
+        browser_version: "31"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: unknown
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      lane0: "c1161ae6"
+      lane1: "4f61a1f8"
+      lane2: "65ec1468"
+      lane3: "c8bf17ef"
+  - interface: canvas
+    label: "Samsung Galaxy S10, Android 12 -- canvas 2D on Firefox 159"
+    seen:
+      - browser: firefox
+        browser_version: "159"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: unknown
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      lane0: "16b5cc90"
+      lane1: "4a208b5e"
+      lane2: "536d9443"
+      lane3: "5c29fe34"
+  - interface: webgpu
+    label: "Firefox 159 on Android, Samsung Galaxy S10"
+    seen:
+      - browser: firefox
+        browser_version: "159"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: unknown
+        device: "Samsung Galaxy S10"
+        window: normal
+    blocked: true
+    reason: "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"
+  - interface: canvas
+    label: "Samsung Galaxy S10, Android 12 -- canvas 2D on Brave 1.99 (farbled; differs from Chrome's on this phone)"
+    seen:
+      - browser: brave
+        browser_version: "1.99"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: unknown
+        device: "Samsung Galaxy S10"
+        defence: "Shields farbling"
+        window: normal
+    results:
+      lane0: "1419645e"
+      lane1: "7aa1bb28"
+      lane2: "ea31c65e"
+      lane3: "9637a16c"
+  - interface: webgl2-combined
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa on Linux, Dell Precision 5570 -- WebGL 2 on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Iris Xe (Alder Lake GT2), Mesa"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: canvas
+    label: "Dell Precision 5570, Linux -- canvas 2D on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "e55c4313"
+      lane1: "fdb387dd"
+      lane2: "e659dabe"
+      lane3: "d711a464"
+  - interface: webgl2-split
+    label: "ARM Mali-G76 through OpenGL ES on Android, Samsung Galaxy S10 -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "ARM Mali-G76 through Vulkan on Android, Samsung Galaxy S10 -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "AMD Radeon Graphics (0x15E7) through Direct3D 11 on Windows, HP EliteBook -- WebGL 2 on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: windows
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon Graphics (0x15E7)"
+        backend: d3d11
+        device: "HP EliteBook"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087707"
+      tanh: "3dcc1ebe"
+      dot: "3f800000"
+  - interface: webgpu-combined
+    label: "AMD Radeon RDNA 2 (HP EliteBook) through Direct3D 12 on Windows -- WebGPU on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: windows
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RDNA 2"
+        backend: d3d12
+        device: "HP EliteBook"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Google SwiftShader (software renderer) on Linux -- WebGPU on Chrome, Dell Precision 5570"
+    seen:
+      - browser: chrome
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc6e85"
+      cos: "3f7eadd1"
+      tan: "3dcd7dfb"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU as wgpu implements it: Firefox 160 and wgpu 29 alone"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-12"
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu
+    label: "Chrome 157 on Android 10, Laser tablet"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: unknown
+        device: "Laser tablet"
+        window: normal
+    blocked: true
+    reason: "no WebGPU adapter was returned"
+  - interface: webgl2-combined
+    label: "Imagination PowerVR Rogue GE8300 through OpenGL ES on Android, Laser tablet -- WebGL 2 on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "Laser tablet"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c42"
+      exp: "3f8d763e"
+      log: "3f8c9f53"
+      pow: "3f8edd1f"
+      atan2: "3d087b98"
+      tanh: "3dcc1ec2"
+      dot: "3f800000"
+  - interface: canvas
+    label: "Laser tablet, Android 10 -- canvas 2D on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: unknown
+        device: "Laser tablet"
+        window: normal
+    results:
+      lane0: "0d2dacc4"
+      lane1: "01059e2a"
+      lane2: "26b6c476"
+      lane3: "68dfadcf"
+  - interface: webgpu-combined
+    label: "AMD Radeon Pro (RDNA 1) through Metal on macOS, Intel MacBook Pro -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon Pro (RDNA 1)"
+        backend: metal
+        device: "Intel MacBook Pro"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "Intel UHD Graphics 630 through Metal on macOS -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "UHD Graphics 630"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "40000000"
+  - interface: canvas
+    label: "Intel MacBook Pro, macOS -- canvas 2D on Chrome 154"
+    seen:
+      - browser: chrome
+        browser_version: "154"
+        os: macos
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Intel MacBook Pro"
+        window: normal
+    results:
+      lane0: "61a3f194"
+      lane1: "f467a8a2"
+      lane2: "bf84affe"
+      lane3: "84e85fe3"
+  - interface: webgpu-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium and Brave"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+      - browser: brave
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Safari, Brave and Firefox"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+      - browser: safari
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+      - browser: brave
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+      - browser: firefox
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: canvas
+    label: "Apple M5 Pro, macOS -- canvas 2D on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: private
+    results:
+      lane0: "4e31fa9b"
+      lane1: "76b62595"
+      lane2: "5debc5c0"
+      lane3: "52ef3664"
+  - interface: canvas
+    label: "Firefox 160 on macOS, privacy.fingerprintingProtection on -- canvas 2D (differs from the unprotected hash)"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    results:
+      lane0: "a60e6953"
+      lane1: "e2f45f75"
+      lane2: "956014b5"
+      lane3: "1b2515f8"
+  - interface: webgpu-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Firefox"
+    seen:
+      - browser: firefox
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: canvas
+    label: "Firefox 160 on macOS, privacy.fingerprintingProtection on -- canvas 2D (differs from the unprotected hash)"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.fingerprintingProtection on"
+        window: private
+    results:
+      lane0: "a60e6953"
+      lane1: "e2f45f75"
+      lane2: "956014b5"
+      lane3: "1b2515f8"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Firefox 160"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: canvas-browserleaks
+    label: "Firefox 160 on macOS, fingerprintingProtection on -- BrowserLeaks test (one session's value; see next row)"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    results:
+      md5: "67456dde9d4089a8cea2e53d4ecf4b8b"
+  - interface: canvas-browserleaks
+    label: "Firefox 160 on macOS, privacy.fingerprintingProtection on"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    blocked: true
+    reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D, BrowserLeaks test (noise added to reads)"
+    seen:
+      - browser: brave
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "Shields farbling: noise added to reads"
+        window: normal
+    results:
+      md5: "ead7c33e84beeb434b1d384c6e45268b"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0.0 on macOS -- canvas 2D, BrowserLeaks test"
+    seen:
+      - browser: firefox
+        browser_version: "160.0.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: private
+    results:
+      md5: "4a05912a83d4fdbab55e5ddfaef2d3b0"
+  - interface: webgpu
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"
+  - interface: webgl2
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGL 2 is unavailable (getContext returned null; no WebGL context at all, so WebGL is turned off)"
+  - interface: canvas
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: webgl1-split
+    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157.0.0 and Safari 27.0)"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: safari
+        browser_version: "27.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.0 on macOS 26.7.1 -- canvas 2D, BrowserLeaks test"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "1dc44a8e2846f0a156399977bf5ca67d"
+  - interface: webgl1-combined
+    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157.0.0 and Safari 27.0)"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: safari
+        browser_version: "27.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: webgl1
+    label: "Firefox 160.0.0 on macOS"
+    seen:
+      - browser: firefox
+        browser_version: "160.0.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGL 1 is unavailable (getContext returned null, so WebGL is turned off)"
+  - interface: webgl1-split
+    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157.0.0)"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: webgl1-combined
+    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157.0.0)"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: private
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari"
+    seen:
+      - browser: safari
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: canvas-browserleaks
+    label: "Safari 27.0.0 on macOS -- canvas 2D, BrowserLeaks test"
+    seen:
+      - browser: safari
+        browser_version: "27.0.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "f7316747f9adf8387510e46790f09d66"
+  - interface: webgpu-combined
+    label: "Intel Xe-LPG on Windows, HP EliteBook (HSN-I6IC) -- WebGPU on Edge 153"
+    seen:
+      - browser: edge
+        browser_version: "153"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "Intel Xe-LPG through Direct3D 11 on Windows -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: d3d11
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgl1-split
+    label: "Intel Arc Graphics through Direct3D 11 on Windows, HP EliteBook (HSN-I6IC) -- WebGL 1 on Edge 153"
+    seen:
+      - browser: edge
+        browser_version: "153"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Arc Graphics"
+        backend: d3d11
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: webgl1-combined
+    label: "Intel Arc Graphics through Direct3D 11 on Windows, HP EliteBook (HSN-I6IC) -- WebGL 1 on Edge 153"
+    seen:
+      - browser: edge
+        browser_version: "153"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Arc Graphics"
+        backend: d3d11
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: canvas-browserleaks
+    label: "HP EliteBook (HSN-I6IC), Windows -- canvas 2D, BrowserLeaks test on Edge 153"
+    seen:
+      - browser: edge
+        browser_version: "153"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    results:
+      md5: "8c781e6c79d33a68ef6ae90ae071c989"
+  - interface: webgpu-split
+    label: "Intel Xe-LPG on Windows, HP EliteBook (HSN-I6IC) -- WebGPU on Firefox 155 (adapter info blanked)"
+    seen:
+      - browser: firefox
+        browser_version: "155"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        reported: "adapter info blanked"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: canvas
+    label: "Firefox 155.0.0 on Windows, HP EliteBook (HSN-I6IC)"
+    seen:
+      - browser: firefox
+        browser_version: "155.0.0"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    blocked: true
+    reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Firefox 155.0.0 on Windows, HP EliteBook (HSN-I6IC)"
+    seen:
+      - browser: firefox
+        browser_version: "155.0.0"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    blocked: true
+    reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
+  - interface: webgpu-combined
+    label: "Intel Xe-LPG on Windows, HP EliteBook (HSN-I6IC) -- WebGPU on Firefox 155 (adapter info blanked)"
+    seen:
+      - browser: firefox
+        browser_version: "155"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        reported: "adapter info blanked"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "Apple Paravirtual device through Metal on macOS arm64, GitHub macos-latest runner -- wgpu 29, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub macos-latest runner"
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836477"
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb896"
+      tan: "3dcd7c46"
+      exp: "3f8d763d"
+      log: "3f8c9f53"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1eb5"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "llvmpipe (LLVM 20.1.2, Mesa 25.2.8) through Vulkan on Linux arm64, GitHub runner -- wgpu 29, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits), Mesa 25.2.8-0ubuntu0.24.04.4"
+        backend: vulkan
+        device: "GitHub ubuntu-24.04-arm runner"
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-split
+    label: "Microsoft Basic Render Driver through Direct3D 12 on Windows x64, GitHub runner -- wgpu 29 built for msvc"
+    seen:
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver 10.0.26100.33648"
+        backend: d3d12
+        device: "GitHub windows-latest runner"
+        runtime: "wgpu 29, built for x86_64-pc-windows-msvc"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836624"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756b"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087708"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "Microsoft Basic Render Driver through Direct3D 12 on Windows x64, GitHub runner -- wgpu 29 built for GNU"
+    seen:
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver 10.0.26100.33648"
+        backend: d3d12
+        device: "GitHub windows-latest runner"
+        runtime: "wgpu 29, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836502"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver 10.0.26100.33648"
+        backend: d3d12
+        device: "GitHub windows-latest runner"
+        runtime: "wgpu 29, built for x86_64-pc-windows-gnu"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836594"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756b"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087708"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-split
+    label: "llvmpipe (LLVM 21.1.8, Mesa 26.0.8) through Vulkan on Linux x86_64, GitHub runner -- wgpu 29, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 21.1.8, 256 bits), Mesa 26.0.8-1ubuntu0.3"
+        backend: vulkan
+        device: "GitHub ubuntu-latest runner"
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: host
+    label: "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: none
+        backend: none
+        runtime: "Rust f32 and Apple's math library"
+        window: none
+        date: "2026-11-12"
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub macos-latest runner"
+        runtime: "Rust f32 and Apple's math library"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836477"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-24.04-arm runner"
+        runtime: "Rust f32 and glibc"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub windows-latest runner"
+        runtime: "Rust f32 and the MSVC runtime"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836624"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub windows-latest runner"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836502"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub windows-latest runner"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnu"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836594"
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-latest runner"
+        runtime: "Rust f32 and glibc"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+    results:
+      multiply_add: "00000000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: wasi-nn
+    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux x86_64, where its multiply-add is not fused"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-latest runner"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebb"
+      dot: "00000000"
+  - interface: wasi-nn
+    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: macOS arm64 and Linux arm64"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: none
+        backend: none
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub macos-latest runner"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174374"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-24.04-arm runner"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+    results:
+      multiply_add: "00000000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebb"
+      dot: "00000000"

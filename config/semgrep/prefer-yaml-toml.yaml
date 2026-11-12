@@ -19,6 +19,8 @@ rules:
         - "/**/oxfmtrc.jsonc" # oxfmt: only JSON / JSONC supported
         - "/**/tsconfig.json" # TypeScript/tsgolint: mandates the JSON `tsconfig.json` name (oxlint --type-aware)
         - "/**/math1-input.json" # math1 wire payload: served to modules verbatim, parsed by their JSON parsers
+        # Written from the signatures.yaml beside it: the form the crate embeds, since its embedding macro reads JSON.
+        - "/libs/gpu-probe/signatures.json"
         # Both jscpd files have to be plain JSON, and .jsonc would misrepresent them.
         # jscpd parses its config with plain serde_json and reads no YAML/TOML, so a `//` comment aborts it with
         # `key must be a string at line 2 column 3` -- a .jsonc extension would advertise comments the parser

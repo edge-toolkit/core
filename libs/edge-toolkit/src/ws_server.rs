@@ -490,14 +490,11 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     #[must_use]
     pub fn pending_messages_for(&self, agent_id: &str) -> Vec<PendingDirectMessage> {
         let agents = lock_recovering(&self.agents);
-        agents
-            .get(agent_id)
-            .map(|record| {
-                let mut pending = record.pending_direct_messages.values().cloned().collect::<Vec<_>>();
-                pending.sort_by(|left, right| left.message_id.cmp(&right.message_id));
-                pending
-            })
-            .unwrap_or_default()
+        agents.get(agent_id).map_or_default(|record| {
+            let mut pending = record.pending_direct_messages.values().cloned().collect::<Vec<_>>();
+            pending.sort_by(|left, right| left.message_id.cmp(&right.message_id));
+            pending
+        })
     }
 
     /// Returns `(message_id, sender_session, sender_agent_id)` on success.

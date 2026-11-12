@@ -22,6 +22,10 @@
 # clap-markdown" note), so any two HELP.md files duplicate those lines by construction. That is duplication in a
 # tool's output, not in code anyone here wrote, and adding a subcommand re-hashes the window around it -- so
 # without the exclusion the check fails afresh on changes that have nothing to do with duplication.
+#
+# jscpd also skips libs/gpu-probe/signatures.yaml and the signatures.json written from it, for a like reason: the
+# registry is measurements, one entry per signature, and every entry holds the same sixteen probe names. That is the
+# shape of the data, and each signature added would otherwise read as a fresh clone of the entries before it.
 
 # What each tool resolves an exclusion path against, keyed by the config path (or path prefix) it applies to.
 # `{tree}` stands in for the tree name. These are three different bases, not three ways of writing one path:

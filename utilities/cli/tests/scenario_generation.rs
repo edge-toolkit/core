@@ -363,8 +363,7 @@ fn dekit_deployment(input: &str) -> (tempfile::TempDir, std::path::PathBuf, serd
 fn task_deps(task: &serde_yaml::Value) -> Vec<&str> {
     task.get("deps")
         .and_then(serde_yaml::Value::as_sequence)
-        .map(|deps| deps.iter().map(|dep| dep.as_str().unwrap()).collect())
-        .unwrap_or_default()
+        .map_or_default(|deps| deps.iter().map(|dep| dep.as_str().unwrap()).collect())
 }
 
 #[test]

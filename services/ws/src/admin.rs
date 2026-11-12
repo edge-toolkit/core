@@ -167,8 +167,7 @@ impl FromRequest for AdminRequest {
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
         let token = req
             .app_data::<web::Data<WsConfig>>()
-            .map(|config| config.admin_token.clone())
-            .unwrap_or_default();
+            .map_or_default(|config| config.admin_token.clone());
         ready(authorize(req, &token).map(|()| Self {
             #[cfg(feature = "nats")]
             backplane: backplane_of(req),

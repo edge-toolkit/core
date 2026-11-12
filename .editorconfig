@@ -100,6 +100,11 @@ max_line_length = unset
 [config/upstream-cache/data.toml]
 max_line_length = 200
 
+# The signature registry's JSON is written from the YAML beside it, whose labels fit the line length there and
+# run a few characters past it once JSON has indented and quoted them. A string value cannot wrap.
+[libs/gpu-probe/signatures.json]
+max_line_length = unset
+
 # pnpm writes each package's `resolution: {integrity: sha512-...}` on one line, which exceeds the line length.
 [**/pnpm-lock.yaml]
 max_line_length = unset

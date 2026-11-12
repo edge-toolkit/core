@@ -133,10 +133,6 @@ where
 }
 
 /// Run hub transport and supervision concurrently so backend operations never block WebSocket heartbeats.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select! expands to remainder operations"
-)]
 pub async fn run<B>(config: Config, mut backend: B) -> Result<(), RecoveryError>
 where
     B: Backend,
@@ -167,11 +163,7 @@ where
 }
 
 /// Keep policy state and its ownership lease while re-establishing transport; persistence errors remain fatal.
-#[expect(
-    clippy::integer_division_remainder_used,
-    clippy::single_call_fn,
-    reason = "connection ownership is separate from shutdown; tokio::select! expands to remainder operations"
-)]
+#[expect(clippy::single_call_fn, reason = "connection ownership is separate from shutdown")]
 async fn supervise<B>(
     config: &Config,
     supervisor: &mut Supervisor,
@@ -204,9 +196,8 @@ where
 
 /// Bound registration attempts and maintain established observer health while recording unavailable evidence.
 #[expect(
-    clippy::integer_division_remainder_used,
     clippy::single_call_fn,
-    reason = "registration is separate from connected observation; tokio::select! expands to remainder operations"
+    reason = "registration is separate from connected observation"
 )]
 async fn reconnect(
     config: &Config,
@@ -261,11 +252,7 @@ async fn connect(config: &Config) -> Result<RegisteredSocket, RecoveryError> {
 }
 
 /// Consume evidence and run bounded observation cycles while the hub handles transport independently.
-#[expect(
-    clippy::integer_division_remainder_used,
-    clippy::single_call_fn,
-    reason = "named control loop separates shutdown ownership; tokio::select! expands to remainder operations"
-)]
+#[expect(clippy::single_call_fn, reason = "named control loop separates shutdown ownership")]
 async fn control<B>(
     config: &Config,
     supervisor: &mut Supervisor,
@@ -339,10 +326,6 @@ fn accept(supervisor: &mut Supervisor, identity: &str, event: &CloudEvent, start
 }
 
 /// Receive direct `CloudEvents` through Core's existing acknowledged agent-message transport.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select! expands to remainder operations"
-)]
 pub async fn hub(
     mut socket: RegisteredSocket,
     sender: mpsc::Sender<(String, CloudEvent)>,
@@ -374,11 +357,7 @@ pub async fn hub(
 }
 
 /// Retain pending evidence until queue admission, sending keepalive pings while data reads are backpressured.
-#[expect(
-    clippy::integer_division_remainder_used,
-    clippy::single_call_fn,
-    reason = "separate bounded delivery from frame handling; tokio::select! expands to remainder operations"
-)]
+#[expect(clippy::single_call_fn, reason = "separate bounded delivery from frame handling")]
 async fn enqueue(
     socket: &mut RegisteredSocket,
     sender: &mpsc::Sender<(String, CloudEvent)>,

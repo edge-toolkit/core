@@ -128,13 +128,12 @@ fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) 
 fn collect_enum_names(root: &serde_json::Value) -> EnumSet {
     root.get("$defs")
         .and_then(|val| val.as_object())
-        .map(|defs| {
+        .map_or_default(|defs| {
             defs.iter()
                 .filter(|(_, def)| def.get("enum").is_some())
                 .map(|(name, _)| name.clone())
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 #[expect(
@@ -269,8 +268,7 @@ fn build_record(
     let required: HashSet<&str> = schema
         .get("required")
         .and_then(|val| val.as_array())
-        .map(|arr| arr.iter().filter_map(|val| val.as_str()).collect())
-        .unwrap_or_default();
+        .map_or_default(|arr| arr.iter().filter_map(|val| val.as_str()).collect());
     let mut fields: Vec<Field> = Vec::new();
     if let Some(props) = props {
         let mut keys: Vec<&String> = props

@@ -1,10 +1,10 @@
-//! Covers the probe set itself -- its shaders and correctly rounded answers -- and what a signature reads out of
-//! a device's results: its counts, fingerprint, choices and per-probe lines.
+//! Covers the probe set itself -- its shaders and correctly rounded answers -- and what a signature reads out of a
+//! device's results: its counts, fingerprint, choices and per-probe lines.
 #![cfg(test)]
 
 use et_gpu_probe::{
-    Answer, INPUTS, PROBE_COUNT, Signature, UNRECOGNISED, VERTEX_SHADER, WEBGL2, WEBGPU, fragment_shaders, reference,
-    shaders,
+    Answer, HOST, PROBE_COUNT, Signature, UNRECOGNISED, VERTEX_SHADER, WEBGL2, WEBGPU, combined_shader,
+    fragment_shaders, host, reference, shaders,
 };
 
 /// The fingerprint the probes gave through WebGPU on an Apple M5 Pro.
@@ -70,6 +70,19 @@ fn every_probe_has_a_shader_of_its_own_writing_one_word() {
 }
 
 #[test]
+fn the_combined_shader_writes_every_probe_to_a_word_of_its_own() {
+    let combined = combined_shader();
+    assert!(combined.contains("probeOut : array<u32, 16>;"));
+    for (word, (_, alone)) in shaders().iter().enumerate() {
+        assert!(alone.contains("probeOut : array<u32, 1>;"));
+        // The one write a probe's own shader makes is the write the combined shader makes to that probe's word.
+        let write = alone.lines().find(|line| line.contains("probeOut[0] = ")).unwrap();
+        assert!(combined.contains(&write.replace("probeOut[0]", &format!("probeOut[{word}]"))));
+    }
+    assert_eq!(combined.matches("] = bitcast<u32>(").count(), PROBE_COUNT);
+}
+
+#[test]
 fn a_probe_shader_holds_its_own_expression() {
     let shaders = shaders();
     assert!(
@@ -105,21 +118,16 @@ fn the_exact_probes_have_their_strict_answers() {
 
 #[test]
 fn the_function_probes_are_within_one_ulp_of_the_host_f32_functions() {
-    let [_, _, _, _, angle, three, _, _] = INPUTS;
-    let host = [
-        three.sqrt().recip(),
-        angle.sin(),
-        angle.cos(),
-        angle.tan(),
-        angle.exp(),
-        three.ln(),
-        three.powf(angle),
-        angle.atan2(three),
-        angle.tanh(),
-    ];
-    for (correct, near) in reference().into_iter().skip(6).zip(host) {
-        assert!(correct.abs_diff(near.to_bits()) <= 1);
+    for (correct, near) in reference().into_iter().zip(host()) {
+        assert!(correct.abs_diff(near) <= 1);
     }
+}
+
+#[test]
+fn the_host_gives_the_exact_probes_their_strict_answers() {
+    let signature = Signature::new(HOST, host().into_iter().map(Answer::Bits).collect());
+    assert_eq!(signature.completed(), PROBE_COUNT);
+    assert_eq!(signature.traits(), correct().traits());
 }
 
 #[test]
@@ -230,4 +238,39 @@ fn the_answers_measured_on_an_apple_m5_pro_are_recognised() {
         signature.traits(),
         "multiply_add=fused fma=fused swamped_sum=reassociated subnormal_product=flushed dot=in_order"
     );
+}
+
+#[test]
+fn the_registry_finds_a_browsers_signature_where_each_probe_had_a_shader_of_its_own() {
+    let labels = measured(WEBGPU, M5_PRO_WEBGPU).identify();
+    assert_ne!(labels, Vec::<&str>::new());
+    for label in labels {
+        assert!(label.contains("Apple M5 Pro"));
+    }
+}
+
+#[test]
+fn the_registry_finds_a_signature_filed_under_the_interface_itself() {
+    let correct = Signature::new(HOST, reference().into_iter().map(Answer::Bits).collect());
+    assert_eq!(correct.identify().len(), 1);
+}
+
+#[test]
+fn the_registry_does_not_find_a_signature_through_another_interface() {
+    assert_eq!(measured(WEBGL2, M5_PRO_WEBGPU).identify(), Vec::<&str>::new());
+}
+
+#[test]
+fn the_registry_has_no_label_for_a_signature_it_has_not_seen() {
+    assert_eq!(correct().identify(), Vec::<&str>::new());
+}
+
+#[test]
+fn the_registry_matches_nothing_to_a_signature_missing_answers() {
+    assert_eq!(
+        Signature::new(HOST, vec![Answer::Bits(0)]).identify(),
+        Vec::<&str>::new()
+    );
+    // No answers at all is what an entry kept for a withheld interface holds, and still names nothing.
+    assert_eq!(Signature::new(WEBGPU, Vec::new()).identify(), Vec::<&str>::new());
 }

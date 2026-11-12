@@ -12,8 +12,9 @@ Changelog 1.1.0.
   event gains a `gpu_numeric_probe` object: how many probes were answered, how many were not correctly rounded, which
   of two legal answers the device gave where there are two, a fingerprint of every result, and the known GPU that
   answers the same way. The probe set, its shaders and correctly rounded answers are the new `et-gpu-probe` crate,
-  which drives no GPU itself. The module's `gpu.renderer` now falls back to WebGL's renderer string where a browser
-  blanks the WebGPU adapter's.
+  which drives no GPU itself. Its `host` answers the probes on the CPU, and its `HOST` and `WASI_NN` name the
+  interfaces a signature is measured through with no browser. The module's `gpu.renderer` now falls back to WebGL's
+  renderer string where a browser blanks the WebGPU adapter's.
 - A WASI module can read a lidar. `et-ws-wasi-runner`'s new `lidar` feature, on by default, hosts
   `et:ws-wasi/serial`, lending a guest the serial ports its `SERIAL_PORTS_<NAME>` variables name: a device, or
   `tcp://<host>:<port>` for one a bridge such as ser2net serves. The interface's own `serial-host` world, which the
@@ -176,6 +177,10 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** `et-ws-wasi-runner` built with `nn` no longer links ONNX Runtime: it opens the library when a guest
+  first uses `wasi:nn`. Set `ORT_DYLIB_PATH` to the library to use, as the runner's image now does, or keep one
+  beside the runner. Without either it asks the system for one by name, and on Windows that is the older copy in
+  System32, which the runner refuses by version.
 - **Breaking:** `et_ws_wasi_runner::run_module` takes the serial ports it lends a component as a fifth argument, a
   `BTreeMap` from each port's name to its device. Pass an empty map to lend none, as a build without the `lidar`
   feature does whatever it is given.
