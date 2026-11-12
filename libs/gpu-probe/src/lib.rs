@@ -64,9 +64,9 @@ pub const WASI_NN: &str = "wasi-nn";
 
 /// Each probe's name, the WGSL expression it evaluates, and the same expression in GLSL ES 3.00, in output order.
 ///
-/// The first five and the last have an exact answer under strict evaluation and a second, equally legal one, which
-/// [`CHOICES`] names. The rest carry an accuracy bound instead of an exact answer. GLSL ES 3.00 has no `fma`, so that
-/// probe is one a WebGL 2 device is expected to refuse.
+/// The first five and the last have an exact answer under strict evaluation and at least one other, equally legal one,
+/// which [`CHOICES`] names. The rest carry an accuracy bound instead of an exact answer. GLSL ES 3.00 has no `fma`, so
+/// that probe is one a WebGL 2 device is expected to refuse.
 const PROBES: [(&str, &str, &str); PROBE_COUNT] = [
     (
         "multiply_add",
@@ -172,13 +172,28 @@ fn main() {
 
 ";
 
-/// For each probe with two legal exact answers: its name, then each answer's bits beside what giving it means.
-const CHOICES: [(&str, [(u32, &str); 2]); 5] = [
-    ("multiply_add", [(0, "rounded_twice"), (0x3380_0000, "fused")]),
-    ("fma", [(0, "rounded_twice"), (0x3380_0000, "fused")]),
-    ("swamped_sum", [(0, "in_order"), (0x4080_0000, "reassociated")]),
-    ("subnormal_product", [(0x0040_0000, "kept"), (0, "flushed")]),
-    ("dot", [(0, "in_order"), (0x4000_0000, "reassociated")]),
+/// For each probe with more than one legal exact answer: its name, then each answer's bits beside what giving it means.
+///
+/// A sum the compiler may regroup has one legal answer per grouping that gives a distinct result. `swamped_sum` is
+/// `2^24` plus four ones: added one at a time each one is lost, the ones summed first survive as 4, and a loop unrolled
+/// to add its last two as a pair keeps only those two. `dot` is `2^24 + 1 + 1 - 2^24`: in order both ones are lost, the
+/// two `2^24` cancelling first keeps both, and summed as a pairwise tree, `(2^24 + 1) + (1 - 2^24)`, keeps one.
+const CHOICES: [(&str, &[(u32, &str)]); 5] = [
+    ("multiply_add", &[(0, "rounded_twice"), (0x3380_0000, "fused")]),
+    ("fma", &[(0, "rounded_twice"), (0x3380_0000, "fused")]),
+    (
+        "swamped_sum",
+        &[(0, "in_order"), (0x4080_0000, "reassociated"), (0x4000_0000, "paired")],
+    ),
+    ("subnormal_product", &[(0x0040_0000, "kept"), (0, "flushed")]),
+    (
+        "dot",
+        &[
+            (0, "in_order"),
+            (0x4000_0000, "reassociated"),
+            (0x3f80_0000, "pairwise"),
+        ],
+    ),
 ];
 
 /// The interface each known GPU was measured through, what it answered in output order, and what that GPU is.
@@ -266,8 +281,8 @@ pub fn shaders() -> Vec<(&'static str, String)> {
 ///
 /// It is bound as each of [`shaders`] is, except that its buffer at binding 1 holds [`PROBE_COUNT`] words. A compiler
 /// may treat an expression differently when it sits beside the others, so a device can answer this shader and the
-/// separate ones differently, and a signature taken with it is filed under [`WEBGPU_COMBINED`]. A device that
-/// refuses one expression refuses the whole of it.
+/// separate ones differently, and a signature taken with it is filed under [`WEBGPU_COMBINED`]. A device that refuses
+/// one expression refuses the whole of it.
 #[must_use]
 pub fn combined_shader() -> String {
     let expressions: Vec<&str> = PROBES.iter().map(|probe| probe.1).collect();

@@ -162,6 +162,22 @@ fn a_fused_multiply_add_is_a_deviation_named_as_a_choice() {
 }
 
 #[test]
+fn a_sum_regrouped_part_way_is_a_choice_of_its_own() {
+    // Intel Iris Xe (Alder Lake GT2) through Mesa's Vulkan driver, every probe in the one combined shader.
+    let signature = measured(
+        WEBGPU,
+        concat!(
+            "33800000-33800000-40000000-3eaaaaab-00000000-3fddb3d7-3f13cd3a-3dcc756a-",
+            "3f7eb898-3dcd7c38-3f8d763d-3f8c9f54-3f8edd1f-3d087ae6-3dcc1eb6-3f800000"
+        ),
+    );
+    assert_eq!(
+        signature.traits(),
+        "multiply_add=fused fma=fused swamped_sum=paired subnormal_product=flushed dot=pairwise"
+    );
+}
+
+#[test]
 fn an_answer_that_is_neither_choice_reads_other() {
     assert!(
         with(2, || Answer::Bits(0x3f80_0000))

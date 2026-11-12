@@ -2416,6 +2416,70 @@ signatures:
       atan2: "3d087ae6"
       tanh: "3dcc1ebe"
       dot: "40000000"
+  - interface: webgpu-split
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa's Vulkan driver on Linux, Dell Precision 5570 -- wgpu 29"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel Core i7-12800H"
+        gpu: intel
+        gpu_version: "Iris Xe (Alder Lake GT2), Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-13"
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: webgpu-combined
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa's Vulkan driver on Linux, Dell Precision 5570 -- wgpu 29"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel Core i7-12800H"
+        gpu: intel
+        gpu_version: "Iris Xe (Alder Lake GT2), Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-13"
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
   - interface: host
     label: "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64"
     seen:
@@ -2489,6 +2553,17 @@ signatures:
         window: none
         date: "2026-11-12"
         source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel Core i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "Rust f32 and glibc"
+        window: none
+        date: "2026-11-13"
     results:
       multiply_add: "00000000"
       fma: "33800000"
