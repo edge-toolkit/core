@@ -9,9 +9,9 @@ use crate::sighting::{RowError, Sighting};
 
 /// The registry: the JSON written from `signatures.yaml`, embedded as text when the crate is compiled.
 ///
-/// The text is read into a value the first time anything is asked of the registry, rather than written out as code for
-/// the compiler to build, because building a value this size in one function takes more stack than a thread can be
-/// counted on to have. The file is in this crate's own directory, which is what the variable names, and a published
+/// The text is read into a value the first time anything is asked of the registry, rather than written out as code
+/// for the compiler to build, because building a value this size in one function takes more stack than a thread can
+/// be counted on to have. The file is in this crate's own directory, which is what the variable names, and a published
 /// copy of the crate has no repository root to find it from instead.
 #[expect(
     clippy::unwrap_used,
@@ -56,12 +56,15 @@ fn holding<'words>(interface: &'words str, words: &'words [String]) -> impl Iter
 }
 
 /// Every row the entries `found` list as places they have been seen, in the order the entries come.
+///
+/// The first entry [`Sighting::read_entry`] refuses is what this fails with. Every entry handed here comes from the
+/// registry compiled into this crate, which `every_row_the_registry_holds_can_be_read` proves readable, so the refusal
+/// is passed through by `collect` rather than by a branch of this function's own that nothing could take.
 fn rows(found: impl Iterator<Item = &'static Value>) -> Result<Vec<Sighting>, RowError> {
-    let mut seen = Vec::new();
-    for entry in found {
-        seen.extend(Sighting::read_entry(entry)?);
-    }
-    Ok(seen)
+    found
+        .map(Sighting::read_entry)
+        .collect::<Result<Vec<_>, _>>()
+        .map(|entries| entries.into_iter().flatten().collect())
 }
 
 /// The label of every registry entry holding the answers `words`, measured through `interface`.
