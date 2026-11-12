@@ -8,9 +8,9 @@
 #
 # Unlike the other two runners this one cannot be a single static binary, because two of the WASI interfaces it
 # offers guests are backed by native libraries. `wasi:nn` runs through ONNX Runtime, which the runner opens when a
-# guest first uses the interface rather than links, so libonnxruntime has to be present at run time. `wasi:webgpu` runs through wgpu, which needs a Vulkan loader plus a driver -- mesa's
-# lavapipe is the software one, so a container with no GPU still resolves an adapter instead of failing
-# `request-adapter`.
+# guest first uses the interface rather than links, so libonnxruntime has to be present at run time. `wasi:webgpu`
+# runs through wgpu, which needs a Vulkan loader plus a driver -- mesa's lavapipe is the software one, so a container
+# with no GPU still resolves an adapter instead of failing `request-adapter`.
 # The CUDA execution provider is deliberately not built in: it is opt-in behind the crate's `cuda` feature because
 # the prebuilt only exists for some triples, and enabling it here would bind the image to those.
 #

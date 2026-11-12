@@ -177,6 +177,9 @@ Changelog 1.1.0.
 
 ### Changed
 
+- A board hosts `wasi:clocks/wall-clock`, which every guest built with Rust 1.100 imports for its standard library's
+  locks. A board keeps no calendar, so the time it gives is how long its clock has run. The interface moves from
+  `edge_toolkit::board::COVERAGE_IMPORTS` to `HOSTED_IMPORTS`.
 - **Breaking:** `et-ws-wasi-runner` built with `nn` no longer links ONNX Runtime: it opens the library when a guest
   first uses `wasi:nn`. Set `ORT_DYLIB_PATH` to the library to use, as the runner's image now does, or keep one
   beside the runner. Without either it asks the system for one by name, and on Windows that is the older copy in

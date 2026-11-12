@@ -2,18 +2,21 @@
 //! by hand, since `wasmtime-wasi` needs `std`.
 //!
 //! Every ws-module guest imports the same few functions: its standard streams and environment, `exit`, the terminal
-//! queries, and the monotonic clock and polling it sleeps with. A component imports only the functions it calls, so
-//! these are all a guest needs; one importing any other fails to instantiate, naming it. Its standard streams go to the
-//! board's console, its environment is empty, it has no terminal, and a pollable is ready at once or at a deadline on
-//! the board's clock.
+//! queries, the monotonic clock and polling it sleeps with, and the time of day its locks' timed waits read. A
+//! component imports only the functions it calls, so these are all a guest needs; one importing any other fails
+//! to instantiate, naming it. Its standard streams go to the board's console, its environment is empty, it has no
+//! terminal, a pollable is ready at once or at a deadline on the board's clock, and the time of day is how long that
+//! clock has run.
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::convert::Infallible;
+use core::time::Duration;
 
 pub(super) use edge_toolkit::board::PREVIEW2;
 use wasmtime::StoreContextMut;
-use wasmtime::component::{ComponentType, Lift, Linker, Lower, Resource, ResourceType};
+use wasmtime::component::types::ComponentFunc;
+use wasmtime::component::{ComponentType, Lift, Linker, Lower, Resource, ResourceType, Val};
 
 use super::host::BoardHost;
 use super::platform::{Console, Platform, Transport};
@@ -87,7 +90,7 @@ where
     Ok(())
 }
 
-/// `wasi:io/poll`, and the monotonic clock the guest's pollables come from.
+/// `wasi:io/poll`, the monotonic clock the guest's pollables come from, and the time of day.
 #[expect(clippy::single_call_fn, reason = "the polling part of add_to_linker")]
 fn add_poll<P, T>(linker: &mut Linker<BoardHost<P, T>>) -> wasmtime::Result<()>
 where
@@ -125,13 +128,33 @@ where
         },
     )?;
 
+    let mut monotonic = linker.instance(&format!("wasi:clocks/monotonic-clock@{PREVIEW2}"))?;
+    monotonic.func_wrap("now", |store: Ctx<'_, P, T>, (): ()| {
+        Ok((store.data().platform().now(),))
+    })?;
+    monotonic.func_wrap("subscribe-duration", |mut store: Ctx<'_, P, T>, (duration,): (u64,)| {
+        let host = store.data_mut();
+        let deadline = host.platform().now().saturating_add(duration);
+        Ok((host.table().push(Pollable::Due(deadline))?,))
+    })?;
+
+    // A guest's standard library imports the time of day for the timed waits of its locks, whether or not it ever waits
+    // on one. A board keeps no calendar, so the time it gives is how long its clock has run, as though that clock had
+    // started at the Unix epoch. The `datetime` it answers with is built as a value rather than derived as a type, so
+    // that the guest's own type describes it.
     linker
-        .instance(&format!("wasi:clocks/monotonic-clock@{PREVIEW2}"))?
-        .func_wrap("subscribe-duration", |mut store: Ctx<'_, P, T>, (duration,): (u64,)| {
-            let host = store.data_mut();
-            let deadline = host.platform().now().saturating_add(duration);
-            Ok((host.table().push(Pollable::Due(deadline))?,))
-        })
+        .instance(&format!("wasi:clocks/wall-clock@{PREVIEW2}"))?
+        .func_new(
+            "now",
+            |store: Ctx<'_, P, T>, _: ComponentFunc, _: &[Val], results: &mut [Val]| {
+                let running = Duration::from_nanos(store.data().platform().now());
+                results.fill(Val::Record(Vec::from([
+                    (String::from("seconds"), Val::U64(running.as_secs())),
+                    (String::from("nanoseconds"), Val::U32(running.subsec_nanos())),
+                ])));
+                Ok(())
+            },
+        )
 }
 
 /// `wasi:io/streams` and its errors: the guest's standard streams, written to the board's console.
@@ -213,11 +236,19 @@ where
         .func_wrap("get-environment", |_: Ctx<'_, P, T>, (): ()| {
             Ok((Vec::<(String, String)>::new(),))
         })?;
-    linker.instance(&format!("wasi:cli/exit@{PREVIEW2}"))?.func_wrap(
+    let mut exit = linker.instance(&format!("wasi:cli/exit@{PREVIEW2}"))?;
+    exit.func_wrap(
         "exit",
         |_: Ctx<'_, P, T>, (status,): (Result<(), ()>,)| -> wasmtime::Result<()> {
             let outcome = if status.is_ok() { "success" } else { "failure" };
             Err(wasmtime::Error::msg(format!("the guest exited with {outcome}")))
+        },
+    )?;
+    // A guest's standard library imports this beside `exit` for `std::process::exit` with a status of its own.
+    exit.func_wrap(
+        "exit-with-code",
+        |_: Ctx<'_, P, T>, (code,): (u8,)| -> wasmtime::Result<()> {
+            Err(wasmtime::Error::msg(format!("the guest exited with code {code}")))
         },
     )?;
 
