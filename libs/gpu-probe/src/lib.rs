@@ -1,15 +1,27 @@
 //! Numeric probes that tell one GPU's floating-point behaviour from another's.
 //!
-//! A shading language leaves an implementation room on most floating-point operations: whether a multiply and an
-//! add are fused, the order a sum is taken in, whether a subnormal survives, and how closely each mathematical
-//! function is rounded. Two GPUs can therefore give different bits for the same expression and both be correct.
-//! This crate holds a fixed set of such expressions, the WGSL that evaluates each, and the correctly rounded
-//! answer, and reads what a device returned as a [`Signature`]: which choices it made, how far each result sits
-//! from the correctly rounded one, and which known GPU, if any, answers the same way.
+//! A shading language leaves an implementation room on most floating-point operations: whether a multiply and an add
+//! are fused, the order a sum is taken in, whether a subnormal survives, and how closely each mathematical function is
+//! rounded. Two GPUs can therefore give different bits for the same expression and both be correct. This crate holds
+//! a fixed set of such expressions, the WGSL that evaluates each, and the correctly rounded answer, and reads what a
+//! device returned as a [`Signature`]: which choices it made, how far each result sits from the correctly rounded one,
+//! and which known GPU, if any, answers the same way.
 //!
-//! It drives no GPU itself, so the same probes serve a browser's WebGPU, a native host's, and a caller with none.
-//! Each probe is a shader of its own: a device that refuses one expression still answers the rest, and a
-//! signature with gaps in it identifies a device better than no signature.
+//! It drives no GPU itself, so the same probes serve a browser's WebGPU, a native host's, and a caller with none. Each
+//! probe is a shader of its own: a device that refuses one expression still answers the rest, and a signature with gaps
+//! in it identifies a device better than no signature.
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
+
+#[cfg(feature = "registry")]
+mod registry;
+#[cfg(feature = "registry")]
+mod sighting;
+
+#[cfg(feature = "registry")]
+pub use self::registry::every_sighting;
+#[cfg(feature = "registry")]
+pub use self::sighting::{Backend, Browser, GpuVendor, OperatingSystem, RowError, Sighting, Window};
 
 /// How many expressions the probe set evaluates.
 pub const PROBE_COUNT: usize = 16;
@@ -17,8 +29,8 @@ pub const PROBE_COUNT: usize = 16;
 /// The probes' inputs, handed to each shader in a storage buffer so that no expression is folded at compile time.
 ///
 /// In order: `1 + 2^-12`, whose square falls exactly halfway between two f32 values; the negation of that square
-/// rounded to f32; `2^24`, above which adding 1 is lost; 1; an angle; 3; the smallest normal f32; and one half.
-/// The first two are given as bit patterns, being exact values with more decimal digits than an f32 literal takes.
+/// rounded to f32; `2^24`, above which adding 1 is lost; 1; an angle; 3; the smallest normal f32; and one half. The
+/// first two are given as bit patterns, being exact values with more decimal digits than an f32 literal takes.
 pub const INPUTS: [f32; 8] = [
     f32::from_bits(0x3f80_0800),
     f32::from_bits(0xbf80_1000),
@@ -31,16 +43,30 @@ pub const INPUTS: [f32; 8] = [
 ];
 
 /// The interface a signature was measured through, where the probes ran as WGSL compute shaders on WebGPU.
+///
+/// That is WebGPU whoever implements it: a browser, Deno, or wgpu called with no browser at all. One implementation
+/// answers the same way in each; a native wgpu device gives the signature Firefox gives on the same GPU.
 pub const WEBGPU: &str = "webgpu";
+
+/// [`WEBGPU`] where every probe ran in the one shader [`combined_shader`] gives, not in a shader of its own.
+pub const WEBGPU_COMBINED: &str = "webgpu-combined";
 
 /// The interface a signature was measured through, where the probes ran as GLSL fragment shaders on WebGL 2.
 pub const WEBGL2: &str = "webgl2";
 
+/// The interface a signature was measured through, where the CPU evaluated the probes as `f32` arithmetic.
+///
+/// The mathematical functions are then the answers of the platform's own math library.
+pub const HOST: &str = "host";
+
+/// The interface a signature was measured through, where the probes ran as ONNX operators behind `wasi:nn`.
+pub const WASI_NN: &str = "wasi-nn";
+
 /// Each probe's name, the WGSL expression it evaluates, and the same expression in GLSL ES 3.00, in output order.
 ///
-/// The first five and the last have an exact answer under strict evaluation and a second, equally legal one,
-/// which [`CHOICES`] names. The rest carry an accuracy bound instead of an exact answer. GLSL ES 3.00 has no
-/// `fma`, so that probe is one a WebGL 2 device is expected to refuse.
+/// The first five and the last have an exact answer under strict evaluation and at least one other, equally legal one,
+/// which [`CHOICES`] names. The rest carry an accuracy bound instead of an exact answer. GLSL ES 3.00 has no `fma`, so
+/// that probe is one a WebGL 2 device is expected to refuse.
 const PROBES: [(&str, &str, &str); PROBE_COUNT] = [
     (
         "multiply_add",
@@ -71,6 +97,9 @@ const PROBES: [(&str, &str, &str); PROBE_COUNT] = [
         "dot(vec4(big, one, one, -big), vec4(one, one, one, one))",
     ),
 ];
+
+/// Where in output order the probes of mathematical functions start, which run up to the last probe.
+const FIRST_FUNCTION: usize = 6;
 
 /// The vertex shader every fragment probe is drawn with: one point covering the single pixel that is read back.
 pub const VERTEX_SHADER: &str = "#version 300 es
@@ -117,10 +146,13 @@ const FRAGMENT_TAIL: &str = ");
 }
 ";
 
-/// The part of every compute probe shader that comes before its expression.
-const SHADER_HEAD: &str = "
+/// The part of every compute probe shader that comes before the number of words it writes.
+const SHADER_OPEN: &str = "
 @group(0) @binding(0) var<storage, read>       probeIn  : array<f32, 8>;
-@group(0) @binding(1) var<storage, read_write> probeOut : array<u32, 1>;
+@group(0) @binding(1) var<storage, read_write> probeOut : array<u32, ";
+
+/// The part of every compute probe shader between the number of words it writes and its expressions.
+const SHADER_HEAD: &str = ">;
 
 @compute @workgroup_size(1)
 fn main() {
@@ -138,27 +170,37 @@ fn main() {
         sum = sum + one;
     }
 
-    probeOut[0] = bitcast<u32>(";
-
-/// The part of every compute probe shader that comes after its expression.
-const SHADER_TAIL: &str = ");
-}
 ";
 
-/// For each probe with two legal exact answers: its name, then each answer's bits beside what giving it means.
-const CHOICES: [(&str, [(u32, &str); 2]); 5] = [
-    ("multiply_add", [(0, "rounded_twice"), (0x3380_0000, "fused")]),
-    ("fma", [(0, "rounded_twice"), (0x3380_0000, "fused")]),
-    ("swamped_sum", [(0, "in_order"), (0x4080_0000, "reassociated")]),
-    ("subnormal_product", [(0x0040_0000, "kept"), (0, "flushed")]),
-    ("dot", [(0, "in_order"), (0x4000_0000, "reassociated")]),
+/// For each probe with more than one legal exact answer: its name, then each answer's bits beside what giving it means.
+///
+/// A sum the compiler may regroup has one legal answer per grouping that gives a distinct result. `swamped_sum` is
+/// `2^24` plus four ones: added one at a time each one is lost, the ones summed first survive as 4, and a loop unrolled
+/// to add its last two as a pair keeps only those two. `dot` is `2^24 + 1 + 1 - 2^24`: in order both ones are lost, the
+/// two `2^24` cancelling first keeps both, and summed as a pairwise tree, `(2^24 + 1) + (1 - 2^24)`, keeps one.
+const CHOICES: [(&str, &[(u32, &str)]); 5] = [
+    ("multiply_add", &[(0, "rounded_twice"), (0x3380_0000, "fused")]),
+    ("fma", &[(0, "rounded_twice"), (0x3380_0000, "fused")]),
+    (
+        "swamped_sum",
+        &[(0, "in_order"), (0x4080_0000, "reassociated"), (0x4000_0000, "paired")],
+    ),
+    ("subnormal_product", &[(0x0040_0000, "kept"), (0, "flushed")]),
+    (
+        "dot",
+        &[
+            (0, "in_order"),
+            (0x4000_0000, "reassociated"),
+            (0x3f80_0000, "pairwise"),
+        ],
+    ),
 ];
 
 /// The interface each known GPU was measured through, what it answered in output order, and what that GPU is.
 ///
-/// A label says where the answers were measured, not that no other GPU gives them: chips of one family that
-/// share a driver may well answer alike, and only a measurement on each can tell them apart. The interface is
-/// part of the key because one GPU answers differently through each: the shaders reach it by different compilers.
+/// A label says where the answers were measured, not that no other GPU gives them: chips of one family that share a
+/// driver may well answer alike, and only a measurement on each can tell them apart. The interface is part of the key
+/// because one GPU answers differently through each: the shaders reach it by different compilers.
 ///
 /// Each answer is the hex word a fingerprint shows for it, `????????` where the device refused the probe.
 const KNOWN: [(&str, [&str; PROBE_COUNT], &str); 7] = [
@@ -225,21 +267,43 @@ pub const UNRECOGNISED: &str = "unrecognised";
 
 /// Each probe's name beside the WGSL compute shader that evaluates it, in output order.
 ///
-/// Every shader reads [`INPUTS`] from an 8-element `f32` storage buffer at binding 0 and writes its result's bits
-/// to a 1-element `u32` storage buffer at binding 1, from an entry point named `main`.
+/// Every shader reads [`INPUTS`] from an 8-element `f32` storage buffer at binding 0 and writes its result's bits to a
+/// 1-element `u32` storage buffer at binding 1, from an entry point named `main`.
 #[must_use]
 pub fn shaders() -> Vec<(&'static str, String)> {
     PROBES
         .iter()
-        .map(|probe| (probe.0, [SHADER_HEAD, probe.1, SHADER_TAIL].concat()))
+        .map(|probe| (probe.0, compute_shader(&[probe.1])))
         .collect()
+}
+
+/// The one WGSL compute shader that evaluates every probe, writing each result's bits in output order.
+///
+/// It is bound as each of [`shaders`] is, except that its buffer at binding 1 holds [`PROBE_COUNT`] words. A compiler
+/// may treat an expression differently when it sits beside the others, so a device can answer this shader and the
+/// separate ones differently, and a signature taken with it is filed under [`WEBGPU_COMBINED`]. A device that refuses
+/// one expression refuses the whole of it.
+#[must_use]
+pub fn combined_shader() -> String {
+    let expressions: Vec<&str> = PROBES.iter().map(|probe| probe.1).collect();
+    compute_shader(&expressions)
+}
+
+/// A WGSL compute shader that writes the bits of each of `expressions` to a word of its own, in order.
+fn compute_shader(expressions: &[&str]) -> String {
+    let writes: Vec<String> = expressions
+        .iter()
+        .enumerate()
+        .map(|(word, expression)| format!("    probeOut[{word}] = bitcast<u32>({expression});\n"))
+        .collect();
+    format!("{SHADER_OPEN}{}{SHADER_HEAD}{}}}\n", expressions.len(), writes.concat())
 }
 
 /// Each probe's name beside the GLSL ES 3.00 fragment shader that evaluates it, in output order.
 ///
-/// Every shader reads [`INPUTS`] from the 8-element `float` uniform array `probeIn` and writes its result's four
-/// bytes, lowest first, to the red, green, blue and alpha of its one output, so it is drawn with
-/// [`VERTEX_SHADER`] into an 8-bit RGBA target and the pixel read back.
+/// Every shader reads [`INPUTS`] from the 8-element `float` uniform array `probeIn` and writes its result's four bytes,
+/// lowest first, to the red, green, blue and alpha of its one output, so it is drawn with [`VERTEX_SHADER`] into an 8-
+/// bit RGBA target and the pixel read back.
 #[must_use]
 pub fn fragment_shaders() -> Vec<(&'static str, String)> {
     PROBES
@@ -260,9 +324,9 @@ const fn nearest(value: f64) -> f32 {
 
 /// The bits of each probe's correctly rounded answer, in output order.
 ///
-/// The exact probes are evaluated as written, one f32 operation at a time. The mathematical functions are
-/// evaluated in f64 and rounded once to f32, which is the correctly rounded f32 answer unless the true value
-/// lies within an f64 rounding error of halfway between two f32 values -- and none of these inputs' does.
+/// The exact probes are evaluated as written, one f32 operation at a time. The mathematical functions are evaluated
+/// in f64 and rounded once to f32, which is the correctly rounded f32 answer unless the true value lies within an f64
+/// rounding error of halfway between two f32 values -- and none of these inputs' does.
 #[must_use]
 #[expect(
     clippy::float_arithmetic,
@@ -300,10 +364,37 @@ pub fn reference() -> [u32; PROBE_COUNT] {
     ]
 }
 
+/// The bits of each probe as the CPU this runs on answers it, in output order.
+///
+/// The arithmetic is `f32` operations taken one at a time, so the exact probes give their strict answers, as they do
+/// in [`reference()`]. The mathematical functions are the `f32` ones of the platform's math library, which are not
+/// correctly rounded and differ from one library to the next. The inputs pass through `black_box` so that the functions
+/// are evaluated when this is called, on this machine, and not folded by the compiler on the one that built it.
+#[must_use]
+pub fn host() -> [u32; PROBE_COUNT] {
+    let [_, _, _, _, angle, three, _, _] = core::hint::black_box(INPUTS);
+    let functions = [
+        three.sqrt().recip(),
+        angle.sin(),
+        angle.cos(),
+        angle.tan(),
+        angle.exp(),
+        three.ln(),
+        three.powf(angle),
+        angle.atan2(three),
+        angle.tanh(),
+    ];
+    let mut bits = reference();
+    for (answer, function) in bits.iter_mut().skip(FIRST_FUNCTION).zip(functions) {
+        *answer = function.to_bits();
+    }
+    bits
+}
+
 /// What a device did with one probe.
 ///
-/// A refusal is an outcome to record, not a failure of the probe set: which probes a device will not run is
-/// part of what tells it from another.
+/// A refusal is an outcome to record, not a failure of the probe set: which probes a device will not run is part of
+/// what tells it from another.
 #[non_exhaustive]
 pub enum Answer {
     /// The bits of the result the device computed.
@@ -314,7 +405,7 @@ pub enum Answer {
 
 /// What one device returned for the probe set through one interface.
 pub struct Signature {
-    /// The interface the probes ran through: [`WEBGPU`] or [`WEBGL2`].
+    /// The interface the probes ran through: [`WEBGPU`], [`WEBGPU_COMBINED`], [`WEBGL2`], [`HOST`] or [`WASI_NN`].
     interface: &'static str,
     /// What the device did with each probe, in output order.
     observed: Vec<Answer>,
@@ -377,6 +468,37 @@ impl Signature {
             .map_or(UNRECOGNISED, |known| known.2)
     }
 
+    /// The label of every registry entry holding the answers this device gave, through the same interface.
+    ///
+    /// A label names every device, browser and backend the registry has seen the signature on. No label means the
+    /// registry has not seen it, and more than one that it is filed more than once, as a private window's is beside a
+    /// normal one's.
+    ///
+    /// # Stability
+    ///
+    /// Not a stable part of this crate's API. The registry is data kept for checking and looking into what a device
+    /// answered, and its entries, how they are structured and what a label says all change without that being a
+    /// breaking change. Nothing a user ships should depend on the text returned.
+    #[cfg(feature = "registry")]
+    #[must_use]
+    pub fn identify(&self) -> Vec<&'static str> {
+        registry::labels(self.interface, &self.words())
+    }
+
+    /// Every place the registry has seen the answers this device gave, through the same interface.
+    ///
+    /// Each is one row of an entry [`identify`](Self::identify) would name: the browser, operating system, CPU
+    /// architecture, GPU vendor, graphics API and kind of window the signature was seen with together. Only what a row
+    /// names from fixed sets of values is given; its free text stays in the registry.
+    ///
+    /// # Stability
+    ///
+    /// The rows the registry holds change as signatures are seen in new places, without that being a breaking change.
+    #[cfg(feature = "registry")]
+    pub fn seen(&self) -> Result<Vec<Sighting>, RowError> {
+        registry::seen(self.interface, &self.words())
+    }
+
     /// Which legal answer the device gave to each probe that has two, as `name=choice` joined by spaces.
     ///
     /// A probe the device did not answer reads `failed`, and an answer that is neither of the two reads `other`.
@@ -405,8 +527,8 @@ impl Signature {
 
     /// One line per probe, saying what the device did with it.
     ///
-    /// An answered probe gives its name, the device's bits, the correctly rounded bits, and the distance between
-    /// them in units in the last place. A refused one gives its name and the reason.
+    /// An answered probe gives its name, the device's bits, the correctly rounded bits, and the distance between them
+    /// in units in the last place. A refused one gives its name and the reason.
     #[must_use]
     pub fn describe(&self) -> Vec<String> {
         PROBES

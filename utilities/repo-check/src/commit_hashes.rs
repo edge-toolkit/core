@@ -144,7 +144,7 @@ pub(crate) fn run(files: &[String]) -> Result<usize, Error> {
     }
     let slug = origin_slug().unwrap_or_else(|| "<owner>/<repo>".to_owned());
     for hash in &missing {
-        for site in hashes.get(*hash).map(Vec::as_slice).unwrap_or_default() {
+        for site in hashes.get(*hash).map_or_default(Vec::as_slice) {
             println!("{}:{}: no commit {hash} in this repository", site.path, site.line);
         }
         println!("    write it as https://github.com/{slug}/commit/{hash} if the commit is on a merged branch");

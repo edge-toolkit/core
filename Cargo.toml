@@ -161,6 +161,7 @@ et-ws-wasi-runner = { path = "services/ws-wasi-runner", version = "0.3.0", defau
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.3.0" }
 fake = "5"
 fs-err = "3"
+futures-executor = "0.3"
 futures-util = "0.3"
 heck = "0.5"
 hostname = "0.4"
@@ -245,7 +246,24 @@ opentelemetry-proto = { version = "0.32", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.32"
 # Pinned exactly, because rc.11 and later moved API that wasmtime-wasi-nn calls.
-ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
+# `load-dynamic` has et-ws-wasi-runner open ONNX Runtime by path when a guest first uses `wasi:nn`, rather than link
+# it: the library is the one `ORT_DYLIB_PATH` names, or without that the platform's ONNX Runtime library beside the
+# runner. A linked library is left to the loader's search, which has failed two ways. On Windows the search reaches
+# the older copy kept in System32 before anything on PATH, and a binary with no copy of its own beside it stops on
+#
+#     Failed to initialize ORT API
+#
+# as every test binary did on the Windows lanes of commit
+# https://github.com/edge-toolkit/core/commit/8ff27b3d7b9db534872ed54445b869f7c37f6aa1, at
+# https://github.com/edge-toolkit/core/actions/runs/43183623049/job/131065342952. On macOS and Linux it relies on
+# ort-sys placing the library beside each binary, which it does by counting directories up from its build output,
+# and cargo 1.100 moved both that output and the test binaries, so a test binary stops before any test runs on
+#
+#     dyld[23146]: Library not loaded: @rpath/libonnxruntime.1.22.0.dylib
+#
+# as `nn_probe` did on an Apple M5 Pro at commit
+# https://github.com/edge-toolkit/core/commit/dfb88e272297f430106da078fa03d859d0001c74.
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["load-dynamic"] }
 panic-probe = "1"
 picoserve = { version = "0.20", default-features = false, features = ["ws"] }
 port_check = "0.3"
@@ -304,6 +322,8 @@ subtle = "2.6"
 syn = "3"
 sys_traits = { version = "0.1", features = ["libc", "real"] }
 temp-env = "0.3"
+# Names CPU architectures the way a target triple spells them.
+target-lexicon = "0.13"
 tempfile = "3"
 textwrap = { version = "0.16", default-features = false }
 thiserror = { version = "2", default-features = false }
@@ -359,8 +379,14 @@ wasmtime-wasi-nn = { version = "49", default-features = false, features = ["onnx
 # Writes the components the tests read from WebAssembly text.
 wat = "1"
 web-sys = "0.3"
+# Names the browsers a GPU signature has been seen in; it is never asked to open one.
+webbrowser = "1"
+# The safe API over wgpu-core, for a test that drives a GPU itself. Each user names the backends it wants.
+wgpu = { version = "29", default-features = false }
 # wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.
 wgpu-core = { version = "29", default-features = false }
+# Holds the PCI vendor ID of each GPU vendor wgpu knows, which is all et-gpu-probe takes from it.
+wgpu-hal = { version = "29", default-features = false }
 wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3", features = ["std"] }

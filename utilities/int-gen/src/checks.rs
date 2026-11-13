@@ -465,7 +465,7 @@ fn load_tasks(mise_dir: &Path) -> Result<Vec<Task>, Error> {
 
 /// Build one task from its TOML value: a full table, or the `name = "command"` shorthand.
 fn task(name: &str, env: &str, value: &toml::Value) -> Task {
-    let text = |key: &str| value.get(key).map(strings).unwrap_or_default().join("\n");
+    let text = |key: &str| value.get(key).map_or_default(strings).join("\n");
     let mut body = value.as_str().map_or_else(|| text("run"), str::to_owned);
     let windows = text("run_windows");
     if !windows.is_empty() {
@@ -488,7 +488,7 @@ fn task(name: &str, env: &str, value: &toml::Value) -> Task {
         env: env.to_owned(),
         description: text("description"),
         body,
-        depends: value.get("depends").map(strings).unwrap_or_default(),
+        depends: value.get("depends").map_or_default(strings),
     }
 }
 
@@ -497,16 +497,13 @@ fn strings(value: &toml::Value) -> Vec<String> {
     if let Some(single) = value.as_str() {
         return vec![single.to_owned()];
     }
-    value
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| item.as_str().or_else(|| item.get("task").and_then(toml::Value::as_str)))
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default()
+    value.as_array().map_or_default(|items| {
+        items
+            .iter()
+            .filter_map(|item| item.as_str().or_else(|| item.get("task").and_then(toml::Value::as_str)))
+            .map(str::to_owned)
+            .collect()
+    })
 }
 
 /// Map each check to the repair passes the `fix` and `fmt` aggregates run for it.
@@ -698,7 +695,7 @@ fn command_tool(words: &[String], assignment: &Regex, command: &Regex) -> Result
             continue;
         }
         if assignment.is_match(word) {
-            let value = word.split_once('=').map(|(_, value)| value).unwrap_or_default();
+            let value = word.split_once('=').map_or_default(|(_, value)| value);
             let inner = value.strip_prefix("$(").and_then(|inner| inner.strip_suffix(')'));
             if let Some(Found::Tool(tool)) = inner.map(substitution_tool).transpose()? {
                 return Ok(Found::Tool(tool));

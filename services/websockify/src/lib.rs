@@ -282,10 +282,9 @@ async fn accept_client(
 #[expect(
     clippy::cognitive_complexity,
     clippy::future_not_send,
-    clippy::integer_division_remainder_used,
     clippy::single_call_fn,
     clippy::too_many_lines,
-    reason = "Rc-backed !Send actix-ws types; select! uses % internally; one call site; one select! loop is the bridge"
+    reason = "Rc-backed !Send actix-ws types; one call site; one select! loop is the bridge"
 )]
 async fn bridge(mut session: Session, mut stream: AggregatedMessageStream, tcp: TcpStream, head: Vec<u8>) {
     let (mut tcp_read, mut tcp_write) = tcp.into_split();

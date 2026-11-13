@@ -174,7 +174,7 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
     let pyproject_path = module_dir.join("pyproject.toml");
     let pyproject: Pyproject = read_toml(&pyproject_path)?;
     let project = &pyproject.project;
-    let ws_module = pyproject.tool.map(|tool| tool.ws_module).unwrap_or_default();
+    let ws_module = pyproject.tool.map_or_default(|tool| tool.ws_module);
 
     let pkg_dir = module_dir.join("pkg");
     let kind = detect_python_kind(module_dir);

@@ -496,8 +496,7 @@ impl Connection {
     #[expect(
         clippy::cognitive_complexity,
         clippy::future_not_send,
-        clippy::integer_division_remainder_used,
-        reason = "actix-ws AggregatedMessageStream is Rc-backed and !Send; tokio::select! macro uses % internally"
+        reason = "actix-ws AggregatedMessageStream is Rc-backed and !Send"
     )]
     pub(crate) async fn run(
         mut self,

@@ -7,11 +7,10 @@
 # makes by setting RUNNER_MODULE.
 #
 # Unlike the other two runners this one cannot be a single static binary, because two of the WASI interfaces it
-# offers guests are backed by native libraries. `wasi:nn` runs through ONNX Runtime, which ort links dynamically
-# (the workspace enables its `copy-dylibs` feature rather than `download-binaries`), so libonnxruntime has to be
-# present at run time. `wasi:webgpu` runs through wgpu, which needs a Vulkan loader plus a driver -- mesa's
-# lavapipe is the software one, so a container with no GPU still resolves an adapter instead of failing
-# `request-adapter`.
+# offers guests are backed by native libraries. `wasi:nn` runs through ONNX Runtime, which the runner opens when a
+# guest first uses the interface rather than links, so libonnxruntime has to be present at run time. `wasi:webgpu`
+# runs through wgpu, which needs a Vulkan loader plus a driver -- mesa's lavapipe is the software one, so a container
+# with no GPU still resolves an adapter instead of failing `request-adapter`.
 # The CUDA execution provider is deliberately not built in: it is opt-in behind the crate's `cuda` feature because
 # the prebuilt only exists for some triples, and enabling it here would bind the image to those.
 #
@@ -102,16 +101,9 @@ EOF
 
 WORKDIR /app
 
-# ONNX Runtime goes on the loader's search path rather than beside the binary.
-# ort's `copy-dylibs` also drops a copy next to the executable in the target directory, which resolves through an
-# $ORIGIN rpath -- but that only holds while the binary keeps its build-time neighbours, and this stage moves it to
-# /usr/local/bin alone. A SONAME lookup through ldconfig does not care where either file ended up.
+# ONNX Runtime is opened by the path named here, so the loader's search plays no part in finding it.
 COPY --from=builder /opt/onnxruntime/lib /usr/local/lib/onnxruntime
-RUN bash <<'EOF'
-set -euo pipefail
-echo /usr/local/lib/onnxruntime > /etc/ld.so.conf.d/onnxruntime.conf
-ldconfig
-EOF
+ENV ORT_DYLIB_PATH=/usr/local/lib/onnxruntime/libonnxruntime.so
 
 COPY --from=builder /workspace/target/release/et-ws-wasi-runner /usr/local/bin/et-ws-wasi-runner
 

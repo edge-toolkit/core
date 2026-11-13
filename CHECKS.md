@@ -1,9 +1,9 @@
 # Checks
 
-- **Generated:** 2026-11-10
-- **Checks:** 84
+- **Generated:** 2026-11-12
+- **Checks:** 85
 - **Tools:** 49
-- **Shell-script checks:** 10
+- **Shell-script checks:** 11
 - **Checks with a repair pass:** 22
 - **Rules:** 381 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
@@ -1307,6 +1307,8 @@ Rules, from `config/taplo`:
 - `dockerignore-check` (`default` env; run by `check:rust`) -- Fail if .dockerignore is stale vs .gitignore (run `mise
   run gen:dockerignore`).
 - `gen-specs-check` (`default` env; run by `check:rust`) -- Fail if any checked-in et-int-gen artifact is stale.
+- `gpu-probe-signatures-check` (`default` env; run by `check:rust`) -- Fail if libs/gpu-probe/signatures.json is stale
+  (run `mise run gen:gpu-probe-signatures`).
 - `mise-lock-check` (`default` env; run by `check:rust`) -- Fail if .mise/mise*.lock or .mise/locks/ differ from what a
   full install resolves.
 - `readme-mise-version-check` (`default` env; run by `check:rust`) -- Fail if README.md's mise version differs from

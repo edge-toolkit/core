@@ -7,8 +7,35 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
+
+[features]
+## Embeds the registry of every signature the probes have been seen to give.
+## `Signature::identify` then names the hardware a signature was seen on, and `Signature::seen` lists each place.
+registry = ["dep:serde_json", "dep:target-lexicon", "dep:thiserror", "dep:webbrowser", "dep:wgpu-hal"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
+[dependencies]
+document-features = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["std"], optional = true }
+# The three below each name a kind of thing a registry row records: a CPU architecture, a browser, a GPU vendor.
+target-lexicon = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+webbrowser = { workspace = true, optional = true }
+wgpu-hal = { workspace = true, optional = true }
+
+# What the native test puts the probes to this machine's GPU with, on the backends `et-ws-wasi-runner` hosts.
+# The crate's dependency on itself turns the registry on for every test.
+[dev-dependencies]
+et-gpu-probe = { workspace = true, features = ["registry"] }
+futures-executor.workspace = true
+serde_json = { workspace = true, features = ["std"] }
+wgpu = { workspace = true, features = ["dx12", "metal", "std", "vulkan", "wgsl"] }
 
 [lints]
 workspace = true

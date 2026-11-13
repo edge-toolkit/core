@@ -27,6 +27,12 @@ web-runner = { max-threads = 1 }
 filter = 'package(et-ws-web-runner) or binary(scenario_runners)'
 test-group = 'web-runner'
 
+# Keep the output of the probe tests that run on the machine's own hardware when they pass.
+# Each prints the signature the machine gave, which is how a machine's signature comes to be recorded.
+[[profile.default.overrides]]
+filter = 'binary_id(et-gpu-probe::native) or binary_id(et-ws-wasi-runner::nn_probe)'
+success-output = 'final'
+
 # The integration test binaries outside the web-runner group, which already holds only integration tests.
 # A binary belongs here when it spawns a child process, listens on a real socket, or drives a runner end to end.
 # Serving an app through actix's in-process `test::init_service` does neither, so those stay unit tests. A whole

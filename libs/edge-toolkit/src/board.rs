@@ -10,7 +10,7 @@ pub const PREVIEW2: &str = "0.2.12";
 ///
 /// The `runner` world's own imports, and the WASI Preview 2 a ws-module guest built for `wasm32-wasip2` imports, the
 /// latter at [`PREVIEW2`].
-pub const HOSTED_IMPORTS: [&str; 18] = [
+pub const HOSTED_IMPORTS: [&str; 19] = [
     "et:ws-messages/messages@0.2.0",
     "et:ws-wasi/ws@0.2.0",
     "wasi:cli/environment@0.2.12",
@@ -24,6 +24,7 @@ pub const HOSTED_IMPORTS: [&str; 18] = [
     "wasi:cli/terminal-stdin@0.2.12",
     "wasi:cli/terminal-stdout@0.2.12",
     "wasi:clocks/monotonic-clock@0.2.12",
+    "wasi:clocks/wall-clock@0.2.12",
     "wasi:io/error@0.2.12",
     "wasi:io/poll@0.2.12",
     "wasi:io/streams@0.2.12",
@@ -34,13 +35,8 @@ pub const HOSTED_IMPORTS: [&str; 18] = [
 /// What a guest instrumented for coverage imports beyond [`HOSTED_IMPORTS`], to write its profile into `/cov`.
 ///
 /// A board's runner links these only when built for coverage, which the repo's coverage workflow does to run the
-/// instrumented guests; a board's firmware never is. `wall-clock` is imported for the timestamp type alone, which a
-/// linker needs no definition of.
-pub const COVERAGE_IMPORTS: [&str; 3] = [
-    "wasi:clocks/wall-clock@0.2.12",
-    "wasi:filesystem/preopens@0.2.12",
-    "wasi:filesystem/types@0.2.12",
-];
+/// instrumented guests; a board's firmware never is.
+pub const COVERAGE_IMPORTS: [&str; 2] = ["wasi:filesystem/preopens@0.2.12", "wasi:filesystem/types@0.2.12"];
 
 /// Every interface this build's board runner links: [`HOSTED_IMPORTS`].
 #[cfg(not(feature = "coverage"))]

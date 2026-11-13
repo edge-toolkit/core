@@ -70,11 +70,7 @@ fn warn_if_broker_payload_too_small(max_payload: usize, max_frame_size: usize) {
 }
 
 /// Hand each frame `inbox` yields to the local agents it is for, until `stopped` fires or the inbox ends.
-#[expect(
-    clippy::integer_division_remainder_used,
-    clippy::single_call_fn,
-    reason = "the delivery task start_backplane spawns; tokio::select! uses % internally"
-)]
+#[expect(clippy::single_call_fn, reason = "the delivery task start_backplane spawns")]
 async fn deliver_until_stopped(
     mut inbox: Pin<Box<impl Stream<Item = Inbound>>>,
     mut stopped: oneshot::Receiver<()>,

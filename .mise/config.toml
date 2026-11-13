@@ -877,6 +877,8 @@ CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 # belt-and-braces (the download code path is gone).
 ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{ vars.ort_loc_unix }}{% endif %}"
 ORT_SKIP_DOWNLOAD = "1"
+# The ONNX Runtime library et-ws-wasi-runner opens when a guest first uses `wasi:nn`, out of that same install.
+ORT_DYLIB_PATH = "{{ vars.ort_loc_unix }}/lib/libonnxruntime.{% if os() == 'macos' %}dylib{% else %}so{% endif %}"
 
 [tasks]
 ec = "editorconfig-checker"
@@ -944,6 +946,7 @@ depends = [
   "gen-help-check",
   "gen-specs-check",
   "gitleaks-check",
+  "gpu-probe-signatures-check",
   "hadolint-check",
   "j2lint-check",
   "jscpd-check",
@@ -2680,6 +2683,27 @@ shell = "{{ vars.task_shell }}"
 depends = ["gen:dockerignore"]
 description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:dockerignore`)"
 run = "git diff --exit-code -- .dockerignore"
+
+[tasks."gen:gpu-probe-signatures"]
+description = "Regenerate libs/gpu-probe/signatures.json from the signatures.yaml beside it"
+# The signature registry is kept as YAML, which takes comments and reads well in a diff, and embedded as JSON.
+# `et-gpu-probe` embeds it when the crate is compiled, which a consumer of the published crate does with none of
+# this repository's tools, so the JSON is committed beside its source rather than made by a build script. It is
+# staged under target/ and renamed into place for the reason the .dockerignore above is: a build running beside
+# this never reads half a file. The files are not named `registry`, which .gitignore keeps for the one a hub saves.
+run = '''
+coreutils mkdir -p target
+staged="target/gpu-probe-signatures.$$"
+trap 'coreutils rm -f "$staged"' EXIT
+yq -o json libs/gpu-probe/signatures.yaml | coreutils tr -d '\r' >"$staged"
+coreutils mv -f "$staged" libs/gpu-probe/signatures.json
+'''
+shell = "{{ vars.task_shell }}"
+
+[tasks.gpu-probe-signatures-check]
+depends = ["gen:gpu-probe-signatures"]
+description = "Fail if libs/gpu-probe/signatures.json is stale (run `mise run gen:gpu-probe-signatures`)"
+run = "git diff --exit-code -- libs/gpu-probe/signatures.json"
 
 # Fail when HEAD does not already contain origin/main, because a stale branch makes every other check untrustworthy.
 # A branch behind main runs its lints against code the rest of the repo has already moved past, so failures land in

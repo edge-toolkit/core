@@ -63,7 +63,13 @@ rusty_v8_src = ":http:denoland/rusty_v8/releases/download/v150.4.0"
 # The v8 build script decompresses the archive to `rusty_v8.lib` under its deterministic gn_out dir, but
 # rustc on windows-gnu only accepts the `librusty_v8.a` spelling -- prefetch:mingw stages that copy.
 # Debug-profile path; a release build needs the same staging under target/x86_64-pc-windows-gnu/release.
-rusty_v8_gn_obj = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-gnu/debug/gn_out/obj"
+# gn_out sits three levels above the build script's OUT_DIR, which cargo lays out as `build/v8/<hash>/out`, so
+# it lands inside `build/`. Staged anywhere else, the gnu build stops on
+#     error: could not find native static library `rusty_v8`, perhaps an -L flag is missing?
+# as `override (mingw)` did with cargo 1.100 at commit
+# https://github.com/edge-toolkit/core/commit/4dc5d21fb14bf5f8498f6556fd94211acb431f56, at
+# https://github.com/edge-toolkit/core/actions/runs/43299211943/job/131465770156.
+rusty_v8_gn_obj = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-gnu/debug/build/gn_out/obj"
 # winlibs GCC's bin dir, as an absolute path for the same reason config.windows.toml's win_llvm_bin is one.
 # mise flattens `_` to `-` in the install dir (winlibs-mingw, not winlibs_mingw). The version segment must
 # match the [tools] pin above (conftest's version_drift enforces).

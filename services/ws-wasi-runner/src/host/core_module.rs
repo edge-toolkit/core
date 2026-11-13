@@ -67,10 +67,6 @@ impl CoreHost for HostState {
 /// # Errors
 ///
 /// When the thread cannot be started, the module fails as [`core_module::run`] describes, or the thread dies first.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select! expands to remainder operations"
-)]
 pub async fn run_core_module<H>(wasm: Vec<u8>, host: H) -> Result<(), RunnerError>
 where
     H: CoreHost + Send + 'static,

@@ -968,16 +968,13 @@ fn module_entry(module_path: &Path, ws_server_dir: &Path, docker_path: &str) -> 
         // the same module. A source manifest declares a dependency the way it declares its own crate -- unscoped -- and
         // publishing scopes both; reading one side raw would leave a dependency naming something the registry has no
         // key for.
-        dependencies: package
-            .as_ref()
-            .map(|package| {
-                package
-                    .dependencies
-                    .keys()
-                    .map(|name| module_package_json::scoped_npm_dependency_name(name))
-                    .collect()
-            })
-            .unwrap_or_default(),
+        dependencies: package.as_ref().map_or_default(|package| {
+            package
+                .dependencies
+                .keys()
+                .map(|name| module_package_json::scoped_npm_dependency_name(name))
+                .collect()
+        }),
         source: ModuleSource::Repo(repo_path),
         package_name: served_name,
     }

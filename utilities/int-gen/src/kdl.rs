@@ -219,8 +219,7 @@ fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str
     let required: std::collections::HashSet<&str> = schema
         .get("required")
         .and_then(|val| val.as_array())
-        .map(|arr| arr.iter().filter_map(|val| val.as_str()).collect())
-        .unwrap_or_default();
+        .map_or_default(|arr| arr.iter().filter_map(|val| val.as_str()).collect());
 
     let mut node = KdlNode::new("class");
     node.push(quoted_string_entry(name));
