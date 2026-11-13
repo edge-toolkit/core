@@ -1,0 +1,44 @@
+[package]
+name = "et-https-listener"
+publish = true
+description = "TLS pairs and advertised LAN addresses for the HTTPS listeners edge-toolkit servers open"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+doctest = false
+
+[[test]]
+name = "tls"
+required-features = ["tls-self-signed"]
+
+[features]
+## Loads a PEM certificate and key, and builds the rustls server config that serves them.
+tls = ["dep:rustls"]
+## Generates a self-signed pair, for the loopback names and any others given, when none is on disk yet.
+tls-self-signed = ["dep:fs-err", "dep:rcgen", "dep:rustls-webpki", "tls"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
+[dependencies]
+document-features = { workspace = true, optional = true }
+fs-err = { workspace = true, optional = true }
+local-ip-address.workspace = true
+rcgen = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rustls-webpki = { workspace = true, optional = true }
+thiserror = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+fs-err.workspace = true
+rustls.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

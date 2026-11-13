@@ -210,6 +210,13 @@ jobs:
         timeout-minutes: 10
         run: mise run wasm-cov-branch-check
 
+      # The GPU probe page's WASM only runs in a browser, so its tests run in the same headless Chrome as above.
+      # Their lcov is folded into lcov.info. The page holds no libs/ crate, so the branch check above does not read it.
+      - name: Merge GPU probe page coverage into lcov.info
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
+        timeout-minutes: 20
+        run: mise run gpu-probe-web-cov
+
       # Python coverage does not depend on the Rust result, so a failing Rust test must not skip it.
       - name: Collect Python coverage
         if: ${{ !cancelled() }}

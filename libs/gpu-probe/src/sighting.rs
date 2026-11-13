@@ -2,6 +2,7 @@
 
 use core::str::FromStr;
 
+use platforms::OS;
 use serde_json::Value;
 use target_lexicon::Architecture;
 use wgpu_hal::auxil::db;
@@ -16,14 +17,6 @@ const BROWSERS: [(&str, Browser); 8] = [
     ("samsung-internet", Browser::SamsungInternet),
     ("tor-browser", Browser::Tor),
     ("none", Browser::Absent),
-];
-
-/// The operating systems a row can name, each beside the name a row gives it.
-const SYSTEMS: [(&str, OperatingSystem); 4] = [
-    ("android", OperatingSystem::Android),
-    ("linux", OperatingSystem::Linux),
-    ("macos", OperatingSystem::MacOs),
-    ("windows", OperatingSystem::Windows),
 ];
 
 /// The GPU vendors a row can name, each beside the name a row gives it.
@@ -74,14 +67,15 @@ const BACKENDS: [(&str, Backend); 8] = [
 ];
 
 /// The windows a row can name, each beside the name a row gives it.
-const WINDOWS: [(&str, Window); 3] = [
+const WINDOWS: [(&str, Window); 4] = [
     ("normal", Window::Normal),
     ("private", Window::Private),
+    ("both", Window::Both),
     ("none", Window::Absent),
 ];
 
 /// Every field a row may carry: the six it must, then its free text.
-const FIELDS: [&str; 16] = [
+const FIELDS: [&str; 18] = [
     "browser",
     "os",
     "cpu_arch",
@@ -92,6 +86,8 @@ const FIELDS: [&str; 16] = [
     "os_version",
     "cpu_version",
     "gpu_version",
+    "driver_version",
+    "api_version",
     "device",
     "runtime",
     "defence",
@@ -151,28 +147,6 @@ impl FromStr for Browser {
     }
 }
 
-/// The operating system a signature was seen on.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum OperatingSystem {
-    /// Android.
-    Android,
-    /// Linux.
-    Linux,
-    /// macOS.
-    MacOs,
-    /// Windows.
-    Windows,
-}
-
-impl FromStr for OperatingSystem {
-    type Err = RowError;
-
-    fn from_str(name: &str) -> Result<Self, RowError> {
-        named(&SYSTEMS, "os", name)
-    }
-}
-
 /// Who makes the GPU a signature was seen on, as wgpu names GPU vendors, with those it has no name for.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -215,6 +189,32 @@ impl GpuVendor {
             .iter()
             .find(|vendor| vendor.0 == id)
             .map_or(Self::Unknown, |vendor| vendor.1)
+    }
+
+    /// The vendor whose name the GPU's own name opens with, or [`Self::Unknown`], for a backend that gives no ID.
+    ///
+    /// Metal names its GPUs this way -- "Apple M5 Pro", "AMD Radeon Pro 5500M", "Intel(R) UHD Graphics 630" -- so the
+    /// name says whose GPU it is where the ID cannot, an Apple GPU and one in an Intel Mac alike.
+    #[must_use]
+    pub fn from_device_name(device: &str) -> Self {
+        let first = device
+            .chars()
+            .take_while(char::is_ascii_alphabetic)
+            .collect::<String>()
+            .to_ascii_lowercase();
+        GPU_VENDORS
+            .iter()
+            .find(|vendor| vendor.0 == first)
+            .map_or(Self::Unknown, |vendor| vendor.1)
+    }
+
+    /// The name a registry row gives the vendor, which reads back as it.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        GPU_VENDORS
+            .iter()
+            .find(|vendor| vendor.1 == self)
+            .map_or("unknown", |vendor| vendor.0)
     }
 }
 
@@ -264,6 +264,8 @@ pub enum Window {
     Normal,
     /// A private, or incognito, window.
     Private,
+    /// An ordinary window and a private one alike, each of which gave the same signature.
+    Both,
     /// No browser was involved, so no window was.
     Absent,
 }
@@ -290,8 +292,8 @@ pub struct Sighting {
     pub cpu_arch: Architecture,
     /// Who makes the GPU.
     pub gpu: GpuVendor,
-    /// The operating system.
-    pub system: OperatingSystem,
+    /// The operating system, as `std::env::consts::OS` names it.
+    pub system: OS,
     /// The kind of browser window.
     pub window: Window,
 }
@@ -315,6 +317,7 @@ impl Sighting {
             });
         }
         let cpu_arch = required(row, "cpu_arch")?;
+        let system = required(row, "os")?;
         Ok(Self {
             backend: required(row, "backend")?.parse()?,
             browser: required(row, "browser")?.parse()?,
@@ -323,7 +326,10 @@ impl Sighting {
                 value: cpu_arch.to_owned(),
             })?,
             gpu: required(row, "gpu")?.parse()?,
-            system: required(row, "os")?.parse()?,
+            system: system.parse().ok().ok_or_else(|| RowError::Unknown {
+                field: "os",
+                value: system.to_owned(),
+            })?,
             window: required(row, "window")?.parse()?,
         })
     }
@@ -346,7 +352,7 @@ impl Sighting {
     pub fn is_here(&self) -> bool {
         std::env::consts::OS
             .parse()
-            .is_ok_and(|system: OperatingSystem| system == self.system)
+            .is_ok_and(|system: OS| system == self.system)
             && self.cpu_arch.to_string() == std::env::consts::ARCH
     }
 }

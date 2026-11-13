@@ -65,7 +65,8 @@ docs = ["dep:document-features"]
 actix-files = { workspace = true, optional = true }
 actix-web = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+# Its module-folder configuration needs an operating system, so `std` turns it on; a board build has no use for it.
+edge-toolkit = { workspace = true, optional = true }
 fs-err = { workspace = true, optional = true }
 picoserve = { workspace = true, features = ["json"], optional = true }
 schemars = { workspace = true, optional = true }

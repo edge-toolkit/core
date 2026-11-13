@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-11-12
-- **Checks:** 85
+- **Generated:** 2026-11-13
+- **Checks:** 86
 - **Tools:** 49
 - **Shell-script checks:** 11
 - **Checks with a repair pass:** 22
-- **Rules:** 381 custom local rules, or non-default strict linter settings
+- **Rules:** 388 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -377,6 +377,7 @@ Rules, from `config/ast-grep/rules`:
 
 Rules, from `Cargo.toml`:
 
+- `cargo::unused_dependencies` -- deny
 - [`clippy::absolute_paths`][absolute_paths] -- allow, priority 4
 - `clippy::all` -- deny, priority -1
 - [`clippy::allow_attributes`][allow_attributes] -- deny, priority 4
@@ -544,7 +545,7 @@ Rules, from `Cargo.toml`:
 ## `cargo metadata`
 
 - `cargo-clippy-wasm-check` (`default` env; run by `check:rust`) -- cargo clippy the browser and WASI crates on their
-  wasm targets.
+  wasm targets. Config: `.mise/cargo-clippy-wasm-check.jq`.
 
 ## `cargo shear`
 
@@ -574,6 +575,8 @@ Rules, from `Cargo.toml`:
   (run `mise run gen:checks`) (conftest). Config: `config/conftest/policy`.
 - `conftest-check-ast-grep-rules` (`default` env; run by `conftest-check`) -- Check every ast-grep rule declares
   severity error (conftest). Config: `config/ast-grep/rules`, `config/conftest/policy`.
+- `conftest-check-bench-results` (`default` env; run by `conftest-check`) -- Check each benchmark results file is named
+  for the machine and OS it records (conftest). Config: `config/conftest/policy`.
 - `conftest-check-branch-size` (`default` env; run by `conftest-check`) -- Fail when the branch modifies more files than
   CodeRabbit reviews in one pull request (conftest). Config: `config/conftest/policy`.
 - `conftest-check-checks-badge` (`default` env; run by `conftest-check`) -- Check the README checks badge keeps step
@@ -610,6 +613,13 @@ Rules, from `config/conftest/policy`:
   - Every advisory ignore expires on one date, the next milestone review, which the operator sets.
 - `ast_grep_rules` (meta) (`config/conftest/policy/ast_grep_rules/ast_grep_rules.rego`):
   - A rule whose severity is anything but `error`, or is missing, is not a gate.
+- `bench_results` (`config/conftest/policy/bench_results/bench_results.rego`):
+  - A results file sits in a crate's benches/results directory.
+  - A results file is named for the machine and OS it records.
+  - A machine id is lowercase words joined by hyphens.
+  - A results file records the OS it ran, as one a host build runs on.
+  - A results file's benchmarks are a mapping, each benchmark's name to its measures.
+  - A results file records at least one benchmark.
 - `branch_size` (`config/conftest/policy/branch_size/branch_size.rego`):
   - A branch may modify at most `max_files` files, or CodeRabbit skips its pull request's review.
 - `cargo` (`config/conftest/policy/cargo/cargo.rego`):
@@ -1310,7 +1320,7 @@ Rules, from `config/taplo`:
 - `gpu-probe-signatures-check` (`default` env; run by `check:rust`) -- Fail if libs/gpu-probe/signatures.json is stale
   (run `mise run gen:gpu-probe-signatures`).
 - `mise-lock-check` (`default` env; run by `check:rust`) -- Fail if .mise/mise*.lock or .mise/locks/ differ from what a
-  full install resolves.
+  full install resolves. Config: `.mise/mise-lock-check.awk`.
 - `readme-mise-version-check` (`default` env; run by `check:rust`) -- Fail if README.md's mise version differs from
   min_version in .mise/config.toml.
 - `verification-check` (`default` env; run by `check:rust`) -- Fail if generated scenario output files are stale.

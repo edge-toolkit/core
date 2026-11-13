@@ -3,8 +3,8 @@
 #![cfg(test)]
 
 use et_gpu_probe::{
-    Answer, Backend, Browser, GpuVendor, HOST, OperatingSystem, RowError, Sighting, Signature, WEBGPU, Window,
-    every_sighting, reference,
+    Answer, Backend, Browser, GpuVendor, HOST, OS, RowError, Sighting, Signature, WEBGPU, Window, every_sighting,
+    reference,
 };
 use serde_json::{Value, json};
 
@@ -41,11 +41,19 @@ fn refusal(row: &Value) -> String {
 fn a_row_reads_as_what_it_names() {
     let sighting = Sighting::read(&row()).unwrap();
     assert_eq!(sighting.browser, Browser::Brave);
-    assert_eq!(sighting.system, OperatingSystem::Android);
+    assert_eq!(sighting.system, OS::Android);
     assert_eq!(sighting.cpu_arch.to_string(), "aarch64");
     assert_eq!(sighting.gpu, GpuVendor::Arm);
     assert_eq!(sighting.backend, Backend::Vulkan);
     assert_eq!(sighting.window, Window::Private);
+}
+
+#[test]
+fn a_row_seen_in_both_kinds_of_window_reads_as_both() {
+    assert_eq!(
+        Sighting::read(&row_with("window", "both")).unwrap().window,
+        Window::Both
+    );
 }
 
 #[test]
@@ -62,6 +70,43 @@ fn a_gpu_vendor_is_known_by_the_id_its_adapters_report() {
     assert_eq!(GpuVendor::from_id(0x1414), GpuVendor::Microsoft);
     // Metal reports no vendor ID at all.
     assert_eq!(GpuVendor::from_id(0), GpuVendor::Unknown);
+}
+
+#[test]
+fn a_gpu_vendor_is_known_by_the_name_metal_gives_its_gpu() {
+    assert_eq!(GpuVendor::from_device_name("Apple M5 Pro"), GpuVendor::Apple);
+    assert_eq!(GpuVendor::from_device_name("AMD Radeon Pro 5500M"), GpuVendor::Amd);
+    assert_eq!(
+        GpuVendor::from_device_name("Intel(R) UHD Graphics 630"),
+        GpuVendor::Intel
+    );
+    assert_eq!(GpuVendor::from_device_name("Radeon"), GpuVendor::Unknown);
+    assert_eq!(GpuVendor::from_device_name(""), GpuVendor::Unknown);
+}
+
+#[test]
+fn every_gpu_vendor_has_a_name_that_reads_back_as_it() {
+    for name in [
+        "amd",
+        "apple",
+        "intel",
+        "mesa",
+        "microsoft",
+        "nvidia",
+        "unknown",
+        "none",
+    ] {
+        let vendor: GpuVendor = name.parse().unwrap();
+        assert_eq!(vendor.name(), name);
+    }
+}
+
+#[test]
+fn a_signature_gives_its_results_by_probe_name() {
+    let signature = Signature::new(HOST, reference().into_iter().map(Answer::Bits).collect());
+    let results = signature.results();
+    assert_eq!(results.len(), et_gpu_probe::PROBE_COUNT);
+    assert_eq!(results.first().unwrap(), &("multiply_add", "00000000".to_owned()));
 }
 
 #[test]

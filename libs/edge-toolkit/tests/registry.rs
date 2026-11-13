@@ -1,8 +1,9 @@
 //! Covers the in-memory `AgentRegistry` paths the ws-server integration tests skip: reconnect, disconnect,
 //! `agent_session`, the blocklist, message queueing and acknowledgement under each retention, and the
-//! `with_pending_direct_messages` builder. None of it needs `std`. `S = String` stands in for the runtime session
-//! handle.
+//! `with_pending_direct_messages` builder. None of it needs `std`; it runs wherever the registry exists, with `std` or
+//! on a board. `S = String` stands in for the runtime session handle.
 #![cfg(test)]
+#![cfg(any(feature = "board", feature = "std"))]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::{IpAddr, Ipv4Addr};

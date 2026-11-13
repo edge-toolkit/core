@@ -17,6 +17,9 @@ strict = true
 "../.github/workflows/*.yaml" = ["empty-values"]
 # The generated Kubernetes manifests carry the hub's module list as one env scalar, which has no way to wrap.
 "../verification/**/k3s.yaml" = ["line-length"]
+# Benchmark results, every machine's and OS's, record each time as measured, in nanoseconds.
+# yq writes the millisecond ones as floats in scientific notation, and rounding them to dodge that would discard data.
+"../libs/*/benches/results/*.yaml" = ["float-values"]
 
 [lint.rules]
 brackets = "enable"

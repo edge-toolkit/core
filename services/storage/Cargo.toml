@@ -64,7 +64,7 @@ std = [
   "edge-toolkit/std",
 ]
 ## Serves agent storage through picoserve, kept wherever the embedder keeps it, on a board with no filesystem.
-board = ["dep:picoserve"]
+board = ["dep:picoserve", "edge-toolkit/board"]
 ## Adds OpenAPI metadata to the `/storage` handlers for `et-int-gen` to harvest into the published spec.
 openapi-spec = ["dep:utoipa", "std"]
 ## Renders each stored image as a thumbnail on the server's terminal, e.g. what pic-viewer uploads.
@@ -79,7 +79,8 @@ docs = ["dep:document-features"]
 actix-web = { workspace = true, optional = true }
 actix-web-thiserror = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+# The agent registry the routes check callers against: `std` and `board` each turn it on, with the lock that build has.
+edge-toolkit = { workspace = true, optional = true }
 et-hub-backplane = { workspace = true, optional = true }
 fs-err = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }

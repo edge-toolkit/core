@@ -59,6 +59,7 @@ pub struct BinaryCrate {
 pub fn clap_commands() -> BTreeMap<&'static str, clap::Command> {
     BTreeMap::from([
         ("et-cli", et_cli::cli::Cli::command()),
+        ("et-gpu-probe-server", et_gpu_probe_server::Args::command()),
         ("et-int-gen", crate::cli::Cli::command()),
         ("et-onnx", et_onnx::Args::command()),
     ])

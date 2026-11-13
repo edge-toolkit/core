@@ -204,6 +204,16 @@ and on every `main` commit alike -- it carries no information about the change u
 green. Read `gh pr checks` as clean once everything except that check is passing. Every other `DeepSource: *` check
 (Rust, Python, Secrets, ...) is a real signal and must stay green.
 
+**A failing `DeepSource: *` check is read on its run page, which an agent can open.** The findings are not on
+GitHub: the check carries no annotations, and the review comment posts inline only what lands inside the diff,
+saying the rest is on the dashboard. Each analyzer's run page is the status's `target_url`, from
+`gh api repos/{owner}/{repo}/commits/<sha>/status --jq '.statuses[] | select(.context | startswith("DeepSource"))'`.
+The page renders client-side, so `curl` and WebFetch get an empty shell; open it in a browser the agent drives and
+read its text. In the Claude desktop app that is the built-in browser pane: a `navigate` from a tab already open on
+another site may be refused, so open the URL as a tab of its own with `preview_start` and a `url`, which asks the
+operator to allow the site once, then read it with `get_page_text`. No DeepSource sign-in is needed for this
+public repository. The page lists each issue with its code (`DeepSource RS-E1015`, ...), severity, and the lines.
+
 When an agent is watching a PR (e.g. via `/loop`), the next-poll delay follows three tiers -- tight at first (catch
 fail-fast errors), loose in the middle (long compile/test phases run on a 30-90 min scale), then loose again once
 everything's settled (waiting for the user to push):
@@ -629,9 +639,9 @@ scenario deployments do not use this password -- `et-cli` derives a per-scenario
 
 ## Testing
 
-Tests must live in a `<crate>/tests/` directory or in source files prefixed `test_`. Do not use inline
-`#[cfg(test)]` modules. If a function is private but needs testing, add a `[lib]` target to the crate and export it
-so `<crate>/tests/` can reach it.
+Rust tests must live as flat files directly in a `<crate>/tests/` directory -- never in a subdirectory of it, and never
+in a `test_*.rs` source file. Do not use inline `#[cfg(test)]` modules. If a function is private but needs testing, add
+a `[lib]` target to the crate and export it so `<crate>/tests/` can reach it.
 
 Every file under `<crate>/tests/` carries `#![cfg(test)]`, and the preamble order is fixed: the `//!` module doc comes
 **first**, then the attribute. Both are inner attributes, so either order compiles -- this is a house style, not
@@ -653,6 +663,10 @@ Read "starts with `#![cfg(test)]`" as "the attribute precedes the first item", n
 a `//!` block above it is required, not a violation. As of this writing every one of the 45 test files that has
 a module doc puts it first, so a review comment claiming the attribute must lead is reading a rule this repo
 does not have.
+
+Benchmarks live in `<crate>/benches/`, run by criterion with `harness = false`, and are held to the same latitude as
+tests: a bench file may carry `#[expect(...)]` lint attributes, file-wide or on an item, where the harness's shape
+makes a lint fire -- criterion calls each group function once, for one -- each with its `reason`, as tests do.
 
 Shared, **low-dependency** test helper functions -- free-port reservation, port-readiness waits, and the like --
 belong in the `et-test-helpers` crate (`libs/test-helpers`); reuse and extend it rather than re-implementing the same

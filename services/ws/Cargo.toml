@@ -37,8 +37,8 @@ required-features = ["board"]
 [features]
 default = ["board", "nats", "otel"]
 ## The actix-web hub: the `/ws` endpoint, the admin API, idle timeouts and the registry file.
-## Without it the crate is `no_std` + `alloc` and holds only `hub`, the routing an embedder drives over its own
-## transport.
+## Without it the crate is `no_std` + `alloc`, and holds `hub`, the routing an embedder drives over its own
+## transport, only with `board`, which gives the hub's registry its lock.
 std = [
   "bytes/std",
   "dep:actix-web",
@@ -59,7 +59,7 @@ std = [
   "tracing/std",
 ]
 ## A `no_std` hub serving `/ws` over HTTP and WebSocket through picoserve, on any socket the embedder accepts.
-board = ["dep:picoserve", "dep:spin"]
+board = ["dep:bytes", "dep:picoserve", "dep:serde_json", "dep:tracing", "edge-toolkit/board"]
 ## Shares agents between hubs through the NATS JetStream backplane `WS_BACKPLANE` names.
 ## Without it every hub is local, keeping its agents in its own registry.
 nats = ["dep:et-hub-backplane", "std"]
@@ -75,11 +75,12 @@ docs = ["dep:document-features"]
 [dependencies]
 actix-web = { workspace = true, optional = true }
 actix-ws = { workspace = true, optional = true }
-bytes.workspace = true
+bytes = { workspace = true, optional = true }
 bytesize = { workspace = true, optional = true }
 chrono = { workspace = true, features = ["clock"], optional = true }
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+# Turned on, as bytes, serde_json and tracing are, by `std` and by `board`, the two builds that hold the hub.
+edge-toolkit = { workspace = true, optional = true }
 et-hub-backplane = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }
@@ -89,12 +90,11 @@ secrecy = { workspace = true, optional = true }
 serde.workspace = true
 serde-inline-default = { workspace = true, optional = true }
 serde_default = { workspace = true, optional = true }
-serde_json = { workspace = true, features = ["alloc"] }
-spin = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["alloc"], optional = true }
 subtle = { workspace = true, optional = true }
 thiserror = { workspace = true, features = ["std"], optional = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"], optional = true }
-tracing.workspace = true
+tracing = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 

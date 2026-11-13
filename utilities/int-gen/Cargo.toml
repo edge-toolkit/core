@@ -22,6 +22,7 @@ clap-markdown.workspace = true
 command-error.workspace = true
 edge-toolkit = { workspace = true, features = ["schema-export"] }
 et-cli.workspace = true
+et-gpu-probe-server.workspace = true
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
 et-onnx.workspace = true
 et-recovery-supervisor = { workspace = true, features = ["env-schema"] }

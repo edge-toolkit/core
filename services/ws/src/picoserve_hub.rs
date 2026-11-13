@@ -17,6 +17,7 @@ use core::net::IpAddr;
 use core::task::{Poll, Waker};
 
 use bytes::Bytes;
+use edge_toolkit::board::BoardLock;
 use edge_toolkit::ws::ClientMessage;
 use edge_toolkit::ws_server::{AgentRegistry, MessageRetention};
 use picoserve::futures::Either;
@@ -57,7 +58,7 @@ struct Mailbox {
 
 /// The handle the registry holds for one connection: other agents' messages to it are queued here.
 #[derive(Clone, Debug)]
-pub struct Outbox(Arc<spin::Mutex<Mailbox>>);
+pub struct Outbox(Arc<BoardLock<Mailbox>>);
 
 impl Outbox {
     /// An empty outbox holding at most `max_queued` messages, though always the newest.
@@ -66,7 +67,7 @@ impl Outbox {
     /// message is dropped to make room.
     #[must_use]
     pub fn new(max_queued: usize) -> Self {
-        Self(Arc::new(spin::Mutex::new(Mailbox {
+        Self(Arc::new(BoardLock::new(Mailbox {
             max_queued,
             queue: VecDeque::new(),
             waker: None,
@@ -116,7 +117,7 @@ impl Outbox {
 /// The hub every connection shares: its registry, the source of its ids and times, and its limits.
 pub struct Hub<T> {
     registry: AgentRegistry<Outbox>,
-    stamps: spin::Mutex<T>,
+    stamps: BoardLock<T>,
     retention: MessageRetention,
     max_frame_size: usize,
     max_queued: usize,
@@ -136,7 +137,7 @@ where
             max_frame_size,
             max_queued,
             retention,
-            stamps: spin::Mutex::new(stamps),
+            stamps: BoardLock::new(stamps),
             registry: AgentRegistry::default(),
         }
     }

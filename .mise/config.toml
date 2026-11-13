@@ -68,6 +68,10 @@ gpg_verify = true
 # aqua/github ship no Windows build for action-validator, so scope the aqua entry off Windows.
 # config.windows.toml installs cargo:action-validator (cargo-quickinstall msvc prebuilt) there instead.
 action-validator = { version = "latest", os = ["linux", "macos"] }
+# gpg for mise's gpg_verify signature checks, which _setup_all installs up front.
+# conda-forge builds no gnupg for Windows, where config.windows.toml installs conda:m2-gnupg instead, so it is scoped
+# off Windows: unscoped, resolving the lockfile's windows-x64 rows fails on it.
+"conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 # jaq: a Rust jq-compatible alternative implementation with prebuilt binaries for every platform.
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
@@ -686,6 +690,16 @@ wasm_scope = "--scope edge-toolkit "
 # name defaulted there would be one project's carried by every other. Stated once here because all three
 # ws-server tasks need it and a copy per task is a copy that drifts.
 hub_root_module = "@edge-toolkit/et-ws-server-static"
+# The address a server binds to for other devices on the LAN to reach it: every IPv4 interface.
+lan_bind = "0.0.0.0"
+# The command every gpu-probe server task starts the server with, before the arguments it passes.
+gpu_probe_server = "cargo run -p et-gpu-probe-server --bin et-gpu-probe-server --"
+# The arguments the gpu-probe server tasks share: the registry, the probe page, and the certificate they serve.
+# The pair lives under target/ so it is never committed; delete it to have one generated for a new LAN address.
+gpu_probe_server_args = """
+{{ "--registry libs/gpu-probe/signatures.yaml --root utilities/gpu-probe/static " ~
+  "--cert target/gpu-probe-server-cert.pem --key target/gpu-probe-server-key.pem" -}}
+"""
 # Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
 # Used by the two modules that also run et-cli module-package-json (har1, face-detection). It excludes no_opt /
 # web_cargo_args -- those are appended inline at the call site because no_opt carries a per-platform override that a
@@ -1271,7 +1285,8 @@ run = "cargo clippy {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }}"
 
 # Lints the wasm crates on the targets they actually build for, which cargo-clippy-check's host build never sees.
 # The crate sets come from `cargo metadata`, by what each crate binds to, so a new module joins without an edit:
-# a `wasm-bindgen` dependent is a browser crate, a `wit-bindgen` or `et-wasi-guest` dependent is a WASI guest.
+# a `wasm-bindgen` dependent is a browser crate, a `wit-bindgen` or `et-wasi-guest` dependent is a WASI guest, and a
+# workspace crate a browser crate depends on is built into the browser too, so its library is linted there as well.
 [tasks.cargo-clippy-wasm-check]
 description = "cargo clippy the browser and WASI crates on their wasm targets"
 run = """
@@ -1280,6 +1295,7 @@ meta="$(cargo metadata --format-version 1 --no-deps)"
 # shellcheck disable=SC2016
 pick='.packages[] | select(any(.dependencies[].name; . as $dep | any($names[]; . == $dep))) | "-p", .name'
 browser="$(printf '%s' "$meta" | jaq -r --argjson names '["wasm-bindgen"]' "$pick")"
+built_on="$(printf '%s' "$meta" | jaq -r --argjson names '["wasm-bindgen"]' -f .mise/cargo-clippy-wasm-check.jq)"
 wasi="$(printf '%s' "$meta" | jaq -r --argjson names '["wit-bindgen", "et-wasi-guest"]' "$pick")"
 # The Wasm 1.0 guests, picked by the target their docs build for, as depending on et-core-guest picks the runner too.
 # shellcheck disable=SC2016
@@ -1289,6 +1305,11 @@ rc=0
 # Both package lists are newline-separated `-p` / `<name>` words, and rely on word-splitting.
 # shellcheck disable=SC2086
 cargo clippy --keep-going --all-targets --target wasm32-unknown-unknown $browser || rc=1
+# The crates browser crates build on are linted as libraries alongside them.
+# Only their libraries, since their tests run natively; beside the browser crates, so cargo unifies the features
+# those turn on in them, which is how their browser-only code is built.
+# shellcheck disable=SC2086
+cargo clippy --keep-going --lib --target wasm32-unknown-unknown $browser $built_on || rc=1
 # shellcheck disable=SC2086
 cargo clippy --keep-going --all-targets --target wasm32-wasip2 $wasi || rc=1
 # Only the libraries: a test needs std, which wasm32v1-none does not have.
@@ -1422,6 +1443,61 @@ shell = "{{ vars.task_shell }}"
 [tasks.conftest-check-jscpd]
 description = "Check the jscpd baseline has not grown (conftest)"
 run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-baseline.json"
+
+# The files are found on disk rather than in git's index.
+# So one a fresh `bench-gpu-probe` run wrote, or one renamed and not yet staged, is checked as it stands.
+[tasks.conftest-check-bench-results]
+description = "Check each benchmark results file is named for the machine and OS it records (conftest)"
+run = """
+find libs -path '*/benches/results/*.yaml' -print0 |
+  xargs -0 -r conftest test --combine --namespace bench_results -p config/conftest/policy
+"""
+shell = "{{ vars.task_shell }}"
+
+# Each benchmark is recorded in Bencher Metric Format: its mean as `latency`, with its 95% interval, in nanoseconds.
+# The bench writes to a criterion home of its own, emptied first, so a benchmark since renamed or removed leaves
+# nothing behind to be recorded. criterion's raw samples stay in that home, out of the repository.
+[tasks.bench-gpu-probe]
+description = "Benchmark et-gpu-probe and record the estimates in libs/gpu-probe/benches/results/<machine>-<os>.yaml"
+run = """
+machine="$usage_machine"
+home=target/criterion-gpu-probe
+coreutils rm -rf "$home"
+CRITERION_HOME="$PWD/$home" cargo bench -p et-gpu-probe --features native,registry --bench gpu_probe
+lines="$home/benchmarks.jsonl"
+# Each value is rounded to a hundredth of a nanosecond, finer than any of them is known to, so a rerun's diff is short.
+# `$est` is the jaq variable each benchmark's estimates are bound to, so the shell must not expand it.
+# shellcheck disable=SC2016
+mean='$est[0].mean' bound='$est[0].mean.confidence_interval'
+latency="{ value: $mean.point_estimate, lower_value: $bound.lower_bound, upper_value: $bound.upper_bound }"
+measure="{ (.full_id): { latency: ($latency | map_values(. * 100 | round / 100)) } }"
+find "$home" -path '*/new/benchmark.json' | coreutils sort | while read -r meta; do
+  jaq -c --slurpfile est "$(coreutils dirname "$meta")/estimates.json" "$measure" "$meta"
+done >"$lines"
+host=$(rustc -vV | rg -r '$1' '^host: (.*)$')
+# The same machine gives other results under another OS, through its other drivers, so the OS names the file too.
+case "$host" in
+  *-linux-*) os=linux ;;
+  *-apple-darwin) os=macos ;;
+  *-windows-*) os=windows ;;
+  *)
+    echo "no OS name for host $host" >&2
+    exit 1
+    ;;
+esac
+out="libs/gpu-probe/benches/results/$machine-$os.yaml"
+coreutils mkdir -p "$(coreutils dirname "$out")"
+recorded=(--arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$(rustc -V)")
+recorded+=(--arg date "$(coreutils date -u +%F)")
+# `$id`, `$os`, `$host`, `$rustc` and `$date` are jaq variables `recorded` binds, so the shell must not expand them.
+# shellcheck disable=SC2016
+record='{ machine: { id: $id, os: $os, host: $host, rustc: $rustc, recorded: $date }, benchmarks: add }'
+jaq -s "${recorded[@]}" "$record" "$lines" >"$home/record.json"
+yq -p json -o yaml '.' "$home/record.json" >"$out"
+echo "wrote $out"
+"""
+shell = "{{ vars.task_shell }}"
+usage = 'arg "<machine>" help="This machine, as lowercase words joined by -: dell-precision-5570, say"'
 
 # Rego unit tests living beside the policies, for invariants the real policy runs cannot reach from one OS.
 # Named into the conftest-check-* family so the `check` aggregate always picks it up.
@@ -2947,6 +3023,175 @@ MODULES_ROOT = "{{ vars.hub_root_module }}"
 OTLP_AUTH_PASSWORD = "Complexpass#123"  # skipcq: SCT-A000 -- local dev-only credential, committed deliberately
 OTLP_AUTH_USERNAME = "root@example.com"
 
+[tasks.build-gpu-probe-page]
+description = "Build the GPU probe sets as WASM into utilities/gpu-probe/static/pkg, for the page the server serves"
+dir = "utilities/gpu-probe/web"
+run = """
+pkg="../static/pkg"
+wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- --target wasm32-unknown-unknown
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.gpu-probe-page]
+depends = ["build-gpu-probe-page"]
+description = "Serve the GPU probe page at http://localhost:8099/, adding what it submits to the registry"
+run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port 8099"
+
+[tasks.gpu-probe-chrome]
+depends = ["build-gpu-probe-page"]
+description = "Probe every GPU Google Chrome offers on the GPU probe page, WebGL on the ANGLE backend named"
+# Serve the probe page and open Google Chrome on it, for a person to submit from or, with --submit, driven to.
+#
+# The page is served at localhost:8099 for the length of the task, unless a `gpu-probe-page` already serves it, and
+# every job the task starts is stopped when it ends. Chrome is started with WebGPU on Vulkan, which Chrome on Linux
+# offers only with Vulkan turned on and the GPU blocklist overridden, and WebGL on the ANGLE backend named. ANGLE takes
+# Vulkan from its features rather than `--use-angle=vulkan`, which leaves Chrome with no WebGL 2 context, and Chrome
+# honours only one `--enable-features`. The registry's Linux sightings were taken under X11, and each run gets a
+# profile of its own under target/, so the person's own Chrome is never touched.
+#
+# By default Chrome opens for a person to check each row and submit. With --submit, chromedriver drives it through
+# WebDriver, whose calls curl makes: the page submits every set itself when opened with `submit`, and says how each
+# went in its status line, which the task prints. google-chrome and curl are the host's: the probes measure the
+# browser the person has.
+run = """
+trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
+# Wait up to $3 seconds for $1 to answer, failing as soon as $2, the process that is to serve it, has exited.
+ready() {
+  for _ in $(coreutils seq "$3"); do
+    if curl -sf -o /dev/null "$1"; then return 0; fi
+    if ! kill -0 "$2" 2>/dev/null; then
+      printf '%s exited before it served %s\\n' "$4" "$1" >&2
+      return 1
+    fi
+    coreutils sleep 1
+  done
+  printf '%s did not serve %s within %ss\\n' "$4" "$1" "$3" >&2
+  return 1
+}
+if ! curl -sf -o /dev/null http://localhost:8099/; then
+  {{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port 8099 &
+  ready http://localhost:8099/ $! 600 "the gpu-probe server"
+fi
+coreutils mkdir -p target/gpu-probe-chrome
+# The device goes in the page's query, so it is percent-encoded: a `&` in it would otherwise start another parameter.
+device="${usage_device:-}" yq -n 'strenv(device) | @uri' >target/gpu-probe-chrome/device
+device=$(coreutils cat target/gpu-probe-chrome/device)
+angle="${usage_angle:-vulkan}"
+if [ "$angle" = vulkan ]; then
+  switches=("--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan")
+else
+  switches=(--enable-features=Vulkan "--use-angle=$angle" --enable-unsafe-swiftshader)
+fi
+switches+=(--enable-unsafe-webgpu --ozone-platform=x11 --no-first-run)
+if [ "${usage_submit:-false}" != true ]; then
+  profile="$PWD/target/gpu-probe-chrome/$angle"
+  google-chrome "${switches[@]}" "--user-data-dir=$profile" "http://localhost:8099/?device=$device"
+  exit
+fi
+driver=http://localhost:9515
+chromedriver --port=9515 >target/gpu-probe-chrome/chromedriver.log 2>&1 &
+ready "$driver/status" $! 60 chromedriver
+profile="$PWD/target/gpu-probe-chrome/$angle-driven"
+args=$(printf '"%s",' "${switches[@]}" "--user-data-dir=$profile")
+options='{"args":['"${args%,}"']}'
+capabilities='{"capabilities":{"alwaysMatch":{"browserName":"chrome","goog:chromeOptions":'"$options"'}}}'
+reply=target/gpu-probe-chrome/webdriver-reply.json
+curl -sf -XPOST "$driver/session" -d "$capabilities" -o "$reply"
+session="$driver/session/$(yq -p json '.value.sessionId' "$reply")"
+url="http://localhost:8099/?submit&device=$device" yq -n -o json -I0 '{"url": strenv(url)}' >"$reply"
+curl -sf -XPOST "$session/url" -d "@$reply" >/dev/null
+read_status='{"script":"return document.getElementById(\\"status\\").textContent","args":[]}'
+# The page says "Submitted." only when every set went in or was on record already, and "Not submitted." otherwise.
+status=""
+for _ in $(coreutils seq 300); do
+  coreutils sleep 2
+  curl -sf -XPOST "$session/execute/sync" -d "$read_status" -o "$reply"
+  status=$(yq -p json '.value' "$reply")
+  if [[ $status == Submitted* || $status == "Not submitted"* || $status == "The probes could not run"* ]]; then
+    break
+  fi
+done
+curl -sf -XDELETE "$session" >/dev/null
+printf '%s\\n' "${status:-the page said nothing within 600s}"
+[[ $status == Submitted* ]]
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+arg "[angle]" help="The ANGLE backend Chrome runs WebGL on: vulkan (default), gl or swiftshader"
+flag "--device <device>" help="The machine the rows name, such as its make and model"
+flag "--submit" help="Drive Chrome through chromedriver and submit every probe set, rather than open it for a person"
+"""
+
+[tasks.gpu-probe-firefox]
+depends = ["build-gpu-probe-page"]
+description = "Probe Firefox on the GPU probe page from a fresh profile, optionally with fingerprinting protection on"
+# Serve the probe page and open Firefox on it, for a person to submit from or, with --submit, to submit by itself.
+#
+# The page is served at localhost:8099 for the length of the task, unless a `gpu-probe-page` already serves it, and
+# every job the task starts is stopped when it ends. Each run gets a fresh profile under target/, so the person's own
+# Firefox is never touched, and every run is a session of its own: Firefox keys its canvas PNG encoding to the
+# session, so two runs are what tells a stable signature from a randomised one.
+#
+# There is no WebDriver for Firefox among the tools, so with --submit the page is opened with `submit` and read from
+# Firefox's own output instead, where the page writes its status lines once every set is submitted. firefox is the
+# host's: the probes measure the browser the person has.
+run = """
+trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
+if ! curl -sf -o /dev/null http://localhost:8099/; then
+  {{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port 8099 &
+  server=$!
+  for _ in $(coreutils seq 600); do
+    if curl -sf -o /dev/null http://localhost:8099/; then break; fi
+    if ! kill -0 "$server" 2>/dev/null; then
+      printf 'the gpu-probe server exited before it served the page\\n' >&2
+      exit 1
+    fi
+    coreutils sleep 1
+  done
+fi
+run=target/gpu-probe-firefox
+profile="$PWD/$run/profile"
+coreutils rm -rf "$profile"
+coreutils mkdir -p "$profile"
+coreutils cp .mise/gpu-probe-firefox.user.js "$profile/user.js"
+query="device=$(device="${usage_device:-}" yq -n 'strenv(device) | @uri')"
+if [ "${usage_fingerprinting_protection:-false}" = true ]; then
+  printf 'user_pref("privacy.fingerprintingProtection", true);\\n' >>"$profile/user.js"
+  query="$query&defence=privacy.fingerprintingProtection%20on"
+fi
+if [ "${usage_submit:-false}" != true ]; then
+  firefox --no-remote --profile "$profile" --new-window "http://localhost:8099/?$query"
+  exit
+fi
+firefox --no-remote --profile "$profile" --new-window "http://localhost:8099/?submit&$query" >"$run/firefox.log" 2>&1 &
+browser=$!
+# The page says "Submitted." only when every set went in or was on record already, and "Not submitted." otherwise.
+verdict='gpu-probe: (Submitted|Not submitted|The probes could not run)'
+for _ in $(coreutils seq 300); do
+  if rg -q "$verdict" "$run/firefox.log" || ! kill -0 "$browser" 2>/dev/null; then break; fi
+  coreutils sleep 2
+done
+# Firefox writes each console line as the call's arguments, quoted; the status lines are what follows the prefix.
+rg -o 'gpu-probe: [^"]*' "$run/firefox.log" || printf 'the page said nothing within 600s\\n'
+rg -q 'gpu-probe: Submitted' "$run/firefox.log"
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+flag "--device <device>" help="The machine the rows name, such as its make and model"
+flag "--fingerprinting-protection" help="Turn on privacy.fingerprintingProtection, and name it as the rows' defence"
+flag "--submit" help="Submit every probe set from the page and print how each went, rather than open it for a person"
+"""
+
+[tasks.gpu-probe-server]
+depends = ["build-gpu-probe-page"]
+description = "Collect GPU probe signatures into libs/gpu-probe/signatures.yaml over HTTPS at localhost:8443"
+run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
+
+[tasks.gpu-probe-server-lan]
+depends = ["build-gpu-probe-page"]
+description = "Collect GPU probe signatures over HTTPS from other devices on the LAN, listening on 0.0.0.0:8443"
+run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --bind {{ vars.lan_bind }}"
+
 [tasks.ws-server-no-otel]
 description = "Run the WebSocket server without OTLP/o2 observability (OpenTelemetry init is skipped)"
 # Same as ws-server but sets no OTLP_* env, so Config.otlp deserialises to None and et_otlp::init is skipped.
@@ -3527,17 +3772,36 @@ shell = "{{ vars.task_shell_plain }}"
 # install-all rather than a bare install, so guest-language tools reach their lockfiles too -- MISE_ENV only
 # loads a subset, and a partial install leaves every unloaded config's lockfile unexamined.
 #
+# Within each lockfile the entries are compared as a set -- each `[[tools.<name>]]` header with its own `version` and
+# `backend`, so a value stays tied to its tool -- and their order does not count: a tool locked at two versions, as
+# rust is at `stable` and the pinned nightly, has its entries written in either order depending on where mise runs,
+# and the order alone read as drift when lines were compared. CI wrote the opposite of the committed order,
+#     [mise-lock-check] -version = "stable"
+#     [mise-lock-check] +version = "nightly-2026-08-05"
+# at https://github.com/edge-toolkit/core/actions/runs/43384034380/job/131748196639 on commit
+# https://github.com/edge-toolkit/core/commit/3682bb426d01268f9d525207ec624e8dd8e441d9, where a local install wrote
+# the committed one. Each file is compared on its own, so a tool moved from one lockfile to another is still drift.
+#
 # The .mise/locks/ sidecars -- the npm and PyPI tools' dependency graphs, which the lockfiles reference by path and
 # digest -- carry no per-platform rows, so they are compared whole: any change, or a graph directory git does not
 # track yet, is drift.
 [tasks.mise-lock-check]
 depends = ["install-all"]
 description = "Fail if .mise/mise*.lock or .mise/locks/ differ from what a full install resolves"
-# `|| true` because rg exits 1 on no matches, which under pipefail would abort the whole task on the clean path.
-# `^[-+][-+]` drops git's `+++`/`---` file headers; `@@` hunk headers never match the leading `[-+]`.
+# The staged copy of each lockfile, from git's index, and the copy install-all left must list the same entries.
+# A lockfile git does not hold yet lists none. Both the sort and comm run in the C locale, so they agree on the order
+# comm needs its input in.
 run = """
-drift=$(git diff -U0 -- .mise/mise*.lock | rg "^[-+]" | rg -v "^[-+][-+]" |
-  rg "^[-+](version|backend) = |^[-+]\\[\\[tools\\." || true)
+entries=.mise/mise-lock-check.awk
+drift=""
+for lock in .mise/mise*.lock; do
+  staged=$( (git show ":$lock" 2>/dev/null || true) | goawk -f "$entries" | LC_ALL=C coreutils sort)
+  resolved=$(goawk -f "$entries" "$lock" | LC_ALL=C coreutils sort)
+  if [ "$staged" != "$resolved" ]; then
+    changed=$(LC_ALL=C coreutils comm -3 <(printf '%s\\n' "$staged") <(printf '%s\\n' "$resolved"))
+    drift=$(printf '%s\\n%s:\\n%s' "$drift" "$lock" "$changed")
+  fi
+done
 sidecars=$(
   git diff --name-only -- .mise/locks
   git ls-files --others --exclude-standard -- .mise/locks

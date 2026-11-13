@@ -13,6 +13,9 @@ mod backplane;
 #[cfg(feature = "std")]
 mod connection;
 pub mod health;
+// The `no_std` routing core both transports share: the `std` server and a board's picoserve hub. It holds
+// edge-toolkit's agent registry, which a build has with either; with neither, there is nothing for it to serve over.
+#[cfg(any(feature = "board", feature = "std"))]
 pub mod hub;
 #[cfg(feature = "board")]
 pub mod picoserve_hub;
@@ -25,6 +28,7 @@ mod telemetry;
 pub use self::backplane::{
     Backplane, BackplaneConfig, BackplaneDelivery, BackplaneError, start_backplane, withdraw_local_agents,
 };
+#[cfg(any(feature = "board", feature = "std"))]
 pub use self::hub::SessionMessage;
 #[cfg(feature = "std")]
 pub use self::server::{

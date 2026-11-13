@@ -13,9 +13,11 @@ checksum = "blake3:764c56176d67d64b858325fcc245d653ef5993dc01df3e7f8929448439d97
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"
 
 [tools."http:webr"."platforms.macos-arm64"]
+checksum = "sha256:04c56d16c3ad29265a2c4ffcb800ee0b72ab6dd64dd678c9c8fec81a832cb8cc"
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"
 
 [tools."http:webr"."platforms.macos-x64"]
+checksum = "sha256:04c56d16c3ad29265a2c4ffcb800ee0b72ab6dd64dd678c9c8fec81a832cb8cc"
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"
 
 [tools."http:webr"."platforms.windows-x64"]

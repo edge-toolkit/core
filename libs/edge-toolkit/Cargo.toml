@@ -67,8 +67,8 @@ required-features = ["std"]
 default = ["std"]
 ## Everything that needs an operating system.
 ## Configuration loading, the registry file, process arguments and the mise lookups. Without it the crate is
-## `no_std` + `alloc`: the WebSocket protocol types, the port allocation, the `BasicAuth` config, and the hub's agent
-## registry held in memory only.
+## `no_std` + `alloc`: the WebSocket protocol types, the port allocation and the `BasicAuth` config, with the hub's
+## agent registry, held in memory only, when `board` is on too.
 std = [
   "base64/std",
   "chrono/std",
@@ -94,6 +94,9 @@ schema-export = ["dep:asyncapi-rust", "dep:schemars", "schemars/chrono04", "std"
 ## Derives JSON Schema for the configuration types the binaries read from the environment.
 ## et-int-gen renders each binary's environment variables into its HELP.md from that schema.
 env-schema = ["dep:schemars", "std"]
+## Runs on a microcontroller board: the hub's agent registry, held in memory under a spin lock.
+## A board has no `std::sync::Mutex`, so this is what gives a `no_std` build its registry.
+board = ["dep:spin"]
 ## Internal: a board runner built for coverage also hosts the `/cov` interfaces an instrumented guest writes through.
 coverage = []
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
@@ -116,8 +119,8 @@ serde_default = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["alloc"] }
 serde_path_to_error.workspace = true
 serde_yaml = { workspace = true, optional = true }
-# The registry's lock when there is no `std::sync::Mutex`.
-spin.workspace = true
+# The registry's lock on a board, which has no `std::sync::Mutex`.
+spin = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tracing = { workspace = true, features = ["std"], optional = true }

@@ -7,13 +7,13 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
 use actix_web::{HttpResponse, web};
+pub use et_https_listener::net;
+#[cfg(feature = "tls")]
+pub use et_https_listener::tls;
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
 pub mod config;
-pub mod net;
 pub mod routes;
-#[cfg(feature = "tls")]
-pub mod tls;
 
 pub use self::routes::health;
 use crate::config::Config;
@@ -35,9 +35,9 @@ pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsA
         let _configured = cfg.app_data(web::Data::new(config.storage.clone()));
         et_storage_service::configure::<AgentSession>(cfg, &config.storage);
     }
-    // Relay for browser WASM runtimes (webR) that can only open a WebSocket: bridge /websockify to this
-    // server's own plain-HTTP loopback port so their libcurl/httr2 can reach the storage API. Loopback-only
-    // and server-fixed, so it is not an open proxy. Registered before the modules catch-all below.
+    // Relay for browser WASM runtimes (webR) that can only open a WebSocket: bridge /websockify to this server's own
+    // plain-HTTP loopback port so their libcurl/httr2 can reach the storage API. Loopback-only and server-fixed, so it
+    // is not an open proxy. Registered before the modules catch-all below.
     #[cfg(feature = "websockify")]
     {
         let relay_target = SocketAddr::from((

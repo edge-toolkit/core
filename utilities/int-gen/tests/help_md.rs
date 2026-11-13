@@ -56,6 +56,7 @@ fn detects_every_binary_using_clap_or_serde_env() {
         documented,
         [
             ("et-cli", true, false),
+            ("et-gpu-probe-server", true, false),
             ("et-int-gen", true, false),
             ("et-onnx", true, false),
             ("et-recovery-supervisor", false, true),

@@ -25,8 +25,8 @@ pub const MAX_AGENT_ID_LEN: usize = 64;
 
 /// The lock the registry's shared state sits behind.
 ///
-/// `std::sync::Mutex` wherever there is one, so a `std` caller's `lock()` reports poisoning as it always has; a spin
-/// lock without `std`, where nothing can poison it.
+/// `std::sync::Mutex` wherever there is one, so a `std` caller's `lock()` reports poisoning as it always has; without
+/// `std`, the board's spin lock, where nothing can poison it.
 pub type Lock<T> = LockImpl<T>;
 
 #[derive(Debug, Error)]

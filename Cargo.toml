@@ -2,6 +2,12 @@
 edition = "2024"
 license = "Apache-2.0 or MIT"
 repository = "https://github.com/edge-toolkit/core"
+# Held at 1.99 by the coverage toolchain, which no 1.100 nightly can be.
+# Every 1.100.0-nightly carries LLVM 23, whose profraw format minicov 0.3.8 cannot write, and wasm-bindgen-test
+# 0.3.80 pins minicov at exactly 0.3.8 (see the minicov entry). A 1.100 requirement made cargo refuse every crate
+# on `rust_nightly`, with "rustc 1.99.0-nightly is not supported" on
+# https://github.com/edge-toolkit/core/actions/runs/43355799367/job/131657587566. Raise it once a
+# wasm-bindgen-test release accepts minicov 0.3.9, moving `rust_nightly` to a 1.100 nightly in the same change.
 rust-version = "1.99.0"
 
 [workspace]
@@ -11,6 +17,7 @@ members = [
   "libs/edge-toolkit",
   "libs/et-otlp",
   "libs/gpu-probe",
+  "libs/https-listener",
   "libs/lidar",
   "libs/math1",
   "libs/org",
@@ -62,6 +69,8 @@ members = [
   "services/ws-test-server",
   "utilities/int-gen",
   "utilities/cli",
+  "utilities/gpu-probe",
+  "utilities/gpu-probe/web",
   "utilities/onnx",
   "utilities/repo-check",
   "utilities/wasm-cov-wrapper",
@@ -90,12 +99,14 @@ bytes = { version = "1", default-features = false }
 bytesize = { version = "2", features = ["serde"] }
 cc = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
+# Benchmarks; rayon and the plotters charts are left out, since a run's numbers are what a README records.
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1"
 cloudevents-sdk = "0.9"
 command-error = "0.8"
 const-hex = "1.19"
 cortex-m-rt = "0.7"
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 critical-section = "1"
 croner = "4"
 cyw43 = "0.7"
@@ -134,6 +145,8 @@ et-cli = { path = "utilities/cli", version = "0.2.0" }
 et-core-guest = { path = "libs/core-guest", version = "0.1.0" }
 et-firmware-modules = { path = "services/firmware-modules", version = "0.1.0" }
 et-gpu-probe = { path = "libs/gpu-probe", version = "0.1.0" }
+et-gpu-probe-server = { path = "utilities/gpu-probe", version = "0.1.0" }
+et-https-listener = { path = "libs/https-listener", version = "0.1.0" }
 et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
 et-lidar = { path = "libs/lidar", version = "0.1.0" }
 et-math1 = { path = "libs/math1", version = "0.1.0" }
@@ -161,6 +174,7 @@ et-ws-wasi-runner = { path = "services/ws-wasi-runner", version = "0.3.0", defau
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.3.0" }
 fake = "5"
 fs-err = "3"
+futures-channel = { version = "0.3", default-features = false }
 futures-executor = "0.3"
 futures-util = "0.3"
 heck = "0.5"
@@ -185,6 +199,7 @@ kdl = { version = "6", features = ["v1"] }
 libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
+md-5 = { version = "0.11", default-features = false }
 # minicov's profiler runtime must match the LLVM of the toolchain that instruments the guests.
 # Held at exactly 0.3.8 (profraw format 10, LLVM 22) because wasm-bindgen-test 0.3.80 -- the only release that
 # pairs with wasm-bindgen 0.2.130 -- pins `minicov = "=0.3.8"` under its coverage cfg (wasm-bindgen PR 5283),
@@ -225,6 +240,8 @@ onnx-extractor = "0.5"
 # test runs against). Only `aws` is enabled -- adding `gcp`/`azure`/`http` is a one-word change if a consumer
 # ever needs them, and each drags its own SDK surface, so they stay off until asked for.
 object_store = { version = "0.14", default-features = false, features = ["aws", "fs"] }
+# Held to the release wgpu-hal's Metal backend is built on, so a device it hands out is one of these types.
+objc2-metal = { version = "0.3", default-features = false }
 openapiv3 = "2"
 opentelemetry = "0.32"
 opentelemetry-appender-tracing = "0.32"
@@ -266,6 +283,9 @@ opentelemetry_sdk = "0.32"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["load-dynamic"] }
 panic-probe = "1"
 picoserve = { version = "0.20", default-features = false, features = ["ws"] }
+# Names each operating system as `std::env::consts::OS` spells it, Android included.
+platforms = { version = "3", default-features = false }
+png = { version = "0.18", default-features = false }
 port_check = "0.3"
 pretty_yaml = "0.6"
 prettyplease = "0.3"
@@ -295,6 +315,7 @@ retry = { version = "2", default-features = false }
 retry-policies = "0.5"
 rstest = "0.28"
 rustls = "0.23"
+rustls-webpki = { version = "0.103", default-features = false, features = ["alloc"] }
 sanitize-filename = "0.8.0-beta"
 schemars = { version = "1.2", features = ["derive"] }
 secrecy = { version = "0.10", features = ["serde"] }
@@ -390,6 +411,8 @@ wgpu-hal = { version = "29", default-features = false }
 wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3", features = ["std"] }
+# Held to the release wgpu-hal's Direct3D 12 backend is built on, so an adapter it hands out is one of these types.
+windows = { version = "0.62", default-features = false }
 wit-bindgen = "0.63"
 wit-encoder = "0.263"
 # Held to the release wasmtime-internal-wit-bindgen builds against.
@@ -428,6 +451,11 @@ unsafe_op_in_unsafe_fn = "deny"
 # rust-lang/rust#95513; re-enable when rustc gains a workspace-aware view.
 # unused_crate_dependencies = "deny"
 unused_results = "deny"
+
+[workspace.lints.cargo]
+# A dependency the manifest declares and no source uses fails the build, not just warns as cargo's default does.
+# Unlike rustc's unused_crate_dependencies above, cargo's check sees a package's targets together, so it can be denied.
+unused_dependencies = "deny"
 
 [workspace.lints.rustdoc]
 private_intra_doc_links = { level = "deny", priority = 8 }

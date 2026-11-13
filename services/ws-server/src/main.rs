@@ -51,19 +51,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let rustls_config = {
         let cert_filename = &env.tls.cert_file;
         let key_filename = &env.tls.key_file;
+        #[cfg(feature = "tls-self-signed")]
+        let (cert_der, key_der) = tls::load_or_generate_tls_certs(cert_filename, key_filename, &[]);
+        #[cfg(not(feature = "tls-self-signed"))]
         let (cert_der, key_der) = if cert_filename.exists() && key_filename.exists() {
             info!("Loading TLS certificate from {:?}", cert_filename);
             tls::load_tls_certs(cert_filename, key_filename)
         } else {
-            #[cfg(feature = "tls-self-signed")]
-            {
-                info!(
-                    "Generated self-signed localhost certificate to {:?} and key to {:?}",
-                    cert_filename, key_filename
-                );
-                tls::generate_tls_certs(cert_filename, key_filename)
-            }
-            #[cfg(not(feature = "tls-self-signed"))]
             return Err(format!(
                 "TLS certificate {} or key {} is missing; this build cannot generate one",
                 cert_filename.display(),
@@ -121,19 +115,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let registry = agent_registry.clone();
         let backplane = backplane_data.clone();
         let config = env.clone();
-        // `TracingLogger` extracts the W3C `traceparent` header from
-        // incoming requests (via the `opentelemetry_0_31` feature) and uses
-        // it as the parent context of the per-request span -- that's how
-        // traces propagate from the wasi-runner (or any client that injects
-        // `traceparent`) into the server.
+        // `TracingLogger` extracts the W3C `traceparent` header from incoming requests (via the `opentelemetry_0_31`
+        // feature) and uses it as the parent context of the per-request span -- that's how traces propagate from the
+        // wasi-runner (or any client that injects `traceparent`) into the server.
         App::new()
-            // `Logger::default()` emits one `actix_web` INFO log line per
-            // request (method, path, status, duration). The
-            // tracing-subscriber default has `tracing-log` enabled, so the
-            // `log` records show up in the same console as tracing events
-            // -- invaluable when an actix-files 404 would otherwise be
-            // silent (TracingLogger only creates the span, it doesn't emit
-            // events on success).
+            // `Logger::default()` emits one `actix_web` INFO log line per request (method, path, status, duration). The
+            // tracing-subscriber default has `tracing-log` enabled, so the `log` records show up in the same console
+            // as tracing events -- invaluable when an actix-files 404 would otherwise be silent (TracingLogger only
+            // creates the span, it doesn't emit events on success).
             .wrap(Logger::default())
             .wrap(TracingLogger::default())
             .wrap(
@@ -162,8 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         withdraw_local_agents(&backplane, &registry_clone).await;
     }
     delivery.stop().await;
-    // Flush batched spans/logs before exit; otherwise short-lived runs lose
-    // the tail of the trace.
+    // Flush batched spans/logs before exit; otherwise short-lived runs lose the tail of the trace.
     #[cfg(feature = "otlp")]
     if let Some(handles) = otel_handles {
         handles.shutdown();

@@ -1,0 +1,24 @@
+body {
+  font: 15px/1.5 system-ui, sans-serif;
+  max-width: 64rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  margin: 0.4rem 0.4rem 0.4rem 0;
+}
+
+.ok {
+  color: #2a7;
+}
+
+.dup {
+  color: #888;
+}
+
+.bad {
+  color: #b23;
+}

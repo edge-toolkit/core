@@ -7,22 +7,27 @@
 # CPU answering as f32 arithmetic and its math library, and the probes as ONNX operators behind wasi:nn. canvas is a
 # classic 2-D canvas fingerprint kept for comparison: a page's own scene, read with getImageData from a canvas the
 # page made. canvas-browserleaks is the BrowserLeaks canvas test, read with toDataURL from a canvas made in a
-# sandboxed frame; its md5 result is the signature that site shows. A new mechanism brings its own interface name.
+# sandboxed frame; its md5 result is the signature that site shows. webgpu-clear and webgpu-fixed-function are the
+# probe sets no shader compiler decides: render passes clearing a target to a value, and draws whose answer comes
+# from the blend unit, texture unit or rasterizer; webgl2-clear and webgl2-fixed-function are the same sets on WebGL
+# 2, a clearBufferfv taking the place of a render pass's clear. A new mechanism brings its own interface name.
 # A signature can be shared by several devices, so each entry lists every place it has been seen, one row each, under
 # "seen"; when a new sighting matches an existing entry, add a row rather than a duplicate entry. The label is only a
 # summary of the rows. A row names, from fixed sets of values:
 #   browser    chrome, firefox, safari, opera (and whatever else the webbrowser crate names), brave, chromium, deno,
 #              edge, librewolf, samsung-internet, tor-browser, or none where no browser was involved
-#   os         android, linux, macos, windows
+#   os         android, ios, linux, macos, windows
 #   cpu_arch   an architecture as a target triple spells it (aarch64, x86_64), or unknown
 #   gpu        the GPU's vendor as wgpu names it (amd, apple, arm, broadcom, imgtec, intel, mesa, nvidia, qualcomm),
 #              google or microsoft for their software renderers, none where no GPU was involved, or unknown
 #   backend    metal, d3d11, d3d12, vulkan, opengl, opengl-es, none, or unknown
-#   window     normal, private (an incognito window), or none where no browser was involved
+#   window     normal, private (an incognito window), both (each gave the signature, so one row stands for the two),
+#              or none where no browser was involved
 # and may add, as free text: browser_version, os_version, cpu_version (the chip), gpu_version (the model and driver),
-# device (the machine), runtime (what ran the probes where no browser did), defence (a privacy setting in force),
-# reported (what the interface said the GPU was, where that is not what it is), date and source (where the sighting
-# is on record).
+# driver_version and api_version (the versions the graphics API itself reports for the driver and the device, as the
+# native test prints them, not as a browser or wgpu describes them), device (the machine), runtime (what ran the
+# probes where no browser did), defence (a privacy setting in force), reported (what the interface said the GPU was,
+# where that is not what it is), date and source (where the sighting is on record).
 # Each result is keyed by a name its mechanism gives it (a probe, a hash lane) so fields can be added.
 # An interface a browser blocks or does not offer is recorded as an entry with "blocked: true" and a "reason"
 # instead of results, so the registry also shows which browsers withhold which interface, and why.
@@ -192,6 +197,43 @@ signatures:
         backend: opengl
         device: "Dell Precision 5570"
         window: normal
+      - browser: chromium
+        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "????????"
@@ -219,7 +261,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: brave
         os: macos
         cpu_arch: aarch64
@@ -227,7 +269,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -255,7 +297,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: safari
         os: macos
         cpu_arch: aarch64
@@ -263,7 +305,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: brave
         os: macos
         cpu_arch: aarch64
@@ -271,7 +313,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: firefox
         os: macos
         cpu_arch: aarch64
@@ -279,7 +321,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
     results:
       multiply_add: "33800000"
       fma: "????????"
@@ -335,7 +377,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: deno
         browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
         os: macos
@@ -345,7 +387,7 @@ signatures:
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
         runtime: "et-ws-web-runner 0.3.0"
-        window: none
+        window: normal
         date: "2026-11-12"
       - browser: none
         os: macos
@@ -677,6 +719,15 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -816,7 +867,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: unknown
-        window: normal
+        window: both
     results:
       lane0: "4e31fa9b"
       lane1: "76b62595"
@@ -851,7 +902,7 @@ signatures:
       tanh: "3dcc1eb6"
       dot: "3f800000"
   - interface: canvas
-    label: "Firefox 149.0 on Linux -- canvas 2D"
+    label: "Firefox 149.0 and 160.0 on Linux -- canvas 2D, unchanged by privacy.fingerprintingProtection"
     seen:
       - browser: firefox
         browser_version: "149.0"
@@ -859,6 +910,23 @@ signatures:
         cpu_arch: unknown
         gpu: unknown
         backend: unknown
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
         window: normal
     results:
       lane0: "b11cf4d5"
@@ -1228,6 +1296,15 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -1255,7 +1332,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -1283,7 +1360,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
     results:
       multiply_add: "33800000"
       fma: "????????"
@@ -1312,7 +1389,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: none
         os: macos
         cpu_arch: aarch64
@@ -1474,166 +1551,6 @@ signatures:
       lane1: "f467a8a2"
       lane2: "bf84affe"
       lane3: "84e85fe3"
-  - interface: webgpu-split
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium and Brave"
-    seen:
-      - browser: chromium
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-      - browser: brave
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "33800000"
-      swamped_sum: "40800000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "3dcc1ebd"
-      dot: "00000000"
-  - interface: webgpu-combined
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium"
-    seen:
-      - browser: chromium
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "33800000"
-      swamped_sum: "40800000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "3dcc1ebd"
-      dot: "00000000"
-  - interface: webgl2-split
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Safari, Brave and Firefox"
-    seen:
-      - browser: chromium
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-      - browser: safari
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-      - browser: brave
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-      - browser: firefox
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "????????"
-      swamped_sum: "40800000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "3dcc1ebc"
-      dot: "00000000"
-  - interface: webgl2-combined
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium"
-    seen:
-      - browser: chromium
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "????????"
-      swamped_sum: "40800000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "3dcc1ebc"
-      dot: "00000000"
-  - interface: canvas
-    label: "Apple M5 Pro, macOS -- canvas 2D on Chromium"
-    seen:
-      - browser: chromium
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: unknown
-        window: private
-    results:
-      lane0: "4e31fa9b"
-      lane1: "76b62595"
-      lane2: "5debc5c0"
-      lane3: "52ef3664"
   - interface: canvas
     label: "Firefox 160 on macOS, privacy.fingerprintingProtection on -- canvas 2D (differs from the unprotected hash)"
     seen:
@@ -1644,85 +1561,12 @@ signatures:
         gpu: unknown
         backend: unknown
         defence: "privacy.fingerprintingProtection on"
-        window: normal
+        window: both
     results:
       lane0: "a60e6953"
       lane1: "e2f45f75"
       lane2: "956014b5"
       lane3: "1b2515f8"
-  - interface: webgpu-split
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Firefox"
-    seen:
-      - browser: firefox
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "33800000"
-      swamped_sum: "00000000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "3dcc1ebd"
-      dot: "00000000"
-  - interface: canvas
-    label: "Firefox 160 on macOS, privacy.fingerprintingProtection on -- canvas 2D (differs from the unprotected hash)"
-    seen:
-      - browser: firefox
-        browser_version: "160"
-        os: macos
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        defence: "privacy.fingerprintingProtection on"
-        window: private
-    results:
-      lane0: "a60e6953"
-      lane1: "e2f45f75"
-      lane2: "956014b5"
-      lane3: "1b2515f8"
-  - interface: webgpu-combined
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Firefox 160"
-    seen:
-      - browser: firefox
-        browser_version: "160"
-        os: macos
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "33800000"
-      swamped_sum: "00000000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "3dcc1ebd"
-      dot: "00000000"
   - interface: canvas-browserleaks
     label: "Firefox 160 on macOS, fingerprintingProtection on -- BrowserLeaks test (one session's value; see next row)"
     seen:
@@ -1843,7 +1687,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: safari
         browser_version: "27.0"
         os: macos
@@ -1896,7 +1740,7 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
-        window: normal
+        window: both
       - browser: safari
         browser_version: "27.0"
         os: macos
@@ -1936,66 +1780,6 @@ signatures:
         window: normal
     blocked: true
     reason: "WebGL 1 is unavailable (getContext returned null, so WebGL is turned off)"
-  - interface: webgl1-split
-    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157.0.0)"
-    seen:
-      - browser: chrome
-        browser_version: "157.0.0"
-        os: macos
-        os_version: "26.7.1"
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "????????"
-      swamped_sum: "40800000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "????????"
-      dot: "00000000"
-  - interface: webgl1-combined
-    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157.0.0)"
-    seen:
-      - browser: chrome
-        browser_version: "157.0.0"
-        os: macos
-        os_version: "26.7.1"
-        cpu_arch: aarch64
-        cpu_version: "Apple M5 Pro"
-        gpu: apple
-        gpu_version: "Apple M5 Pro GPU"
-        backend: metal
-        window: private
-    results:
-      multiply_add: "33800000"
-      fma: "????????"
-      swamped_sum: "40800000"
-      divide: "3eaaaaab"
-      subnormal_product: "00000000"
-      sqrt: "3fddb3d7"
-      inverse_sqrt: "3f13cd3a"
-      sin: "3dcc7576"
-      cos: "3f7eb899"
-      tan: "3dcd7c43"
-      exp: "3f8d763e"
-      log: "3f8c9f54"
-      pow: "3f8edd1f"
-      atan2: "3d087b99"
-      tanh: "????????"
-      dot: "00000000"
   - interface: webgpu-combined
     label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari"
     seen:
@@ -2431,6 +2215,24 @@ signatures:
         runtime: "wgpu 29"
         window: none
         date: "2026-11-13"
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -2463,6 +2265,24 @@ signatures:
         runtime: "wgpu 29"
         window: none
         date: "2026-11-13"
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -2661,3 +2481,664 @@ signatures:
       atan2: "3d087b99"
       tanh: "3dcc1ebb"
       dot: "00000000"
+  - interface: webgpu-clear
+    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgpu-fixed-function
+    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0000"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd80de"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-split
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-clear
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-fixed-function
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      blend_multiply: "00000032"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa00aa"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0000"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-split
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-clear
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-fixed-function
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaaaaab"
+      filter_fine: "00000000"
+      filter_srgb: "3dddd65c"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgl2-split
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-clear
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgl2-fixed-function
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      blend_multiply: "00000032"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa00aa"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0000"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-split
+    label: "ampere through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "ampere through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-clear
+    label: "SwiftShader (software renderer) through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c46"
+  - interface: webgpu-fixed-function
+    label: "SwiftShader (software renderer) through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      blend_multiply: "00000032"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaaaaac"
+      filter_fine: "3a831201"
+      filter_srgb: "3ddd090a"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "00000007"
+  - interface: webgl2-clear
+    label: "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2"
+    seen:
+      - browser: chromium
+        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgl2-fixed-function
+    label: "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2"
+    seen:
+      - browser: chromium
+        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0000"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd80de"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgl2-split
+    label: "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc6e85"
+      cos: "3f7eadd1"
+      tan: "3dcd7dfb"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgl2-clear
+    label: "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgl2-fixed-function
+    label: "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      blend_multiply: "00000032"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaaaaac"
+      filter_fine: "3a831201"
+      filter_srgb: "3ddd090a"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "00000007"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux -- canvas 2D, PNG encoding keyed to the session"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    blocked: true
+    reason: "randomised: the PNG's bytes differ between visits in one browser while the pixels they decode to do not"

@@ -1,6 +1,8 @@
 //! The `no_std` routing core, `hub::Link`, driven directly with no transport: each frame's replies, deliveries and
-//! shared steps. `S = String` stands in for the session handle, named after the agent that holds it.
+//! shared steps. `S = String` stands in for the session handle, named after the agent that holds it. It runs wherever
+//! the hub exists, with `std` or on a board.
 #![cfg(test)]
+#![cfg(any(feature = "board", feature = "std"))]
 
 use std::net::{IpAddr, Ipv4Addr};
 

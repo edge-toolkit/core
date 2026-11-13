@@ -6,7 +6,10 @@ ls:
   # The regex alternative permits leading-dot tool dirs (.github, .mise).
   .dir: kebab-case | snake_case | regex:\.[a-z_]+
 
-  .rs: snake_case | kebab-case
+  # Rust files are snake_case or kebab-case, and none starts with `test_`.
+  # A Rust test is a flat file in its crate's `tests/`, never a `test_*.rs` module under `src/`; Python's `test_*.py`
+  # stays, as pytest finds tests by that prefix. RE2 has no lookahead, so the regex spells out every start but `test_`.
+  .rs: regex:(?:[a-su-z0-9]|t$|t[a-df-z0-9_-]|te$|te[a-rt-z0-9_-]|tes$|tes[a-su-z0-9_-]|test$|test[a-z0-9])[a-z0-9_-]*
   .py: snake_case | regex:__[a-z]+__
   .js: snake_case
   .zig: snake_case
@@ -25,6 +28,15 @@ ls:
   # Ban the `.conf` extension: config files standardize on `.ini`/`.rc`, as rclone.ini and ripgrep.rc do.
   # `regex:^$` matches no basename, so every `*.conf` file fails the check.
   .conf: regex:^$
+
+  # A Rust integration test is one flat file directly in its crate's `tests/`.
+  # No `tests/<name>/main.rs` binary split across a directory, and no helper module tucked below `tests/`: shared
+  # helpers go in a test-support crate. The first key covers a directory directly under `tests/`, the second every
+  # one below that.
+  "**/tests/*":
+    .rs: exists:0
+  "**/tests/*/**":
+    .rs: exists:0
 
 ignore:
   # Every entry is a literal path -- no glob or wildcard syntax of any kind.
@@ -93,6 +105,10 @@ ignore:
   - modules/web/zig-except1/pkg
   - modules/web/zig-math1/pkg
   - services/ws-wasm-agent/pkg
+  - utilities/gpu-probe/static/pkg
+  # The GPU probe registry's lock file and staged copy, which its server and the gpu-probe binary write beside it.
+  - libs/gpu-probe/signatures.yaml.lock
+  - libs/gpu-probe/signatures.yaml.partial
   # Python venvs plus the pytest and bytecode caches each Python module's test run leaves behind.
   - .venv
   - .pytest_cache
@@ -164,3 +180,9 @@ ignore:
   - modules/web/kotlin-math1/.kotlin
   - modules/web/kotlin-math1/build
   - modules/web/kotlin-math1/src/wasmJsMain
+  # A private unit-test module that src/policy.rs includes through #[path], not a test binary of its own.
+  - services/recovery-supervisor/tests/unit/policy_guards.rs
+  # `test_*.rs` modules that test private items, written before the prefix was banned, until each moves to `tests/`.
+  - modules/web/face-detection/src/test_face_detection.rs
+  - modules/web/har1/src/test_har1.rs
+  - services/ws-wasi-runner/src/board/test_host.rs
