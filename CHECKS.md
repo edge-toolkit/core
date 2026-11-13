@@ -5,7 +5,7 @@
 - **Tools:** 49
 - **Shell-script checks:** 11
 - **Checks with a repair pass:** 22
-- **Rules:** 388 custom local rules, or non-default strict linter settings
+- **Rules:** 397 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -672,6 +672,16 @@ Rules, from `config/conftest/policy`:
   - Every recorded asset must name its `upstream` project URL.
   - Every recorded asset must carry its `license` as an SPDX expression.
   - Every recorded asset must carry a `sha256`, left empty only while bootstrapping.
+- `publish_age` (`config/conftest/policy/cross/publish_age.rego`):
+  - Cargo's publish age lives in .cargo/config.toml, so the file must exist.
+  - .cargo/config.toml must set cargo's publish age.
+  - .mise/config.toml must set mise's release age.
+  - Cargo's publish age must be a number and a unit word, so it can be compared with mise's.
+  - mise's release age must be a number and a unit letter, so it can be compared with cargo's.
+  - Neither age may be zero, which turns the cooldown off.
+  - Cargo and mise must hold dependencies back by the same age.
+  - A registry-specific cargo age replaces the global one for that registry, so it must also match mise's.
+  - The resolver override that lets too-new versions through is for one-off runs, never committed.
 - `pyrefly_python_sync` (`config/conftest/policy/cross/pyrefly_python_sync.rego`):
   - pyrefly must pin the Python version it type-checks against.
   - pyrefly's pinned Python version must equal the mise `python` pin, the version every lane installs.

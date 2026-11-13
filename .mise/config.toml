@@ -55,6 +55,9 @@ java.shorthand_vendor = "openjdk"
 # `mise lock --bump` re-resolves the `latest` selectors when a deliberate tool refresh is wanted.
 lockfile = true
 lockfile_platforms = ["linux-arm64", "linux-x64", "macos-arm64", "macos-x64", "windows-x64"]
+# Hide tool releases younger than a week, so a malicious or broken release is usually pulled before it resolves.
+# mise's own default is a day. Cargo holds crates back by the same age.
+minimum_release_age = "7d"
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
 # Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin
@@ -1398,7 +1401,8 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # combined TOML input.
 run = """
 ns_list="cross cargo mise mise_lock pyproject checksums advisories"
-named="Cargo.lock config/cargo-features.toml config/upstream-cache/data.toml config/deny.toml config/pyrefly.toml"
+named=".cargo/config.toml Cargo.lock config/cargo-features.toml config/upstream-cache/data.toml config/deny.toml"
+named="$named config/pyrefly.toml"
 # Both lists rely on word-splitting when they expand.
 # $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086
