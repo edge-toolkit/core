@@ -60,7 +60,7 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-
 
 [[tools."npm:@asyncapi/generator"]]
 version = "3.5.0"
-aube = { path = "locks/mise.js/npm-asyncapi-generator/3.5.0~39db1ca7", digest = "sha256:13d0958ec1b789f7b1e0ea4a3d50987edb908e7f67900f1b4fb8803dfa33f6bc" }
+aube = { path = "locks/mise.js/npm-asyncapi-generator/3.5.0~39db1ca7", digest = "sha256:b2ec519d6f84ae6cb6a226f687fdad610b056965eab1c638422b2228fc007415" }
 backend = "npm:@asyncapi/generator"
 specifiers = ["latest"]
 
@@ -69,7 +69,7 @@ trust_policy_excludes = '["rollup@2.80.0"]'
 
 [[tools."npm:@asyncapi/markdown-template"]]
 version = "2.0.0"
-aube = { path = "locks/mise.js/npm-asyncapi-markdown-template/2.0.0~34f72aac", digest = "sha256:148c03d9c7af02b40a2a7e7aded301c727f9ad99673e5290bd785df9a3609aca" }
+aube = { path = "locks/mise.js/npm-asyncapi-markdown-template/2.0.0~34f72aac", digest = "sha256:e0410cb2792e7efbfece5781f27fa41176de916ed7bde108aa5348a7c81b2c9c" }
 backend = "npm:@asyncapi/markdown-template"
 specifiers = ["2.0.0"]
 
@@ -83,20 +83,20 @@ backend = "npm:@flakiness/junit-xml"
 specifiers = ["latest"]
 
 [[tools."npm:@huggingface/transformers"]]
-version = "4.3.1"
-aube = { path = "locks/mise.js/npm-huggingface-transformers/4.3.1", digest = "sha256:89a101211f3edc9408dee71352b1813c984ef3a26092f6869355297f6f0361ac" }
+version = "4.3.2"
+aube = { path = "locks/mise.js/npm-huggingface-transformers/4.3.2", digest = "sha256:210a58b9a6deef50d6c8bfa291f8f6718be4950403ce6ad586c4734dd4bade5d" }
 backend = "npm:@huggingface/transformers"
 specifiers = ["latest"]
 
 [[tools."npm:@mediapipe/tasks-vision"]]
-version = "1.1.1"
-aube = { path = "locks/mise.js/npm-mediapipe-tasks-vision/1.1.1", digest = "sha256:c967e9926b6a59271a0260a9068a81225d2ce6b67854cad2660981ccfe100720" }
+version = "1.2.2"
+aube = { path = "locks/mise.js/npm-mediapipe-tasks-vision/1.2.2", digest = "sha256:43434a1f9ea67afdef575bc529d35e0a0cc2570524adf005527bdae2c2440319" }
 backend = "npm:@mediapipe/tasks-vision"
 specifiers = ["latest"]
 
 [[tools."npm:onnxruntime-web"]]
-version = "1.30.0"
-aube = { path = "locks/mise.js/npm-onnxruntime-web/1.30.0", digest = "sha256:01d2195504807331f9ca81b08dff05bf0213737dec2ef156b4b7f9c620e48f40" }
+version = "1.31.1"
+aube = { path = "locks/mise.js/npm-onnxruntime-web/1.31.1", digest = "sha256:5ec44bbe3d95ef743c46031edc2b15d0f95fcb9649e4c96f73d187014d4bab80" }
 backend = "npm:onnxruntime-web"
 specifiers = ["latest"]
 
@@ -107,8 +107,8 @@ backend = "npm:oxlint-tsgolint"
 specifiers = ["0.24.0"]
 
 [[tools."npm:pnpm"]]
-version = "11.28.3"
-aube = { path = "locks/mise.js/npm-pnpm/11.28.3", digest = "sha256:a5b304243ca547d73409d854a0a2f0ae3c1aff3b545780f399342522de5e9b8c" }
+version = "11.28.11"
+aube = { path = "locks/mise.js/npm-pnpm/11.28.11", digest = "sha256:c505232b715f75dda20ad9b8bec98a8b6b34234f37704aeede16752641c54278" }
 backend = "npm:pnpm"
 specifiers = ["11"]
 

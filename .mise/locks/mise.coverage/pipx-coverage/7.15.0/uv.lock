@@ -3,7 +3,7 @@ revision = 5
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-11-09T11:51:03.671727Z"
+exclude-newer = "2026-11-06T22:49:51.880901111Z"
 
 [[package]]
 name = "coverage"

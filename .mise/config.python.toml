@@ -82,11 +82,14 @@ RUFF_CACHE_DIR = "{{ config_root }}/target/ruff-cache"
 # It honours .gitignore (so target/ is skipped) and ruff.toml's `exclude`/`extend-exclude`. Every tracked *.py
 # already lives under a dir we want linted, so discovery covers them without an explicit include list -- scope
 # is narrowed by excludes only.
-pyrefly-check = "pyrefly check -c config/pyrefly.toml"
-ruff-check = "ruff check"
+#
+# Each check waits for gen-specs, whose gen:python-* rewrite the generated clients and then ruff-fix them.
+# `wait_for` rather than `depends`: the edge only matters when `check` has scheduled both.
+pyrefly-check = { run = "pyrefly check -c config/pyrefly.toml", wait_for = ["gen-specs"] }
+ruff-check = { run = "ruff check", wait_for = ["gen-specs"] }
 ruff-fix = "ruff check --fix"
 ruff-fmt = "ruff format"
-ruff-fmt-check = "ruff format --check"
+ruff-fmt-check = { run = "ruff format --check", wait_for = ["gen-specs"] }
 
 # Namespaced aggregators picked up by the default config's globbed tasks.
 # Those are its `check`/`fmt`/`test`.

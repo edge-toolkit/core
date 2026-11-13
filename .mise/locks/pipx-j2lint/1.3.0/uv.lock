@@ -3,7 +3,7 @@ revision = 5
 requires-python = ">=3.10"
 
 [options]
-exclude-newer = "2026-11-07T19:17:09.891024Z"
+exclude-newer = "2026-11-06T22:52:52.946971961Z"
 
 [[package]]
 name = "j2lint"

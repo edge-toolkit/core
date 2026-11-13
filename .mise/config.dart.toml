@@ -42,6 +42,9 @@ run = "dart pub get"
 [tasks.dart-check]
 depends = ["dart-pub-get"]
 run = "dart analyze {{ vars.dart_paths }}"
+# Wait for gen-specs, whose gen:dart-rest deletes and rebuilds the `.g.dart` parts while it runs build_runner.
+# `wait_for` rather than `depends`: the edge only matters when `check` has scheduled both.
+wait_for = ["gen-specs"]
 
 [tasks.dart-fix]
 depends = ["dart-pub-get"]
@@ -57,6 +60,9 @@ depends = ["dart-pub-get"]
 # Parallel of cargo-fmt-check: fail if any tracked Dart source would be reformatted.
 # This lets CI enforce the same formatting `dart-fmt` applies.
 run = "dart format --output=none --set-exit-if-changed {{ vars.dart_paths }}"
+# Wait for gen-specs, whose gen:dart-rest writes generated/dart-rest unformatted before it runs `dart format`.
+# `wait_for` rather than `depends`: the edge only matters when `check` has scheduled both.
+wait_for = ["gen-specs"]
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:dart"]

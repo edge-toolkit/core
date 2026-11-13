@@ -77,7 +77,7 @@ test_age_months_is_flagged if {
 	age_reports(msgs, "global-min-publish-age \"7 months\" is not")
 }
 
-test_age_unparseable_mise_value_is_flagged if {
+test_age_unparsable_mise_value_is_flagged if {
 	msgs := cross.deny with input as age_input("7 days", "2026-01-01")
 	age_reports(msgs, "minimum_release_age \"2026-01-01\" is not")
 }

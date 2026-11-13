@@ -32,7 +32,7 @@ url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.
 
 [[tools."npm:pyodide"]]
 version = "0.29.3"
-aube = { path = "locks/mise.python/npm-pyodide/0.29.3", digest = "sha256:aaed58bf1a70f6f49e8e07f5b6549d57c33be21d46d0bcef15711f276cb0acdd" }
+aube = { path = "locks/mise.python/npm-pyodide/0.29.3", digest = "sha256:f21031f38af4e6d95d5880cb90804499cc6c5ed77839a7cc315b42afad982f3c" }
 backend = "npm:pyodide"
 specifiers = ["0.29.3"]
 
@@ -40,13 +40,13 @@ specifiers = ["0.29.3"]
 version = "0.25.1"
 backend = "pipx:componentize-py"
 specifiers = ["latest"]
-uv = { path = "locks/mise.python/pipx-componentize-py/0.25.1", digest = "sha256:e1e348866c17f0307d74fc197f5df817e395b31d046084ff7828054ee2f53f66" }
+uv = { path = "locks/mise.python/pipx-componentize-py/0.25.1", digest = "sha256:32393981f919a98e0696b2986ec97c7e2209922982a6d5e6205e34e69c6c794c" }
 
 [[tools."pipx:datamodel-code-generator"]]
-version = "0.86.0"
+version = "0.90.0"
 backend = "pipx:datamodel-code-generator"
 specifiers = ["latest"]
-uv = { path = "locks/mise.python/pipx-datamodel-code-generator/0.86.0~93de97fa", digest = "sha256:e7ee347f1445354127f577f7ba4e8984d5413986d401d6db3e75fadb3adb0f7d" }
+uv = { path = "locks/mise.python/pipx-datamodel-code-generator/0.90.0~93de97fa", digest = "sha256:f51264e83da3c54bd44bd936c97beeb6dceea1fa794256ec4cffca1780a4f969" }
 
 [tools."pipx:datamodel-code-generator".options]
 extras = "ruff"
@@ -55,13 +55,13 @@ extras = "ruff"
 version = "0.29.1"
 backend = "pipx:openapi-python-client"
 specifiers = ["0.29.1"]
-uv = { path = "locks/mise.python/pipx-openapi-python-client/0.29.1", digest = "sha256:28c04948e79096f61a9f7aa794221f142e4f5ee921d271243430fd9039184e1e" }
+uv = { path = "locks/mise.python/pipx-openapi-python-client/0.29.1", digest = "sha256:1f45880f282e4b03a716289d64408852c1efcf6d2a54cbcd8bcaecb92f012cb9" }
 
 [[tools."pipx:pyrefly"]]
-version = "1.4.0"
+version = "1.4.1"
 backend = "pipx:pyrefly"
 specifiers = ["latest"]
-uv = { path = "locks/mise.python/pipx-pyrefly/1.4.0", digest = "sha256:daf51047dd6b56e8a6c46b2dc8038c718247c4711104a38260ede49422acaefa" }
+uv = { path = "locks/mise.python/pipx-pyrefly/1.4.1", digest = "sha256:400c4ecfa97baa8efda13332e4f3df7c91b8f8bea6916edc33a696e986926492" }
 
 [[tools."pipx:pyserial"]]
 version = "3.5"
@@ -72,48 +72,48 @@ specifiers = ["latest"]
 uvx_args = "--with opencv-python-headless --with sounddevice"
 
 [[tools."pipx:pytest"]]
-version = "9.1.1"
+version = "9.2.0"
 backend = "pipx:pytest"
 specifiers = ["latest"]
-uv = { path = "locks/mise.python/pipx-pytest/9.1.1", digest = "sha256:b734c01d076b35dd7600a714157694720068982726900219de2d7ae3859551d1" }
+uv = { path = "locks/mise.python/pipx-pytest/9.2.0", digest = "sha256:f918091ff5816d1468dc1193d86b55d66e155f96e2d1abd80c6525c3af29b08d" }
 
 [[tools."pipx:torch"]]
 version = "2.15.0"
 backend = "pipx:torch"
 specifiers = ["latest"]
-uv = { path = "locks/mise.python/pipx-torch/2.15.0", digest = "sha256:83b2bb2dd5c0615c98629da107b6a5d1c0be3c4d7ad0d0232bddcd8390018d02" }
+uv = { path = "locks/mise.python/pipx-torch/2.15.0", digest = "sha256:a5645dc5b514f2c31378c7fc36ae4cc8f689c72dcd969439aa995becbb31040a" }
 
 [[tools.ruff]]
-version = "0.17.1"
+version = "0.17.4"
 backend = "aqua:astral-sh/ruff"
 specifiers = ["latest"]
 
 [tools.ruff."platforms.linux-arm64"]
-checksum = "sha256:d3ead1f0ed779e777a034ccd9286be6bd9bd3cdaba732ff9797f8288a283e9e2"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283344"
+checksum = "sha256:b939676db4532f748dc38c41361a29260f18b3e24a787d46d9278e449c25c2cf"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447221"
 provenance = "github-attestations"
 
 [tools.ruff."platforms.linux-x64"]
-checksum = "sha256:a293ac937715ae6fb6b64da86761598379e6149f40fbc00fde9ba8a2a562ac65"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283613"
+checksum = "sha256:3ab2b34aeacdbc1ea5c529cdbda3e05792633d587228123fd09f3b5a0facb27a"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447482"
 provenance = "github-attestations"
 
 [tools.ruff."platforms.macos-arm64"]
-checksum = "sha256:1c8e6e36538eaa0b996378a20c226403c4ca6369ac24884751b024d3a9530b86"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283324"
+checksum = "sha256:6ef8b3a7fd5294f5e8384ceb29784a6f5657da0853824312b1d2cef53aef17af"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447192"
 provenance = "github-attestations"
 
 [tools.ruff."platforms.macos-x64"]
-checksum = "sha256:88ee16f88dba9d440e06375f46898ec85baf578042ad086764d5a33558bb6e17"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283566"
+checksum = "sha256:0475a156ae8d73ba3386c90207804a72b3d7002ceb9dbca38dabc5d84aa95c9b"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447451"
 provenance = "github-attestations"
 
 [tools.ruff."platforms.windows-x64"]
-checksum = "sha256:a841fb7e59680508b9394bfea32e369b3907cc6620a491c65d8d1f479498db82"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.1/ruff-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/644283579"
+checksum = "sha256:d37f57c7a0cfb8ed5a39adc96f7a0a63767b3c5abe4629c4c84e33c06da46885"
+url = "https://github.com/astral-sh/ruff/releases/download/0.17.4/ruff-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/714447463"
 provenance = "github-attestations"

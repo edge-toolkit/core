@@ -18,7 +18,17 @@ extend-exclude = ["config/jscpd-baseline.json", "data/"]
 # "Functionality is equivelant to" is upstream wasi-io 0.2.8's own typo in a vendored WIT doc comment;
 # the file is fetched verbatim by fetch-wit-deps, so it cannot be corrected here. Anchored to the whole
 # phrase so the misspelling is still caught in prose we write.
-extend-ignore-re = ["Functionality is equivelant to", "MIS Quarterly", "lod-(min|max)-clamp"]
+# `Checksum: <hex>` is the header line openapi2zig writes into each generated Zig client, and a fresh hash can open
+# with a near-word ("ba..."). Anchored to that header so other hex runs are still checked.
+# `std.compress.flate` is the Zig standard library's DEFLATE module, not a misspelling of "flat". Scoped to that path
+# so bare "flate" is still flagged.
+extend-ignore-re = [
+  "Checksum: [0-9a-f]+",
+  "Functionality is equivelant to",
+  "MIS Quarterly",
+  "lod-(min|max)-clamp",
+  "std\\.compress\\.flate",
+]
 
 # ser2net is the serial-to-network bridge daemon, whose "ser" is short for serial rather than a misspelling of "set".
 [default.extend-identifiers]
