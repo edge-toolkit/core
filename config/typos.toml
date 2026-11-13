@@ -23,3 +23,5 @@ extend-ignore-re = ["Functionality is equivelant to", "MIS Quarterly", "lod-(min
 # ser2net is the serial-to-network bridge daemon, whose "ser" is short for serial rather than a misspelling of "set".
 [default.extend-identifiers]
 ser2net = "ser2net"
+# textureLod is GLSL's sampling function that names its level of detail, not a misspelling of "load".
+textureLod = "textureLod"

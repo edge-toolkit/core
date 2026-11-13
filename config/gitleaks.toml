@@ -39,6 +39,7 @@ paths = [
   '''(^|/)__pycache__/''',
   '''(^|/)node_modules/''',
   '''(^|/)obj/''',
+  '''^libs/gpu-probe/signatures\.yaml\.(lock|partial)$''',
   '''^modules/web/dotnet-data1/bin/''',
   '''^modules/web/js-data1/pkg/et_ws_js_data1\.js$''',
   '''^modules/web/kotlin-data1/build/''',
@@ -51,6 +52,7 @@ paths = [
   '''^services/ws-server/storage/''',
   '''^services/ws-wasm-agent/pkg/''',
   '''^target/''',
+  '''^utilities/gpu-probe/static/pkg/''',
   '''^verification/.*/\.mise/locks/''',
   '''^zig-out/''',
 ]

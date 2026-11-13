@@ -1,0 +1,3 @@
+# The lock file the registry's writers share, and the staged copy each renames over the registry.
+/signatures.yaml.lock
+/signatures.yaml.partial

@@ -208,6 +208,8 @@ allowed_os_scoped_tool := {
 	# action-validator (aqua) has no Windows build, so it is os-scoped off Windows.
 	# config.windows.toml installs cargo:action-validator there instead (cargo-quickinstall msvc prebuilt).
 	"action-validator",
+	# conda-forge builds no gnupg for Windows, where config.windows.toml installs conda:m2-gnupg instead.
+	"conda:gnupg",
 	"http:chromedriver",
 	"pipx",
 	"pipx:torch",

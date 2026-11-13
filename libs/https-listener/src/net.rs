@@ -18,11 +18,11 @@ pub enum NetError {
 
 /// Filters an interface list to reachable IPv4 addresses and orders them by likely client reachability.
 ///
-/// Keeps only non-loopback, non-link-local, non-unspecified IPv4 addresses, then sorts them by interface
-/// class, preserving enumeration order within each class: the `log_interface` name (if given) first,
-/// then `en*` (Wi-Fi / Ethernet), then `bridge*`, then everything else (VPN tunnels and the like). The
-/// `bridge*` class still outranks the tunnels because when macOS Internet Sharing is active and the Wi-Fi
-/// NIC holds no address, its `bridge100` gateway is the best guess even without an explicit preference.
+/// Keeps only non-loopback, non-link-local, non-unspecified IPv4 addresses, then sorts them by interface class,
+/// preserving enumeration order within each class: the `log_interface` name (if given) first, then `en*` (Wi-Fi /
+/// Ethernet), then `bridge*`, then everything else (VPN tunnels and the like). The `bridge*` class still outranks the
+/// tunnels because when macOS Internet Sharing is active and the Wi-Fi NIC holds no address, its `bridge100` gateway is
+/// the best guess even without an explicit preference.
 #[must_use]
 pub fn rank_candidates(ifas: Vec<(String, IpAddr)>, log_interface: Option<&str>) -> Vec<(String, IpAddr)> {
     let mut candidates: Vec<(String, IpAddr)> = ifas
@@ -56,13 +56,25 @@ fn format_ifas(ifas: &[(String, IpAddr)]) -> String {
 
 /// Enumerates the host's network interfaces and returns the ranked IPv4 candidates for the startup banner.
 ///
-/// Logs the complete raw enumeration (every interface and address, before any filtering) so a machine
-/// with no usable candidate can be diagnosed from the startup log alone -- the offline-hotspot demo is
-/// exactly the situation where no second machine is available to poke around from. An explicitly
-/// configured `log_interface` is a hard requirement: if it is absent or holds no usable IPv4 address,
-/// this returns an error (aborting startup) rather than silently advertising some other address.
+/// Logs the complete raw enumeration (every interface and address, before any filtering) so a machine with no usable
+/// candidate can be diagnosed from the startup log alone -- the offline-hotspot demo is exactly the situation where
+/// no second machine is available to poke around from. An explicitly configured `log_interface` is a hard requirement:
+/// if it is absent or holds no usable IPv4 address, this returns an error (aborting startup) rather than silently
+/// advertising some other address.
 pub fn candidate_ipv4s(log_interface: Option<&str>) -> Result<Vec<(String, IpAddr)>, NetError> {
-    let ifas = match local_ip_address::list_afinet_netifas() {
+    select_candidates(local_ip_address::list_afinet_netifas(), log_interface)
+}
+
+/// The ranked IPv4 candidates in `enumerated`, the operating system's answer when asked for its interfaces.
+///
+/// It is [`candidate_ipv4s`] once the operating system has answered, taking the answer as a value, so that every way
+/// the answer can go -- a failure included, which an operating system gives only when something is badly wrong -- can
+/// be handed to it directly.
+pub fn select_candidates(
+    enumerated: Result<Vec<(String, IpAddr)>, local_ip_address::Error>,
+    log_interface: Option<&str>,
+) -> Result<Vec<(String, IpAddr)>, NetError> {
+    let ifas = match enumerated {
         Ok(ifas) => ifas,
         Err(e) => {
             if log_interface.is_some() {

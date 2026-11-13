@@ -15,6 +15,22 @@ Changelog 1.1.0.
   which drives no GPU itself. Its `host` answers the probes on the CPU, and its `HOST` and `WASI_NN` name the
   interfaces a signature is measured through with no browser. The module's `gpu.renderer` now falls back to WebGL's
   renderer string where a browser blanks the WebGPU adapter's.
+- `et-gpu-probe` probes the GPU where no shader compiler decides the answer. `CLEARS` clears a target of a given
+  `Format` to a value with no shader at all, so the driver or output stage converts it, and the fixed-function set --
+  `BLENDS`, `FILTERS` and `RASTERS` -- reads back what the blend unit, texture unit and rasterizer computed: rounding,
+  filter-weight bits and sub-pixel snapping. Each has its WGSL, its exact answer, and its own interface,
+  `WEBGPU_CLEAR` and `WEBGPU_FIXED_FUNCTION`, under which `Signature` reads it. A registry row may now record the
+  `driver_version` and `api_version` the graphics API itself reports.
+- `et-gpu-probe-server` collects GPU probe signatures over HTTPS into `libs/gpu-probe/signatures.yaml`: a paste form
+  at `/submit`, JSON submissions at `POST /register`, each added as a new entry or as another place a known one was
+  seen. `mise run gpu-probe-server` serves this machine and `mise run gpu-probe-server-lan` the LAN. Its TLS and
+  LAN-address code is the new `et-https-listener` crate, which `et-ws-server` now re-exports as its `tls` and `net`
+  modules; its new `generate_tls_certs_covering` puts extra names, such as LAN addresses, in a self-signed pair.
+  Beside it, `gpu-probe` probes every GPU adapter of this machine, software renderers included, and its CPU, and
+  adds whatever sightings the registry is missing, driving the GPUs through `et-gpu-probe`'s new `native` feature.
+  The same feature builds for `wasm32`, opening the browser's WebGPU, and every `native::Gpu` call is async. The
+  server serves a probe page that runs the probe sets as WASM, through WebGL 2 and WebGPU, and submits each signature;
+  `mise run gpu-probe-page` builds and serves it on plain HTTP at localhost, which `--http` allows on a loopback only.
 - A WASI module can read a lidar. `et-ws-wasi-runner`'s new `lidar` feature, on by default, hosts
   `et:ws-wasi/serial`, lending a guest the serial ports its `SERIAL_PORTS_<NAME>` variables name: a device, or
   `tcp://<host>:<port>` for one a bridge such as ser2net serves. The interface's own `serial-host` world, which the
@@ -177,6 +193,11 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** `edge-toolkit` built without `std` holds the agent registry, `ws_server`, only with its new `board`
+  feature, which brings in the spin lock it is kept under; `board` also adds `board::BoardLock`, that lock, for the
+  rest of a board's shared state. Likewise `et-ws-service` without `std` holds its `hub` routing core only with
+  `board`, which now turns on edge-toolkit's, and `et-storage-service`'s `board` does the same for its routes. A
+  `no_std` user of any of them adds `board`; with `std` the registry keeps `std::sync::Mutex` and nothing changes.
 - A board hosts `wasi:clocks/wall-clock`, which every guest built with Rust 1.100 imports for its standard library's
   locks. A board keeps no calendar, so the time it gives is how long its clock has run. The interface moves from
   `edge_toolkit::board::COVERAGE_IMPORTS` to `HOSTED_IMPORTS`.

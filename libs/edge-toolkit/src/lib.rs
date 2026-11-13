@@ -13,4 +13,6 @@ pub mod board;
 pub mod config;
 pub mod ports;
 pub mod ws;
+// The agent registry needs a lock: `std`'s, or on a board a spin lock. A `no_std` build for neither has no registry.
+#[cfg(any(feature = "board", feature = "std"))]
 pub mod ws_server;

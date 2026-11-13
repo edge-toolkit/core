@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use serde_json::Value;
 
-use crate::PROBES;
+use crate::ProbeSet;
 use crate::sighting::{RowError, Sighting};
 
 /// The registry: the JSON written from `signatures.yaml`, embedded as text when the crate is compiled.
@@ -41,6 +41,7 @@ fn entries() -> impl Iterator<Item = &'static Value> {
 /// results, kept for an interface a browser withheld, holds none.
 fn holding<'words>(interface: &'words str, words: &'words [String]) -> impl Iterator<Item = &'static Value> + 'words {
     let split = format!("{interface}-split");
+    let names = ProbeSet::measured_through(interface).names;
     entries()
         .filter(move |entry| {
             let filed = entry.get("interface").and_then(Value::as_str);
@@ -48,9 +49,9 @@ fn holding<'words>(interface: &'words str, words: &'words [String]) -> impl Iter
         })
         .filter(move |entry| {
             let results = entry.get("results");
-            words.len() == PROBES.len()
-                && PROBES.iter().zip(words).all(|(probe, word)| {
-                    results.and_then(|held| held.get(probe.0)).and_then(Value::as_str) == Some(word.as_str())
+            words.len() == names.len()
+                && names.iter().zip(words).all(|(name, word)| {
+                    results.and_then(|held| held.get(*name)).and_then(Value::as_str) == Some(word.as_str())
                 })
         })
 }

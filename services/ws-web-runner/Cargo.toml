@@ -68,11 +68,9 @@ rstest.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt", "time"] }
 
-[build-dependencies]
-# Compiles mingw-shim/ for the x86_64-pc-windows-gnu build (see build.rs).
-# Used only in build.rs's `#[cfg(windows)]` branch, so these go unreferenced on non-Windows hosts -- harmless,
-# since that branch (and the functions it calls) don't compile there, which also keeps them out of the Linux
-# coverage report.
+# What build.rs compiles mingw-shim/ with, for the x86_64-pc-windows-gnu build.
+# Its `#[cfg(windows)]` branch is all that uses them, so they are declared for Windows alone.
+[target.'cfg(windows)'.build-dependencies]
 cc.workspace = true
 command-error.workspace = true
 fs-err.workspace = true

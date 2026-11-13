@@ -3,7 +3,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-use et_ws_server::net::{NetError, candidate_ipv4s, rank_candidates};
+use et_https_listener::net::{NetError, candidate_ipv4s, rank_candidates, select_candidates};
 
 fn ifa(name: &str, octets: [u8; 4]) -> (String, IpAddr) {
     (name.to_string(), IpAddr::V4(Ipv4Addr::from(octets)))
@@ -32,8 +32,8 @@ fn filters_out_unusable_addresses() {
 
 #[test]
 fn log_interface_ranks_first() {
-    // Internet Sharing with a wired uplink: the phone scanning the QR code sits on the bridge100
-    // network, so the explicitly preferred hotspot gateway must beat the uplink NIC's LAN address.
+    // Internet Sharing with a wired uplink: the phone scanning the QR code sits on the bridge100 network, so the
+    // explicitly preferred hotspot gateway must beat the uplink NIC's LAN address.
     let ranked = rank_candidates(
         vec![ifa("en8", [10, 128, 116, 231]), ifa("bridge100", [192, 168, 2, 1])],
         Some("bridge100"),
@@ -93,4 +93,32 @@ fn missing_log_interface_is_a_startup_error() {
 #[test]
 fn no_preference_never_errors() {
     let _ranked = candidate_ipv4s(None).unwrap();
+}
+
+#[test]
+fn a_failed_enumeration_is_an_error_only_when_an_interface_was_asked_for() {
+    let failed = || Err(local_ip_address::Error::PlatformNotSupported("test".to_owned()));
+    let err = select_candidates(failed(), Some("en0")).unwrap_err();
+    assert!(matches!(err, NetError::Enumeration(_)));
+    assert!(err.to_string().starts_with("failed to enumerate network interfaces"));
+    assert_eq!(select_candidates(failed(), None).unwrap(), Vec::new());
+}
+
+#[test]
+fn nothing_usable_is_no_candidate_and_no_error_without_a_preference() {
+    let loopback_only = vec![ifa("lo", [127, 0, 0, 1])];
+    assert_eq!(select_candidates(Ok(loopback_only), None).unwrap(), Vec::new());
+}
+
+#[test]
+fn an_asked_for_interface_among_nothing_usable_says_so() {
+    let err = select_candidates(Ok(Vec::new()), Some("en0")).unwrap_err();
+    assert!(err.to_string().ends_with("usable candidates: (none)"));
+}
+
+#[test]
+fn an_asked_for_interface_that_is_usable_is_ranked_first() {
+    let enumerated = vec![ifa("en0", [192, 168, 1, 2]), ifa("wg0", [10, 0, 0, 2])];
+    let ranked = select_candidates(Ok(enumerated), Some("wg0")).unwrap();
+    assert_eq!(names(&ranked), ["wg0", "en0"]);
 }

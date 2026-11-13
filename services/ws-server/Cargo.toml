@@ -23,10 +23,6 @@ path = "src/main.rs"
 name = "configure_app"
 required-features = ["modules", "storage"]
 
-[[test]]
-name = "tls"
-required-features = ["tls-self-signed"]
-
 [features]
 #! Every service the hub can mount beyond `/ws` and `/health` is a feature, all on by default.
 #! A deployment that needs only the hub sets `default-features = false` and opts back into the services it serves.
@@ -43,10 +39,10 @@ qr = ["dep:qr2term"]
 storage = ["dep:et-storage-service"]
 ## Adds the HTTPS/WSS listener, serving the PEM pair named by `TLS_CERT_FILE` and `TLS_KEY_FILE`.
 ## Without it the hub serves plain HTTP only, which browsers refuse for camera, sensors and other secure-context APIs.
-tls = ["actix-web/rustls-0_23", "dep:rustls", "dep:serde-inline-default", "et-actix-web-config/rustls-0_23"]
+tls = ["actix-web/rustls-0_23", "dep:serde-inline-default", "et-actix-web-config/rustls-0_23", "et-https-listener/tls"]
 ## Generates a self-signed `localhost` pair into `TLS_CERT_FILE` and `TLS_KEY_FILE` when they do not exist yet.
 ## Without it a missing pair is a startup error, for deployments that provision their own certificates.
-tls-self-signed = ["dep:fs-err", "dep:rcgen", "tls"]
+tls-self-signed = ["et-https-listener/tls-self-signed", "tls"]
 ## Renders each image an agent stores as a thumbnail on the hub's terminal, e.g. what pic-viewer uploads.
 ## It implies `storage`, and is what pulls the `image` decoder into the build.
 tty-image = ["et-storage-service/tty-image", "storage"]
@@ -79,22 +75,18 @@ actix-web.workspace = true
 document-features = { workspace = true, optional = true }
 edge-toolkit = { workspace = true, features = ["std"] }
 et-actix-web-config.workspace = true
+et-https-listener.workspace = true
 et-modules-service = { workspace = true, features = ["std"], optional = true }
 et-otlp = { workspace = true, optional = true }
 et-storage-service = { workspace = true, features = ["std"], optional = true }
 et-websockify-service = { workspace = true, optional = true }
 et-ws-service = { workspace = true, features = ["nats", "std"] }
-fs-err = { workspace = true, optional = true }
-local-ip-address.workspace = true
 qr2term = { workspace = true, optional = true }
-rcgen = { workspace = true, optional = true }
-rustls = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, features = ["std"] }
 serde-env.workspace = true
 serde-inline-default = { workspace = true, optional = true }
 serde_default.workspace = true
-thiserror = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std"] }
 tracing-actix-web.workspace = true
 tracing-subscriber.workspace = true

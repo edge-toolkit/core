@@ -1,66 +1,20 @@
-//! Puts the probe set to this machine with no browser involved, to its GPU through wgpu and to its CPU.
+//! Puts the probe sets to this machine with no browser involved, to its GPU through wgpu and to its CPU.
 //!
-//! Each signature is checked against the one recorded for that hardware. A machine nobody has recorded still has to
-//! answer every probe legally, and the same way twice; what it answered is printed, which is how its signature comes to
-//! be recorded.
+//! Each shader signature is checked against the one recorded for that hardware. A machine nobody has recorded still has
+//! to answer every probe legally, and the same way twice; what it answered is printed, which is how its signature comes
+//! to be recorded. The clears and fixed-function probes, which no shader compiler decides, have to be answered the same
+//! way twice. Beside the signatures the test prints what the device says it is, read from the API it was opened through
+//! rather than from what wgpu makes of it.
 #![cfg(test)]
 
 use std::sync::LazyLock;
 
-use et_gpu_probe::{
-    Answer, HOST, INPUTS, PROBE_COUNT, Signature, WEBGPU, WEBGPU_COMBINED, combined_shader, host, shaders,
-};
+use et_gpu_probe::native::{Gpu, NativeError};
+use et_gpu_probe::{Answer, BLENDS, CLEARS, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host};
 use futures_executor::block_on;
 
-/// How many bytes the storage buffer every probe shader reads [`INPUTS`] from holds.
-const INPUT_BYTES: u64 = 32;
-
-/// How many bytes the one `u32` every probe shader writes takes.
-const OUTPUT_BYTES: u64 = 4;
-
-/// How many bytes the answers to the whole probe set take.
-const SIGNATURE_BYTES: u64 = 64;
-
-/// How many words the answers to the whole probe set take, one a probe.
-const PROBE_WORDS: u64 = 16;
-
 /// This machine's GPU, opened once and with the probe set compiled for it.
-static GPU: LazyLock<Gpu> = LazyLock::new(|| {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
-    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap();
-    let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
-    let info = adapter.get_info();
-    Gpu {
-        hardware: format!(
-            "{} | {} {} | {}",
-            info.name, info.driver, info.driver_info, info.backend
-        ),
-        combined: compile(&device, &combined_shader()),
-        probes: shaders().iter().map(|shader| compile(&device, &shader.1)).collect(),
-        vendor: info.vendor,
-        device,
-        queue,
-    }
-});
-
-/// A probe as a device holds it: the pipeline that evaluates it, or the device's reason for refusing to build one.
-type Probe = Result<wgpu::ComputePipeline, wgpu::Error>;
-
-/// A GPU the probes are put to.
-struct Gpu {
-    /// The whole probe set as one shader.
-    combined: Probe,
-    /// The device the probes run on.
-    device: wgpu::Device,
-    /// What the adapter behind the device reports itself as: its name, driver and backend.
-    hardware: String,
-    /// The probe set, in output order.
-    probes: Vec<Probe>,
-    /// Where the device's work is submitted.
-    queue: wgpu::Queue,
-    /// The PCI vendor ID the adapter reports, which is none on some backends.
-    vendor: u32,
-}
+static GPU: LazyLock<Gpu> = LazyLock::new(|| block_on(Gpu::open()).unwrap());
 
 /// Print `signature` beside the `hardware` it was measured on through `interface`.
 ///
@@ -75,164 +29,79 @@ fn report(interface: &str, hardware: &str, signature: &Signature) {
     }
 }
 
-/// A buffer of `size` bytes on `device`, for the uses `usage` names.
-fn buffer(device: &wgpu::Device, size: u64, usage: wgpu::BufferUsages) -> wgpu::Buffer {
-    device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size,
-        usage,
-        mapped_at_creation: false,
-    })
-}
-
-/// The pipeline on `device` that runs the shader `wgsl` holds.
-///
-/// A shader the device will not compile, or a pipeline it will not build, is a refusal, which the error scope catches.
-fn compile(device: &wgpu::Device, wgsl: &str) -> Probe {
-    let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(wgsl.into()),
-    });
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: None,
-        layout: None,
-        module: &module,
-        entry_point: Some("main"),
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-        cache: None,
-    });
-    block_on(scope.pop()).map_or(Ok(pipeline), Err)
-}
-
-/// Add to `encoder` a run of `pipeline` on `device`, reading `input` and leaving what it writes in `output`.
-#[expect(
-    clippy::single_call_fn,
-    reason = "one stage's run, kept apart from the loop over the stages"
-)]
-fn run(
-    device: &wgpu::Device,
-    encoder: &mut wgpu::CommandEncoder,
-    pipeline: &wgpu::ComputePipeline,
-    input: &wgpu::Buffer,
-    output: &wgpu::Buffer,
-) {
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None,
-        layout: &pipeline.get_bind_group_layout(0),
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: input.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: output.as_entire_binding(),
-            },
-        ],
-    });
-    let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
-    pass.set_pipeline(pipeline);
-    pass.set_bind_group(0, &bind_group, &[]);
-    pass.dispatch_workgroups(1, 1, 1);
-}
-
-/// What this machine's GPU answers to `stages`, all of them run in one submission.
-///
-/// A stage is a shader as the device holds it, beside how many probes it evaluates: each of the probe set's shaders
-/// evaluates one, and the combined shader all of them. A stage the device refused answers each of its probes with
-/// the refusal.
-#[expect(
-    clippy::host_endian_bytes,
-    reason = "a GPU buffer holds its values in the machine's own byte order"
-)]
-fn gpu_answers(stages: &[(&Probe, u64)]) -> Vec<Answer> {
-    let Gpu { device, queue, .. } = &*GPU;
-    let input = buffer(
-        device,
-        INPUT_BYTES,
-        wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-    );
-    let input_bytes: Vec<u8> = INPUTS.iter().flat_map(|value| value.to_ne_bytes()).collect();
-    queue.write_buffer(&input, 0, &input_bytes);
-    let readback = buffer(
-        device,
-        SIGNATURE_BYTES,
-        wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-    );
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-    let mut offset = 0_u64;
-    for (probe, probes) in stages {
-        let bytes = probes.saturating_mul(OUTPUT_BYTES);
-        if let Ok(pipeline) = probe {
-            let output = buffer(
-                device,
-                bytes,
-                wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            );
-            run(device, &mut encoder, pipeline, &input, &output);
-            encoder.copy_buffer_to_buffer(&output, 0, &readback, offset, bytes);
-        }
-        offset = offset.saturating_add(bytes);
-    }
-    let _submission: wgpu::SubmissionIndex = queue.submit([encoder.finish()]);
-    readback.map_async(wgpu::MapMode::Read, .., |mapped| mapped.unwrap());
-    let _status: wgpu::PollStatus = device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-    let held = readback.get_mapped_range(..);
-    let mut words = held.as_chunks::<4>().0.iter();
-    let mut answers = Vec::new();
-    for (probe, probes) in stages {
-        for _probe in 0..*probes {
-            let word = words.next().unwrap();
-            answers.push(match probe {
-                Ok(_) => Answer::Bits(u32::from_ne_bytes(*word)),
-                Err(refusal) => Answer::Refused(refusal.to_string()),
-            });
-        }
-    }
-    answers
-}
-
-/// What this machine's GPU answers to the probe set, each probe in a shader of its own.
-fn gpu_signature() -> Signature {
-    let stages: Vec<(&Probe, u64)> = GPU.probes.iter().map(|probe| (probe, 1)).collect();
-    Signature::new(WEBGPU, gpu_answers(&stages))
-}
-
-/// What this machine's GPU answers to the probe set, every probe in the one combined shader.
-fn combined_signature() -> Signature {
-    Signature::new(WEBGPU_COMBINED, gpu_answers(&[(&GPU.combined, PROBE_WORDS)]))
-}
-
 /// What this machine's CPU answers to the probe set.
 fn cpu_signature() -> Signature {
     Signature::new(HOST, host().into_iter().map(Answer::Bits).collect())
 }
 
 #[test]
-fn this_gpu_answers_every_probe_legally_and_the_same_way_twice() {
-    let signature = gpu_signature();
-    report("wgpu", &GPU.hardware, &signature);
-    println!("wgpu vendor id: {:#06x}", GPU.vendor);
+fn this_device_reports_itself_through_the_api_it_was_opened_through() {
+    let device = GPU.report();
+    for line in &device.lines {
+        println!("device {line}");
+    }
+    // The line each backend's reader gives that only the API itself could have: a version, or Metal's architecture.
+    let readers = [
+        ("vulkan", "vulkan driver version: "),
+        ("metal", "metal architecture: "),
+        ("d3d12", "dxgi driver version: "),
+    ];
+    let reader = readers.iter().find(|reader| reader.0 == GPU.backend()).unwrap();
+    assert!(device.lines.iter().any(|line| line.starts_with(reader.1)));
+}
 
+/// What `measure` answers on this machine's GPU, printed as measured through `interface`.
+///
+/// A second measurement has to answer the same way.
+fn measured_twice<Measure, Pending>(interface: &str, measure: Measure) -> Signature
+where
+    Measure: Fn() -> Pending,
+    Pending: Future<Output = Result<Signature, NativeError>>,
+{
+    let signature = block_on(measure()).unwrap();
+    // What the adapter behind the device reports itself as: its name, driver and backend.
+    let info = GPU.info();
+    let hardware = format!(
+        "{} | {} {} | {}",
+        info.name, info.driver, info.driver_info, info.backend
+    );
+    report(interface, &hardware, &signature);
+    assert_eq!(signature.fingerprint(), block_on(measure()).unwrap().fingerprint());
+    signature
+}
+
+#[test]
+fn this_gpu_answers_every_clear_the_same_way_twice() {
+    let signature = measured_twice("wgpu clear", || GPU.clear_signature());
+    // Only rendering to rg11b10ufloat is optional, so only that clear may be refused.
+    let refusable = usize::from(!GPU.renders_ufloat11());
+    assert_eq!(signature.completed() + refusable, CLEARS.len());
+}
+
+#[test]
+fn this_gpu_answers_every_fixed_function_probe_the_same_way_twice() {
+    let signature = measured_twice("wgpu fixed-function", || GPU.fixed_function_signature());
+    assert_eq!(signature.completed(), BLENDS.len() + FILTERS.len() + RASTERS.len());
+}
+
+#[test]
+fn this_gpu_answers_every_probe_legally_and_the_same_way_twice() {
+    let signature = measured_twice("wgpu", || GPU.signature());
+    println!("wgpu vendor id: {:#06x}", GPU.info().vendor);
     assert_eq!(signature.completed(), PROBE_COUNT);
     assert!(!signature.traits().contains("=other"));
-    assert_eq!(signature.fingerprint(), gpu_signature().fingerprint());
 }
 
 #[test]
 fn this_gpu_answers_the_combined_shader_legally_and_the_same_way_twice() {
-    let signature = combined_signature();
-    report("wgpu combined", &GPU.hardware, &signature);
-
+    let signature = measured_twice("wgpu combined", || GPU.combined_signature());
     assert_eq!(signature.completed(), PROBE_COUNT);
     assert!(!signature.traits().contains("=other"));
-    assert_eq!(signature.fingerprint(), combined_signature().fingerprint());
 }
 
-// The platforms whose GPU and CPU each have a signature on record: an Apple GPU through Metal, llvmpipe through
-// Vulkan and the Basic Render Driver through Direct3D 12. A machine of one of these platforms with hardware not yet
-// on record fails here, and the fingerprint the tests beside this one print is what gets it recorded.
+// The platforms whose GPU and CPU each have a signature on record: an Apple GPU through Metal, llvmpipe through Vulkan
+// and the Basic Render Driver through Direct3D 12. A machine of one of these platforms with hardware not yet on record
+// fails here, and the fingerprint the tests beside this one print is what gets it recorded.
 #[cfg(any(
     all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "linux", target_arch = "aarch64"),
@@ -242,8 +111,8 @@ fn this_gpu_answers_the_combined_shader_legally_and_the_same_way_twice() {
 #[test]
 fn the_registry_has_seen_this_gpu_and_this_cpu_on_this_platform() {
     // An adapter that reports no vendor ID, as Metal's does, is held to its platform alone.
-    let vendor = et_gpu_probe::GpuVendor::from_id(GPU.vendor);
-    let gpu_seen = gpu_signature().seen().unwrap();
+    let vendor = et_gpu_probe::GpuVendor::from_id(GPU.info().vendor);
+    let gpu_seen = block_on(GPU.signature()).unwrap().seen().unwrap();
     assert!(gpu_seen.iter().any(|sighting| {
         sighting.is_here() && (vendor == et_gpu_probe::GpuVendor::Unknown || sighting.gpu == vendor)
     }));
@@ -258,4 +127,78 @@ fn this_cpu_answers_every_probe_the_same_way_twice() {
     report(HOST, &hardware, &signature);
 
     assert_eq!(signature.fingerprint(), cpu_signature().fingerprint());
+}
+
+#[test]
+fn every_adapter_opens_and_answers_the_probe_set() {
+    let gpus = block_on(Gpu::open_all());
+    assert!(!gpus.is_empty());
+    for opened in &gpus {
+        let gpu = opened.as_ref().unwrap();
+        let info = gpu.info();
+        println!(
+            "adapter: {} ({:?}) through {}",
+            info.name,
+            info.device_type,
+            gpu.backend()
+        );
+        assert_eq!(block_on(gpu.signature()).unwrap().completed(), PROBE_COUNT);
+    }
+}
+
+#[test]
+fn an_adapter_no_graphics_api_stands_behind_reports_only_what_wgpu_says() {
+    // wgpu's no-op backend is on every platform and has no Vulkan, Metal or Direct3D 12 side, so the report reads
+    // none of those APIs: what each reader does for an adapter opened through another API than its own.
+    let descriptor = wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::NOOP,
+        backend_options: wgpu::BackendOptions {
+            noop: wgpu::NoopBackendOptions { enable: true },
+            ..wgpu::BackendOptions::default()
+        },
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    };
+    let instance = wgpu::Instance::new(descriptor);
+    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap();
+    let gpu = block_on(Gpu::open_adapter(adapter)).unwrap();
+    assert_eq!(gpu.info().backend, wgpu::Backend::Noop);
+    let report = gpu.report();
+    assert_ne!(report.lines.len(), 0);
+    for api in ["vulkan", "metal", "dxgi"] {
+        assert!(
+            !report.lines.iter().any(|line| line.starts_with(api)),
+            "{api} in {:?}",
+            report.lines
+        );
+    }
+    assert_eq!(report.versions.len(), 0);
+}
+
+#[test]
+fn the_adapter_preferred_for_each_power_preference_opens_and_answers_the_probe_set() {
+    for power_preference in [wgpu::PowerPreference::HighPerformance, wgpu::PowerPreference::LowPower] {
+        let options = wgpu::RequestAdapterOptions {
+            power_preference,
+            ..wgpu::RequestAdapterOptions::default()
+        };
+        let gpu = block_on(Gpu::open_with(&options)).unwrap();
+        println!("{power_preference:?}: {} through {}", gpu.info().name, gpu.backend());
+        assert_eq!(block_on(gpu.signature()).unwrap().completed(), PROBE_COUNT);
+    }
+}
+
+#[cfg(not(target_vendor = "apple"))]
+#[test]
+fn a_vulkan_driver_version_is_read_in_its_vendors_encoding() {
+    use et_gpu_probe::native::{vulkan_api_version, vulkan_driver_version};
+
+    // NVIDIA 580.95.5.0, packed 10.8.8.6 bits.
+    assert_eq!(vulkan_driver_version(0x10de, 0x9117_c140, false), "580.95.5.0");
+    // Intel's Windows driver 101.130, packed 18.14 bits, but the API layout on Linux, where Mesa drives it.
+    assert_eq!(vulkan_driver_version(0x8086, 0x0019_4082, true), "101.130");
+    assert_eq!(vulkan_driver_version(0x8086, 0x0680_1006, false), "26.1.6");
+    // AMD packs its driver version as the API version is, on every platform.
+    assert_eq!(vulkan_driver_version(0x1002, 0x0080_2000, true), "2.2.0");
+    assert_eq!(vulkan_api_version(0x0040_6162), "1.6.354");
+    assert_eq!(vulkan_api_version(0x2040_6162), "1.6.354 (variant 1)");
 }

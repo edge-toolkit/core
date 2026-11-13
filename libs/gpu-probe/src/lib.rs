@@ -10,18 +10,42 @@
 //! It drives no GPU itself, so the same probes serve a browser's WebGPU, a native host's, and a caller with none. Each
 //! probe is a shader of its own: a device that refuses one expression still answers the rest, and a signature with gaps
 //! in it identifies a device better than no signature.
+//!
+//! Two more probe sets reach the GPU where no shader compiler decides the answer. [`CLEARS`] clears a target to a
+//! value with no shader at all, so the driver or the output stage converts the value to the target's format. The fixed-
+//! function set -- [`BLENDS`], [`FILTERS`] and [`RASTERS`] -- draws with a shader that only hands the blend unit, the
+//! texture unit or the rasterizer a constant, so the arithmetic read back is that stage's.
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
+#[cfg(feature = "registry")]
+pub use platforms::OS;
+
+mod canvas;
+mod clear;
+mod fixed;
+mod format;
+#[cfg(feature = "native")]
+pub mod native;
 #[cfg(feature = "registry")]
 mod registry;
 #[cfg(feature = "registry")]
 mod sighting;
 
+pub use self::canvas::{
+    Alteration, CANVAS, CANVAS_BROWSERLEAKS, KNOWN_BLOCK, KNOWN_SIZE, ReadLength, alteration, known_colour,
+    known_scene, pixel_hash,
+};
+pub use self::clear::{CLEAR_COUNT, CLEARS, Clear, clear_reference};
+pub use self::fixed::{
+    BLENDS, Blend, FILTERS, FIXED_FUNCTION_COUNT, Filter, Operation, RASTER_FORMAT, RASTER_WIDTH, RASTERS, Raster,
+    Side, coverage, fixed_function_reference,
+};
+pub use self::format::Format;
 #[cfg(feature = "registry")]
 pub use self::registry::every_sighting;
 #[cfg(feature = "registry")]
-pub use self::sighting::{Backend, Browser, GpuVendor, OperatingSystem, RowError, Sighting, Window};
+pub use self::sighting::{Backend, Browser, GpuVendor, RowError, Sighting, Window};
 
 /// How many expressions the probe set evaluates.
 pub const PROBE_COUNT: usize = 16;
@@ -61,6 +85,18 @@ pub const HOST: &str = "host";
 
 /// The interface a signature was measured through, where the probes ran as ONNX operators behind `wasi:nn`.
 pub const WASI_NN: &str = "wasi-nn";
+
+/// The interface a signature of [`CLEARS`] was measured through, each a render pass clearing a target on WebGPU.
+pub const WEBGPU_CLEAR: &str = "webgpu-clear";
+
+/// The interface a signature of the fixed-function probes was measured through, each drawn on WebGPU.
+pub const WEBGPU_FIXED_FUNCTION: &str = "webgpu-fixed-function";
+
+/// The interface a signature of [`CLEARS`] was measured through, each a `clearBufferfv` of a target on WebGL 2.
+pub const WEBGL2_CLEAR: &str = "webgl2-clear";
+
+/// The interface a signature of the fixed-function probes was measured through, each drawn on WebGL 2.
+pub const WEBGL2_FIXED_FUNCTION: &str = "webgl2-fixed-function";
 
 /// Each probe's name, the WGSL expression it evaluates, and the same expression in GLSL ES 3.00, in output order.
 ///
@@ -265,6 +301,42 @@ const KNOWN: [(&str, [&str; PROBE_COUNT], &str); 7] = [
 /// What a device is classed as when no known GPU answers the probe set as it did.
 pub const UNRECOGNISED: &str = "unrecognised";
 
+/// The answers a probe set names: a probe's name, then each answer beside what giving it means.
+type Choices = [(&'static str, &'static [(u32, &'static str)])];
+
+/// A probe set: each probe's name and correct answer, in output order, and the answers it names.
+struct ProbeSet {
+    /// Each probe's name, in output order.
+    names: Vec<&'static str>,
+    /// Each probe's correct answer, in output order.
+    reference: Vec<u32>,
+    /// The answers the set names.
+    choices: &'static Choices,
+}
+
+impl ProbeSet {
+    /// The probe set a signature measured through `interface` answers.
+    fn measured_through(interface: &str) -> Self {
+        match interface {
+            WEBGPU_CLEAR | WEBGL2_CLEAR => Self {
+                names: CLEARS.iter().map(|probe| probe.name).collect(),
+                reference: clear_reference(),
+                choices: &clear::CHOICES,
+            },
+            WEBGPU_FIXED_FUNCTION | WEBGL2_FIXED_FUNCTION => Self {
+                names: fixed::names(),
+                reference: fixed_function_reference(),
+                choices: &fixed::CHOICES,
+            },
+            _ => Self {
+                names: PROBES.iter().map(|probe| probe.0).collect(),
+                reference: reference().to_vec(),
+                choices: &CHOICES,
+            },
+        }
+    }
+}
+
 /// Each probe's name beside the WGSL compute shader that evaluates it, in output order.
 ///
 /// Every shader reads [`INPUTS`] from an 8-element `f32` storage buffer at binding 0 and writes its result's bits to a
@@ -318,7 +390,7 @@ pub fn fragment_shaders() -> Vec<(&'static str, String)> {
     clippy::cast_possible_truncation,
     reason = "rounding an f64 to the nearest f32 is the conversion wanted, and std offers no other spelling of it"
 )]
-const fn nearest(value: f64) -> f32 {
+pub(crate) const fn nearest(value: f64) -> f32 {
     value as f32
 }
 
@@ -438,14 +510,26 @@ impl Signature {
             .count()
     }
 
-    /// How many probes the device answered with bits other than the correctly rounded ones.
+    /// How many probes the device answered with bits other than the correct ones.
     #[must_use]
     pub fn deviations(&self) -> usize {
         self.observed
             .iter()
-            .zip(reference())
+            .zip(ProbeSet::measured_through(self.interface).reference)
             .filter(|pair| matches!(pair.0, Answer::Bits(bits) if *bits != pair.1))
             .count()
+    }
+
+    /// Each probe's name beside its result as a hex word, `????????` where the device gave none, in output order.
+    ///
+    /// These are an entry's `results` in the registry.
+    #[must_use]
+    pub fn results(&self) -> Vec<(&'static str, String)> {
+        ProbeSet::measured_through(self.interface)
+            .names
+            .into_iter()
+            .zip(self.words())
+            .collect()
     }
 
     /// Every result as a hex word, `????????` where the device gave none, joined by `-`.
@@ -471,8 +555,7 @@ impl Signature {
     /// The label of every registry entry holding the answers this device gave, through the same interface.
     ///
     /// A label names every device, browser and backend the registry has seen the signature on. No label means the
-    /// registry has not seen it, and more than one that it is filed more than once, as a private window's is beside a
-    /// normal one's.
+    /// registry has not seen it, and more than one that it is filed more than once.
     ///
     /// # Stability
     ///
@@ -499,18 +582,21 @@ impl Signature {
         registry::seen(self.interface, &self.words())
     }
 
-    /// Which legal answer the device gave to each probe that has two, as `name=choice` joined by spaces.
+    /// Which named answer the device gave to each probe of its set that has more than one.
     ///
-    /// A probe the device did not answer reads `failed`, and an answer that is neither of the two reads `other`.
+    /// Each is `name=choice`, joined by spaces. A probe the device did not answer reads `failed`, and an answer that is
+    /// none of those named reads `other`.
     #[must_use]
     pub fn traits(&self) -> String {
-        CHOICES
+        let set = ProbeSet::measured_through(self.interface);
+        set.choices
             .iter()
             .map(|choice| {
-                let chosen = PROBES
+                let chosen = set
+                    .names
                     .iter()
                     .zip(&self.observed)
-                    .find(|pair| pair.0.0 == choice.0)
+                    .find(|pair| *pair.0 == choice.0)
                     .map_or("failed", |pair| match pair.1 {
                         Answer::Bits(bits) => choice
                             .1
@@ -527,20 +613,21 @@ impl Signature {
 
     /// One line per probe, saying what the device did with it.
     ///
-    /// An answered probe gives its name, the device's bits, the correctly rounded bits, and the distance between them
-    /// in units in the last place. A refused one gives its name and the reason.
+    /// An answered probe gives its name, the device's bits, the correct bits, and the distance between them in units
+    /// in the last place -- of the f32, or of the format a clear or a blend wrote. A refused one gives its name and
+    /// the reason.
     #[must_use]
     pub fn describe(&self) -> Vec<String> {
-        PROBES
+        let set = ProbeSet::measured_through(self.interface);
+        set.names
             .iter()
-            .zip(self.observed.iter().zip(reference()))
-            .map(|(probe, (answer, correct))| match answer {
+            .zip(self.observed.iter().zip(set.reference))
+            .map(|(name, (answer, correct))| match answer {
                 Answer::Bits(bits) => format!(
-                    "{} gpu={bits:08x} correct={correct:08x} ulps={:+}",
-                    probe.0,
+                    "{name} gpu={bits:08x} correct={correct:08x} ulps={:+}",
                     i64::from(*bits).saturating_sub(i64::from(correct))
                 ),
-                Answer::Refused(reason) => format!("{} failed: {reason}", probe.0),
+                Answer::Refused(reason) => format!("{name} failed: {reason}"),
             })
             .collect()
     }

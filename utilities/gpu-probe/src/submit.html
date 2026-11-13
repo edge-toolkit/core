@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Submit GPU Signatures</title>
+    <link rel="stylesheet" href="/probe.css">
+    <style>
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      font: 0.82rem ui-monospace, Menlo, Consolas, monospace;
+      padding: 0.5rem;
+    }
+    .row {
+      font-size: 0.85rem;
+      padding: 0.15rem 0;
+      border-bottom: 1px solid #8884;
+    }
+    </style>
+  </head>
+  <body>
+    <h1>Submit GPU Signatures</h1>
+    <p>
+      Paste one or more submissions, one JSON object per line, then register
+      them. Each names its
+      <code>interface</code>, a <code>label</code>, its <code>results</code> (or
+      <code>blocked</code> and a
+      <code>reason</code>), and the <code>seen</code> row of where it was
+      measured.
+    </p>
+    <textarea id="lines" rows="8"></textarea>
+    <div><button id="register">Register</button></div>
+    <div id="out"></div>
+    <script type="module">
+    import { register } from "/register.js";
+
+    const out = document.getElementById("out");
+    document.getElementById("register").addEventListener("click", async () => {
+      out.textContent = "";
+      const text = document.getElementById("lines").value;
+      const lines = text.split("\n").map((line) => line.trim());
+      for (const line of lines.filter(Boolean)) {
+        const { kind, message } = await register(line);
+        const row = document.createElement("div");
+        row.className = `row ${kind}`;
+        row.textContent = message;
+        out.append(row);
+      }
+    });
+    </script>
+  </body>
+</html>

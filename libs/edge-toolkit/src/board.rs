@@ -175,3 +175,10 @@ impl Guest {
         self.imports.iter().map(String::as_str).filter(|import| !hosts(import))
     }
 }
+
+/// The lock a board keeps shared state under: a spin lock, since a board has no `std::sync::Mutex`.
+///
+/// Nothing on a board can poison it, so its `lock()` gives the guard itself. It is the same lock in a host build of a
+/// board's code, so that code behaves there as it will on the board.
+#[cfg(feature = "board")]
+pub type BoardLock<T> = spin::Mutex<T>;

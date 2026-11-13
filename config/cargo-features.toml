@@ -15,6 +15,7 @@ docs = "Internal: renders the crate's feature list into its documentation, as do
 env-schema = "Internal: derives JSON Schema for the crate's environment config, which et-int-gen renders into HELP.md."
 lidar = "Lends WASI guests the serial ports `SERIAL_PORTS_<NAME>` names, which they read a lidar through."
 modules = "Serves ws-module packages from disk under `/modules`, and the root module as the browser UI."
+native = "Puts the GPU probe sets to a GPU through wgpu: the machine's own GPUs, or in a page the browser's WebGPU."
 nats = "Shares agents between hubs through the NATS JetStream backplane."
 nn = "Hosts `wasi:nn` for guests, running their models through ONNX Runtime."
 openapi-spec = "Adds OpenAPI metadata to the crate's HTTP handlers, for et-int-gen to harvest into the published spec."

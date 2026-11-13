@@ -47,7 +47,7 @@ version = "0.9.1"
 # only be asserted where that path runs. A crate belongs to exactly one list: naming it in both would let a
 # gap in one pipeline be answered by the other.
 native_cov_libs = """
-{{ "actix-web-config core-guest edge-toolkit et-otlp gpu-probe lidar math1 path sanitise test-helpers " ~
+{{ "actix-web-config core-guest edge-toolkit et-otlp gpu-probe https-listener lidar math1 path sanitise test-helpers " ~
   "test-nats test-otlp test-recovery ws-runner-common" -}}
 """
 wasm_cov_libs = "wasi-guest web"
@@ -595,23 +595,23 @@ rg "ws-wasm-agent/src/lib.rs|Filename|TOTAL" "$rpt" || true
 """
 shell = "{{ vars.task_shell }}"
 
-[tasks.pic-viewer-cov]
+[tasks._browser-cov]
 depends = ["build-wasm-cov-wrapper"]
-description = "Coverage for pic-viewer: run its wasm-bindgen display tests headless, emit lcov into lcov.info"
-# Coverage for the module's browser-only display path; its native parse tests already ride cargo-llvm-cov.
-# show_image's fetch/decode/canvas-draw only runs in a real browser, so this drives the wasm-bindgen browser
-# tests (tests/show_image.rs) in headless Chrome, instrumented the same way as wasm-agent-cov -- the
-# workspace wrapper's -Cinstrument-coverage + --emit=llvm-ir, wasm-bindgen-test's built-in coverage cfg, and
-# et-web/coverage for minicov's profiler runtime -- then converts the .profraw the same way (gut every
-# workspace .ll body to `unreachable`, keep the covmap, llc to a fixed x86_64 ELF object, llvm-cov to lcov,
-# keep only this module's records). No backend is needed: the display tests are offline.
+description = "Coverage for one crate's wasm-bindgen browser tests: run them headless, emit lcov into lcov.info"
+# Runs one crate's wasm-bindgen browser tests in headless Chrome and folds what they covered into lcov.info.
+# The tests are instrumented the same way as wasm-agent-cov's -- the workspace wrapper's -Cinstrument-coverage +
+# --emit=llvm-ir, and wasm-bindgen-test's built-in coverage cfg, with whatever features the crate needs to link
+# minicov's profiler runtime -- and the .profraw is converted the same way (gut every workspace .ll body to
+# `unreachable`, keep the covmap, llc to a fixed x86_64 ELF object, llvm-cov to lcov, keep only the records under the
+# crate's source). The profiles, objects and lcov land in target/<name>-cov.
 run = """
-covdir=target/pic-viewer-cov
+covdir="target/$usage_name-cov"
+profdata="$covdir/$usage_name.profdata"
 coreutils mkdir -p "$covdir"
 coreutils rm -f "$covdir"/*.profraw "$covdir"/*.o "$covdir"/*.g.ll
 # Force a recompile so this run emits a fresh instrumented .ll whose covmap matches the captured .profraw.
 rustup target add wasm32-unknown-unknown
-cargo clean -p et-ws-pic-viewer --target wasm32-unknown-unknown
+cargo clean -p "$usage_package" --target wasm32-unknown-unknown
 
 # Resolve the webdriver, honouring a CHROMEDRIVER already in the environment before the mise-pinned one.
 driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
@@ -621,20 +621,52 @@ export RUSTC_WORKSPACE_WRAPPER="{{ config_root }}/target/debug/int-wasm-cov-wrap
 export RUSTFLAGS="--cfg wasm_bindgen_unstable_test_coverage"
 export CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER="$runner"
 export CHROMEDRIVER="$driver"
-export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/pic-viewer-%p.profraw"
-cargo test -p et-ws-pic-viewer --features et-web/coverage --target wasm32-unknown-unknown --test show_image
+export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/$usage_name-%p.profraw"
+features=()
+if [ -n "${usage_features:-}" ]; then
+  features=(--features "$usage_features")
+fi
+cargo test -p "$usage_package" "${features[@]}" --target wasm32-unknown-unknown --test "$usage_test"
 
 host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
 llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
-"$llbin/llvm-profdata" merge -sparse -o "$covdir/pic-viewer.profdata" "$covdir"/pic-viewer-*.profraw
-. .mise/wasm-ll-objs.sh "$covdir" "$llbin" pic-viewer-cov
-"$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$covdir/all.lcov"
+"$llbin/llvm-profdata" merge -sparse -o "$profdata" "$covdir/$usage_name"-*.profraw
+. .mise/wasm-ll-objs.sh "$covdir" "$llbin" "$usage_name-cov"
+"$llbin/llvm-cov" export --format=lcov --instr-profile "$profdata" "${objs[@]}" >"$covdir/all.lcov"
 coreutils touch lcov.info
-goawk -v want="modules/web/pic-viewer/src/" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info
+goawk -v want="$usage_src" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info
 
 rpt="$covdir/report.txt"
-"$llbin/llvm-cov" report --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true
-rg "modules/web/pic-viewer/src/lib.rs|Filename|TOTAL" "$rpt" || true
+"$llbin/llvm-cov" report --instr-profile "$profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true
+rg "$usage_src|Filename|TOTAL" "$rpt" || true
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+arg "<name>" help="The run's name, which names target/<name>-cov and the profiles in it"
+arg "<package>" help="The workspace package whose browser tests are run"
+arg "<test>" help="The test target under the package's tests/ to run"
+arg "<src>" help="The source directory whose records are kept, such as modules/web/pic-viewer/src/"
+flag "--features <features>" help="Features the test build needs, such as one that links minicov"
+"""
+
+[tasks.gpu-probe-web-cov]
+description = "Coverage for the GPU probe page's WASM: run its wasm-bindgen tests headless, emit lcov into lcov.info"
+# The probe sets, canvas fingerprints and the JSON they give only run in a browser, so they are tested in one.
+# Headless Chrome gives them WebGL 2, WebGPU and a 2-D canvas, and the crate's own `coverage` feature links minicov.
+run = """
+src=utilities/gpu-probe/web/src/
+mise run _browser-cov gpu-probe-web et-int-gpu-probe-web probes "$src" --features coverage
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.pic-viewer-cov]
+description = "Coverage for pic-viewer: run its wasm-bindgen display tests headless, emit lcov into lcov.info"
+# Coverage for the module's browser-only display path; its native parse tests already ride cargo-llvm-cov.
+# show_image's fetch/decode/canvas-draw only runs in a real browser; et-web/coverage links minicov's profiler
+# runtime. No backend is needed: the display tests are offline.
+run = """
+src=modules/web/pic-viewer/src/
+mise run _browser-cov pic-viewer et-ws-pic-viewer show_image "$src" --features et-web/coverage
 """
 shell = "{{ vars.task_shell }}"
 

@@ -13,29 +13,58 @@ features = ["docs"]
 [lib]
 doctest = false
 
+[[test]]
+name = "native"
+required-features = ["native"]
+
+[[bench]]
+harness = false
+name = "gpu_probe"
+required-features = ["native", "registry"]
+
 [features]
 ## Embeds the registry of every signature the probes have been seen to give.
 ## `Signature::identify` then names the hardware a signature was seen on, and `Signature::seen` lists each place.
-registry = ["dep:serde_json", "dep:target-lexicon", "dep:thiserror", "dep:webbrowser", "dep:wgpu-hal"]
+registry = ["dep:platforms", "dep:serde_json", "dep:target-lexicon", "dep:thiserror", "dep:webbrowser", "dep:wgpu-hal"]
+## Puts the probe sets to a GPU through wgpu, and reads what the device says it is.
+## Natively it opens the backends `et-ws-wasi-runner` hosts and reads the API beneath wgpu; on wasm32, WebGPU.
+native = ["dep:futures-channel", "dep:objc2-metal", "dep:thiserror", "dep:wgpu", "dep:windows"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
 [dependencies]
 document-features = { workspace = true, optional = true }
+futures-channel = { workspace = true, features = ["std"], optional = true }
+platforms = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["std"], optional = true }
-# The three below each name a kind of thing a registry row records: a CPU architecture, a browser, a GPU vendor.
+# platforms, target-lexicon, webbrowser and wgpu-hal each name a kind of thing a registry row records.
+# Those are an operating system, a CPU architecture, a browser and a GPU vendor.
 target-lexicon = { workspace = true, optional = true }
-thiserror = { workspace = true, optional = true }
+thiserror = { workspace = true, features = ["std"], optional = true }
 webbrowser = { workspace = true, optional = true }
 wgpu-hal = { workspace = true, optional = true }
 
-# What the native test puts the probes to this machine's GPU with, on the backends `et-ws-wasi-runner` hosts.
+# The backends the native feature opens a GPU through: the machine's own APIs, or in a page the browser's WebGPU.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wgpu = { workspace = true, features = ["dx12", "metal", "std", "vulkan", "wgsl"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { workspace = true, features = ["std", "webgpu", "wgsl"], optional = true }
+
+# What the native feature reads the device's own description from, under the API it was opened through.
+[target.'cfg(target_vendor = "apple")'.dependencies]
+objc2-metal = { workspace = true, features = ["MTLDevice", "std"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = ["Win32_Graphics_Dxgi", "std"], optional = true }
+
 # The crate's dependency on itself turns the registry on for every test.
 [dev-dependencies]
+criterion.workspace = true
 et-gpu-probe = { workspace = true, features = ["registry"] }
 futures-executor.workspace = true
 serde_json = { workspace = true, features = ["std"] }
-wgpu = { workspace = true, features = ["dx12", "metal", "std", "vulkan", "wgsl"] }
+wgpu = { workspace = true, features = ["noop"] }
 
 [lints]
 workspace = true

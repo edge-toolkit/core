@@ -1,0 +1,2 @@
+# The probe page's WASM, which `mise run build-gpu-probe-page` builds.
+/static/pkg/

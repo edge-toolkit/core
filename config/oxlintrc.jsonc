@@ -4,6 +4,9 @@
 // docs hinting otherwise.
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  // Every script here runs in a browser page or worker, or in a host that gives it the same globals.
+  // eslint/no-undef needs them declared to tell a real undefined name from one the host provides.
+  "env": { "browser": true, "worker": true, "es2024": true },
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -39,8 +42,16 @@
     // which leaves `undefined` standing in for "not set yet" with nothing to say it was meant.
     "eslint/id-length": ["error", { "exceptions": ["x", "y"] }],
     "eslint/init-declarations": "error",
+    // The local twin of `DeepSource JS-0125`: a name used but never declared throws a ReferenceError at run time.
+    // oxlint ignores `/* global */` comments, so a host-provided name is declared in an override's `globals`.
+    "eslint/no-undef": "error",
   },
   "overrides": [
+    {
+      // A Firefox profile's prefs file, which Firefox reads with `user_pref` defined.
+      "files": ["**/.mise/gpu-probe-firefox.user.js"],
+      "globals": { "user_pref": "readonly" },
+    },
     {
       // shim.js installs DOM stubs so Deno-hosted wasm-bindgen modules see a browser-shaped global.
       // The stubs are Window / HTMLElement / HTMLCanvasElement / Image classes plus `obj.onload = null` property
