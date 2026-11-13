@@ -1,0 +1,33 @@
+id: no-wildcard-in-or-pattern
+valid:
+  - |
+    match glsl {
+        Glsl::Es300 => 1,
+        _ => 2,
+    }
+  - |
+    match glsl {
+        Glsl::Es300 | Glsl::Es100Float => 1,
+        _ => 2,
+    }
+  - |
+    let add = values.iter().map(|_| 1);
+  - |
+    match pair {
+        (_, Some(value)) | (Some(value), _) => value,
+        _ => 0,
+    }
+invalid:
+  - |
+    match glsl {
+        Glsl::Es300 => 1,
+        Glsl::Es100Packed | _ => 2,
+    }
+  - |
+    match glsl {
+        _ | Glsl::Es300 => 1,
+    }
+  - |
+    match glsl {
+        Glsl::Es300 | _ | Glsl::Es100Float => 1,
+    }

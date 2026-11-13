@@ -181,6 +181,44 @@ async fn a_submission_not_sent_as_json_is_refused_unread() {
     assert_eq!(fs_err::read_to_string(&path).unwrap(), before);
 }
 
+/// What `/status` answers `body`, sent as `content_type`.
+#[expect(
+    clippy::future_not_send,
+    reason = "actix serves in process on the test's own thread, and its service is not Send"
+)]
+async fn status_as(body: &str, content_type: &str) -> StatusCode {
+    let dir = workspace();
+    let app = service(dir.path().join("signatures.yaml"), None).await;
+    let request = served::TestRequest::post()
+        .uri("/status")
+        .insert_header(("content-type", content_type))
+        .set_payload(body.to_owned())
+        .to_request();
+    served::call_service(&app, request).await.status()
+}
+
+#[actix_rt::test]
+async fn a_page_status_is_logged_and_answered_with_no_content() {
+    let lines = r#"{"status": ["Submitted.", "Canvas 2D, canvas: already present"]}"#;
+    assert_eq!(status_as(lines, "application/json").await, StatusCode::NO_CONTENT);
+}
+
+#[actix_rt::test]
+async fn a_page_status_that_is_not_lines_is_a_bad_request() {
+    assert_eq!(
+        status_as(r#"{"status": 1}"#, "application/json").await,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[actix_rt::test]
+async fn a_page_status_not_sent_as_json_is_refused_unread() {
+    assert_eq!(
+        status_as("Submitted.", "text/plain").await,
+        StatusCode::UNSUPPORTED_MEDIA_TYPE
+    );
+}
+
 #[actix_rt::test]
 async fn a_submission_the_registry_cannot_hold_is_a_conflict() {
     let dir = workspace();

@@ -15,7 +15,8 @@
 # "seen"; when a new sighting matches an existing entry, add a row rather than a duplicate entry. The label is only a
 # summary of the rows. A row names, from fixed sets of values:
 #   browser    chrome, firefox, safari, opera (and whatever else the webbrowser crate names), brave, chromium, deno,
-#              edge, librewolf, samsung-internet, tor-browser, or none where no browser was involved
+#              edge, gnome-web, librewolf, mullvad-browser, samsung-internet, tor-browser, or none where no browser
+#              was involved
 #   os         android, ios, linux, macos, windows
 #   cpu_arch   an architecture as a target triple spells it (aarch64, x86_64), or unknown
 #   gpu        the GPU's vendor as wgpu names it (amd, apple, arm, broadcom, imgtec, intel, mesa, nvidia, qualcomm),
@@ -1135,6 +1136,14 @@ signatures:
         gpu_version: "Iris Xe (Alder Lake GT2), Mesa"
         backend: opengl
         device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
         window: normal
     results:
       multiply_add: "33800000"
@@ -2985,6 +2994,34 @@ signatures:
         device: "Dell Precision 5570"
         defence: "privacy.fingerprintingProtection on"
         window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        reported: "Apple GPU"
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -3035,6 +3072,34 @@ signatures:
         backend: unknown
         device: "Dell Precision 5570"
         defence: "privacy.fingerprintingProtection on"
+        window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        reported: "Apple GPU"
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
         window: normal
     results:
       blend_multiply: "00000033"
@@ -3142,3 +3207,441 @@ signatures:
         window: normal
     blocked: true
     reason: "randomised: the PNG's bytes differ between visits in one browser while the pixels they decode to do not"
+  - interface: webgl2-split
+    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 2 on GNOME Web, Brave and Chromium"
+    seen:
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        reported: "Apple GPU"
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "40000000"
+  - interface: canvas
+    label: "GNOME Web 51.2 on Linux -- canvas 2D"
+    seen:
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "17e621cd"
+      lane1: "4566bc3b"
+      lane2: "924f1183"
+      lane3: "8c1a4901"
+  - interface: canvas-browserleaks
+    label: "GNOME Web 51.2 on Linux -- canvas 2D"
+    seen:
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      md5: "088022caee3aa9e06beb5a68b62ecb60"
+  - interface: canvas
+    label: "LibreWolf 160.0-1 on Linux -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0-1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "LibreWolf 160.0-1 on Linux -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0-1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas
+    label: "Brave 1.99.57 on Linux -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: getImageData altered a scene whose every value is known (noise added to reads)"
+  - interface: canvas-browserleaks
+    label: "Brave 1.99.57 on Linux -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: toDataURL altered a scene whose every value is known (noise keyed to the session)"
+  - interface: canvas
+    label: "Chromium 157.0.8103.78 on Linux -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "60945690"
+      lane1: "6aa38a96"
+      lane2: "5eb12a72"
+      lane3: "866f078b"
+  - interface: canvas-browserleaks
+    label: "Chromium 157.0.8103.78 on Linux -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      md5: "a756a02213c98d1de5b40aa1f6d516d7"
+  - interface: canvas
+    label: "Mullvad Browser 16.0.1 on Linux -- canvas 2D"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Mullvad Browser 16.0.1 on Linux -- canvas 2D"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas
+    label: "Tor Browser 16.0.1 on Linux -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Tor Browser 16.0.1 on Linux -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: webgl1
+    label: "Mullvad Browser 16.0.1 and Tor Browser 16.0.1 on Linux -- WebGL 1"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "readPixels throws NotSupportedError (Operation is not supported), as a float read and as an 8-bit one"
+  - interface: webgl1-split
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa on Linux, Dell Precision 5570 -- WebGL 1 on Firefox 160.0"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "????????"
+      dot: "3f800000"
+  - interface: webgl1-combined
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa on Linux, Dell Precision 5570 -- WebGL 1 on Firefox 160.0"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "????????"
+      dot: "3f800000"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux -- BrowserLeaks test (one session's value; its PNG encoding is keyed to the session)"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "2c0e27fd63a7a65725accd9f24ed9e48"
+  - interface: webgl2-combined
+    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 2 on GNOME Web, Brave and Chromium"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        reported: "Apple GPU"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "40000000"
+  - interface: webgl1-split
+    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 1 on GNOME Web, Brave and Chromium"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        reported: "Apple GPU"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "????????"
+      dot: "40000000"
+  - interface: webgl1-combined
+    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 1 on GNOME Web, Brave and Chromium"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        reported: "Apple GPU"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "????????"
+      dot: "40000000"

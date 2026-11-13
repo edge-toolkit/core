@@ -8,12 +8,14 @@ use target_lexicon::Architecture;
 use wgpu_hal::auxil::db;
 
 /// The browsers a row can name that the `webbrowser` crate does not, each beside the name a row gives it.
-const BROWSERS: [(&str, Browser); 8] = [
+const BROWSERS: [(&str, Browser); 10] = [
     ("brave", Browser::Brave),
     ("chromium", Browser::Chromium),
     ("deno", Browser::Deno),
     ("edge", Browser::Edge),
+    ("gnome-web", Browser::GnomeWeb),
     ("librewolf", Browser::LibreWolf),
+    ("mullvad-browser", Browser::Mullvad),
     ("samsung-internet", Browser::SamsungInternet),
     ("tor-browser", Browser::Tor),
     ("none", Browser::Absent),
@@ -127,8 +129,12 @@ pub enum Browser {
     Deno,
     /// Microsoft Edge.
     Edge,
+    /// GNOME Web, once named Epiphany, whose engine is `WebKitGTK`.
+    GnomeWeb,
     /// `LibreWolf`.
     LibreWolf,
+    /// Mullvad Browser, Tor Browser's fingerprinting defences without the Tor network.
+    Mullvad,
     /// Samsung Internet.
     SamsungInternet,
     /// Tor Browser.

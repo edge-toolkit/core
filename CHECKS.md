@@ -5,7 +5,7 @@
 - **Tools:** 49
 - **Shell-script checks:** 11
 - **Checks with a repair pass:** 22
-- **Rules:** 401 custom local rules, or non-default strict linter settings
+- **Rules:** 402 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -286,6 +286,10 @@ Rules, from `config/ast-grep/rules`:
   `match`, or `.unwrap_or_else(...)` when the fallback is real work -- clippy's `unnecessary_lazy_evaluations` objects
   to a closure around a plain constructor. This mirrors `DeepSource RS-W1031`. clippy's `or_fun_call` lets an enum or
   tuple-struct constructor such as `Ok(None)` through as cheap, so a constructor here gets past clippy alone.
+- `no-wildcard-in-or-pattern` -- As `DeepSource RS-W1037` says, a `_` among the alternatives of an or-pattern matches
+  everything, so the alternatives beside it say nothing: the arm reads as though it names the cases it takes, while it
+  takes every one. Write the arm as `_` alone, or, where the named cases matter, give them an arm of their own above it.
+  Clippy's `wildcard_in_or_patterns` is the same check, but it stays quiet when the enum is `#[non_exhaustive]`.
 - `org-identity-lives-in-et-org` -- This constant spells out the organisation name or the crate prefix. Both belong to
   `et-org`, which is the one place either literal is written: take the value from `et_org::ORG`, `et_org::CRATE_PREFIX`,
   `et_org::NPM_SCOPE`, `et_org::REPOSITORY_URL` or `et_org::IMAGE_REGISTRY`, or build a longer string from them, rather
