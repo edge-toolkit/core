@@ -8,6 +8,7 @@
     reason = "in-process test ws-server + ws client helpers; setup/protocol failures should fail the test fast"
 )]
 
+use std::net::TcpListener;
 use std::path::Path;
 use std::time::Duration;
 
@@ -77,7 +78,7 @@ pub struct HubControl {
 /// Serves modules from the default module paths (same as production).
 #[must_use]
 pub fn start() -> TestServer {
-    start_on(et_test_helpers::reserve_port())
+    start_listening(et_test_helpers::free_listener())
 }
 
 /// Start an in-process ws-server bound to a specific `port` with a temporary storage directory.
@@ -86,9 +87,14 @@ pub fn start() -> TestServer {
 /// connects to). Panics if the port is already in use.
 #[must_use]
 pub fn start_on(port: u16) -> TestServer {
+    start_listening(TcpListener::bind(("127.0.0.1", port)).unwrap())
+}
+
+/// Start an in-process ws-server on `listener` with a temporary storage directory.
+fn start_listening(listener: TcpListener) -> TestServer {
     let storage_dir = TempDir::new().unwrap();
     let storage_config = StorageConfig::local(storage_dir.path());
-    spawn_hub(port, storage_dir, storage_config, WsConfig::default())
+    spawn_hub(listener, storage_dir, storage_config, WsConfig::default())
 }
 
 /// Start an in-process hub that shares its agents with every other hub on the NATS server at `nats_url`.
@@ -104,22 +110,27 @@ pub fn start_clustered(nats_url: &str, storage_root: &Path) -> TestServer {
     ws_config.backplane = BackplaneConfig::Nats(nats_url.to_owned());
     ws_config.connection_timeout = None;
     spawn_hub(
-        et_test_helpers::reserve_port(),
+        et_test_helpers::free_listener(),
         TempDir::new().unwrap(),
         StorageConfig::local(storage_root),
         ws_config,
     )
 }
 
-/// Run one hub on `port` on its own thread and actix system, returning once it is bound and on its backplane.
-fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, mut ws_config: WsConfig) -> TestServer {
+/// Run one hub on `listener` on its own thread and actix system, returning once it is serving and on its backplane.
+fn spawn_hub(
+    listener: TcpListener,
+    storage_dir: TempDir,
+    storage_config: StorageConfig,
+    mut ws_config: WsConfig,
+) -> TestServer {
+    let port = listener.local_addr().unwrap().port();
     ws_config.admin_token = AdminToken::try_from(ADMIN_TOKEN.to_owned()).unwrap();
     // The default search paths, with the page module named outright. The server has no default for which module it
     // serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
     let mut modules_config = ModulesConfig::default();
     modules_config.root = "@edge-toolkit/et-ws-server-static".to_string();
     let modules_config = modules_config;
-    let addr = format!("127.0.0.1:{port}");
     let registry = WsAgentRegistry::default();
     let server_registry = registry.clone();
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
@@ -148,7 +159,7 @@ fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, mut
                     .configure(|cfg| configure_modules(cfg, &modules))
             })
             .workers(TEST_HUB_WORKERS)
-            .bind(&addr)
+            .listen(listener)
             .unwrap()
             .run();
             ready_tx.send((server.handle(), backplane)).unwrap();

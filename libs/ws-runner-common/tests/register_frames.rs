@@ -37,10 +37,17 @@ fn ack_frame(agent_id: &str) -> String {
     .unwrap()
 }
 
+/// A listener on a free port for a stub hub to accept on, with the port it took.
+fn hub_listener() -> (u16, TcpListener) {
+    let listener = et_test_helpers::free_listener();
+    let port = listener.local_addr().unwrap().port();
+    listener.set_nonblocking(true).unwrap();
+    (port, TcpListener::from_std(listener).unwrap())
+}
+
 #[tokio::test]
 async fn a_binary_frame_before_the_ack_is_stepped_over() {
-    let port = et_test_helpers::reserve_port();
-    let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+    let (port, listener) = hub_listener();
     let hub = tokio::spawn(async move {
         let (stream, _addr) = listener.accept().await.unwrap();
         let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
@@ -65,8 +72,7 @@ async fn a_binary_frame_before_the_ack_is_stepped_over() {
 
 #[tokio::test]
 async fn a_socket_closed_before_the_ack_reports_connection_closed() {
-    let port = et_test_helpers::reserve_port();
-    let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+    let (port, listener) = hub_listener();
     let hub = tokio::spawn(async move {
         // Every attempt gets the same treatment, because the caller retries: read the registration, then hang
         // up without answering. A hub restarting mid-handshake looks exactly like this from the outside.

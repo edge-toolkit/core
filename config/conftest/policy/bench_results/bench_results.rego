@@ -2,7 +2,7 @@
 # Run with `--combine --namespace bench_results` over `libs/*/benches/results/*.yaml`, so `input` is an array of
 # {path, contents}, one per results file.
 #
-# A results file is what `mise run bench-gpu-probe <machine>` writes: the machine it was measured on under `machine`,
+# A results file is what `mise run bench-gpu-probe [machine]` writes: the machine it was measured on under `machine`,
 # with its `id` and the `os` it ran, and every benchmark's estimates under `benchmarks`. The same machine gives other
 # results under another OS, through its other drivers, so a file is found by both, and its name must agree with what
 # it records: a file renamed by hand, or one recorded under a mistyped id, would sit beside the real one as a second

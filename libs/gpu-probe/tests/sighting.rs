@@ -3,10 +3,13 @@
 #![cfg(test)]
 
 use et_gpu_probe::{
-    Answer, Backend, Browser, GpuVendor, HOST, OS, RowError, Sighting, Signature, WEBGPU, Window, every_sighting,
-    reference,
+    Answer, Backend, Browser, GpuVendor, HOST, Named, OS, RowError, Sighting, Signature, WEBGPU, Window,
+    every_sighting, reference,
 };
 use serde_json::{Value, json};
+
+/// The fields a row names from fixed sets, in the order a row has them.
+const ENUMERATED: [&str; 6] = ["browser", "os", "cpu_arch", "gpu", "backend", "window"];
 
 /// A row as the registry holds one, seen in Brave on an Android phone.
 fn row() -> Value {
@@ -22,14 +25,18 @@ fn row() -> Value {
     })
 }
 
-/// `row` with `field` given as `value`.
-fn row_with(field: &str, value: &str) -> Value {
-    let mut changed = row();
+/// `changed` with `field` given as `value`.
+fn set(mut changed: Value, field: &str, value: &str) -> Value {
     let _replaced: Option<Value> = changed
         .as_object_mut()
         .unwrap()
         .insert(field.to_owned(), Value::String(value.to_owned()));
     changed
+}
+
+/// [`row`] with `field` given as `value`.
+fn row_with(field: &str, value: &str) -> Value {
+    set(row(), field, value)
 }
 
 /// What reading `row` fails with, as the error words it.
@@ -41,7 +48,7 @@ fn refusal(row: &Value) -> String {
 fn a_row_reads_as_what_it_names() {
     let sighting = Sighting::read(&row()).unwrap();
     assert_eq!(sighting.browser, Browser::Brave);
-    assert_eq!(sighting.system, OS::Android);
+    assert_eq!(sighting.system, Named::Known(OS::Android));
     assert_eq!(sighting.cpu_arch.to_string(), "aarch64");
     assert_eq!(sighting.gpu, GpuVendor::Arm);
     assert_eq!(sighting.backend, Backend::Vulkan);
@@ -61,6 +68,8 @@ fn a_browser_the_webbrowser_crate_names_is_one_it_lists() {
     assert!(matches!("chrome".parse::<Browser>(), Ok(Browser::Listed(_))));
     assert_eq!("tor-browser".parse::<Browser>().unwrap(), Browser::Tor);
     assert_eq!("deno".parse::<Browser>().unwrap(), Browser::Deno);
+    assert_eq!("gnome-web".parse::<Browser>().unwrap(), Browser::GnomeWeb);
+    assert_eq!("mullvad-browser".parse::<Browser>().unwrap(), Browser::Mullvad);
     assert_eq!("none".parse::<Browser>().unwrap(), Browser::Absent);
 }
 
@@ -110,13 +119,39 @@ fn a_signature_gives_its_results_by_probe_name() {
 }
 
 #[test]
-fn a_value_the_registry_does_not_know_is_refused_by_name() {
-    for field in ["browser", "os", "cpu_arch", "gpu", "backend", "window"] {
-        assert_eq!(
-            refusal(&row_with(field, "nonesuch")),
-            format!("the registry gives `{field}` as `nonesuch`, which is not one it knows")
-        );
+fn a_value_the_registry_has_no_name_for_is_kept_as_its_text() {
+    let unnamed = ENUMERATED
+        .iter()
+        .fold(row(), |unnamed, field| set(unnamed, field, &format!("new-{field}")));
+    let sighting = Sighting::read(&unnamed).unwrap();
+    assert_eq!(sighting.browser, Browser::Other("new-browser".to_owned()));
+    assert_eq!(sighting.system, Named::Other("new-os".to_owned()));
+    assert_eq!(sighting.cpu_arch.to_string(), "new-cpu_arch");
+    assert_eq!(sighting.gpu, GpuVendor::Other("new-gpu".to_owned()));
+    assert_eq!(sighting.gpu.name(), "new-gpu");
+    assert_eq!(sighting.backend, Backend::Other("new-backend".to_owned()));
+    assert_eq!(sighting.window, Window::Other("new-window".to_owned()));
+    assert_eq!(sighting.others(), ENUMERATED);
+}
+
+#[test]
+fn a_row_naming_only_values_the_registry_knows_has_no_others() {
+    assert_eq!(Sighting::read(&row()).unwrap().others(), Vec::<&str>::new());
+}
+
+#[test]
+fn a_field_given_as_empty_text_is_missing() {
+    for field in ENUMERATED {
+        assert!(matches!(Sighting::read(&row_with(field, "")), Err(RowError::Missing(missing)) if missing == field));
     }
+}
+
+#[test]
+fn a_sighting_on_an_os_or_cpu_the_registry_has_no_name_for_is_not_here() {
+    let elsewhere = Sighting::read(&row_with("os", "nonesuch")).unwrap();
+    assert!(!elsewhere.is_here());
+    let here_but_unnamed_cpu = set(row_with("os", std::env::consts::OS), "cpu_arch", "nonesuch");
+    assert!(!Sighting::read(&here_but_unnamed_cpu).unwrap().is_here());
 }
 
 #[test]
@@ -141,7 +176,7 @@ fn an_entry_reads_as_each_row_it_lists() {
     let browsers: Vec<Browser> = Sighting::read_entry(&entry)
         .unwrap()
         .iter()
-        .map(|sighting| sighting.browser)
+        .map(|sighting| sighting.browser.clone())
         .collect();
     assert_eq!(browsers, [Browser::Brave, Browser::Deno]);
 }
@@ -154,10 +189,10 @@ fn an_entry_listing_no_rows_is_refused() {
 
 #[test]
 fn an_entry_listing_a_row_that_cannot_be_read_is_refused() {
-    let entry = json!({ "seen": [row(), row_with("os", "nonesuch")] });
+    let entry = json!({ "seen": [row(), row_with("colour", "blue")] });
     assert_eq!(
         Sighting::read_entry(&entry).unwrap_err().to_string(),
-        "the registry gives `os` as `nonesuch`, which is not one it knows"
+        "the registry gives `field` as `colour`, which is not one it knows"
     );
 }
 

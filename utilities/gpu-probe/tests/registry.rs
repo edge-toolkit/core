@@ -263,8 +263,31 @@ fn a_withheld_interface_takes_a_reason_and_a_signature_none() {
 }
 
 #[test]
+fn a_value_the_registry_has_no_name_for_is_written_quoted_and_reads_back() {
+    let (_dir, registry) = registry(REGISTRY);
+    let mut seen = row("netscape");
+    seen["os"] = json!("null");
+    seen["gpu"] = json!("vendor: new");
+    let new = submission(json!({
+        "interface": "webgpu-clear", "label": "L", "results": {"a": "1"}, "seen": seen
+    }));
+    assert_eq!(registry.register(&new).unwrap(), Outcome::Added(3));
+    let written = text(&registry);
+    assert!(written.contains("      - browser: \"netscape\"\n"), "{written}");
+    assert!(written.contains("        os: \"null\"\n"), "{written}");
+    assert!(written.contains("        gpu: \"vendor: new\"\n"), "{written}");
+    assert!(written.contains("        backend: vulkan\n"), "{written}");
+    // The same submission again is a sighting already on record, so the quoted values read back as given.
+    assert!(matches!(registry.register(&new).unwrap(), Outcome::Present(_)));
+}
+
+#[test]
 fn a_row_the_registry_cannot_read_or_quote_is_refused() {
-    let unknown = signature("webgpu", r#"{"a": "1"}"#, "netscape");
+    let mut stray = row("firefox");
+    stray["colour"] = json!("blue");
+    let unknown = submission(json!({
+        "interface": "webgpu", "label": "L", "results": {"a": "1"}, "seen": stray
+    }));
     assert!(matches!(refusal(&unknown), RegisterError::Row(_)));
     let mut multiline = row("firefox");
     multiline["device"] = json!("one\ntwo");

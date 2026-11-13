@@ -519,27 +519,28 @@ version = "0.6.2"
 backend = "github:christianhelle/openapi2zig"
 specifiers = ["latest"]
 
+[tools."github:christianhelle/openapi2zig"."platforms.linux-arm64"]
+checksum = "sha256:940d43dad32248726d53c4fc48ad54f3f374e4b8e79600eeafd8b303860d297b"
+url = "https://github.com/christianhelle/openapi2zig/releases/download/v0.6.2/openapi2zig-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/christianhelle/openapi2zig/releases/assets/714201722"
+
 [tools."github:christianhelle/openapi2zig"."platforms.linux-x64"]
 checksum = "sha256:6ea11ae00815c5b2d86517824db4c4a8c3d690094670ffc596d39b2048b39033"
-checksum_source = "mise-versions"
 url = "https://github.com/christianhelle/openapi2zig/releases/download/v0.6.2/openapi2zig-linux-x86_64.tar.gz"
 url_api = "https://api.github.com/repos/christianhelle/openapi2zig/releases/assets/714201723"
 
 [tools."github:christianhelle/openapi2zig"."platforms.macos-arm64"]
 checksum = "sha256:2bfff66f4f1bd8b88c23917baa933cd60f8fa9156c4459b366267ba97ccdc7e9"
-checksum_source = "mise-versions"
 url = "https://github.com/christianhelle/openapi2zig/releases/download/v0.6.2/openapi2zig-macos-aarch64.tar.gz"
 url_api = "https://api.github.com/repos/christianhelle/openapi2zig/releases/assets/714201721"
 
 [tools."github:christianhelle/openapi2zig"."platforms.macos-x64"]
 checksum = "sha256:9f5535cf4220dba7608e69e346a6792bb22de2bd6c763b8edf98b20e9a16834f"
-checksum_source = "mise-versions"
 url = "https://github.com/christianhelle/openapi2zig/releases/download/v0.6.2/openapi2zig-macos-x86_64.tar.gz"
 url_api = "https://api.github.com/repos/christianhelle/openapi2zig/releases/assets/714201720"
 
 [tools."github:christianhelle/openapi2zig"."platforms.windows-x64"]
 checksum = "sha256:6147c94b837f6000f6a781d111f42bf7bbb60f8fed4b3832add2af71f0a21791"
-checksum_source = "mise-versions"
 url = "https://github.com/christianhelle/openapi2zig/releases/download/v0.6.2/openapi2zig-windows-x86_64.zip"
 url_api = "https://api.github.com/repos/christianhelle/openapi2zig/releases/assets/714201724"
 
@@ -610,6 +611,7 @@ provenance = "minisign"
 [tools.zig."platforms.macos-arm64"]
 checksum = "sha256:75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d"
 url = "https://ziglang.org/download/0.17.1/zig-aarch64-macos-0.17.1.tar.xz"
+provenance = "minisign"
 
 [tools.zig."platforms.macos-x64"]
 checksum = "sha256:9af07b20319fbd0c92ee46ad23e81d6a782b1aaea2cfb8dcbff35f1d2c7ddbb7"

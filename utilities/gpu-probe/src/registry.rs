@@ -292,7 +292,7 @@ impl Registry {
     /// which is left in place for the next writer to lock. An update that would not read back as the registry with
     /// just this one sighting added is refused, and the registry left as it was.
     pub fn register(&self, submission: &Submission) -> Result<Outcome, RegisterError> {
-        validate(submission)?;
+        let others = validate(submission)?;
         let _held = self.lock.lock()?;
         let lock_file = fs_err::OpenOptions::new()
             .create(true)
@@ -302,7 +302,7 @@ impl Registry {
         lock_file.file().lock()?;
         let text = fs_err::read_to_string(&self.path)?;
         let file: File = serde_saphyr::from_str(&text)?;
-        let row = row_text(&submission.seen);
+        let row = row_text(&submission.seen, &others);
         let held = file.signatures.iter().position(|entry| entry.holds(submission));
         let (updated, outcome, index) = if let Some(index) = held {
             let entry = file.signatures.get(index).ok_or(RegisterError::Layout(index))?;
@@ -368,7 +368,9 @@ fn covers(row: &BTreeMap<String, String>, seen: &BTreeMap<String, String>) -> bo
 }
 
 /// Check every field of `submission` is one the registry can hold, as the layout the text is written in needs.
-fn validate(submission: &Submission) -> Result<(), RegisterError> {
+///
+/// What it gives back is each field of the row whose value is outside the set the registry names for it.
+fn validate(submission: &Submission) -> Result<Vec<&'static str>, RegisterError> {
     if !is_name(&submission.interface) {
         return Err(RegisterError::Interface);
     }
@@ -394,11 +396,11 @@ fn validate(submission: &Submission) -> Result<(), RegisterError> {
         .iter()
         .map(|(field, value)| (field.clone(), Value::String(value.clone())))
         .collect();
-    let _sighting: Sighting = Sighting::read(&Value::Object(row))?;
+    let sighting = Sighting::read(&Value::Object(row))?;
     for (field, value) in &submission.seen {
         check_text(field, value)?;
     }
-    Ok(())
+    Ok(sighting.others())
 }
 
 /// Whether `text` is a name: a letter, then up to [`MAX_NAME`] letters, digits, `_`, `.` and `-` in all.
@@ -446,12 +448,15 @@ fn quoted(text: &str) -> String {
 }
 
 /// The lines of `row` as an item of an entry's `seen` list, its fields in the registry's order.
-fn row_text(row: &BTreeMap<String, String>) -> String {
+///
+/// A value from a field's fixed set is written bare, and every other value quoted, `others` among them: a value the
+/// registry has no name for is free text, which may not read back as itself bare -- `null`, say, or `a: b`.
+fn row_text(row: &BTreeMap<String, String>, others: &[&str]) -> String {
     let mut lines = String::default();
     for field in ROW_ORDER {
         if let Some(value) = row.get(field) {
             let lead = if lines.is_empty() { "      - " } else { "        " };
-            let value = if ENUMERATED.contains(&field) {
+            let value = if ENUMERATED.contains(&field) && !others.contains(&field) {
                 value.clone()
             } else {
                 quoted(value)

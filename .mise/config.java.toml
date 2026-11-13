@@ -83,5 +83,15 @@ shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
-run = "\"$MVN\" dependency:resolve --quiet"
+# A failed quiet run is repeated with Maven's full output, so the log says why, and the task still fails.
+# `--quiet` keeps a passing prefetch silent, but on failure it prints only the symptom -- `No plugin found for prefix
+# 'dependency' in the current project and in the plugin groups [...]` on the `override (mingw)` lane, on commit
+# https://github.com/edge-toolkit/core/commit/b98b3b03bdf3d3cbbb47d401ed30812677c4e32b at
+# https://github.com/edge-toolkit/core/actions/runs/43821991820/job/133146950610 -- and not the download from Maven
+# Central behind it. The second run shows that cause; it is not a retry, so it exits non-zero even if it succeeds.
+run = """
+"$MVN" dependency:resolve --quiet && exit
+"$MVN" dependency:resolve --errors
+exit 1
+"""
 shell = "{{ vars.task_shell }}"

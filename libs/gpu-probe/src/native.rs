@@ -4,8 +4,9 @@
 //! Built for `wasm32`, wgpu opens the browser's WebGPU, so the same probes run in a page. Every call that waits on the
 //! GPU is async, since a page cannot block for it; a native caller blocks on each with an executor.
 //!
-//! The device is asked for the one optional feature a clear needs, rendering to `rg11b10ufloat`, when the adapter has
-//! it; without it that clear is refused, which its signature records like any other refusal.
+//! The device is asked for the optional features the probes need when the adapter has them: rendering to
+//! `rg11b10ufloat` for a clear, and `shader-f16` for the `f16` probe set. Without one, what needs it is refused, which
+//! its signature records like any other refusal.
 #![expect(
     clippy::single_call_fn,
     reason = "each step of opening the device, running a probe set and reading the device is a named function"
@@ -24,10 +25,15 @@ use objc2_metal::MTLDevice as _;
 use windows::core::Interface as _;
 
 use crate::{
-    Answer, BLENDS, Blend, CLEARS, Clear, FILTERS, Filter, Format, INPUTS, Operation, PROBE_COUNT, RASTER_FORMAT,
-    RASTER_WIDTH, RASTERS, Raster, Signature, WEBGPU, WEBGPU_CLEAR, WEBGPU_COMBINED, WEBGPU_FIXED_FUNCTION,
-    combined_shader, coverage, shaders,
+    Answer, BLENDS, Blend, CLEARS, Clear, F16_INPUTS, FILTERS, Filter, Format, INPUTS, Operation, PROBE_COUNT,
+    RASTER_FORMAT, RASTER_WIDTH, RASTERS, Raster, Signature, WEBGPU, WEBGPU_CLEAR, WEBGPU_COMBINED, WEBGPU_F16,
+    WEBGPU_F16_COMBINED, WEBGPU_FIXED_FUNCTION, combined_shader, coverage, f16_combined_shader, f16_shaders, shaders,
 };
+
+/// The optional features the device is asked for whenever the adapter has them.
+///
+/// Rendering to `rg11b10ufloat` is one clear's target, and `shader-f16` is what the `f16` probe set compiles with.
+const OPTIONAL_FEATURES: wgpu::Features = wgpu::Features::RG11B10UFLOAT_RENDERABLE.union(wgpu::Features::SHADER_F16);
 
 /// How many bytes the storage buffer every probe shader reads [`INPUTS`] from holds.
 #[expect(
@@ -40,11 +46,14 @@ const INPUT_BYTES: u64 = size_of_val(&INPUTS) as u64;
 const OUTPUT_BYTES: u64 = 4;
 
 /// How many bytes the readback of a signature's answers holds: one word a probe.
+const SIGNATURE_BYTES: u64 = SET_WORDS * OUTPUT_BYTES;
+
+/// How many words a combined shader writes: one a probe.
 #[expect(
     clippy::as_conversions,
     reason = "a few dozen probes fit any u64, and a const has no fallible conversion from usize"
 )]
-const SIGNATURE_BYTES: u64 = PROBE_COUNT as u64 * OUTPUT_BYTES;
+const SET_WORDS: u64 = PROBE_COUNT as u64;
 
 /// How many bytes of the readback buffer each probe drawn into a target has.
 ///
@@ -125,6 +134,10 @@ pub struct Gpu {
     combined: Probe,
     /// The device the probes run on.
     device: wgpu::Device,
+    /// The whole `f16` probe set as one shader.
+    f16_combined: Probe,
+    /// The `f16` probe set, in output order.
+    f16_probes: Vec<Probe>,
     /// The probe set, in output order.
     probes: Vec<Probe>,
     /// Where the device's work is submitted.
@@ -193,7 +206,7 @@ impl Gpu {
     /// For a caller that chose the adapter itself, from an instance of its own: one limited to a backend, say.
     pub async fn open_adapter(adapter: wgpu::Adapter) -> Result<Self, NativeError> {
         let descriptor = wgpu::DeviceDescriptor {
-            required_features: adapter.features() & wgpu::Features::RG11B10UFLOAT_RENDERABLE,
+            required_features: adapter.features() & OPTIONAL_FEATURES,
             ..wgpu::DeviceDescriptor::default()
         };
         let (device, queue) = adapter.request_device(&descriptor).await?;
@@ -201,8 +214,14 @@ impl Gpu {
         for shader in shaders() {
             probes.push(compile(&device, &shader.1).await);
         }
+        let mut f16_probes = Vec::new();
+        for shader in f16_shaders() {
+            f16_probes.push(compile(&device, &shader.1).await);
+        }
         Ok(Self {
             combined: compile(&device, &combined_shader()).await,
+            f16_combined: compile(&device, &f16_combined_shader()).await,
+            f16_probes,
             probes,
             adapter,
             device,
@@ -224,6 +243,12 @@ impl Gpu {
             .contains(wgpu::Features::RG11B10UFLOAT_RENDERABLE)
     }
 
+    /// Whether the device has `shader-f16`, without which every probe of the `f16` set is refused.
+    #[must_use]
+    pub fn computes_f16(&self) -> bool {
+        self.device.features().contains(wgpu::Features::SHADER_F16)
+    }
+
     /// The name the registry gives the graphics API the device was opened through, or `unknown`.
     #[must_use]
     pub fn backend(&self) -> &'static str {
@@ -237,14 +262,25 @@ impl Gpu {
     /// What the probe set answers on this GPU, each probe in a shader of its own.
     pub async fn signature(&self) -> Result<Signature, NativeError> {
         let stages: Vec<(&Probe, u64)> = self.probes.iter().map(|probe| (probe, 1)).collect();
-        Ok(Signature::new(WEBGPU, self.answers(&stages).await?))
+        Ok(Signature::new(WEBGPU, self.answers(&stages, &INPUTS).await?))
     }
 
     /// What the probe set answers on this GPU, every probe in the one combined shader.
     pub async fn combined_signature(&self) -> Result<Signature, NativeError> {
-        let words = u64::try_from(PROBE_COUNT).unwrap_or(u64::MAX);
-        let answers = self.answers(&[(&self.combined, words)]).await?;
+        let answers = self.answers(&[(&self.combined, SET_WORDS)], &INPUTS).await?;
         Ok(Signature::new(WEBGPU_COMBINED, answers))
+    }
+
+    /// What the `f16` probe set answers on this GPU, each probe in a shader of its own.
+    pub async fn f16_signature(&self) -> Result<Signature, NativeError> {
+        let stages: Vec<(&Probe, u64)> = self.f16_probes.iter().map(|probe| (probe, 1)).collect();
+        Ok(Signature::new(WEBGPU_F16, self.answers(&stages, &F16_INPUTS).await?))
+    }
+
+    /// What the `f16` probe set answers on this GPU, every probe in the one combined shader.
+    pub async fn f16_combined_signature(&self) -> Result<Signature, NativeError> {
+        let answers = self.answers(&[(&self.f16_combined, SET_WORDS)], &F16_INPUTS).await?;
+        Ok(Signature::new(WEBGPU_F16_COMBINED, answers))
     }
 
     /// What this GPU answers to the clears.
@@ -574,15 +610,15 @@ impl Gpu {
     /// What this GPU answers to `stages`, all of them run in one submission.
     ///
     /// A stage is a shader as the device holds it, beside how many probes it evaluates: each of the probe set's shaders
-    /// evaluates one, and the combined shader all of them. A stage the device refused answers each of its probes with
-    /// the refusal.
+    /// evaluates one, and the combined shader all of them. Every stage reads `inputs`. A stage the device refused
+    /// answers each of its probes with the refusal.
     #[expect(
         clippy::host_endian_bytes,
         reason = "a GPU buffer holds its values in the machine's own byte order"
     )]
-    async fn answers(&self, stages: &[(&Probe, u64)]) -> Result<Vec<Answer>, NativeError> {
+    async fn answers(&self, stages: &[(&Probe, u64)], inputs: &[f32; 8]) -> Result<Vec<Answer>, NativeError> {
         let input = self.buffer(INPUT_BYTES, wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST);
-        let input_bytes: Vec<u8> = INPUTS.iter().flat_map(|value| value.to_ne_bytes()).collect();
+        let input_bytes: Vec<u8> = inputs.iter().flat_map(|value| value.to_ne_bytes()).collect();
         self.queue.write_buffer(&input, 0, &input_bytes);
         let readback = self.buffer(
             SIGNATURE_BYTES,

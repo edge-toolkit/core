@@ -21,6 +21,12 @@ Changelog 1.1.0.
   filter-weight bits and sub-pixel snapping. Each has its WGSL, its exact answer, and its own interface,
   `WEBGPU_CLEAR` and `WEBGPU_FIXED_FUNCTION`, under which `Signature` reads it. A registry row may now record the
   `driver_version` and `api_version` the graphics API itself reports.
+- `et-gpu-probe` puts its shader probes again in half precision through WebGPU's `shader-f16` feature, where GPUs
+  differ more than in `f32`: hardware `f16`, `f16` widened to `f32`, flushed subnormals. `f16_shaders`,
+  `f16_combined_shader`, `f16_reference` and `F16_INPUTS` are the set, filed under `WEBGPU_F16` and
+  `WEBGPU_F16_COMBINED`. `native::Gpu` asks for `shader-f16` where the adapter has it, gains `f16_signature`,
+  `f16_combined_signature` and `computes_f16`, and a device without the feature refuses every probe of the set. The
+  probe page and `gpu-probe` measure it beside the `f32` set.
 - `et-gpu-probe-server` collects GPU probe signatures over HTTPS into `libs/gpu-probe/signatures.yaml`: a paste form
   at `/submit`, JSON submissions at `POST /register`, each added as a new entry or as another place a known one was
   seen. `mise run gpu-probe-server` serves this machine and `mise run gpu-probe-server-lan` the LAN. Its TLS and
@@ -31,6 +37,12 @@ Changelog 1.1.0.
   The same feature builds for `wasm32`, opening the browser's WebGPU, and every `native::Gpu` call is async. The
   server serves a probe page that runs the probe sets as WASM, through WebGL 2 and WebGPU, and submits each signature;
   `mise run gpu-probe-page` builds and serves it on plain HTTP at localhost, which `--http` allows on a loopback only.
+- The probe page also puts the probes to WebGL 1, which some browsers offer while withholding WebGL 2 and WebGPU, and
+  takes both WebGL interfaces in each mode the research page does: a shader a probe, filed as `webgl1-split`, and
+  every probe in one shader, filed as `webgl1-combined` and `webgl2-combined`. `et-gpu-probe`'s new `batched` writes
+  those shaders, in GLSL ES 3.00 or 1.00 by `Glsl`, and halves a combined shader the browser refuses until the probe
+  it will not take is alone. `mise run gpu-probe-browser <browser>` probes Firefox or a Flatpak browser from a fresh
+  profile, Mullvad Browser and Tor Browser with NoScript left out.
 - A WASI module can read a lidar. `et-ws-wasi-runner`'s new `lidar` feature, on by default, hosts
   `et:ws-wasi/serial`, lending a guest the serial ports its `SERIAL_PORTS_<NAME>` variables name: a device, or
   `tcp://<host>:<port>` for one a bridge such as ser2net serves. The interface's own `serial-host` world, which the
@@ -193,6 +205,14 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** a GPU probe registry row may give `browser`, `os`, `cpu_arch`, `gpu`, `backend` and `window` a value
+  outside the set the registry names, which is kept as its text rather than refused, so `et-gpu-probe-server`,
+  `gpu-probe` and the probe page record a device, browser or system the registry has no name for yet; the server
+  writes such a value quoted. In `et-gpu-probe`, `Browser`, `GpuVendor`, `Backend` and `Window` each gain an
+  `Other(String)` and are no longer `Copy`, nor is `Sighting`, whose `system` and `cpu_arch` are now the new
+  `Named<OS>` and `Named<Architecture>`; their `FromStr` cannot fail, `GpuVendor::name` borrows, and the new
+  `Sighting::others` names the fields given such a value. A row giving one of those fields as empty text is refused as
+  missing it, and a row carrying a field the registry does not know is still refused.
 - **Breaking:** every published crate now declares a minimum supported Rust version of 1.100, which cargo enforces;
   build with Rust 1.100 or newer. Before, only `et-ws-web-runner` declared one, at 1.99.
 - **Breaking:** `edge-toolkit` built without `std` holds the agent registry, `ws_server`, only with its new `board`

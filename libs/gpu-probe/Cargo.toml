@@ -36,6 +36,7 @@ docs = ["dep:document-features"]
 [dependencies]
 document-features = { workspace = true, optional = true }
 futures-channel = { workspace = true, features = ["std"], optional = true }
+half.workspace = true
 platforms = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["std"], optional = true }
 # platforms, target-lexicon, webbrowser and wgpu-hal each name a kind of thing a registry row records.

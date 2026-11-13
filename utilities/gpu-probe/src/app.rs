@@ -38,6 +38,7 @@ pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<Registry>,
             embedded("text/javascript; charset=utf-8", REGISTER_SCRIPT),
         )
         .route("/register", web::post().to(register))
+        .route("/status", web::post().to(status))
         .route("/signatures.yaml", web::get().to(signatures));
     if let Some(root) = root {
         scope = scope.service(actix_files::Files::new("/", root).index_file("index.html"));
@@ -85,9 +86,7 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
         Ok(submission) => submission,
         Err(error) => return reply(HttpResponse::BadRequest(), false, &format!("bad submission: {error}")),
     };
-    let peer = request
-        .peer_addr()
-        .map_or_else(|| "unknown peer".to_owned(), |address| address.ip().to_string());
+    let peer = peer_of(&request);
     let outcome = registry.register(&submission);
     let message = outcome.as_ref().map_or_else(ToString::to_string, ToString::to_string);
     info!(
@@ -99,6 +98,43 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
         Err(error) if error.is_rejection() => reply(HttpResponse::Conflict(), false, &message),
         Err(_) => reply(HttpResponse::InternalServerError(), false, &message),
     }
+}
+
+/// Log the status lines a probe page posts in `body` once its run is over, answering 204.
+///
+/// A driver that cannot read the browser itself reads these from the server's log instead. The body is
+/// `{"status": [line, ...]}`; one that is not answers 400, and one not sent as `application/json` answers 415 unread,
+/// for the reason [`register`] gives.
+#[expect(
+    clippy::future_not_send,
+    reason = "actix runs each handler on its worker's own thread, and the request it takes is not Send"
+)]
+async fn status(request: HttpRequest, body: web::Bytes) -> HttpResponse {
+    if request.content_type() != "application/json" {
+        return HttpResponse::UnsupportedMediaType().finish();
+    }
+    let Ok(report) = serde_json::from_slice::<StatusReport>(&body) else {
+        return HttpResponse::BadRequest().finish();
+    };
+    let peer = peer_of(&request);
+    for line in report.status {
+        info!("{peer} page status: {line}");
+    }
+    HttpResponse::NoContent().finish()
+}
+
+/// The status lines a probe page posts once its run is over.
+#[derive(serde::Deserialize)]
+struct StatusReport {
+    /// Each line of the page's status, in order.
+    status: Vec<String>,
+}
+
+/// The address `request` came from, as the log names it.
+fn peer_of(request: &HttpRequest) -> String {
+    request
+        .peer_addr()
+        .map_or_else(|| "unknown peer".to_owned(), |address| address.ip().to_string())
 }
 
 /// The JSON answer to a submission.

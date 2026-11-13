@@ -49,7 +49,7 @@
   "overrides": [
     {
       // A Firefox profile's prefs file, which Firefox reads with `user_pref` defined.
-      "files": ["**/.mise/gpu-probe-firefox.user.js"],
+      "files": ["**/.mise/gpu-probe-browser.user.js"],
       "globals": { "user_pref": "readonly" },
     },
     {

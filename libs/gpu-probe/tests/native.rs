@@ -99,6 +99,16 @@ fn this_gpu_answers_the_combined_shader_legally_and_the_same_way_twice() {
     assert!(!signature.traits().contains("=other"));
 }
 
+#[test]
+fn this_gpu_answers_the_f16_probes_the_same_way_twice_when_it_has_shader_f16() {
+    // A device without shader-f16 compiles none of the set, so it refuses every probe.
+    let answered = if GPU.computes_f16() { PROBE_COUNT } else { 0 };
+    let split = measured_twice("wgpu f16", || GPU.f16_signature());
+    assert_eq!(split.completed(), answered);
+    let combined = measured_twice("wgpu f16 combined", || GPU.f16_combined_signature());
+    assert_eq!(combined.completed(), answered);
+}
+
 // The platforms whose GPU and CPU each have a signature on record: an Apple GPU through Metal, llvmpipe through Vulkan
 // and the Basic Render Driver through Direct3D 12. A machine of one of these platforms with hardware not yet on record
 // fails here, and the fingerprint the tests beside this one print is what gets it recorded.
@@ -148,8 +158,8 @@ fn every_adapter_opens_and_answers_the_probe_set() {
 
 #[test]
 fn an_adapter_no_graphics_api_stands_behind_reports_only_what_wgpu_says() {
-    // wgpu's no-op backend is on every platform and has no Vulkan, Metal or Direct3D 12 side, so the report reads
-    // none of those APIs: what each reader does for an adapter opened through another API than its own.
+    // wgpu's no-op backend is on every platform and has no Vulkan, Metal or Direct3D 12 side, so the report reads none
+    // of those APIs: what each reader does for an adapter opened through another API than its own.
     let descriptor = wgpu::InstanceDescriptor {
         backends: wgpu::Backends::NOOP,
         backend_options: wgpu::BackendOptions {

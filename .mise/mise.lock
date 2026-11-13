@@ -406,31 +406,26 @@ specifiers = ["latest"]
 
 [tools."aqua:01mf02/jaq"."platforms.linux-arm64"]
 checksum = "sha256:1aa1b9c0a3b73f016f6a8d407fa21a89174d01a8e4b9df449eaad49603426734"
-checksum_source = "mise-versions"
 url = "https://github.com/01mf02/jaq/releases/download/v3.1.2/jaq-aarch64-unknown-linux-gnu"
 url_api = "https://api.github.com/repos/01mf02/jaq/releases/assets/662247781"
 
 [tools."aqua:01mf02/jaq"."platforms.linux-x64"]
 checksum = "sha256:df94e0ce3658897a5677958417347e1109f91f72b9f75b8fe8f028a70c90b766"
-checksum_source = "mise-versions"
 url = "https://github.com/01mf02/jaq/releases/download/v3.1.2/jaq-x86_64-unknown-linux-gnu"
 url_api = "https://api.github.com/repos/01mf02/jaq/releases/assets/662247829"
 
 [tools."aqua:01mf02/jaq"."platforms.macos-arm64"]
 checksum = "sha256:977685a0d4138585055c25631ec6970ab666ce37aefc7f6786033548292d18ef"
-checksum_source = "mise-versions"
 url = "https://github.com/01mf02/jaq/releases/download/v3.1.2/jaq-aarch64-apple-darwin"
 url_api = "https://api.github.com/repos/01mf02/jaq/releases/assets/662248648"
 
 [tools."aqua:01mf02/jaq"."platforms.macos-x64"]
 checksum = "sha256:e0c1542e3be024c5c7cf787c68ea345468c28e0a1f8393ff148531f0fcdb1469"
-checksum_source = "mise-versions"
 url = "https://github.com/01mf02/jaq/releases/download/v3.1.2/jaq-x86_64-apple-darwin"
 url_api = "https://api.github.com/repos/01mf02/jaq/releases/assets/662248196"
 
 [tools."aqua:01mf02/jaq"."platforms.windows-x64"]
 checksum = "sha256:8159fcd68008e0dbaeca5c48afcf89acbbf15ccec36d1de9b1bd8658d07143ed"
-checksum_source = "mise-versions"
 url = "https://github.com/01mf02/jaq/releases/download/v3.1.2/jaq-x86_64-pc-windows-msvc.exe"
 url_api = "https://api.github.com/repos/01mf02/jaq/releases/assets/662252361"
 
@@ -751,31 +746,26 @@ specifiers = ["latest"]
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.linux-arm64"]
 checksum = "sha256:7004853c7925ae1984033b5f25866ec604bbc921ef956d5e6c5595bc5af6d30c"
-checksum_source = "mise-versions"
 url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.1/wasm-pack-v0.15.1-aarch64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/691077493"
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.linux-x64"]
 checksum = "sha256:410101009739b9d01c7d5affaaad6e9c9a24b4cba6791a4805db8e89b9bf7af2"
-checksum_source = "mise-versions"
 url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.1/wasm-pack-v0.15.1-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/691077448"
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.macos-arm64"]
 checksum = "sha256:bcaf2a418ae39c874b072ea122fec58e11970862cbd8fd4eca2f00a17f76c536"
-checksum_source = "mise-versions"
 url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.1/wasm-pack-v0.15.1-aarch64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/691077688"
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.macos-x64"]
 checksum = "sha256:9387715ad345a1fe58751d60c80f49d9139957540728bafd0668d005a37cef62"
-checksum_source = "mise-versions"
 url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.1/wasm-pack-v0.15.1-x86_64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/691077649"
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.windows-x64"]
 checksum = "sha256:80afe1f95aaa3f7442917c4457c8316bd1a383c1f27eb0e40601ff3ee3217583"
-checksum_source = "mise-versions"
 url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.1/wasm-pack-v0.15.1-x86_64-pc-windows-msvc.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/691077516"
 
@@ -841,31 +831,26 @@ specifiers = ["latest"]
 
 [tools.ast-grep."platforms.linux-arm64"]
 checksum = "sha256:db02fae2d8eace5fc40c55242068882452dd03eab38a1d950d5fd981cf112926"
-checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-aarch64-unknown-linux-gnu.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/701846463"
 
 [tools.ast-grep."platforms.linux-x64"]
 checksum = "sha256:42514f77ae0c8a25d7d32154d31d3e7e16f3ab894f8ce76ce417de234ee49157"
-checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-x86_64-unknown-linux-gnu.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/701823082"
 
 [tools.ast-grep."platforms.macos-arm64"]
 checksum = "sha256:a95772097b4d02bd9d45ed63b300c37041ae3c36632b3bf19250cc7c10187dc4"
-checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-aarch64-apple-darwin.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/701845634"
 
 [tools.ast-grep."platforms.macos-x64"]
 checksum = "sha256:302b92868fa1b0439f0927b1f31668e03636b12a8e646fb1a3cd8de816c78242"
-checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-x86_64-apple-darwin.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/700681117"
 
 [tools.ast-grep."platforms.windows-x64"]
 checksum = "sha256:12a0cefb77498820ef6fb302ed8758cbda39be87d4c15120dc74c1dea968a50d"
-checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/701859070"
 
@@ -952,31 +937,26 @@ specifiers = ["latest"]
 
 [tools.cmake."platforms.linux-arm64"]
 checksum = "sha256:301d5063ab259577c1b57ce5490b1aab9ea5c56dc4c822f73499553dab94925f"
-checksum_source = "mise-versions"
 url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-linux-aarch64.tar.gz"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682698880"
 
 [tools.cmake."platforms.linux-x64"]
 checksum = "sha256:ed85135c5a5135b45e50423cb406dea04ca3338da0b8ef3c9ede963559680be0"
-checksum_source = "mise-versions"
 url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-linux-x86_64.tar.gz"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699189"
 
 [tools.cmake."platforms.macos-arm64"]
 checksum = "sha256:679e77a96b9ef9484cc6c1445255fc4f84206b48a65420efbedf16bdab55fbff"
-checksum_source = "mise-versions"
 url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-macos-universal.tar.gz"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699600"
 
 [tools.cmake."platforms.macos-x64"]
 checksum = "sha256:679e77a96b9ef9484cc6c1445255fc4f84206b48a65420efbedf16bdab55fbff"
-checksum_source = "mise-versions"
 url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-macos-universal.tar.gz"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699600"
 
 [tools.cmake."platforms.windows-x64"]
 checksum = "sha256:326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004"
-checksum_source = "mise-versions"
 url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-windows-x86_64.zip"
 url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682701242"
 
@@ -1589,31 +1569,26 @@ specifiers = ["2.15.2"]
 
 [tools."github:nats-io/nats-server"."platforms.linux-arm64"]
 checksum = "sha256:bc2c788dcbf2849af749564e06a0d48c19bced851f2d68a2e21c54d078949b28"
-checksum_source = "mise-versions"
 url = "https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-linux-arm64.tar.gz"
 url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/678804508"
 
 [tools."github:nats-io/nats-server"."platforms.linux-x64"]
 checksum = "sha256:67cb8e10bc6f0c4b47f75a728529a20953dbae2a4f9a4a52ae8517d65ae303ff"
-checksum_source = "mise-versions"
 url = "https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-linux-amd64.tar.gz"
 url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/678804536"
 
 [tools."github:nats-io/nats-server"."platforms.macos-arm64"]
 checksum = "sha256:cbd2219d01502c38733485ac684269da585ee479fa3b1377264beecdefdf9e9d"
-checksum_source = "mise-versions"
 url = "https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-darwin-arm64.tar.gz"
 url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/678804503"
 
 [tools."github:nats-io/nats-server"."platforms.macos-x64"]
 checksum = "sha256:9c45b23c19498692e81cd39c75e8382f0e6ff59c0d5b9470e32fe6640afa4446"
-checksum_source = "mise-versions"
 url = "https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-darwin-amd64.tar.gz"
 url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/678804420"
 
 [tools."github:nats-io/nats-server"."platforms.windows-x64"]
 checksum = "sha256:f6398d5d11093778f870db70242cb50d20a58134c937c805ba8d114e7e398766"
-checksum_source = "mise-versions"
 url = "https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-windows-amd64.zip"
 url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/678804534"
 
@@ -1662,31 +1637,26 @@ specifiers = ["latest"]
 
 [tools."github:noemaforge/vimanam"."platforms.linux-arm64"]
 checksum = "sha256:4679f07f877cd472b73774c4efcfd0a78636f514019bb1ee5ebad71c475130ae"
-checksum_source = "mise-versions"
 url = "https://github.com/noemaforge/vimanam/releases/download/v2.1.0/vimanam-aarch64-unknown-linux-gnu.tar.xz"
 url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/707281142"
 
 [tools."github:noemaforge/vimanam"."platforms.linux-x64"]
 checksum = "sha256:991a0e222e187099ef4844e4ee4c655bc62a7e1d4254835aecff204df5acf175"
-checksum_source = "mise-versions"
 url = "https://github.com/noemaforge/vimanam/releases/download/v2.1.0/vimanam-x86_64-unknown-linux-gnu.tar.xz"
 url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/707281204"
 
 [tools."github:noemaforge/vimanam"."platforms.macos-arm64"]
 checksum = "sha256:03d5eb32165146b92fc444accb59e7cb501a2c8e70084abebff3ad725b8c784f"
-checksum_source = "mise-versions"
 url = "https://github.com/noemaforge/vimanam/releases/download/v2.1.0/vimanam-aarch64-apple-darwin.tar.xz"
 url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/707281112"
 
 [tools."github:noemaforge/vimanam"."platforms.macos-x64"]
 checksum = "sha256:a1a984222e9296074a2b7ea94ea6dff2f1b32683cc086186eec5d17a6ec1fe60"
-checksum_source = "mise-versions"
 url = "https://github.com/noemaforge/vimanam/releases/download/v2.1.0/vimanam-x86_64-apple-darwin.tar.xz"
 url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/707281172"
 
 [tools."github:noemaforge/vimanam"."platforms.windows-x64"]
 checksum = "sha256:b601a2a5963b6f29d8d97a335fa9cef15f0433f2fc674e3b2c4012fc0107810b"
-checksum_source = "mise-versions"
 url = "https://github.com/noemaforge/vimanam/releases/download/v2.1.0/vimanam-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/noemaforge/vimanam/releases/assets/707281192"
 
@@ -1697,31 +1667,26 @@ specifiers = ["0.164.0"]
 
 [tools."github:open-telemetry/opentelemetry-collector-releases"."platforms.linux-arm64"]
 checksum = "sha256:5214414828cc6b72d8738c947839e3b9652693222a23006d529bfea96b03e639"
-checksum_source = "mise-versions"
 url = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.164.0/otelcol_0.164.0_linux_arm64.tar.gz"
 url_api = "https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/assets/679872589"
 
 [tools."github:open-telemetry/opentelemetry-collector-releases"."platforms.linux-x64"]
 checksum = "sha256:5db7cf88c2e73a7fdce02b5fa967fcd5dc73bab00b871d947481918dc5093861"
-checksum_source = "mise-versions"
 url = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.164.0/otelcol_0.164.0_linux_amd64.tar.gz"
 url_api = "https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/assets/679872516"
 
 [tools."github:open-telemetry/opentelemetry-collector-releases"."platforms.macos-arm64"]
 checksum = "sha256:8d8acf4ffce7fe1af35932d573d877d6a5ef395c29a18fda760711b800757e7d"
-checksum_source = "mise-versions"
 url = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.164.0/otelcol_0.164.0_darwin_arm64.tar.gz"
 url_api = "https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/assets/679872436"
 
 [tools."github:open-telemetry/opentelemetry-collector-releases"."platforms.macos-x64"]
 checksum = "sha256:e757fdf5fbb76ebcdb266bdf88337247d6fc85c0955ce00b98ba7df46f556d2d"
-checksum_source = "mise-versions"
 url = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.164.0/otelcol_0.164.0_darwin_amd64.tar.gz"
 url_api = "https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/assets/679872430"
 
 [tools."github:open-telemetry/opentelemetry-collector-releases"."platforms.windows-x64"]
 checksum = "sha256:ff9a3d79687cca7863bfbea1198542ca0c1800841289541913211d75ab6fea38"
-checksum_source = "mise-versions"
 url = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.164.0/otelcol_0.164.0_windows_amd64.tar.gz"
 url_api = "https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/assets/679871324"
 
@@ -1771,31 +1736,26 @@ specifiers = ["latest"]
 
 [tools."github:pvolok/dekit"."platforms.linux-arm64"]
 checksum = "sha256:1024d2b04c99550001d6d7da4a762417a72fb9a3f544f4fa6f407f4d39d809e0"
-checksum_source = "mise-versions"
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.3/dekit-aarch64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/676202098"
 
 [tools."github:pvolok/dekit"."platforms.linux-x64"]
 checksum = "sha256:12c93546af4f35258610785d557519caa5a4780563bf845d4bd0b8010c7741d5"
-checksum_source = "mise-versions"
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.3/dekit-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/676202122"
 
 [tools."github:pvolok/dekit"."platforms.macos-arm64"]
 checksum = "sha256:4bc3018ec915805cdadc48018b1b6eb363c3db81901bcef6b37b4926e55ae788"
-checksum_source = "mise-versions"
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.3/dekit-aarch64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/676202097"
 
 [tools."github:pvolok/dekit"."platforms.macos-x64"]
 checksum = "sha256:67586f5bb140a0e88cca0cea4a69a4c7b991d3ce612bd1d01c6425b286819172"
-checksum_source = "mise-versions"
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.3/dekit-x86_64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/676202096"
 
 [tools."github:pvolok/dekit"."platforms.windows-x64"]
 checksum = "sha256:853332f4a4621558ae5fd7ab2c4a7f69878914a1bdf88dd49f6af53b8541eb4c"
-checksum_source = "mise-versions"
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.3/dekit-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/676202090"
 
@@ -1892,6 +1852,18 @@ url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.1
 url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892169"
 provenance = "github-attestations"
 
+[tools."github:utkuozdemir/nvidia_gpu_exporter"."platforms.macos-x64"]
+checksum = "sha256:b10d8bf52997e1e2cd6cb12d06fdb3936306c6d3f5712900badbf48582fad4da"
+url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.17.0/nvidia_gpu_exporter_1.17.0_darwin_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892171"
+provenance = "github-attestations"
+
+[tools."github:utkuozdemir/nvidia_gpu_exporter"."platforms.windows-x64"]
+checksum = "sha256:07bd20f93e59c9920ed38043ec5a31fe3f5f7156969b60aebe336573d667e0c0"
+url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.17.0/nvidia_gpu_exporter_1.17.0_windows_x86_64.zip"
+url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892208"
+provenance = "github-attestations"
+
 [[tools."github:uutils/coreutils"]]
 version = "0.6.0"
 backend = "github:uutils/coreutils"
@@ -1933,6 +1905,11 @@ specifiers = ["0.10.0"]
 [tools."github:uutils/findutils".options]
 asset_pattern = '*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*'
 
+[tools."github:uutils/findutils"."platforms.linux-arm64"]
+checksum = "sha256:c2dad7fbf0cd6b108f833b0a42651f3ad796b6dfa71d303ca1ab51eed3ce3afe"
+url = "https://github.com/uutils/findutils/releases/download/0.10.0/findutils-aarch64-unknown-linux-musl.tar.xz"
+url_api = "https://api.github.com/repos/uutils/findutils/releases/assets/500572461"
+
 [tools."github:uutils/findutils"."platforms.linux-x64"]
 checksum = "sha256:e7c10ea19e1dce2549aaf6f35e15bf42a5e8141d6100c499b6d6fc9b25ea9209"
 url = "https://github.com/uutils/findutils/releases/download/0.10.0/findutils-x86_64-unknown-linux-musl.tar.xz"
@@ -1958,12 +1935,27 @@ version = "0.7.2"
 backend = "github:vladkens/macmon"
 specifiers = ["0.7.2"]
 
+[tools."github:vladkens/macmon"."platforms.linux-arm64"]
+checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
+url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
+url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
+
+[tools."github:vladkens/macmon"."platforms.linux-x64"]
+checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
+url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
+url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
+
 [tools."github:vladkens/macmon"."platforms.macos-arm64"]
 checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
 url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
 
 [tools."github:vladkens/macmon"."platforms.macos-x64"]
+checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
+url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
+url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
+
+[tools."github:vladkens/macmon"."platforms.windows-x64"]
 checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
 url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
@@ -2318,25 +2310,21 @@ specifiers = ["latest"]
 
 [tools.pipx."platforms.linux-arm64"]
 checksum = "sha256:420604146e875bdd558166e8b06107f09c16936434f3b300e370074c47b5ea53"
-checksum_source = "mise-versions"
 url = "https://github.com/pypa/pipx/releases/download/1.18.15/pipx.pyz"
 url_api = "https://api.github.com/repos/pypa/pipx/releases/assets/717609535"
 
 [tools.pipx."platforms.linux-x64"]
 checksum = "sha256:420604146e875bdd558166e8b06107f09c16936434f3b300e370074c47b5ea53"
-checksum_source = "mise-versions"
 url = "https://github.com/pypa/pipx/releases/download/1.18.15/pipx.pyz"
 url_api = "https://api.github.com/repos/pypa/pipx/releases/assets/717609535"
 
 [tools.pipx."platforms.macos-arm64"]
 checksum = "sha256:420604146e875bdd558166e8b06107f09c16936434f3b300e370074c47b5ea53"
-checksum_source = "mise-versions"
 url = "https://github.com/pypa/pipx/releases/download/1.18.15/pipx.pyz"
 url_api = "https://api.github.com/repos/pypa/pipx/releases/assets/717609535"
 
 [tools.pipx."platforms.macos-x64"]
 checksum = "sha256:420604146e875bdd558166e8b06107f09c16936434f3b300e370074c47b5ea53"
-checksum_source = "mise-versions"
 url = "https://github.com/pypa/pipx/releases/download/1.18.15/pipx.pyz"
 url_api = "https://api.github.com/repos/pypa/pipx/releases/assets/717609535"
 
@@ -2454,31 +2442,26 @@ specifiers = ["latest"]
 
 [tools.rclone."platforms.linux-arm64"]
 checksum = "sha256:ee169016675e23a69d77240565133ff7dbc9b33d16fa8f7053d4af39f1eaeb78"
-checksum_source = "mise-versions"
 url = "https://github.com/rclone/rclone/releases/download/v1.76.0/rclone-v1.76.0-linux-arm64.zip"
 url_api = "https://api.github.com/repos/rclone/rclone/releases/assets/717754279"
 
 [tools.rclone."platforms.linux-x64"]
 checksum = "sha256:b00f00b3266c3764413afe599d3ec316f6f43b3e0ea8a0bc1d186d2133e46df7"
-checksum_source = "mise-versions"
 url = "https://github.com/rclone/rclone/releases/download/v1.76.0/rclone-v1.76.0-linux-amd64.zip"
 url_api = "https://api.github.com/repos/rclone/rclone/releases/assets/717751926"
 
 [tools.rclone."platforms.macos-arm64"]
 checksum = "sha256:e72dc90b70f4947a7b72b61bde4a4fbba5777b2874fb448951ffdde67ebd0ab7"
-checksum_source = "mise-versions"
 url = "https://github.com/rclone/rclone/releases/download/v1.76.0/rclone-v1.76.0-osx-arm64.zip"
 url_api = "https://api.github.com/repos/rclone/rclone/releases/assets/717771561"
 
 [tools.rclone."platforms.macos-x64"]
 checksum = "sha256:4f5835733d52b818340f97b1fc0348a70461534d123363a183ca2b660219595a"
-checksum_source = "mise-versions"
 url = "https://github.com/rclone/rclone/releases/download/v1.76.0/rclone-v1.76.0-osx-amd64.zip"
 url_api = "https://api.github.com/repos/rclone/rclone/releases/assets/717770733"
 
 [tools.rclone."platforms.windows-x64"]
 checksum = "sha256:8b4fd2737ade4e70c057ef4a49deb7cffe94b0fb9d7587c189d149823f21a1dc"
-checksum_source = "mise-versions"
 url = "https://github.com/rclone/rclone/releases/download/v1.76.0/rclone-v1.76.0-windows-amd64.zip"
 url_api = "https://api.github.com/repos/rclone/rclone/releases/assets/717775834"
 
@@ -2513,16 +2496,6 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478119643"
 
 [[tools.rust]]
-version = "stable"
-backend = "core:rust"
-specifiers = ["stable"]
-
-[tools.rust.options]
-components = "clippy,rust-analyzer"
-profile = "minimal"
-targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
-
-[[tools.rust]]
 version = "nightly-2026-08-05"
 backend = "core:rust"
 specifiers = ["nightly-2026-08-05"]
@@ -2531,6 +2504,16 @@ specifiers = ["nightly-2026-08-05"]
 components = "llvm-tools,rust-src,rustfmt"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
+
+[[tools.rust]]
+version = "stable"
+backend = "core:rust"
+specifiers = ["stable"]
+
+[tools.rust.options]
+components = "clippy,rust-analyzer"
+profile = "minimal"
+targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
 
 [[tools.taplo]]
 version = "0.10.0"
@@ -2569,31 +2552,26 @@ specifiers = ["latest"]
 
 [tools.typos."platforms.linux-arm64"]
 checksum = "sha256:63b7d4478d467a61fe47cdb3162f720c6797856e61a04f7e125d1cdc282488b8"
-checksum_source = "mise-versions"
 url = "https://github.com/crate-ci/typos/releases/download/v1.52.0/typos-v1.52.0-aarch64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/703151522"
 
 [tools.typos."platforms.linux-x64"]
 checksum = "sha256:6155d4114f9a0f5b8f6d4fda96266c9d5f6add71df80da7f684ee5e72eb14588"
-checksum_source = "mise-versions"
 url = "https://github.com/crate-ci/typos/releases/download/v1.52.0/typos-v1.52.0-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/703158772"
 
 [tools.typos."platforms.macos-arm64"]
 checksum = "sha256:90724dd2905cb1ce033343c71ed60e52fe898674f882803e3110cd228e09e1c5"
-checksum_source = "mise-versions"
 url = "https://github.com/crate-ci/typos/releases/download/v1.52.0/typos-v1.52.0-aarch64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/703166489"
 
 [tools.typos."platforms.macos-x64"]
 checksum = "sha256:8de057f425909b02c0184892539755d70ecc3244c4b214ae9382cedd691127e0"
-checksum_source = "mise-versions"
 url = "https://github.com/crate-ci/typos/releases/download/v1.52.0/typos-v1.52.0-x86_64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/703158123"
 
 [tools.typos."platforms.windows-x64"]
 checksum = "sha256:7da6eb1932ad86921420a7198dbc9e62a10bcd995144704dc19b81d3fb802182"
-checksum_source = "mise-versions"
 url = "https://github.com/crate-ci/typos/releases/download/v1.52.0/typos-v1.52.0-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/crate-ci/typos/releases/assets/703159242"
 

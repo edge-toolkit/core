@@ -129,7 +129,7 @@ jobs:
       - name: Build the math1 scenario image
         run: |
           dockerfile=verification/local/output/math1/Dockerfile
-          hub=docker-image://et-ws-server-hub:latest
+          hub=docker-image://et-ws-server-hub
           docker build --build-context "hub=$hub" -t et-ws-server-math1:latest -f "$dockerfile" .
 
       - name: Build the web runner image
@@ -147,7 +147,7 @@ jobs:
       - name: Build the math1-multi scenario image
         run: |
           dockerfile=verification/local/output/math1-multi/Dockerfile
-          hub=docker-image://et-ws-server-hub:latest
+          hub=docker-image://et-ws-server-hub
           docker build --build-context "hub=$hub" -t et-ws-server-math1-multi:latest -f "$dockerfile" .
 
       - name: Apply the multi-machine manifests to a multi-node cluster and verify the stored model
@@ -169,7 +169,7 @@ jobs:
       - name: Build the math1-limits scenario image
         run: |
           dockerfile=verification/local/output/math1-limits/Dockerfile
-          hub=docker-image://et-ws-server-hub:latest
+          hub=docker-image://et-ws-server-hub
           docker build --build-context "hub=$hub" -t et-ws-server-math1-limits:latest -f "$dockerfile" .
 
       - name: Apply the limited manifests and check every limit holds in the pods

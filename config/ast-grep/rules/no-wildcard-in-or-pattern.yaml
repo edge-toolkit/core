@@ -1,0 +1,30 @@
+id: no-wildcard-in-or-pattern
+language: Rust
+severity: error
+message: |
+  As `DeepSource RS-W1037` says, a `_` among the alternatives of an or-pattern matches everything, so the alternatives
+  beside it say nothing: the arm reads as though it names the cases it takes, while it takes every one. Write the arm
+  as `_` alone, or, where the named cases matter, give them an arm of their own above it. Clippy's
+  `wildcard_in_or_patterns` is the same check, but it stays quiet when the enum is `#[non_exhaustive]`.
+# An alternative is a wildcard when its whole text is `_`.
+# The wildcard is an anonymous node that a structural pattern does not reach; a `_` inside a string literal, or a
+# nested pattern's own `_`, is never a whole alternative. `A | _ | B` parses as `(A | _) | B`, so the rule takes the
+# outermost or-pattern and looks through the or-patterns nested in it, and the fix replaces all of it with `_`, which
+# matches exactly what it matched before. Where a named alternative was all that fixed the scrutinee's type, as `None`
+# does for a value given no other type, the rewritten arm no longer fixes it; that fails to compile rather than
+# changing what runs, so the fix is kept and the compiler names the one place a type annotation is wanted.
+rule:
+  kind: or_pattern
+  not:
+    any:
+      - inside:
+          kind: or_pattern
+          stopBy: neighbor
+      # A leading `|`, which Rust allows before a pattern, makes `| _` an or-pattern with no other alternative.
+      - regex: '^\|\s*_$'
+  has:
+    regex: "^_$"
+    stopBy:
+      not:
+        kind: or_pattern
+fix: _

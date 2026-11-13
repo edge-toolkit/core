@@ -1,8 +1,8 @@
 //! Benchmarks every operation `et-gpu-probe` offers: building the probe sets and their reference answers, the texture
 //! formats, reading a signature, the registry, and putting each probe set to every GPU adapter the machine has.
 //!
-//! Run with `cargo bench -p et-gpu-probe --features native,registry`. The GPU group names each adapter as wgpu does,
-//! so its results are this machine's own; the rest measure the CPU alone.
+//! Run with `cargo bench -p et-gpu-probe --features native,registry`. The GPU group names each adapter as wgpu does, so
+//! its results are this machine's own; the rest measure the CPU alone.
 #![expect(
     clippy::single_call_fn,
     reason = "criterion calls each benchmark group once, through criterion_group!, and each helper serves one group"
@@ -15,8 +15,9 @@ use criterion::{BenchmarkGroup, Criterion, criterion_group, criterion_main};
 use et_gpu_probe::native::Gpu;
 use et_gpu_probe::{
     Answer, BLENDS, FILTERS, Format, GpuVendor, HOST, RASTER_FORMAT, RASTER_WIDTH, RASTERS, Sighting, Signature,
-    WEBGL2, WEBGPU, WEBGPU_CLEAR, WEBGPU_FIXED_FUNCTION, clear_reference, combined_shader, coverage, every_sighting,
-    fixed_function_reference, fragment_shaders, host, reference, shaders,
+    WEBGL2, WEBGPU, WEBGPU_CLEAR, WEBGPU_F16, WEBGPU_FIXED_FUNCTION, clear_reference, combined_shader, coverage,
+    every_sighting, f16_combined_shader, f16_reference, f16_shaders, fixed_function_reference, fragment_shaders, host,
+    reference, shaders,
 };
 use futures_executor::block_on;
 use serde_json::json;
@@ -31,7 +32,7 @@ const FORMATS: [Format; 5] = [
 ];
 
 /// Every interface a signature of the probe sets can be read through, beside the answers a device would give.
-const INTERFACES: [&str; 5] = [HOST, WEBGPU, WEBGL2, WEBGPU_CLEAR, WEBGPU_FIXED_FUNCTION];
+const INTERFACES: [&str; 6] = [HOST, WEBGPU, WEBGL2, WEBGPU_CLEAR, WEBGPU_FIXED_FUNCTION, WEBGPU_F16];
 
 /// Measure `routine` as `id` in `group`; criterion keeps what it returns from being optimised away.
 ///
@@ -53,6 +54,9 @@ fn probe_sets(criterion: &mut Criterion) {
     measure(&mut group, "host", host);
     measure(&mut group, "clear_reference", clear_reference);
     measure(&mut group, "fixed_function_reference", fixed_function_reference);
+    measure(&mut group, "f16_shaders", f16_shaders);
+    measure(&mut group, "f16_combined_shader", f16_combined_shader);
+    measure(&mut group, "f16_reference", f16_reference);
     for blend in BLENDS {
         measure(&mut group, &format!("wgsl/{}", blend.name), || blend.shader());
         measure(&mut group, &format!("glsl/{}", blend.name), || blend.glsl());
@@ -97,6 +101,7 @@ fn answered(interface: &'static str) -> Signature {
         HOST => host().to_vec(),
         WEBGPU_CLEAR => clear_reference(),
         WEBGPU_FIXED_FUNCTION => fixed_function_reference(),
+        WEBGPU_F16 => f16_reference().to_vec(),
         _ => reference().to_vec(),
     };
     Signature::new(interface, answers.into_iter().map(Answer::Bits).collect())
@@ -158,7 +163,8 @@ fn registry(criterion: &mut Criterion) {
     measure(&mut group, "gpu_vendor_from_device_name", || {
         GpuVendor::from_device_name(black_box("Apple M5 Pro"))
     });
-    measure(&mut group, "gpu_vendor_name", || black_box(GpuVendor::Nvidia).name());
+    let vendor = GpuVendor::Nvidia;
+    measure(&mut group, "gpu_vendor_name", || black_box(&vendor).name());
     group.finish();
 }
 
@@ -183,6 +189,12 @@ fn gpus(criterion: &mut Criterion) {
         });
         measure(&mut group, &format!("fixed_function_signature/{name}"), || {
             block_on(gpu.fixed_function_signature())
+        });
+        measure(&mut group, &format!("f16_signature/{name}"), || {
+            block_on(gpu.f16_signature())
+        });
+        measure(&mut group, &format!("f16_combined_signature/{name}"), || {
+            block_on(gpu.f16_combined_signature())
         });
         measure(&mut group, &format!("report/{name}"), || gpu.report());
     }
