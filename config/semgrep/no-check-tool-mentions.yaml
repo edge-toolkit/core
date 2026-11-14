@@ -39,6 +39,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
@@ -195,6 +196,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entries, and the per-format policy tasks.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.codacy.yaml" # Names the config linters Codacy defers to, as its exclusion rationale.
@@ -289,6 +291,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
@@ -321,6 +324,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/gitleaks.toml" # Its own config, including how far its inline marker reaches.
@@ -398,6 +402,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/README.md" # Tells a contributor which checks validate the generated manifests.
         - "/.codacy.yaml" # Names the manifest checks Codacy defers to, as its exclusion rationale.
@@ -414,6 +419,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs, and keeping its ignores in sync with .gitignore.
         - "/config/ls-lint.yaml" # Its own config.
@@ -470,6 +476,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the tasks that scan each ecosystem.
         - "/.github/workflows/dependencies.yaml" # Runs the scan on CI.
         - "/config/osv-scanner.toml" # Its own config.
@@ -508,6 +515,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the lint/fix tasks.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
@@ -547,6 +555,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the check/fix tasks.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/regal.yaml" # Its own config.
@@ -672,6 +681,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
         - "/.mise/**" # Tool pin, lockfile entry, and the extractor that formats mise task bodies with it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
@@ -709,6 +719,8 @@ rules:
         - "/README.md" # Tells a contributor which checks validate the generated manifests.
         - "/.codacy.yaml" # Names the manifest checks Codacy defers to, as its exclusion rationale.
         - "/config/trivyignore.yaml" # Its own ignore file, where each entry states why the finding is an artifact.
+        - "/config/jscpd.json" # Names the tools-scan ignore file, whose entries repeat by design, to skip it.
+        - "/config/conftest/policy/advisories/**" # Reads the tools-scan ignore file to hold its review dates.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)trivy"

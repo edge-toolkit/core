@@ -157,9 +157,9 @@ mise_installs = '''{% if env?.MISE_INSTALLS_DIR -%}
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
 # mise-managed CPython, pinned to the exact `3.x.y` dir (the python [tools] pin).
 # This is needed since mise's minor-version alias symlink isn't created on the Windows runner.
-py3_win = '{{ vars.mise_installs }}\python\3.13.16\python.exe'
+py3_win = '{{ vars.mise_installs }}\python\3.13.18\python.exe'
 # Forward-slashed py3_win for bash task bodies (backslash-form paths mangle in busybox ash).
-py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.16/python.exe"
+py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.18/python.exe"
 # Windows install root for the github:microsoft/onnxruntime tool.
 # ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).

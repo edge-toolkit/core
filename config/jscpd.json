@@ -9,6 +9,7 @@
     "verification/**",
     "**/HELP.md",
     "**/pkg/package.json",
+    "config/trivyignore-tools.yaml",
     "libs/*/benches/results/**",
     "libs/gpu-probe/signatures.json",
     "libs/gpu-probe/signatures.yaml",
