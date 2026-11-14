@@ -193,6 +193,8 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** every published crate now declares a minimum supported Rust version of 1.100, which cargo enforces;
+  build with Rust 1.100 or newer. Before, only `et-ws-web-runner` declared one, at 1.99.
 - **Breaking:** `edge-toolkit` built without `std` holds the agent registry, `ws_server`, only with its new `board`
   feature, which brings in the spin lock it is kept under; `board` also adds `board::BoardLock`, that lock, for the
   rest of a board's shared state. Likewise `et-ws-service` without `std` holds its `hub` routing core only with

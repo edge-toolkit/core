@@ -2,13 +2,10 @@
 edition = "2024"
 license = "Apache-2.0 or MIT"
 repository = "https://github.com/edge-toolkit/core"
-# Held at 1.99 by the coverage toolchain, which no 1.100 nightly can be.
-# Every 1.100.0-nightly carries LLVM 23, whose profraw format minicov 0.3.8 cannot write, and wasm-bindgen-test
-# 0.3.80 pins minicov at exactly 0.3.8 (see the minicov entry). A 1.100 requirement made cargo refuse every crate
-# on `rust_nightly`, with "rustc 1.99.0-nightly is not supported" on
-# https://github.com/edge-toolkit/core/actions/runs/43355799367/job/131657587566. Raise it once a
-# wasm-bindgen-test release accepts minicov 0.3.9, moving `rust_nightly` to a 1.100 nightly in the same change.
-rust-version = "1.99.0"
+# The oldest stable Rust every crate builds on; each member inherits it.
+# The coverage build still compiles on `rust_nightly`, which predates it, so code must not use a std API that nightly
+# lacks even where this value allows one.
+rust-version = "1.100.0"
 
 [workspace]
 members = [

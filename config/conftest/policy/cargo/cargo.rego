@@ -147,10 +147,16 @@ deny contains msg if {
 	msg := sprintf("%s: crate is not registered in the root [workspace].members", [file.path])
 }
 
+# Every field the root [workspace.package] defines, which each member must inherit rather than restate.
+# Read from the manifest rather than listed here, so a field added to the workspace binds every member at once.
+inherited_package_field contains field if {
+	some file in paths.files
+	file.path == "Cargo.toml"
+	some field, _ in file.contents.workspace["package"]
+}
+
 # Shared [package] metadata must be inherited from [workspace.package] via `<field>.workspace = true`.
 # This keeps the values defined in exactly one place.
-inherited_package_field := {"edition", "license", "repository"}
-
 deny contains msg if {
 	some file in paths.files
 	is_member(file)
