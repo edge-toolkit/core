@@ -3,7 +3,7 @@ revision = 5
 requires-python = ">=3.8"
 
 [options]
-exclude-newer = "2026-10-20T11:35:38.362078Z"
+exclude-newer = "2026-11-06T22:50:34.368606847Z"
 
 [[package]]
 name = "componentize-py"

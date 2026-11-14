@@ -93,6 +93,9 @@ llvm_mingw_pattern = """{% raw %}llvm-mingw-*-ucrt-
 
 [tasks.zig-check]
 run = "zig fmt --check modules/ libs/zig-shared/ generated/zig-rest/"
+# gen:zig-rest writes the client raw and only then zig-fmts it, so a check alongside gen-specs can read it unformatted.
+# `wait_for` rather than `depends`: the edge only matters when `check` has scheduled both.
+wait_for = ["gen-specs"]
 
 [tasks.zig-fmt]
 run = "zig fmt modules/ libs/zig-shared/ generated/zig-rest/"

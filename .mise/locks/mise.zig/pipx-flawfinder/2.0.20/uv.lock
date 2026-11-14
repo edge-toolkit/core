@@ -3,7 +3,7 @@ revision = 5
 requires-python = ">=3.8"
 
 [options]
-exclude-newer = "2026-10-21T02:06:17.619584Z"
+exclude-newer = "2026-11-06T22:50:56.031194107Z"
 
 [[package]]
 name = "flawfinder"

@@ -74,15 +74,20 @@ ignore = [
   # under hickory-proto is not evidence otherwise; it records optional deps regardless of activation.) The fix
   # landed in 0.26.0-beta.1, but deno_net requires ^0.25.2 through its newest release, so it is out of reach.
   { id = "RUSTSEC-2026-0118", reason = "expires 2027-01-01" },
-  # hickory-proto 0.25.2 -- four flaws in how DNSSEC validation reads a response, fixed in no hickory-proto release.
+  # hickory-proto 0.25.2 -- seven flaws in how DNSSEC validation reads a response, fixed in no hickory-proto release.
   # An NSEC3 comparison is inverted, NSEC3 owner names are not checked against the zone, NXDOMAIN is accepted for a
-  # proven empty non-terminal, and an unrelated signed RRset is accepted as the answer. Each needs a response to be
-  # validated, and the entry above gives why none is: without a dnssec-* feature the validating handle is not
-  # compiled in. The fixes are in hickory-net 0.26.2, where validation moved, behind the same deno_net pin.
+  # proven empty non-terminal, an unrelated signed RRset is accepted as the answer, the NSEC or NSEC3 a parent signs
+  # at a zone cut is accepted as proof that names below it do not exist, and a child-side NSEC or NSEC3 is accepted
+  # as proof that a delegation has no DS record. Each needs a response to be validated, and the entry above gives why
+  # none is: without a dnssec-* feature the validating handle is not compiled in. The fixes are in hickory-net 0.26.2,
+  # where validation moved, behind the same deno_net pin.
   { id = "RUSTSEC-2026-0504", reason = "expires 2027-01-01" },
   { id = "RUSTSEC-2026-0505", reason = "expires 2027-01-01" },
   { id = "RUSTSEC-2026-0511", reason = "expires 2027-01-01" },
   { id = "RUSTSEC-2026-0512", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0530", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0531", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0532", reason = "expires 2027-01-01" },
   # hickory-proto 0.25.2 O(n^2) name compression during message encode.
   # Encoder side, hit only when we *send* a DNS message. The runner uses the OS resolver via hickory. It
   # never crafts outbound DNS frames with attacker-controlled name lists.

@@ -243,6 +243,10 @@ zizmor = "latest"
 # headers below).
 [[tools.rust]]
 components = "clippy,rust-analyzer"
+# Waive the release age, so `stable` is the rustup channel's stable as it is on Windows.
+# Held back by a week, `stable` resolved to the previous release, whose cargo ignores `global-min-publish-age`
+# and so dropped cargo's own cooldown, and Linux/macOS then lagged the Windows `stable-<host>` entries.
+minimum_release_age = "0"
 os = ["linux", "macos"]
 profile = "minimal"
 targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
@@ -1281,6 +1285,9 @@ usage = 'arg "[file]..." var=#true help="Rust files to reflow (default: every tr
 
 [tasks.cargo-fmt-check]
 run = "cargo +{{ vars.rust_nightly }} fmt -- --check"
+# Wait for gen-specs, whose gen:ws-spec writes generated/rust-rest unformatted before it runs `cargo fmt` on it.
+# `wait_for` rather than `depends`: the edge only matters when `check` has scheduled both.
+wait_for = ["gen-specs"]
 
 [tasks.cargo-clippy-check]
 alias = ["cargo-clippy", "clippy", "clippy-check"]

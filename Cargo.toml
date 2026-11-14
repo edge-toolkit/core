@@ -220,7 +220,7 @@ minicov = "=0.3.8"
 # Renders et-cli's deployment templates.
 # `serde` renders them from the generators' own structs, `multi_template` lets one include another, and `debug`
 # points a failed render at the template line it failed on.
-minijinja = { version = "3.1", default-features = false, features = [
+minijinja = { version = "3.0", default-features = false, features = [
   "builtins",
   "debug",
   "macros",

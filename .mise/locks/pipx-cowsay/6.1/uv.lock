@@ -3,7 +3,7 @@ revision = 5
 requires-python = ">=3.8"
 
 [options]
-exclude-newer = "2026-10-21T02:05:27.605638Z"
+exclude-newer = "2026-11-06T22:52:52.946971961Z"
 
 [[package]]
 name = "cowsay"
