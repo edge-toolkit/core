@@ -5,7 +5,7 @@
 - **Tools:** 49
 - **Shell-script checks:** 11
 - **Checks with a repair pass:** 22
-- **Rules:** 401 custom local rules, or non-default strict linter settings
+- **Rules:** 403 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -819,8 +819,14 @@ Rules, from `config/conftest/policy`:
 
 ## `et-int-repo-check`
 
-- `repo-check` (`default` env; run by `check:rust`) -- Repository-wide checks that need to read git itself (commit
-  hashes, ...).
+- `repo-check` (`default` env; run by `check:rust`) -- Repository-wide checks no file-at-a-time linter can do (commit
+  hashes, typos ignores, ...).
+
+Rules, from `utilities/repo-check/src`:
+
+- `commit-hashes` -- Rejects a commit hash written into a tracked file when this repository's history has no such
+  commit.
+- `typos-ignores` -- Rejects an entry in `config/typos.toml` that no longer suppresses anything.
 
 ## `flawfinder`
 

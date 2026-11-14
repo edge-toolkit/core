@@ -14,7 +14,13 @@ pub enum Error {
     #[error(transparent)]
     Command(#[from] command_error::Error),
     #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
     Regex(#[from] regex::Error),
+    #[error(transparent)]
+    TomlRead(#[from] toml::de::Error),
+    #[error(transparent)]
+    TomlWrite(#[from] toml::ser::Error),
     #[error(transparent)]
     Utf8(#[from] std::string::FromUtf8Error),
 }
