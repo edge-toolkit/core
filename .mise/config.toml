@@ -3186,63 +3186,155 @@ flag "--device <device>" help="The machine the rows name, such as its make and m
 flag "--submit" help="Drive Chrome through chromedriver and submit every probe set, rather than open it for a person"
 """
 
-[tasks.gpu-probe-firefox]
+[tasks.gpu-probe-browser]
 depends = ["build-gpu-probe-page"]
-description = "Probe Firefox on the GPU probe page from a fresh profile, optionally with fingerprinting protection on"
-# Serve the probe page and open Firefox on it, for a person to submit from or, with --submit, to submit by itself.
+description = "Probe a browser on the GPU probe page from a fresh profile: Firefox, or a Flatpak one such as Brave"
+# Serve the probe page and open a browser on it, for a person to submit from or, with --submit, to submit by itself.
 #
-# The page is served at localhost:8099 for the length of the task, unless a `gpu-probe-page` already serves it, and
-# every job the task starts is stopped when it ends. Each run gets a fresh profile under target/, so the person's own
-# Firefox is never touched, and every run is a session of its own: Firefox keys its canvas PNG encoding to the
-# session, so two runs are what tells a stable signature from a randomised one.
+# The task serves the page itself, on a port of its own, and every job it starts is stopped when it ends. Each run
+# gets a fresh profile under target/, so the person's own profile is never touched, and every run is a session of its
+# own: Firefox keys its canvas PNG encoding to the session, so two runs are what tells a stable signature from a
+# randomised one. firefox is the host's, and the others are the system Flatpaks from Flathub, given the profile's
+# directory: the probes measure the browser the person has, as it ships, its own defences named as the rows' defence.
 #
-# There is no WebDriver for Firefox among the tools, so with --submit the page is opened with `submit` and read from
-# Firefox's own output instead, where the page writes its status lines once every set is submitted. firefox is the
-# host's: the probes measure the browser the person has.
+# There is no WebDriver for most of these, and the one GNOME Web ships cannot reach the browser from inside its
+# sandbox, so with --submit the page is opened with `submit` and read from the server: the page posts its status
+# lines to `/status` once every set is submitted, and the server logs them.
 run = """
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
-if ! curl -sf -o /dev/null http://localhost:8099/; then
-  {{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port 8099 &
-  server=$!
-  for _ in $(coreutils seq 600); do
-    if curl -sf -o /dev/null http://localhost:8099/; then break; fi
-    if ! kill -0 "$server" 2>/dev/null; then
-      printf 'the gpu-probe server exited before it served the page\\n' >&2
-      exit 1
-    fi
-    coreutils sleep 1
-  done
-fi
-run=target/gpu-probe-firefox
+browser="$usage_browser"
+window=normal
+defence=""
+case "$browser" in
+  firefox) app="" ;;
+  librewolf)
+    app=io.gitlab.librewolf-community
+    defence="privacy.resistFingerprinting, on as LibreWolf ships"
+    ;;
+  mullvad-browser)
+    app=net.mullvad.MullvadBrowser
+    window=private
+    defence="privacy.resistFingerprinting, on as Mullvad Browser ships"
+    ;;
+  brave)
+    app=com.brave.Browser
+    defence="Shields farbling, on as Brave ships"
+    ;;
+  chromium) app=org.chromium.Chromium ;;
+  edge) app=com.microsoft.Edge ;;
+  gnome-web) app=org.gnome.Epiphany ;;
+  tor-browser)
+    app=org.torproject.torbrowser-launcher
+    window=private
+    defence="privacy.resistFingerprinting, on as Tor Browser ships"
+    ;;
+  *)
+    known="firefox, librewolf, mullvad-browser, tor-browser, brave, chromium, edge or gnome-web"
+    printf 'no way to run %s: name %s\\n' "$browser" "$known" >&2
+    exit 2
+    ;;
+esac
+run="target/gpu-probe-browser/$browser"
 profile="$PWD/$run/profile"
-coreutils rm -rf "$profile"
+coreutils rm -rf "$run"
 coreutils mkdir -p "$profile"
-coreutils cp .mise/gpu-probe-firefox.user.js "$profile/user.js"
-query="device=$(device="${usage_device:-}" yq -n 'strenv(device) | @uri')"
-if [ "${usage_fingerprinting_protection:-false}" = true ]; then
-  printf 'user_pref("privacy.fingerprintingProtection", true);\\n' >>"$profile/user.js"
-  query="$query&defence=privacy.fingerprintingProtection%20on"
+port="${usage_port:-8097}"
+log="$run/server.log"
+NO_COLOR=1 {{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port "$port" >"$log" 2>&1 &
+server=$!
+for _ in $(coreutils seq 600); do
+  if curl -sf -o /dev/null "http://localhost:$port/"; then break; fi
+  if ! kill -0 "$server" 2>/dev/null; then
+    printf 'the gpu-probe server exited before it served the page; its log is %s\\n' "$log" >&2
+    exit 1
+  fi
+  coreutils sleep 1
+done
+if [ "$browser" = tor-browser ]; then
+  # The launcher's Flatpak downloads Tor Browser on its first run; this runs that copy's own start script.
+  tbb="$HOME/.var/app/$app/data/torbrowser/tbb/$(coreutils uname -m)/tor-browser/Browser"
+  if [ ! -x "$tbb/start-tor-browser" ]; then
+    printf 'Tor Browser is not downloaded yet: run "flatpak run --system %s" once first\\n' "$app" >&2
+    exit 1
+  fi
+  # The browser runs with no Tor, which cannot reach the page on localhost anyway.
+  # With Tor it waits on its connection before it opens the page. Its defences are the browser's own, as it ships them.
+  launch=(flatpak run --system "--filesystem=$profile" --env=TOR_PROVIDER=none)
+  launch+=("--command=$tbb/start-tor-browser" "$app")
+  version="$(jaq -r .version "$tbb/tbb_version.json")"
+elif [ -n "$app" ]; then
+  launch=(flatpak run --system "--filesystem=$profile" "$app")
+  version="$(flatpak info --system "$app" | rg -o 'Version: (\\S+)' -r '$1')"
+else
+  launch=(firefox)
+  version=""
+fi
+query="device=$(device="${usage_device:-}" yq -n 'strenv(device) | @uri')&browser=$browser&window=$window"
+if [ -n "$version" ]; then
+  query="$query&browser_version=$version"
+fi
+case "$browser" in
+  firefox | librewolf | mullvad-browser | tor-browser)
+    coreutils cp .mise/gpu-probe-browser.user.js "$profile/user.js"
+    if [ "$browser" = tor-browser ]; then
+      # Tor Browser sends even localhost through Tor, which cannot reach the page; these let it reach it directly.
+      # Neither is a fingerprinting defence. Quick start connects to Tor without waiting on its connect screen.
+      {
+        printf 'user_pref("network.proxy.allow_hijacking_localhost", false);\\n'
+        printf 'user_pref("network.proxy.no_proxies_on", "localhost");\\n'
+        printf 'user_pref("torbrowser.settings.quickstart.enabled", true);\\n'
+      } >>"$profile/user.js"
+    fi
+    if [ "$browser" = mullvad-browser ] || [ "$browser" = tor-browser ]; then
+      # Both leave out NoScript, which freezes the page inside the Flatpak sandbox.
+      # Its log says "Too many SyncMessage loops". Both ship it as a distribution add-on, which a profile that
+      # records it as installed already never installs.
+      noscript='{73a6fe31-595d-460b-a920-fcc0f8843232}'
+      printf 'user_pref("extensions.installedDistroAddon.%s", true);\\n' "$noscript" >>"$profile/user.js"
+      defence="$defence, NoScript left out"
+    fi
+    if [ "${usage_fingerprinting_protection:-false}" = true ]; then
+      printf 'user_pref("privacy.fingerprintingProtection", true);\\n' >>"$profile/user.js"
+      defence="privacy.fingerprintingProtection on"
+    fi
+    args=(--no-remote --profile "$profile" --new-window)
+    # Mullvad Browser and Tor Browser start through a script that sends the browser's output nowhere unless asked.
+    if [ "$browser" = mullvad-browser ] || [ "$browser" = tor-browser ]; then
+      args=(--verbose "${args[@]}")
+    fi
+    ;;
+  gnome-web) args=(--private-instance) ;;
+  *) args=("--user-data-dir=$profile" --no-first-run --no-default-browser-check) ;;
+esac
+if [ -n "$defence" ]; then
+  query="$query&defence=$(defence="$defence" yq -n 'strenv(defence) | @uri')"
 fi
 if [ "${usage_submit:-false}" != true ]; then
-  firefox --no-remote --profile "$profile" --new-window "http://localhost:8099/?$query"
+  "${launch[@]}" "${args[@]}" "http://localhost:$port/?$query"
   exit
 fi
-firefox --no-remote --profile "$profile" --new-window "http://localhost:8099/?submit&$query" >"$run/firefox.log" 2>&1 &
-browser=$!
+"${launch[@]}" "${args[@]}" "http://localhost:$port/?submit&$query" >"$run/browser.log" 2>&1 &
+opened=$!
 # The page says "Submitted." only when every set went in or was on record already, and "Not submitted." otherwise.
-verdict='gpu-probe: (Submitted|Not submitted|The probes could not run)'
+verdict='page status: (Submitted|Not submitted|The probes could not run)'
 for _ in $(coreutils seq 300); do
-  if rg -q "$verdict" "$run/firefox.log" || ! kill -0 "$browser" 2>/dev/null; then break; fi
+  if rg -q "$verdict" "$log"; then break; fi
   coreutils sleep 2
 done
-# Firefox writes each console line as the call's arguments, quoted; the status lines are what follows the prefix.
-rg -o 'gpu-probe: [^"]*' "$run/firefox.log" || printf 'the page said nothing within 600s\\n'
-rg -q 'gpu-probe: Submitted' "$run/firefox.log"
+if [ -n "$app" ]; then
+  flatpak kill "$app" 2>/dev/null || true
+else
+  coreutils kill "$opened" 2>/dev/null || true
+fi
+rg -o 'page status: (.*)' -r '$1' "$log" || printf 'the page said nothing within 600s; its server log is %s\\n' "$log"
+rg -q 'page status: Submitted' "$log"
 """
 shell = "{{ vars.task_shell }}"
 usage = """
+arg "<browser>" help="firefox, librewolf, mullvad-browser, tor-browser, brave, chromium, edge or gnome-web"
 flag "--device <device>" help="The machine the rows name, such as its make and model"
-flag "--fingerprinting-protection" help="Turn on privacy.fingerprintingProtection, and name it as the rows' defence"
+flag "--fingerprinting-protection" help="Turn on privacy.fingerprintingProtection, for one built on Firefox"
+flag "--port <port>" help="The port to serve the page on for the run, 8097 if not given"
 flag "--submit" help="Submit every probe set from the page and print how each went, rather than open it for a person"
 """
 

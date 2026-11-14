@@ -31,6 +31,12 @@ Changelog 1.1.0.
   The same feature builds for `wasm32`, opening the browser's WebGPU, and every `native::Gpu` call is async. The
   server serves a probe page that runs the probe sets as WASM, through WebGL 2 and WebGPU, and submits each signature;
   `mise run gpu-probe-page` builds and serves it on plain HTTP at localhost, which `--http` allows on a loopback only.
+- The probe page also puts the probes to WebGL 1, which some browsers offer while withholding WebGL 2 and WebGPU, and
+  takes both WebGL interfaces in each mode the research page does: a shader a probe, filed as `webgl1-split`, and
+  every probe in one shader, filed as `webgl1-combined` and `webgl2-combined`. `et-gpu-probe`'s new `batched` writes
+  those shaders, in GLSL ES 3.00 or 1.00 by `Glsl`, and halves a combined shader the browser refuses until the probe
+  it will not take is alone. `mise run gpu-probe-browser <browser>` probes Firefox or a Flatpak browser from a fresh
+  profile, Mullvad Browser and Tor Browser with NoScript left out.
 - A WASI module can read a lidar. `et-ws-wasi-runner`'s new `lidar` feature, on by default, hosts
   `et:ws-wasi/serial`, lending a guest the serial ports its `SERIAL_PORTS_<NAME>` variables name: a device, or
   `tcp://<host>:<port>` for one a bridge such as ser2net serves. The interface's own `serial-host` world, which the

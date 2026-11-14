@@ -9,7 +9,7 @@
 )]
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
-use et_int_gpu_probe_web::{probe_canvas, probe_webgl2, probe_webgpu};
+use et_int_gpu_probe_web::{probe_canvas, probe_webgl1, probe_webgl2, probe_webgpu};
 use serde_json::Value;
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -35,10 +35,31 @@ fn webgl2_gives_every_set_or_says_why_not() {
     let answer = parsed(&probe_webgl2().unwrap());
     let given = interfaces(&answer);
     let problems = answer["problems"].as_array().unwrap();
-    assert_eq!(given.len().saturating_add(problems.len()), 3, "{answer}");
+    assert_eq!(given.len().saturating_add(problems.len()), 4, "{answer}");
     for signature in answer["signatures"].as_array().unwrap() {
         assert!(!signature["results"].as_array().unwrap().is_empty(), "{signature}");
         assert!(signature["describe"].is_array(), "{signature}");
+    }
+}
+
+#[wasm_bindgen_test]
+fn webgl1_gives_both_modes_or_says_why_not() {
+    let answer = parsed(&probe_webgl1().unwrap());
+    let given = interfaces(&answer);
+    let problems = answer["problems"].as_array().unwrap();
+    assert!(
+        given == ["webgl1-split", "webgl1-combined"] || problems.len() == 1,
+        "{answer}"
+    );
+    for signature in answer["signatures"].as_array().unwrap() {
+        // GLSL ES 1.00 has neither fma nor tanh, and the rest are answered.
+        let refused = signature["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|result| result[1] == "????????")
+            .count();
+        assert_eq!(refused, 2, "{signature}");
     }
 }
 

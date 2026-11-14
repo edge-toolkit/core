@@ -22,7 +22,7 @@ use crate::webgl2::{WebGl2Error, context, link, settled};
 const SAMPLE_LAYOUT: Layout = [Context::R32F, Context::RED, Context::FLOAT];
 
 /// How a texture's texels are stored and handed over: its sized internal format, then its texels' format and type.
-type Layout = [u32; 3];
+pub(crate) type Layout = [u32; 3];
 
 /// What the page's WebGL 2 answers to the clears.
 pub fn clear_signature() -> Result<Signature, WebGl2Error> {
@@ -143,7 +143,7 @@ fn target(context: &Context, format: Format, width: u32, texels: Option<&[u8]>) 
 ///
 /// The texels are laid out as [`Format::texel`] lays them, and handed over as the typed array the layout's type calls
 /// for, which views the same bytes. `name` names the format in a refusal.
-fn texture(
+pub(crate) fn texture(
     context: &Context,
     layout: Layout,
     name: &'static str,
@@ -173,7 +173,12 @@ fn texture(
 }
 
 /// Attach `texture` to a new framebuffer, and draw into its `width` texels from then on.
-fn attach(context: &Context, texture: &WebGlTexture, name: &'static str, width: u32) -> Result<(), WebGl2Error> {
+pub(crate) fn attach(
+    context: &Context,
+    texture: &WebGlTexture,
+    name: &'static str,
+    width: u32,
+) -> Result<(), WebGl2Error> {
     let framebuffer = context.create_framebuffer().ok_or(WebGl2Error::Object("framebuffer"))?;
     context.bind_framebuffer(Context::FRAMEBUFFER, Some(&framebuffer));
     let (attachment, level) = (Context::COLOR_ATTACHMENT0, 0_i32);
@@ -245,12 +250,8 @@ fn read_red(context: &Context, format: Format) -> Result<u32, WebGl2Error> {
 }
 
 /// Read the first `width` texels of the target as RGBA of the type `kind` into `into`.
-fn read(context: &Context, width: u32, kind: u32, into: &Object) -> Result<(), WebGl2Error> {
-    let pixels =
-        context.read_pixels_with_opt_array_buffer_view(0, 0, gl_int(width), 1, Context::RGBA, kind, Some(into));
-    if pixels.is_err() {
-        return Err(WebGl2Error::Read);
-    }
+pub(crate) fn read(context: &Context, width: u32, kind: u32, into: &Object) -> Result<(), WebGl2Error> {
+    context.read_pixels_with_opt_array_buffer_view(0, 0, gl_int(width), 1, Context::RGBA, kind, Some(into))?;
     Ok(())
 }
 

@@ -1,0 +1,14 @@
+id: no-wildcard-in-or-pattern
+language: Rust
+severity: error
+message: |
+  As `DeepSource RS-W1037` says, a `_` among the alternatives of an or-pattern matches everything, so the alternatives
+  beside it say nothing: the arm reads as though it names the cases it takes, while it takes every one. Write the arm
+  as `_` alone, or, where the named cases matter, give them an arm of their own above it. Clippy's
+  `wildcard_in_or_patterns` is the same check, but it stays quiet when the enum is `#[non_exhaustive]`.
+# Matched on the pattern's own text: the wildcard is an anonymous node that a structural `has` does not reach.
+# The fix replaces the whole or-pattern with `_`, which matches exactly what it matched before.
+rule:
+  kind: or_pattern
+  regex: '(^|\|)\s*_\s*(\||$)'
+fix: _

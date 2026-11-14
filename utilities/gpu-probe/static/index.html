@@ -66,6 +66,7 @@
     import { register } from "/register.js";
     import init, {
       probe_canvas,
+      probe_webgl1,
       probe_webgl2,
       probe_webgpu,
     } from "./pkg/et_int_gpu_probe_web.js";
@@ -73,10 +74,16 @@
     const field = (id) => document.getElementById(id);
     const status = field("status");
 
-    // Tell a driver how a run went, one console line per line of the status, each opening `gpu-probe: `. A browser
-    // with no WebDriver, Firefox among them, can be read this way from its own output.
-    const tell = (text) => {
-      for (const line of text.split("\n")) console.log(`gpu-probe: ${line}`);
+    // Tell a driver how a run went: in the console, one line per line of the status, each opening `gpu-probe: `,
+    // and to the server, which logs them. A browser with no WebDriver is read from whichever of the two reaches it.
+    const tell = async (text) => {
+      const lines = text.split("\n");
+      for (const line of lines) console.log(`gpu-probe: ${line}`);
+      await fetch("/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: lines }),
+      });
     };
 
     // The registry's name for the browser, and its full version, from what it says it is.
@@ -158,8 +165,8 @@
     // The GPU WebGL reports, where the browser unmasks it: its vendor, its name, and the API the browser drives it
     // through. ANGLE gives them as "ANGLE (vendor, model, API)" over OpenGL, and as
     // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan.
-    const webglGpu = () => {
-      const context = document.createElement("canvas").getContext("webgl2");
+    const webglGpu = (kind) => {
+      const context = document.createElement("canvas").getContext(kind);
       const debug = context?.getExtension("WEBGL_debug_renderer_info");
       const renderer = debug
         ? context.getParameter(debug.UNMASKED_RENDERER_WEBGL)
@@ -232,15 +239,18 @@
       vendors.includes(name.toLowerCase()) ? name.toLowerCase() : "unknown";
 
     // What the page was opened with: `device` names the machine, `defence` the privacy setting the browser has in
-    // force, and `submit` submits every probe set once probed.
+    // force, and `submit` submits every probe set once probed. `browser`, `browser_version` and `window` say what a
+    // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
+    // and Mullvad Browser always browses privately.
     const query = new URLSearchParams(location.search);
 
     const fillShared = async () => {
       field("device").value = query.get("device") ?? "";
       field("defence").value = query.get("defence") ?? "";
       const [browser, version] = await browserOf(navigator.userAgent);
-      field("browser").value = browser;
-      field("browser_version").value = version;
+      field("browser").value = query.get("browser") ?? browser;
+      field("browser_version").value = query.get("browser_version") ?? version;
+      field("window").value = query.get("window") ?? field("window").value;
       field("os").value = systemOf(navigator.userAgent);
       field("cpu_arch").value = await architectureOf();
     };
@@ -257,7 +267,7 @@
     // A row for one GPU: the shared part, with that GPU's fields where the registry puts them.
     const rowFor = (gpuFields) => {
       const row = sharedRow();
-      for (const name of ["gpu", "gpu_version", "backend"]) {
+      for (const name of ["gpu", "gpu_version", "backend", "reported"]) {
         const value = gpuFields[name].value.trim();
         if (value) row[name] = value;
       }
@@ -330,11 +340,13 @@
       legend.textContent = "This GPU's part of the row";
       fieldset.append(legend);
       const gpuFields = {};
-      for (const name of ["label", "gpu", "gpu_version", "backend"]) {
+      for (
+        const name of ["label", "gpu", "gpu_version", "backend", "reported"]
+      ) {
         const label = document.createElement("label");
         label.textContent = name;
         const input = document.createElement("input");
-        input.value = values[name];
+        input.value = values[name] ?? "";
         input.size = name === "label" ? 80 : 40;
         label.htmlFor = input.id = `${title}-${name}`;
         gpuFields[name] = input;
@@ -365,12 +377,15 @@
       const os = field("os").value;
       // The version is the row's to record; the label names only the browser, which keeps it to one line.
       const browser = field("browser").value;
-      const name = model || "unknown GPU";
+      // WebKit reports every GPU as an Apple one, so off Apple's systems that is what it said, not what the GPU is.
+      const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
+      const name = masked ? "unknown GPU" : model || "unknown GPU";
       return {
         label: `${name} through ${backend} on ${os} -- ${api} on ${browser}`,
-        gpu: vendorOf(vendor),
-        gpu_version: model,
+        gpu: masked ? "unknown" : vendorOf(vendor),
+        gpu_version: masked ? "" : model,
         backend,
+        reported: masked ? model : "",
       };
     };
 
@@ -456,25 +471,44 @@
       status.textContent = "Running the probes...";
       const submitters = [];
       const problems = [];
-      const webgl = webglGpu();
-      const webglValues = gpuValues(
-        webgl.vendor,
-        webgl.model,
-        webgl.backend,
-        "WebGL 2",
-      );
-      const webglAnswer = JSON.parse(probe_webgl2());
-      problems.push(...webglAnswer.problems);
-      submitters.push(
-        ...showGpu(`WebGL 2: ${webgl.model}`, webglValues, webglAnswer),
-      );
+      // WebGL 1 is its own row: a browser can offer it while withholding WebGL 2, and name another GPU through it.
+      for (
+        const [kind, title, probe] of [
+          ["webgl2", "WebGL 2", probe_webgl2],
+          ["webgl", "WebGL 1", probe_webgl1],
+        ]
+      ) {
+        const webgl = webglGpu(kind);
+        const webglValues = gpuValues(
+          webgl.vendor,
+          webgl.model,
+          webgl.backend,
+          title,
+        );
+        const webglAnswer = JSON.parse(probe());
+        problems.push(...webglAnswer.problems);
+        submitters.push(
+          ...showGpu(`${title}: ${webgl.model}`, webglValues, webglAnswer),
+        );
+      }
       await probeWebGpu(submitters, problems);
       // The canvas fingerprints say nothing of which GPU drew them, so their row names none.
       const canvasAnswer = JSON.parse(probe_canvas());
       problems.push(...canvasAnswer.problems);
+      // A label names the browser and system as their makers spell them, where a row gives its fixed name.
+      const spelled = {
+        "gnome-web": "GNOME Web",
+        "mullvad-browser": "Mullvad Browser",
+        "samsung-internet": "Samsung Internet",
+        "tor-browser": "Tor Browser",
+        ios: "iOS",
+        librewolf: "LibreWolf",
+        macos: "macOS",
+      };
       const named = (id) => {
         const value = field(id).value;
-        return value.charAt(0).toUpperCase() + value.slice(1);
+        return spelled[value] ??
+          value.charAt(0).toUpperCase() + value.slice(1);
       };
       const version = field("browser_version").value;
       const canvasValues = {
@@ -491,13 +525,15 @@
           ...canvasAnswer.withheld,
         ]
       ) {
-        tell(
+        await tell(
           shown.describe.map((line) => `${shown.interface}: ${line}`).join(
             "\n",
           ),
         );
       }
-      tell(canvasAnswer.report.map((line) => `read path ${line}`).join("\n"));
+      await tell(
+        canvasAnswer.report.map((line) => `read path ${line}`).join("\n"),
+      );
       const submitAll = async () => {
         const outcomes = [];
         for (const submitOne of submitters) outcomes.push(await submitOne());
@@ -518,12 +554,12 @@
           outcomes.every((outcome) => outcome.kind !== "bad");
         const verdict = taken ? "Submitted." : "Not submitted.";
         status.textContent = `${verdict}${missing}\n${lines}`;
-        tell(status.textContent);
+        await tell(status.textContent);
       }
     } catch (error) {
       status.className = "bad";
       status.textContent = `The probes could not run: ${error}`;
-      tell(status.textContent);
+      await tell(status.textContent);
     }
     </script>
   </body>

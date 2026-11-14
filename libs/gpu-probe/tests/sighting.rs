@@ -61,6 +61,8 @@ fn a_browser_the_webbrowser_crate_names_is_one_it_lists() {
     assert!(matches!("chrome".parse::<Browser>(), Ok(Browser::Listed(_))));
     assert_eq!("tor-browser".parse::<Browser>().unwrap(), Browser::Tor);
     assert_eq!("deno".parse::<Browser>().unwrap(), Browser::Deno);
+    assert_eq!("gnome-web".parse::<Browser>().unwrap(), Browser::GnomeWeb);
+    assert_eq!("mullvad-browser".parse::<Browser>().unwrap(), Browser::Mullvad);
     assert_eq!("none".parse::<Browser>().unwrap(), Browser::Absent);
 }
 

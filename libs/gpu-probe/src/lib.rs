@@ -21,6 +21,45 @@
 #[cfg(feature = "registry")]
 pub use platforms::OS;
 
+/// The GLSL that names each of [`INPUTS`] in a fragment shader's `main` and takes the sum some probes use.
+///
+/// GLSL ES 1.00 and 3.00 spell it alike, so every fragment shader the crate writes opens its `main` with it.
+macro_rules! glsl_inputs {
+    () => {
+        "    float ulpBase = probeIn[0];
+    float negatedSquare = probeIn[1];
+    float big = probeIn[2];
+    float one = probeIn[3];
+    float angle = probeIn[4];
+    float three = probeIn[5];
+    float tiny = probeIn[6];
+    float oneHalf = probeIn[7];
+
+    float sum = big;
+    for (int turn = 0; turn < 4; turn++) {
+        sum = sum + one;
+    }
+"
+    };
+}
+
+/// The GLSL ES 3.00 that ends a fragment shader's `main`, writing the four bytes of `bits` to the pixel drawn.
+///
+/// They are written lowest first, as the pixel's red, green, blue and alpha.
+macro_rules! glsl_write_bits {
+    () => {
+        "    probeOut = vec4(
+        float(bits & 255u),
+        float((bits >> 8) & 255u),
+        float((bits >> 16) & 255u),
+        float(bits >> 24)
+    ) / 255.0;
+}
+"
+    };
+}
+
+mod batch;
 mod canvas;
 mod clear;
 mod fixed;
@@ -32,6 +71,7 @@ mod registry;
 #[cfg(feature = "registry")]
 mod sighting;
 
+pub use self::batch::{Batch, Glsl, NO_GLSL_BUILTIN, TRIANGLE, WEBGL1, WEBGL1_COMBINED, WEBGL2_COMBINED, batched};
 pub use self::canvas::{
     Alteration, CANVAS, CANVAS_BROWSERLEAKS, KNOWN_BLOCK, KNOWN_SIZE, ReadLength, alteration, known_colour,
     known_scene, pixel_hash,
@@ -146,41 +186,17 @@ void main() {
 ";
 
 /// The part of every fragment probe shader that comes before its expression.
-const FRAGMENT_HEAD: &str = "#version 300 es
-precision highp float;
-precision highp int;
-uniform float probeIn[8];
-out vec4 probeOut;
-
-void main() {
-    float ulpBase = probeIn[0];
-    float negatedSquare = probeIn[1];
-    float big = probeIn[2];
-    float one = probeIn[3];
-    float angle = probeIn[4];
-    float three = probeIn[5];
-    float tiny = probeIn[6];
-    float oneHalf = probeIn[7];
-
-    float sum = big;
-    for (int turn = 0; turn < 4; turn++) {
-        sum = sum + one;
-    }
-
-    uint bits = floatBitsToUint(";
+const FRAGMENT_HEAD: &str = concat!(
+    "#version 300 es\nprecision highp float;\nprecision highp int;\nuniform float probeIn[8];\nout vec4 probeOut;\n\n",
+    "void main() {\n",
+    glsl_inputs!(),
+    "\n    uint bits = floatBitsToUint("
+);
 
 /// The part of every fragment probe shader that comes after its expression.
 ///
 /// It writes the result's four bytes, lowest first, as the red, green, blue and alpha of the one pixel drawn.
-const FRAGMENT_TAIL: &str = ");
-    probeOut = vec4(
-        float(bits & 255u),
-        float((bits >> 8) & 255u),
-        float((bits >> 16) & 255u),
-        float(bits >> 24)
-    ) / 255.0;
-}
-";
+const FRAGMENT_TAIL: &str = concat!(");\n", glsl_write_bits!());
 
 /// The part of every compute probe shader that comes before the number of words it writes.
 const SHADER_OPEN: &str = "
@@ -488,6 +504,12 @@ impl Signature {
     #[must_use]
     pub const fn new(interface: &'static str, observed: Vec<Answer>) -> Self {
         Self { interface, observed }
+    }
+
+    /// The interface the probes ran through, as the registry files a signature measured through it.
+    #[must_use]
+    pub const fn interface(&self) -> &'static str {
+        self.interface
     }
 
     /// Every result as a hex word, `????????` where the device gave none, in output order.
