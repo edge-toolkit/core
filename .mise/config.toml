@@ -2603,7 +2603,7 @@ trivy rootfs "$@" .
 shell = "{{ vars.task_shell }}"
 
 [tasks.repo-check]
-description = "Repository-wide checks that need to read git itself (commit hashes, ...)"
+description = "Repository-wide checks no file-at-a-time linter can do (commit hashes, typos ignores, ...)"
 run = "cargo run -q -p et-int-repo-check"
 
 [tasks.link-check]

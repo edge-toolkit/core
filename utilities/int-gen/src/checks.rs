@@ -3,10 +3,10 @@
 //! The source of truth is the task tables of every `.mise/config*.toml`, read as plain TOML rather than through
 //! `mise tasks`: mise loads only the configs its `MISE_ENV` and the host OS select, and the document has to come out
 //! identical whichever lane renders it. A check is any task the `check` / `check:<lang>` aggregates reach through
-//! `depends`, plus any task named as a check that nothing reaches, which the document marks as run by hand. Each
-//! check is filed under the tool its `run` body invokes -- the first command that is not shell plumbing -- or under
-//! the shell-script section when it invokes none. Where a check's configuration is a set of rules this repo writes,
-//! every rule is listed too, with the name and description its rule file gives it.
+//! `depends`, plus any task named as a check that nothing reaches, which the document marks as run by hand. Each check
+//! is filed under the tool its `run` body invokes -- the first command that is not shell plumbing -- or under the
+//! shell-script section when it invokes none. Where a check's configuration is a set of rules this repo writes, every
+//! rule is listed too, with the name and description its rule file gives it.
 #![expect(
     clippy::single_call_fn,
     reason = "each helper is one named step of the render, kept separate so the steps read one at a time"
@@ -74,6 +74,12 @@ const PLUMBING: &[&str] = &[
 const PREFIXES: &[&str] = &[
     "!", "do", "done", "elif", "else", "esac", "fi", "if", "then", "until", "while", "{", "}",
 ];
+
+/// The section of the repo's own multi-check binary, whose rules are its check modules rather than any config.
+const REPO_CHECK: &str = "et-int-repo-check";
+
+/// Where that binary's `main` and check modules live.
+const REPO_CHECK_SRC: &str = "utilities/repo-check/src";
 
 /// Configs a tool finds by itself, from the repo root or an `[env]` variable, rather than through its command line.
 const IMPLICIT_CONFIGS: &[(&str, &[&str])] = &[
@@ -274,11 +280,11 @@ fn header(counts: &Counts, generated: jiff::civil::Date) -> Result<String, Error
 
 /// Whether a Rego policy is a meta policy: its package carries a `METADATA` annotation setting `meta: true`.
 ///
-/// The annotation is OPA's own, a comment block opening with `# METADATA` whose remaining lines are YAML, so the
-/// marker sits where OPA tooling already looks for a policy's metadata. Only a block above the `package` line
-/// annotates the package: OPA lets a rule carry one too, and a rule-level `meta: true` must not mark every rule in
-/// the file. OPA attaches the block across any blank lines before `package`, so they end the block without dropping
-/// it. The block is parsed as YAML and read at `custom.meta`, so any YAML spelling of it counts.
+/// The annotation is OPA's own, a comment block opening with `# METADATA` whose remaining lines are YAML, so the marker
+/// sits where OPA tooling already looks for a policy's metadata. Only a block above the `package` line annotates the
+/// package: OPA lets a rule carry one too, and a rule-level `meta: true` must not mark every rule in the file. OPA
+/// attaches the block across any blank lines before `package`, so they end the block without dropping it. The block is
+/// parsed as YAML and read at `custom.meta`, so any YAML spelling of it counts.
 pub fn rego_is_meta(source: &str) -> Result<bool, Error> {
     let mut annotated = false;
     let mut collecting = false;
@@ -338,9 +344,9 @@ pub fn config_paths(text: &str) -> Result<BTreeSet<String>, Error> {
 
 /// The summary line of every `deny` / `warn` rule in one Rego policy, in source order.
 ///
-/// A rule's summary is the first line of the last top-level comment block before it within the same stretch of the file
-/// -- the comments between the previous rule's closing brace and this rule. Every rule must have one: a rule with no
-/// comment of its own is an error naming `file` and the rule's line, since the catalogue lists every rule by its
+/// A rule's summary is the first line of the last top-level comment block before it within the same stretch of the
+/// file -- the comments between the previous rule's closing brace and this rule. Every rule must have one: a rule with
+/// no comment of its own is an error naming `file` and the rule's line, since the catalogue lists every rule by its
 /// description.
 pub fn rego_summaries(file: &str, source: &str) -> Result<Vec<String>, Error> {
     let mut summaries = Vec::new();
@@ -370,6 +376,50 @@ pub fn rego_summaries(file: &str, source: &str) -> Result<Vec<String>, Error> {
         }
     }
     Ok(summaries)
+}
+
+/// The checks `et-int-repo-check` runs, as the modules whose `run` its `main` calls, in the order it calls them.
+///
+/// A module only counts once `main` calls it, so a check written but not yet wired in is not reported as enforced.
+pub fn repo_checks(main: &str) -> Result<Vec<String>, Error> {
+    let call = Regex::new(r"\b([a-z_][a-z0-9_]*)::run\(")?;
+    let mut checks: Vec<String> = Vec::new();
+    for found in call.captures_iter(main).filter_map(|caps| caps.get(1)) {
+        let module = found.as_str().to_owned();
+        if !checks.contains(&module) {
+            checks.push(module);
+        }
+    }
+    Ok(checks)
+}
+
+/// A repo-check module's summary: the first line of its `//!` module doc.
+pub fn rust_check_summary(file: &str, source: &str) -> Result<String, Error> {
+    let summary = source
+        .lines()
+        .find_map(|line| line.strip_prefix("//!"))
+        .map_or_default(str::trim);
+    if summary.is_empty() {
+        return Err(Error::UndescribedRule(format!(
+            "{file}: check module has no summary; open it with a `//!` line describing the check"
+        )));
+    }
+    Ok(summary.to_owned())
+}
+
+/// One repo-check module as a rule, named for its module the way its README names it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of reading a section's rule files; kept beside the other per-format readers"
+)]
+fn rust_check_rule(root: &Path, path: &Path) -> Result<Rule, Error> {
+    let stem = path.file_stem().and_then(|found| found.to_str()).unwrap_or_default();
+    Ok(Rule {
+        name: stem.replace('_', "-"),
+        description: rust_check_summary(&relative_path(root, path), &fs::read_to_string(path)?)?,
+        link: String::default(),
+        meta: false,
+    })
 }
 
 /// Fail unless a rule's description field is present and non-empty.
@@ -524,9 +574,9 @@ fn repairs(tasks: &[Task]) -> Result<Repairs, Error> {
 /// Pair each check among `names` with the repair `passes` that fix what it reports, wholly or in part.
 ///
 /// The pairing is by name: `<tool>-fmt-check` with `<tool>-fmt`, and `<tool>-check` with `<tool>`, `<tool>-fix` and
-/// `<tool>-fmt` -- the last only while no `<tool>-fmt-check` claims it, so `cargo-check` is not credited to
-/// `cargo-fmt`. A check no pass pairs with is left out, but a pass no check pairs with is an error: its output would
-/// go unverified.
+/// `<tool>-fmt` -- the last only while no `<tool>-fmt-check` claims it, so `cargo-check` is not credited to `cargo-
+/// fmt`. A check no pass pairs with is left out, but a pass no check pairs with is an error: its output would go
+/// unverified.
 pub fn pair_repairs(names: &BTreeSet<&str>, passes: &BTreeSet<String>) -> Result<Repairs, Error> {
     let mut repairs = Repairs::new();
     for check in names {
@@ -563,8 +613,8 @@ pub fn pair_repairs(names: &BTreeSet<&str>, passes: &BTreeSet<String>) -> Result
 
 /// Every task the aggregates named `root` or `root:<x>` run, and for each one the aggregates listing it in `depends`.
 ///
-/// The search descends only through aggregates -- tasks with no `run` of their own, which only group other tasks --
-/// so a check's own prerequisites (the generator a drift check reruns first) are not mistaken for checks.
+/// The search descends only through aggregates -- tasks with no `run` of their own, which only group other tasks -- so
+/// a check's own prerequisites (the generator a drift check reruns first) are not mistaken for checks.
 fn reachable(tasks: &[Task], root: &str) -> Result<(BTreeSet<String>, Parents), Error> {
     let names: BTreeSet<&str> = tasks.iter().map(|task| task.name.as_str()).collect();
     let mut depends: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -839,9 +889,9 @@ pub fn rule_sources(body: &str) -> Result<BTreeSet<String>, Error> {
 /// The rules a section's checks are configured with, and the deepest directory every rule file shares.
 ///
 /// Rule files are recognised by format rather than by tool: a `.rego` policy (not a `_test.rego`), a `.schema.json`
-/// schema, and a YAML document that is a rule (`id` + `message`), lists rules (`rules:` as a sequence), or points at
-/// directories of them (`ruleDirs:`), and a TOML manifest's `[workspace.lints]` tables. Sources are the paths the
-/// checks pass as configuration plus the configs the section's tool finds by itself. A directory is searched
+/// schema, and a YAML document that is a rule (`id` + `message`), lists rules (`rules:` as a sequence), or points
+/// at directories of them (`ruleDirs:`), and a TOML manifest's `[workspace.lints]` tables. Sources are the paths
+/// the checks pass as configuration plus the configs the section's tool finds by itself. A directory is searched
 /// recursively. A section with none renders nothing.
 fn section_rules(root: &Path, label: &str, entries: &[&Task]) -> Result<SectionRules, Error> {
     let mut sources = BTreeSet::new();
@@ -852,6 +902,12 @@ fn section_rules(root: &Path, label: &str, entries: &[&Task]) -> Result<SectionR
     let mut files = BTreeSet::new();
     for source in sources {
         collect_rule_files(&root.join(source), &mut files)?;
+    }
+    if label == REPO_CHECK {
+        let src = root.join(REPO_CHECK_SRC);
+        for module in repo_checks(&fs::read_to_string(src.join("main.rs"))?)? {
+            let _new_file: bool = files.insert(src.join(format!("{module}.rs")));
+        }
     }
     let mut listed = Vec::new();
     let mut policies = String::default();
@@ -872,6 +928,8 @@ fn section_rules(root: &Path, label: &str, entries: &[&Task]) -> Result<SectionR
             listed.push(schema_rule(file, stem)?);
         } else if has_extension(file, "toml") {
             listed.extend(lint_rules(file)?);
+        } else if has_extension(file, "rs") {
+            listed.push(rust_check_rule(root, file)?);
         } else {
             listed.extend(yaml_rules(file)?);
         }
@@ -964,8 +1022,8 @@ fn lint_name(tool: &str, lint: &str) -> String {
 /// The lint each `[workspace.lints]` entry is marked as the opposite of, keyed by the entry's `lint_name`.
 ///
 /// Some lints, most of them in clippy's `restriction` group, come in pairs where one demands the spelling the other
-/// rejects, so the workspace can deny at most one of the two. The entry that settles such a pair carries an
-/// `# Opposite of <lint>.` line in the comment block directly above it, naming the other lint the same way.
+/// rejects, so the workspace can deny at most one of the two. The entry that settles such a pair carries an `# Opposite
+/// of <lint>.` line in the comment block directly above it, naming the other lint the same way.
 #[must_use]
 pub fn lint_opposites(manifest: &str) -> BTreeMap<String, String> {
     let mut opposites = Vec::new();
@@ -1001,8 +1059,8 @@ pub fn lint_opposites(manifest: &str) -> BTreeMap<String, String> {
 
 /// Every lint a manifest's `[workspace.lints]` sets, named by [`lint_name`], with its level.
 ///
-/// The description is the level, with the priority when one is set and the lint it is the opposite of when its entry
-/// is marked as one by [`lint_opposites`].
+/// The description is the level, with the priority when one is set and the lint it is the opposite of when its entry is
+/// marked as one by [`lint_opposites`].
 fn lint_rules(path: &Path) -> Result<Vec<Rule>, Error> {
     let rustc_levels = rustc_lint_levels()?;
     let opposites = lint_opposites(&fs::read_to_string(path)?);
@@ -1153,8 +1211,8 @@ fn relative_path(root: &Path, path: &Path) -> String {
 
 /// Render a rule list, one bullet per rule, its description flattened onto wrapped lines.
 ///
-/// A rule with a documentation page links to it through a reference labelled by [`link_label`], its URL defined
-/// after the list, so a long lint name and its URL never have to share one line.
+/// A rule with a documentation page links to it through a reference labelled by [`link_label`], its URL defined after
+/// the list, so a long lint name and its URL never have to share one line.
 fn render_rules(rules: &[Rule]) -> Result<String, Error> {
     let mut out = String::default();
     let mut references = String::default();
@@ -1203,10 +1261,10 @@ pub fn link_label(name: &str, link: &str) -> String {
 
 /// The documentation page for one lint of a `[workspace.lints.<tool>]` table, or empty when it has none.
 ///
-/// A clippy lint links to its entry in the stable lint index, and a clippy group to nothing, since groups have no
-/// entry there. A rustdoc lint links to its heading on the rustdoc lints page. A compiler lint's page depends on its
-/// default level -- the rustc book lists allow-, warn- and deny-by-default lints on separate pages, and groups on a
-/// fourth -- so it is found in `rustc_levels`; a lint the installed rustc does not list stays unlinked.
+/// A clippy lint links to its entry in the stable lint index, and a clippy group to nothing, since groups have no entry
+/// there. A rustdoc lint links to its heading on the rustdoc lints page. A compiler lint's page depends on its default
+/// level -- the rustc book lists allow-, warn- and deny-by-default lints on separate pages, and groups on a fourth --
+/// so it is found in `rustc_levels`; a lint the installed rustc does not list stays unlinked.
 fn lint_link(tool: &str, lint: &str, rustc_levels: &BTreeMap<String, String>) -> String {
     let anchor = lint.replace('_', "-");
     let rustc_page = |page: &str| format!("https://doc.rust-lang.org/rustc/lints/listing/{page}");

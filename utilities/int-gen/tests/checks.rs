@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use et_int_gen::Error;
 use et_int_gen::checks::{
-    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_is_meta, rego_summaries,
-    rule_sources, runner_label, wrap,
+    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_is_meta, rego_summaries, repo_checks,
+    rule_sources, runner_label, rust_check_summary, wrap,
 };
 
 /// The set of paths a path-collecting function is expected to return.
@@ -157,6 +157,37 @@ fn rego_rule_without_a_summary_comment_is_rejected() {
         error.starts_with("demo.rego:7: rule has no summary comment"),
         "names the file and line: {error}"
     );
+}
+
+#[test]
+fn repo_checks_are_the_modules_main_runs_once_each_in_call_order() {
+    let main = [
+        "mod error;",
+        "mod unused;",
+        "let a = typos_ignores::run()?;",
+        "let b = commit_hashes::run(&files)?;",
+        "let c = typos_ignores::run()?;",
+        "unused::helper();",
+    ]
+    .join("\n");
+    assert_eq!(repo_checks(&main).unwrap(), ["typos_ignores", "commit_hashes"]);
+}
+
+#[test]
+fn a_repo_check_summary_is_the_first_module_doc_line() {
+    let source = "//!  Rejects a stale entry.\n//!\n//! Elaboration.\nuse std::fs;\n";
+    assert_eq!(rust_check_summary("a.rs", source).unwrap(), "Rejects a stale entry.");
+}
+
+#[test]
+fn a_repo_check_without_a_module_doc_is_rejected() {
+    for source in ["use std::fs;\n", "//!\nuse std::fs;\n"] {
+        let error = rust_check_summary("src/a.rs", source).unwrap_err().to_string();
+        assert!(
+            error.starts_with("src/a.rs: check module has no summary"),
+            "names the file: {error}"
+        );
+    }
 }
 
 #[test]

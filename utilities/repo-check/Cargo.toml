@@ -1,7 +1,9 @@
 [package]
 name = "et-int-repo-check"
+# No tests: the binary is tested by being invoked, which the coverage workflow does under instrumentation.
+autotests = false
 publish = false
-description = "Repository-wide checks that need to read git itself"
+description = "Repository-wide checks that no file-at-a-time linter can do"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -18,6 +20,7 @@ command-error.workspace = true
 fs-err.workspace = true
 regex = { workspace = true, features = ["perf", "std", "unicode-perl"] }
 thiserror = { workspace = true, features = ["std"] }
+toml.workspace = true
 
 [lints]
 workspace = true
