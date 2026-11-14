@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-11-13
-- **Checks:** 86
+- **Generated:** 2026-11-14
+- **Checks:** 87
 - **Tools:** 49
 - **Shell-script checks:** 11
 - **Checks with a repair pass:** 22
-- **Rules:** 397 custom local rules, or non-default strict linter settings
+- **Rules:** 401 custom local rules, or non-default strict linter settings
 - **Meta rules:** 22 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -601,7 +601,7 @@ Rules, from `Cargo.toml`:
   policies (conftest verify). Config: `config/conftest/policy`.
 - `conftest-check-toml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the TOML
   config + lock files. Config: `config/cargo-features.toml`, `config/conftest/policy`, `config/deny.toml`,
-  `config/pyrefly.toml`, `config/upstream-cache/data.toml`.
+  `config/pyrefly.toml`, `config/trivyignore-tools.yaml`, `config/trivyignore.yaml`, `config/upstream-cache/data.toml`.
 - `conftest-check-yaml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the GitHub
   Actions YAML, and the backslash ban over all YAML. Config: `config/conftest/policy`.
 
@@ -611,6 +611,10 @@ Rules, from `config/conftest/policy`:
   - Every advisory ignore must carry a `reason = "expires YYYY-MM-DD"` review date.
   - Nanoseconds in a day, added to the parsed midnight so an entry survives the whole of its review date.
   - Every advisory ignore expires on one date, the next milestone review, which the operator sets.
+  - Every entry in the scanner's ignore files must carry an `expired_at` review date.
+  - Every entry in the scanner's ignore files expires on the date the advisory ignores in config/deny.toml carry.
+  - An advisory published before 2026 may only be accepted if old_advisories names it.
+  - Every id in old_advisories must still be accepted by some ignore list, so the allowlist cannot outlive its entries.
 - `ast_grep_rules` (meta) (`config/conftest/policy/ast_grep_rules/ast_grep_rules.rego`):
   - A rule whose severity is anything but `error`, or is missing, is not a gate.
 - `bench_results` (`config/conftest/policy/bench_results/bench_results.rego`):
@@ -1295,6 +1299,8 @@ Rules, from `config/taplo`:
 
 - `trivy-check` (`default` env; run by `check:rust`) -- Check every Dockerfile and generated Kubernetes manifest for
   hardening findings. Config: `config/trivyignore.yaml`.
+- `trivy-tools-check` (`default` env; run by `check:rust`) -- Fail on HIGH or CRITICAL vulnerabilities inside the
+  mise-installed tools. Config: `.mise/trivy-tools-check.awk`, `config/trivyignore-tools.yaml`.
 
 ## `typos`
 

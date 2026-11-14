@@ -1,0 +1,710 @@
+# Accepted vulnerabilities inside the mise-installed tools, the known findings the tools scan task tolerates.
+#
+# The scan this serves exists so that a newly published advisory against any installed tool fails the build. That
+# only works while every finding already known has been reviewed and recorded here, so each entry is one advisory id,
+# scoped to the install paths it was reviewed for, with the reason it is accepted and a date it lapses on.
+#
+# Paths are relative to the mise installs directory, which is the scan root, so each one starts with the tool's own
+# install directory and its version. A bump of the tool therefore stops the entry matching, and the advisory is
+# reported again if the new release still carries it. The wildcards stand only for what differs between platforms
+# and machines, since `mise run check` scans on every OS: `{,.exe}` for the Windows suffix on a binary, `*` for the
+# digest mise appends to an npm install's directory (`<version>~aube~<digest>`) and for the platform named in an
+# unpacked archive's directory, and `**` for a layout that differs below the install directory. A finding that has no
+# path, as the pip vendor list below does, is scoped by its package URL instead, which names the exact version.
+#
+# Every entry expires on the date the advisory ignores in config/deny.toml carry, and on that date stops suppressing
+# anything, so the scan fails until the entry is dropped, fixed or re-dated alongside those.
+---
+vulnerabilities:
+  # Go standard library and Go modules compiled into upstream release binaries.
+  # Each tool here is at the newest release the seven-day minimum release age admits, and the fix needs its project to
+  # rebuild with a newer Go toolchain or module; nothing in this repository can patch a prebuilt binary. Most of them
+  # are linters and formatters that only read this repository's own files (gitleaks, actionlint, regal, kubeconform,
+  # conftest, shfmt, goawk, jqfmt, editorconfig-checker, ls-lint, tsgolint), so an attacker would first need a commit
+  # here. The rest reach only endpoints the operator chooses: kubectl, k3d and docker compose drive local clusters and
+  # containers, crane publishes to GHCR, gh talks to GitHub, osv-scanner queries osv.dev, and otelcol receives the
+  # local hosts' metrics. pyodide's distribution ships a Windows `python.exe` launcher built with Go 1.21, which
+  # nothing runs: its install is kept off PATH, and the modules service only serves the files beside it.
+  - id: CVE-2024-34156
+    paths:
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.22.7, 1.23.1, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2025-15558
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      github.com/docker/cli as compiled into each release binary; fixed in 29.2.0, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2025-47913
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.43.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2025-61726
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.24.12, 1.25.6, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2025-61729
+    paths:
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.24.11, 1.25.5, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2025-68121
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.24.13, 1.25.7, 1.26.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-111943
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-mvdan-sh/3.14.1/shfmt{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "conftest/0.71.1/conftest{,.exe}"
+      - "crane/0.22.1/crane{,.exe}"
+      - "crane/0.22.1/gcrane{,.exe}"
+      - "crane/0.22.1/krane{,.exe}"
+      - "editorconfig-checker/4.0.2/editorconfig-checker{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "ls-lint/2.3.2/ls-lint{,.exe}"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+      - "osv-scanner/2.7.0/osv-scanner{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.26.10, 1.27.3, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-116587
+    paths:
+      - "conftest/0.71.1/conftest{,.exe}"
+    statement: >-
+      github.com/go-jose/go-jose/v4 as compiled into each release binary; fixed in 4.1.6, which none of these releases
+      is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-17106
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      github.com/moby/go-archive as compiled into each release binary; fixed in 0.3.0, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-25679
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.8, 1.26.1, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-27137
+    paths:
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.26.1, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-27145
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.11, 1.26.4, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-32280
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.9, 1.26.2, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-32281
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.9, 1.26.2, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-32283
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.9, 1.26.2, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-33810
+    paths:
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.26.2, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-33811
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.10, 1.26.3, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-33814
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.10, 1.26.3, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-33818
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39820
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.10, 1.26.3, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39821
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39822
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.12, 1.26.5, 1.27.0-rc.2, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39828
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39829
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39830
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39831
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39832
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39835
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-39836
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.10, 1.26.3, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-41567
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      github.com/docker/docker as compiled into each release binary; fixed in none, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-42306
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      github.com/docker/docker as compiled into each release binary; fixed in none, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-42499
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.10, 1.26.3, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-42504
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.11, 1.26.4, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-42508
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-46595
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-46597
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.52.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-46600
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      golang.org/x/net and the Go standard library as compiled into each release binary; fixed in 1.26.6, 1.27.0-rc.3,
+      which none of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56851
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-kubernetes-kubernetes-kubectl/1.37.2/kubectl{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      golang.org/x/text as compiled into each release binary; fixed in 0.41.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56852
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      golang.org/x/text as compiled into each release binary; fixed in 0.39.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56853
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56854
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "crane/0.22.1/krane{,.exe}"
+    statement: >-
+      golang.org/x/crypto as compiled into each release binary; fixed in 0.55.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56858
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56859
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56860
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56862
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.25.13, 1.26.6, 1.27.0-rc.3, which none
+      of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56864
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      golang.org/x/mod as compiled into each release binary; fixed in 0.40.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-56865
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      golang.org/x/mod as compiled into each release binary; fixed in 0.40.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-63209
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      github.com/klauspost/compress as compiled into each release binary; fixed in 1.18.7, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-78661
+    paths:
+      - "aqua-docker-compose/5.7.0/docker-cli-plugin-docker-compose{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-kubernetes-kubernetes-kubectl/1.37.2/kubectl{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "conftest/0.71.1/conftest{,.exe}"
+      - "gh/2.103.3/gh_2.103.3_*/bin/gh{,.exe}"
+      - "github-open-telemetry-opentelemetry-collector-releases/0.164.0/otelcol{,.exe}"
+      - "osv-scanner/2.7.0/osv-scanner{,.exe}"
+    statement: >-
+      golang.org/x/net as compiled into each release binary; fixed in 0.62.0, which none of these releases is built
+      with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-78667
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-mvdan-sh/3.14.1/shfmt{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "conftest/0.71.1/conftest{,.exe}"
+      - "crane/0.22.1/crane{,.exe}"
+      - "crane/0.22.1/gcrane{,.exe}"
+      - "crane/0.22.1/krane{,.exe}"
+      - "editorconfig-checker/4.0.2/editorconfig-checker{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+      - "osv-scanner/2.7.0/osv-scanner{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.26.9, 1.27.2, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-78669
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-kubernetes-kubernetes-kubectl/1.37.2/kubectl{,.exe}"
+      - "aqua-mvdan-sh/3.14.1/shfmt{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "conftest/0.71.1/conftest{,.exe}"
+      - "crane/0.22.1/crane{,.exe}"
+      - "crane/0.22.1/gcrane{,.exe}"
+      - "crane/0.22.1/krane{,.exe}"
+      - "editorconfig-checker/4.0.2/editorconfig-checker{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+      - "osv-scanner/2.7.0/osv-scanner{,.exe}"
+    statement: >-
+      the Go standard library and golang.org/x/net as compiled into each release binary; fixed in 1.26.9, 1.27.2,
+      which none of these releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-84304
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      google.golang.org/grpc as compiled into each release binary; fixed in 1.83.1, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-84445
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      google.golang.org/grpc as compiled into each release binary; fixed in 1.82.2, 1.83.2,
+      1.84.0-dev.0.20260825144003-d5a41119e0e3, 1.85.0-dev.0.20260825072537-93e31b48545e, which none of these releases
+      is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-97031
+    paths:
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-mvdan-sh/3.14.1/shfmt{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "conftest/0.71.1/conftest{,.exe}"
+      - "crane/0.22.1/crane{,.exe}"
+      - "crane/0.22.1/gcrane{,.exe}"
+      - "crane/0.22.1/krane{,.exe}"
+      - "editorconfig-checker/4.0.2/editorconfig-checker{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "http-pyodide/0.29.3/python.exe"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+      - "osv-scanner/2.7.0/osv-scanner{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.26.9, 1.27.2, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: GHSA-hrxh-6v49-42gf
+    paths:
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+    statement: >-
+      google.golang.org/grpc as compiled into each release binary; fixed in 1.82.1, which none of these releases is
+      built with yet.
+    expired_at: 2027-01-01
+
+  # The npm CLI that ships inside node.
+  # No task runs npm: JavaScript dependencies install through pnpm and mise's own npm backend, so this copy is never
+  # invoked. node 24.22.2 is the newest 24.x the minimum release age admits; the next one is the earliest that can
+  # carry a newer npm, and these go with that bump.
+  - id: CVE-2026-102276
+    paths:
+      - "node/24.22.2/**/npm/node_modules/brace-expansion/package.json"
+    statement: >-
+      brace-expansion 5.0.9; fixed in 5.0.10, 3.0.7, 2.1.5, 1.1.19.
+    expired_at: 2027-01-01
+  - id: CVE-2026-102278
+    paths:
+      - "node/24.22.2/**/npm/node_modules/brace-expansion/package.json"
+    statement: >-
+      brace-expansion 5.0.9; fixed in 5.0.11, 3.0.8, 2.1.6, 1.1.20.
+    expired_at: 2027-01-01
+  - id: CVE-2026-109383
+    paths:
+      - "node/24.22.2/**/npm/node_modules/undici/package.json"
+    statement: >-
+      undici 6.28.0; fixed in 6.29.1, 7.30.1, 8.12.2.
+    expired_at: 2027-01-01
+  - id: CVE-2026-109869
+    paths:
+      - "node/24.22.2/**/npm/node_modules/undici/package.json"
+    statement: >-
+      undici 6.28.0; fixed in 6.29.1, 7.30.1, 8.12.2.
+    expired_at: 2027-01-01
+  - id: CVE-2026-19534
+    paths:
+      - "node/24.22.2/**/npm/node_modules/undici/package.json"
+    statement: >-
+      undici 6.28.0; fixed in 6.28.1, 7.29.1, 8.10.2.
+    expired_at: 2027-01-01
+  - id: CVE-2026-87018
+    paths:
+      - "node/24.22.2/**/npm/node_modules/undici/package.json"
+    statement: >-
+      undici 6.28.0; fixed in 6.29.1, 7.30.1, 8.12.2.
+    expired_at: 2027-01-01
+
+  # pip's vendored setuptools, listed in pip/_vendor/vendor.txt inside the python install.
+  # pip vendors only setuptools' `pkg_resources`. The advisory is a path traversal in `setuptools.package_index`, which
+  # pip does not ship, so the vulnerable code is not present at all; the version string is all that matches.
+  - id: CVE-2025-47273
+    purls:
+      - "pkg:pypi/setuptools@70.3.0"
+    statement: >-
+      setuptools 70.3.0; fixed in 78.1.1.
+    expired_at: 2027-01-01
+
+  # Guava on the classpath of the Gradle and Maven distributions.
+  # A memory-exhaustion denial of service, reachable only through the build files and dependency metadata the two tools
+  # read: this repository's own pom.xml and Gradle scripts, and artifacts from Maven Central and the Gradle Plugin
+  # Portal. Both pins are the newest releases the minimum release age admits, and Gradle 9.9.0 still bundles the same
+  # Guava, so no bump clears it.
+  - id: CVE-2026-102554
+    paths:
+      - "gradle/9.8.2/gradle-9.8.2/lib/guava-33.4.6-jre.jar"
+      - "maven/3.10.0/apache-maven-3.10.0/lib/guava-33.7.1-jre.jar"
+    statement: >-
+      com.google.guava:guava 33.4.6-jre and com.google.guava:guava 33.7.1-jre; fixed in 33.7.2.
+    expired_at: 2027-01-01
+
+  # Dependencies of the AsyncAPI generator, which `gen:ws-md` drives through its library API.
+  # Its only input is generated/specs/ws.yaml, which et-int-gen writes from this repository's own Rust types, and its
+  # only template is the pinned markdown template installed beside it. jsonpath-plus therefore evaluates expressions
+  # from that document alone, and simple-git, which the generator uses to fetch a template from a git URL, is never
+  # called, since the template is a local path. 3.5.0 is the newest generator release, and it still depends on both.
+  - id: CVE-2024-21534
+    paths:
+      - "npm-asyncapi-generator/3.5.0~*/**/jsonpath-plus/package.json"
+    statement: >-
+      jsonpath-plus 7.2.0; fixed in 10.2.0.
+    expired_at: 2027-01-01
+  - id: CVE-2025-1302
+    paths:
+      - "npm-asyncapi-generator/3.5.0~*/**/jsonpath-plus/package.json"
+    statement: >-
+      jsonpath-plus 7.2.0; fixed in 10.3.0.
+    expired_at: 2027-01-01
+  - id: CVE-2026-102826
+    paths:
+      - "npm-asyncapi-generator/3.5.0~*/**/simple-git/package.json"
+    statement: >-
+      simple-git 3.36.0; fixed in 4.0.0.
+    expired_at: 2027-01-01
+  - id: CVE-2026-102827
+    paths:
+      - "npm-asyncapi-generator/3.5.0~*/**/simple-git/package.json"
+    statement: >-
+      simple-git 3.36.0; fixed in 4.0.0.
+    expired_at: 2027-01-01
+  - id: CVE-2026-102828
+    paths:
+      - "npm-asyncapi-generator/3.5.0~*/**/simple-git/package.json"
+    statement: >-
+      simple-git 3.36.0; fixed in 4.0.1.
+    expired_at: 2027-01-01
+  - id: CVE-2026-102829
+    paths:
+      - "npm-asyncapi-generator/3.5.0~*/**/@simple-git/argv-parser/package.json"
+    statement: >-
+      @simple-git/argv-parser 1.1.1; fixed in 2.0.1.
+    expired_at: 2027-01-01

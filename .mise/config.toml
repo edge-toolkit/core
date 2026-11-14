@@ -126,17 +126,17 @@ ripgrep = "latest"
 "github:vladkens/macmon" = { version = "0.7.2", os = ["macos"] }
 # NVIDIA GPU Prometheus exporter (nvidia-smi) for the o2-nvidia task; Linux-only, so os-scoped.
 # Windows GPU coverage is windows_exporter's gpu collector; Apple Silicon is macmon.
-"github:utkuozdemir/nvidia_gpu_exporter" = { version = "1.10.0", os = ["linux"] }
+"github:utkuozdemir/nvidia_gpu_exporter" = { version = "1.17.0", os = ["linux"] }
 # Windows host + GPU Prometheus exporter for the o2-winmetrics task; Windows-only, so os-scoped.
 "github:prometheus-community/windows_exporter" = { version = "0.31.7", os = ["windows"] }
 # OpenTelemetry Collector (contrib distro) binary for the native, non-Docker o2-winmetrics-native / o2-winperf tasks.
 # The releases repo ships several distros in one tag; matching=contrib selects the contrib archive -- the only one
 # carrying the prometheus/hostmetrics/windowsperfcounters receivers + basicauth extension those configs use.
-"github:open-telemetry/opentelemetry-collector-releases[matching=contrib]" = { version = "0.163.1" }
+"github:open-telemetry/opentelemetry-collector-releases[matching=contrib]" = { version = "0.164.0" }
 # NATS server with JetStream, the broker several hub instances share as their backplane.
 # A hub routes through it when `WS_BACKPLANE` names it, and the horizontal-scaling tests start one of their own.
 # Upstream ships prebuilt archives for all five platforms.
-"github:nats-io/nats-server" = { version = "2.15.1" }
+"github:nats-io/nats-server" = { version = "2.15.2" }
 # uutils findutils on aarch64-linux, built from source rather than taken from the github: entry further down.
 # Its 0.8.0 release had no asset for that platform, so it builds via cargo: on the same pin as the github: entry,
 # so every platform runs the same version.
@@ -224,7 +224,7 @@ protoc = "latest"
 # mise installs python under a per-tool dir named after the request and only symlinks the `3.x` minor alias
 # -- and that symlink isn't created on the Windows runner, so the py3_* interpreter paths must resolve to the
 # exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
-python = "3.13.16"
+python = "3.13.18"
 rclone = "latest"
 typos = "latest"
 uv = "0.13.3"
@@ -647,7 +647,7 @@ et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et
 macos_min_sdk = "26.0"
 # mise-managed CPython's bin dir (Linux/macOS), named to sort ahead of py3_unix, which builds on it.
 # The key order is the formatter's, and a var can only reference one defined above it.
-py3_bin_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.16/bin"
+py3_bin_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.18/bin"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
@@ -658,7 +658,7 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # This lets the et-ws-pyo3-runner binary find libpython at runtime (libpython3.13.so on Linux,
 # libpython3.13.dylib on macOS via its @rpath install name). Points at the exact `3.x.y` install dir (the
 # `python` pin), since the minor-version alias dir isn't created everywhere.
-pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.16/lib"
+pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.18/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
 # Instrumentation flags (leaf var) shared by the wasm coverage builds.
 # The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
@@ -988,6 +988,7 @@ depends = [
   "taplo-check",
   "taplo-fmt-check",
   "trivy-check",
+  "trivy-tools-check",
   "typos-check",
   "verification-check",
   "zizmor-check",
@@ -1407,7 +1408,7 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # TOML rule namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
-ns_list="cross cargo mise mise_lock pyproject checksums advisories"
+ns_list="cross cargo mise mise_lock pyproject checksums"
 named=".cargo/config.toml Cargo.lock config/cargo-features.toml config/upstream-cache/data.toml config/deny.toml"
 named="$named config/pyrefly.toml"
 # Both lists rely on word-splitting when they expand.
@@ -1417,6 +1418,11 @@ ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
 git ls-files '*Cargo.toml' '.mise/config*.toml' '.mise/mise*.lock' '*pyproject.toml' $named |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
+# The advisory dates span TOML and YAML files, so that pass lets conftest pick each file's parser.
+dated="config/deny.toml config/trivyignore-tools.yaml config/trivyignore.yaml"
+# $dated is a space-separated path list.
+# shellcheck disable=SC2086
+conftest test --combine --namespace advisories -p config/conftest/policy $dated
 # The trailing-backslash ban holds for every TOML file, not only the ones the namespaces above are written for.
 {{ vars.toml_files }} |
   xargs -0 conftest test --combine --parser toml --namespace no_trailing_backslash -p config/conftest/policy
@@ -2548,6 +2554,51 @@ description = "Check every Dockerfile and generated Kubernetes manifest for hard
 run = """
 set -- --skip-dirs target --skip-dirs '**/node_modules'
 trivy config --quiet --exit-code 1 --ignorefile config/trivyignore.yaml "$@" .
+"""
+shell = "{{ vars.task_shell }}"
+
+# Vulnerability scan of the tools mise installs for this repository, which no lockfile scan here can see.
+# It reads the Go modules, crates, npm and Python packages compiled into or bundled with each prebuilt binary. Those
+# tools are also the bulk of what the root Dockerfiles put in their images, so scanning the installs directly covers
+# that content without building an image.
+#
+# One scan of the whole installs directory rather than one per tool, so each finding is reported at a path that
+# starts with the tool's install directory, which is what lets config/trivyignore.yaml scope an accepted finding
+# to the one tool it was reviewed for. Every install the current config does not select is skipped: older
+# versions left behind by a bump, the version-alias symlinks, tools from a `MISE_ENV` that is not loaded, and the
+# operator's own global tools. So the scan sees exactly the tool set `mise install` produced for this checkout,
+# and loading more envs (`MISE_ENV`, as `install-all` does) widens it to their tools.
+#
+# Only HIGH and CRITICAL fail it, and only the vulnerability scanner runs: the secret scanner reports the test
+# keys every toolchain ships in its own test suites, none of which is a credential of ours. Known findings are
+# accepted in config/trivyignore-tools.yaml, apart from `trivy-check`'s ignore file, so a finding accepted for a
+# Dockerfile can never hide one in a tool or the reverse, and anything not listed there fails.
+#
+# Part of `check`, so it runs on every OS lane against that lane's own installs. A new advisory against an installed
+# tool therefore fails the next build anywhere, which is the point: it is either fixed by a bump or accepted in the
+# ignore file, not left to be noticed later.
+[tasks.trivy-tools-check]
+description = "Fail on HIGH or CRITICAL vulnerabilities inside the mise-installed tools"
+run = """
+ignorefile="$PWD/config/trivyignore-tools.yaml"
+# The root is mise's config_root rather than `$PWD`, which bash spells `/c/...` on Windows.
+keep=$(mise ls --current --installed --json | yq -p json -o tsv '.[] | .[] | [.install_path, .source.path]' |
+  repo_root='{{ config_root }}' goawk -f .mise/trivy-tools-check.awk)
+if [ -z "$keep" ]; then
+  echo "trivy-tools-check: mise reports no installed tool from this repository's config" >&2
+  exit 1
+fi
+first=$(echo "$keep" | coreutils head -n 1)
+tool_dir=$(coreutils dirname "$first")
+installs=$(coreutils dirname "$tool_dir")
+set -- --quiet --exit-code 1 --scanners vuln --severity HIGH,CRITICAL --ignorefile "$ignorefile"
+cd "$installs"
+for dir in */*; do
+  if ! echo "$keep" | rg -qxF "$installs/$dir"; then
+    set -- "$@" --skip-dirs "$dir"
+  fi
+done
+trivy rootfs "$@" .
 """
 shell = "{{ vars.task_shell }}"
 
