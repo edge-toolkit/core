@@ -323,3 +323,41 @@ test_feature_named_for_a_dependency_is_rejected if {
 	some msg in msgs
 	contains(msg, "feature \"picoserve\" shares its name with a dependency; name it for what it gives")
 }
+
+# A root manifest whose [workspace.package] defines `fields`, beside one member crate whose [package] is `pkg`.
+inherit_input(fields, pkg) := [
+	{"path": "Cargo.toml", "contents": {"workspace": {"package": fields}}},
+	{"path": "libs/a/Cargo.toml", "contents": {"package": pkg}},
+]
+
+inherit_flagged(msgs, field) if {
+	some msg in msgs
+	msg == $"libs/a/Cargo.toml: [package] {field} must inherit via {field}.workspace = true"
+}
+
+test_a_member_inheriting_every_workspace_field_is_accepted if {
+	fields := {"edition": "2024", "rust-version": "1.100.0"}
+	pkg := {"edition": {"workspace": true}, "rust-version": {"workspace": true}}
+	msgs := cargo.deny with input as inherit_input(fields, pkg)
+	not inherit_flagged(msgs, "edition")
+	not inherit_flagged(msgs, "rust-version")
+}
+
+test_a_member_missing_a_workspace_field_is_rejected if {
+	fields := {"edition": "2024", "rust-version": "1.100.0"}
+	msgs := cargo.deny with input as inherit_input(fields, {"edition": {"workspace": true}})
+	inherit_flagged(msgs, "rust-version")
+}
+
+test_a_member_restating_a_workspace_field_is_rejected if {
+	fields := {"edition": "2024", "rust-version": "1.100.0"}
+	pkg := {"edition": {"workspace": true}, "rust-version": "1.99.0"}
+	msgs := cargo.deny with input as inherit_input(fields, pkg)
+	inherit_flagged(msgs, "rust-version")
+}
+
+test_a_field_the_workspace_does_not_define_is_not_required if {
+	msgs := cargo.deny with input as inherit_input({"edition": "2024"}, {"edition": {"workspace": true}})
+	not inherit_flagged(msgs, "license")
+	not inherit_flagged(msgs, "rust-version")
+}

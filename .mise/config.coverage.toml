@@ -93,6 +93,38 @@ DYLD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 _.path = "{{ vars.a_home }}/.local/share/mise/installs/conda-clang/latest/bin"
 
+# Lower the workspace `rust-version` to the coverage nightly's own release, which it predates.
+# `rust_nightly` is held at a 1.99 nightly for its LLVM (see that var), while every crate inherits a newer
+# `rust-version`, and cargo refuses to build any of them on an older rustc:
+#   error: rustc 1.99.0-nightly is not supported by the following packages:
+#   et-ws-web-runner@0.3.0 requires rustc 1.100.0
+# Cargo's only bypass is the `--ignore-rust-version` flag, with no config key or env var, and this env runs every
+# cargo call on the nightly -- the module builds, nextest, the scenario runners' generated `cargo run`s -- so one
+# rewrite of the manifest, before any of them, replaces threading the flag through each. postinstall runs at the
+# end of every `mise install` in this env, which the coverage workflow does before its first build; run locally,
+# it leaves Cargo.toml modified, which must not be committed. Drop it once `rust_nightly` reaches the
+# `rust-version` again.
+#
+# Neither awk program may start with `/` or hold a backslash: Git Bash on Windows rewrites such an argument to a
+# native exe as a path, and goawk then sees
+#   C:/Program Files/Git/^rust-version = / { $0 = "rust-version = /"" v "/"" } { print }
+# so each line matches on its first field and the quote comes in through `-v q`. Observed on commit
+# <https://github.com/edge-toolkit/core/commit/4cc5b97f7d44e3f12c077b9ee3eb1e69901e1c9f> at
+# `https://github.com/edge-toolkit/core/actions/runs/43579615267/job/132401326649`.
+[hooks]
+postinstall = """
+release=$(rustc -vV | goawk '$1 == "release:" { sub(/-.*/, "", $2); print $2 }')
+if [ -z "$release" ]; then
+  echo "coverage: no release line in rustc -vV" >&2
+  exit 1
+fi
+manifest="$MISE_PROJECT_ROOT/Cargo.toml"
+pin='$1 == "rust-version" { $0 = "rust-version = " q v q } { print }'
+goawk -v v="$release" -v q='"' "$pin" "$manifest" >"$manifest.cov"
+coreutils mv "$manifest.cov" "$manifest"
+echo "coverage: workspace rust-version set to $release for $RUSTUP_TOOLCHAIN; do not commit Cargo.toml" >&2
+"""
+
 [tasks.cargo-llvm-cov]
 description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); emits lcov.info + JUnit reports"
 # cargo-llvm-cov installs `llvm-tools-preview` on demand for the mise-managed toolchain.

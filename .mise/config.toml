@@ -1379,8 +1379,10 @@ coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 tc="{{ vars.rust_nightly }}"
 # `docs` is the feature docs.rs builds with, which renders each crate's feature list.
 features="--features docs"
+# `rust_nightly` predates the workspace `rust-version`, which cargo otherwise refuses to build on.
+flags="--keep-going --workspace --no-deps --document-private-items --ignore-rust-version"
 # shellcheck disable=SC2086
-cargo "+$tc" doc --keep-going --workspace --no-deps --document-private-items $features {{ vars.cargo_ws_excludes }}
+cargo "+$tc" doc $flags $features {{ vars.cargo_ws_excludes }}
 """
 shell = "{{ vars.task_shell }}"
 
