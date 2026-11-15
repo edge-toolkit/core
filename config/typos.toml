@@ -1,17 +1,13 @@
-# data/ is out of scope for the typos check.
-# It holds vendored demo + model assets (not our own prose), so its spelling
-# is not ours to police.
-# config/jscpd-baseline.json holds nothing but machine-written 16-char clone fingerprints, and hex digits spell
-# enough near-words to trip the dictionary ("...b76ded1373" -> "dead", "...747afe01f" -> "safe"). Excluded as a
-# whole file rather than via extend-ignore-re, which would have to match any 16-hex run and would blind the
-# checker to real typos elsewhere. Nothing is lost: the file contains no prose. It cannot be gitignored -- the
-# ratchet in jscpd-check needs it tracked.
+# Exclude config/jscpd-baseline.json, which holds nothing but machine-written clone fingerprints.
+# Its 16-char hex runs spell enough near-words to trip the dictionary ("...b76ded1373" -> "dead", "...747afe01f" ->
+# "safe"). Excluded as a whole file rather than via extend-ignore-re, which would have to match any 16-hex run and
+# would blind the checker to real typos elsewhere. Nothing is lost: the file contains no prose. It cannot be
+# gitignored -- the ratchet in jscpd-check needs it tracked.
 [files]
-extend-exclude = ["config/jscpd-baseline.json", "data/"]
+extend-exclude = ["config/jscpd-baseline.json"]
 
 [default]
-# "MIS Quarterly" is a journal title (Management Information Systems), not a typo of MISS/MIST.
-# Scoped to the exact two-word title so bare "MIS" elsewhere still gets flagged.
+# Each pattern suppresses one known false positive, anchored so the word is still checked everywhere else.
 # `lod-min-clamp` / `lod-max-clamp` are WebGPU sampler fields (level-of-detail) in the vendored
 # wasi:webgpu WIT, not misspellings of "load". Scoped to those two identifiers so bare "lod" is still
 # flagged everywhere else.
@@ -25,7 +21,6 @@ extend-exclude = ["config/jscpd-baseline.json", "data/"]
 extend-ignore-re = [
   "Checksum: [0-9a-f]+",
   "Functionality is equivelant to",
-  "MIS Quarterly",
   "lod-(min|max)-clamp",
   "std\\.compress\\.flate",
 ]

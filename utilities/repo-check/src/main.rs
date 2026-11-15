@@ -1,9 +1,9 @@
-//! Repository-wide checks that need to read git itself, which no file-at-a-time linter can do.
+//! Repository-wide checks that no file-at-a-time linter can do.
 //!
-//! The repo's linters each read one file and judge it alone. That covers almost everything this repo wants to
-//! enforce, and a rule belongs there whenever it can be written there. What is left over is the small set of
-//! questions whose answer lives in the object database or the commit graph rather than in any file, and this
-//! binary is where those go.
+//! The repo's linters each read one file and judge it alone. That covers almost everything this repo wants to enforce,
+//! and a rule belongs there whenever it can be written there. What is left over is the small set of questions whose
+//! answer lives in the object database or the commit graph, or comes from running another tool and judging its result,
+//! and this binary is where those go.
 //!
 //! Every check runs rather than stopping at the first failure, so one run reports the whole picture instead of
 //! revealing the next problem only after the previous one is fixed.
@@ -14,6 +14,7 @@ use command_error::CommandExt as _;
 
 mod commit_hashes;
 mod error;
+mod typos_ignores;
 
 use self::error::Error;
 
@@ -34,7 +35,7 @@ fn tracked_files() -> Result<Vec<String>, Error> {
 
 fn main() -> Result<(), Error> {
     let files = tracked_files()?;
-    let failures = commit_hashes::run(&files)?;
+    let failures = commit_hashes::run(&files)?.saturating_add(typos_ignores::run()?);
     if failures == 0 {
         return Ok(());
     }

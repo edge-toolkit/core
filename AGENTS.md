@@ -1256,6 +1256,12 @@ TOML, to a semgrep `languages: [generic]` rule; TOML structure to a taplo schema
 combined TOML/YAML config set to a conftest policy. ast-grep has no TOML grammar, so it **cannot** lint TOML. If
 none of them can express a check, propose adding a new mise-installable linter rather than scripting it by hand.
 
+The approach of last resort, when no linter can express a check and none can be added, is a new module in
+`et-int-repo-check` (`utilities/repo-check`), the Rust binary behind `mise run repo-check` -- never a shell script.
+It holds the checks that have to run git or another tool and judge the result, such as whether each
+`config/typos.toml` entry still suppresses a finding. Its modules carry no tests of their own: the binary is tested
+by being invoked, and the coverage workflow's `cargo-llvm-cov` task runs it under instrumentation.
+
 Inside a `"""` task body a backslash meant to reach the shell must be doubled, since a lone `\n` / `\r` / `\b` is
 TOML syntax that folds into a control character rather than the two bytes the shell wants; the task-body formatter
 rejects one rather than guessing which was meant. `\\` and `\"` are the two escapes it decodes.

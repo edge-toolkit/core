@@ -6050,6 +6050,7 @@ dependencies = [
  "fs-err",
  "regex",
  "thiserror 2.0.21",
+ "toml",
 ]
 
 [[package]]
