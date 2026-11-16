@@ -654,6 +654,23 @@ vulnerabilities:
       setuptools 70.3.0; fixed in 78.1.1.
     expired_at: 2027-01-01
 
+  # cryptography in semgrep 1.182.0, the release macOS x64 is held to; no other platform installs this version.
+  # 48.0.1 is the last cryptography with a macOS x86_64 wheel, so the fixed releases cannot be installed there at all.
+  # Semgrep only reads this repository's files against its own rules. It never decrypts PKCS#7, and its HTTPS goes
+  # through Python's ssl module rather than cryptography's X.509 path builder, so neither advisory is reachable.
+  - id: CVE-2026-69247
+    paths:
+      - "pipx-semgrep/1.182.0~*/**/cryptography-48.0.1.dist-info/METADATA"
+    statement: >-
+      cryptography 48.0.1; fixed in 50.0.0, which has no macOS x86_64 wheel.
+    expired_at: 2027-01-01
+  - id: CVE-2026-69249
+    paths:
+      - "pipx-semgrep/1.182.0~*/**/cryptography-48.0.1.dist-info/METADATA"
+    statement: >-
+      cryptography 48.0.1; fixed in 49.0.0, which has no macOS x86_64 wheel.
+    expired_at: 2027-01-01
+
   # Guava on the classpath of the Gradle and Maven distributions.
   # A memory-exhaustion denial of service, reachable only through the build files and dependency metadata the two tools
   # read: this repository's own pom.xml and Gradle scripts, and artifacts from Maven Central and the Gradle Plugin

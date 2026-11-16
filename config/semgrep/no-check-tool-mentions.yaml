@@ -647,6 +647,7 @@ rules:
         - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml" # Spells this tool's pragma out to test it.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/utilities/int-gen/src/checks.rs" # Names the ignore file the tool reads without being told to.
+        - "/config/trivyignore-tools.yaml" # Scopes each accepted finding to a tool's install path, which names it.
     pattern-regex: "(?i)semgrep"
     message: >-
       Do not name this tool outside its own ruleset and the configs that scope it. A `nosemgrep` marker is the

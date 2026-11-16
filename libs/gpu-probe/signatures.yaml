@@ -867,6 +867,13 @@ signatures:
         backend: metal
         device: "Intel MacBook Pro"
         window: normal
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -1703,6 +1710,13 @@ signatures:
         backend: metal
         device: "Intel MacBook Pro"
         window: normal
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -2698,6 +2712,12 @@ signatures:
         runtime: "Rust f32 and glibc"
         window: none
         date: "2026-11-13"
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        window: none
     results:
       multiply_add: "00000000"
       fma: "33800000"
@@ -2848,6 +2868,13 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -2937,6 +2964,13 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -5137,3 +5171,206 @@ signatures:
         window: private
     blocked: true
     reason: "WebGL 1 opens but readPixels throws NotSupportedError, so no result can be read"
+  - interface: webgpu-fixed-function
+    label: "AMD Radeon Pro 5300M through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0000"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0000"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-f16-split
+    label: "AMD Radeon Pro 5300M through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002844"
+      tanh: "00002e62"
+      dot: "00003c00"
+  - interface: webgpu-f16-combined
+    label: "AMD Radeon Pro 5300M through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002844"
+      tanh: "00002e62"
+      dot: "00003c00"
+  - interface: webgpu-split
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "40000000"
+  - interface: webgpu-clear
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-f16-split
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002844"
+      tanh: "00002e61"
+      dot: "00004000"
+  - interface: webgpu-f16-combined
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002844"
+      tanh: "00002e61"
+      dot: "00004000"

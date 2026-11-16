@@ -201,7 +201,13 @@ gh = "latest"
 # semgrep 1.182.0 is the last release with a macOS x86_64 wheel, so second-tier macos/x64 stays on it.
 # Upstream's 1.183.0 notes: "Semgrep no longer ships binaries for Intel Macs; 1.182 is the last release that
 # supports them."
-"pipx:semgrep" = "{% if os() == 'macos' and arch() == 'x64' %}1.182.0{% else %}latest{% endif %}"
+# Its pyjwt dependency pulls cryptography, whose 48.0.1 is likewise the last with a macOS x86_64 wheel, and mise locks
+# the graph with `uv lock --no-build`, failing there with:
+#   error: Distribution `cryptography==50.0.2 @ registry+https://pypi.org/simple/` can't be installed because it is
+#   marked as `--no-build` but has no binary distribution
+# mise rejects an empty `with`, so every other platform gets an empty JSON list.
+"pipx:semgrep".version = "{% if os() == 'macos' and arch() == 'x64' %}1.182.0{% else %}latest{% endif %}"
+"pipx:semgrep".with = '{% if os() == "macos" and arch() == "x64" %}["cryptography<49"]{% else %}[]{% endif %}'
 # Aqua has no pnpm darwin/amd64 prebuilt.
 # The `npm:pnpm` fallback for macos/x64 lives in the `js` env (config.js.toml), held to the same major.
 #
@@ -898,6 +904,12 @@ CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 # belt-and-braces (the download code path is gone).
 ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{ vars.ort_loc_unix }}{% endif %}"
 ORT_SKIP_DOWNLOAD = "1"
+# Keeps ort-sys on the pinned ONNX Runtime rather than a host one pkg-config finds first.
+# ort-sys asks pkg-config before ORT_LIB_LOCATION, so a host install (Homebrew's, say) would otherwise win, and the
+# binary would load whatever that build links against. Seen on an Intel Mac whose Homebrew protobuf had moved on
+# from the one its onnxruntime was built against:
+#   dyld: Library not loaded: /usr/local/opt/protobuf/lib/libprotobuf-lite.35.0.0.dylib
+LIBONNXRUNTIME_NO_PKG_CONFIG = "1"
 # The ONNX Runtime library et-ws-wasi-runner opens when a guest first uses `wasi:nn`, out of that same install.
 ORT_DYLIB_PATH = "{{ vars.ort_loc_unix }}/lib/libonnxruntime.{% if os() == 'macos' %}dylib{% else %}so{% endif %}"
 

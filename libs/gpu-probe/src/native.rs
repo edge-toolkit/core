@@ -850,6 +850,16 @@ fn vulkan_report(adapter: &wgpu::Adapter, report: &mut Report) {
         .extend([("driver_version", driver), ("api_version", format!("Vulkan {api}"))]);
 }
 
+/// The name of `architecture`, the one a Metal device gives, or `none` for a device that gives none.
+///
+/// `None` is what an Intel Mac's GPU answers: Metal names the architecture of Apple's own GPUs alone, and that is no
+/// failure of the device, so the report says so rather than leaving the line out.
+#[cfg(target_vendor = "apple")]
+#[must_use]
+pub fn metal_architecture_name(architecture: Option<&objc2_metal::MTLArchitecture>) -> String {
+    architecture.map_or_else(|| "none".to_owned(), |named| named.name().to_string())
+}
+
 /// Add to `report` what Metal says the GPU is, when `device` was opened through Metal.
 #[cfg(target_vendor = "apple")]
 #[expect(
@@ -867,9 +877,18 @@ fn metal_report(device: &wgpu::Device, report: &mut Report) {
         .filter(|family| raw.supportsFamily(family.0))
         .map(|family| family.1)
         .collect();
+    // objc2-metal types `architecture` as never nil, but an Intel Mac's device answers nil, which its binding turns
+    // into a panic: unexpected NULL returned from -[MTLIGAccelDevice architecture] Sending the message directly lets
+    // the nil arrive as `None`. SAFETY: `architecture` takes no arguments and returns an `MTLArchitecture` or nil, as
+    // the type says.
+    let architecture: Option<objc2::rc::Retained<objc2_metal::MTLArchitecture>> =
+        unsafe { objc2::msg_send![raw, architecture] };
     report.lines.extend([
         format!("metal device name: {}", raw.name()),
-        format!("metal architecture: {}", raw.architecture().name()),
+        format!(
+            "metal architecture: {}",
+            metal_architecture_name(architecture.as_deref())
+        ),
         format!("metal registry id: {:#x}", raw.registryID()),
         format!("metal location: {:?}", raw.location()),
         format!("metal recommended working set: {}", raw.recommendedMaxWorkingSetSize()),

@@ -212,3 +212,12 @@ fn a_vulkan_driver_version_is_read_in_its_vendors_encoding() {
     assert_eq!(vulkan_api_version(0x0040_6162), "1.6.354");
     assert_eq!(vulkan_api_version(0x2040_6162), "1.6.354 (variant 1)");
 }
+
+/// An Intel Mac's GPU gives Metal no architecture, which the report names as none rather than failing over.
+///
+/// Apple's own GPUs name theirs, which the device report above reads from this machine's device.
+#[cfg(target_vendor = "apple")]
+#[test]
+fn a_metal_device_giving_no_architecture_is_reported_as_none() {
+    assert_eq!(et_gpu_probe::native::metal_architecture_name(None), "none");
+}
