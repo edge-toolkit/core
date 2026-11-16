@@ -53,6 +53,7 @@ required_in = [
   "config/ast-grep/rules/inherent-impl-first.yaml",
   "config/ast-grep/rules/js-no-function-declaration-in-script.yaml",
   "config/ast-grep/rules/no-allow-attributes.yaml",
+  "config/ast-grep/rules/no-capture-free-if-let.yaml",
   "config/ast-grep/rules/no-concat-raw-strings.yaml",
   "config/ast-grep/rules/no-consecutive-expect.yaml",
   "config/ast-grep/rules/no-doctest.yaml",

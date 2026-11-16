@@ -559,6 +559,36 @@ url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose
 url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117303"
 provenance = "cosign"
 
+[[tools."aqua:fastfetch-cli/fastfetch"]]
+version = "2.71.0"
+backend = "aqua:fastfetch-cli/fastfetch"
+specifiers = ["latest"]
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.linux-arm64"]
+checksum = "sha256:458248f2b3abab9c5e0a5b9df12cdcd1a966b355ddd5f3244a5eb47d17d33412"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715731574"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.linux-x64"]
+checksum = "sha256:abf5c99a3702cce8d3c7fa2cccd3ac205076ae0f2e45bced24a42a68821702d6"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715731359"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.macos-arm64"]
+checksum = "sha256:6e503980ac268b072259f00e5c439eb90a420535f3593704c096b5b3bea64199"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715730326"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.macos-x64"]
+checksum = "sha256:6e503980ac268b072259f00e5c439eb90a420535f3593704c096b5b3bea64199"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715730326"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.windows-x64"]
+checksum = "sha256:58eeee82c52120e981891826be1c5810788bc0083b13d870684bbc85b03628e9"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-windows-amd64.zip"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715729834"
+
 [[tools."aqua:gitleaks/gitleaks"]]
 version = "8.30.1"
 backend = "aqua:gitleaks/gitleaks"
@@ -1852,18 +1882,6 @@ url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.1
 url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892169"
 provenance = "github-attestations"
 
-[tools."github:utkuozdemir/nvidia_gpu_exporter"."platforms.macos-x64"]
-checksum = "sha256:b10d8bf52997e1e2cd6cb12d06fdb3936306c6d3f5712900badbf48582fad4da"
-url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.17.0/nvidia_gpu_exporter_1.17.0_darwin_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892171"
-provenance = "github-attestations"
-
-[tools."github:utkuozdemir/nvidia_gpu_exporter"."platforms.windows-x64"]
-checksum = "sha256:07bd20f93e59c9920ed38043ec5a31fe3f5f7156969b60aebe336573d667e0c0"
-url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.17.0/nvidia_gpu_exporter_1.17.0_windows_x86_64.zip"
-url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892208"
-provenance = "github-attestations"
-
 [[tools."github:uutils/coreutils"]]
 version = "0.6.0"
 backend = "github:uutils/coreutils"
@@ -1905,11 +1923,6 @@ specifiers = ["0.10.0"]
 [tools."github:uutils/findutils".options]
 asset_pattern = '*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*'
 
-[tools."github:uutils/findutils"."platforms.linux-arm64"]
-checksum = "sha256:c2dad7fbf0cd6b108f833b0a42651f3ad796b6dfa71d303ca1ab51eed3ce3afe"
-url = "https://github.com/uutils/findutils/releases/download/0.10.0/findutils-aarch64-unknown-linux-musl.tar.xz"
-url_api = "https://api.github.com/repos/uutils/findutils/releases/assets/500572461"
-
 [tools."github:uutils/findutils"."platforms.linux-x64"]
 checksum = "sha256:e7c10ea19e1dce2549aaf6f35e15bf42a5e8141d6100c499b6d6fc9b25ea9209"
 url = "https://github.com/uutils/findutils/releases/download/0.10.0/findutils-x86_64-unknown-linux-musl.tar.xz"
@@ -1935,27 +1948,12 @@ version = "0.7.2"
 backend = "github:vladkens/macmon"
 specifiers = ["0.7.2"]
 
-[tools."github:vladkens/macmon"."platforms.linux-arm64"]
-checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
-url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
-url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
-
-[tools."github:vladkens/macmon"."platforms.linux-x64"]
-checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
-url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
-url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
-
 [tools."github:vladkens/macmon"."platforms.macos-arm64"]
 checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
 url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
 
 [tools."github:vladkens/macmon"."platforms.macos-x64"]
-checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
-url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
-url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
-
-[tools."github:vladkens/macmon"."platforms.windows-x64"]
 checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
 url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"

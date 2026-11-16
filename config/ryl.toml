@@ -20,6 +20,7 @@ strict = true
 # Benchmark results, every machine's and OS's, record each time as measured, in nanoseconds.
 # yq writes the millisecond ones as floats in scientific notation, and rounding them to dodge that would discard data.
 "../libs/*/benches/results/*.yaml" = ["float-values"]
+"../services/*/benches/results/*.yaml" = ["float-values"]
 
 [lint.rules]
 brackets = "enable"

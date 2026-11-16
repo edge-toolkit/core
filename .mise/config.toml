@@ -79,6 +79,8 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
+# Names the machine a benchmark ran on, from the maker and model the firmware reports.
+"aqua:fastfetch-cli/fastfetch" = "latest"
 # The secret scanner Codacy and DeepSource both run against a pushed branch.
 "aqua:gitleaks/gitleaks" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
@@ -1015,6 +1017,49 @@ description = "Run the Rust + universal repo-wide checks"
 depends = ["check:*"]
 description = "Run all checks: check:rust + any loaded guest check:<lang>"
 
+[tasks.check-meta]
+# The checks whose subject is the repository rather than a language's source code.
+# That is CI workflows, configs and lockfiles, policies and the linters' own rule tests, docs and links, file names,
+# spelling, secrets, Dockerfiles and manifests, and the checked-in files generated without cargo. Left out are every
+# compiler, language linter and formatter (cargo, clippy, ruff, the guest check:<lang> tasks), ast-grep's code rules,
+# the code-duplication and shell-script checks, and the checks that build or run Rust to regenerate what they compare.
+# Its name keeps it out of `check`'s `check:*` glob, which every task here already reaches through check:rust.
+depends = [
+  "action-validator-check",
+  "actionlint-check",
+  "agent-lint-check",
+  "ast-grep-check-rule-tests",
+  "branch-up-to-date-check",
+  "checks-md-check",
+  "conftest-check",
+  "dockerignore-check",
+  "dprint-check",
+  "editorconfig-check",
+  "gitleaks-check",
+  "gpu-probe-signatures-check",
+  "hadolint-check",
+  "j2lint-check",
+  "kubeconform-check",
+  "link-check",
+  "ls-lint-check",
+  "mise-lock-check",
+  "readme-mise-version-check",
+  "regal-check",
+  "rumdl-check",
+  "ryl-check",
+  "semgrep-check",
+  "semgrep-check-rule-tests",
+  "shellcheck-mise-check",
+  "shfmt-mise-check",
+  "taplo-check",
+  "taplo-fmt-check",
+  "trivy-check",
+  "trivy-tools-check",
+  "typos-check",
+  "zizmor-check",
+]
+description = "Run the checks that are about the repository rather than its code: CI, config, docs, policies, locks"
+
 [tasks."fix:rust"]
 # Rust + universal lint-fix passes.
 # Distinct from fmt:rust (style/whitespace
@@ -1476,11 +1521,11 @@ description = "Check the jscpd baseline has not grown (conftest)"
 run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-baseline.json"
 
 # The files are found on disk rather than in git's index.
-# So one a fresh `bench-gpu-probe` run wrote, or one renamed and not yet staged, is checked as it stands.
+# So one a fresh `bench` run wrote, or one renamed and not yet staged, is checked as it stands.
 [tasks.conftest-check-bench-results]
 description = "Check each benchmark results file is named for the machine and OS it records (conftest)"
 run = """
-find libs -path '*/benches/results/*.yaml' -print0 |
+find libs services -path '*/benches/results/*.yaml' -print0 |
   xargs -0 -r conftest test --combine --namespace bench_results -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
@@ -1488,9 +1533,18 @@ shell = "{{ vars.task_shell }}"
 # Each benchmark is recorded in Bencher Metric Format: its mean as `latency`, with its 95% interval, in nanoseconds.
 # The bench writes to a criterion home of its own, emptied first, so a benchmark since renamed or removed leaves
 # nothing behind to be recorded. criterion's raw samples stay in that home, out of the repository.
-[tasks.bench-gpu-probe]
-description = "Benchmark et-gpu-probe and record the estimates in libs/gpu-probe/benches/results/<machine>-<os>.yaml"
+# The crate's package name, and the features its benches require, are read from its Cargo.toml.
+[tasks.bench]
+description = "Benchmark the crate in <dir> and record the estimates in <dir>/benches/results/<machine>-<os>.yaml"
 run = """
+dir="${usage_dir%/}"
+package=$(yq -p toml -o yaml '.package.name' "$dir/Cargo.toml")
+features=$(yq -p toml -o yaml '[.bench[]."required-features"[]] | unique | join(",")' "$dir/Cargo.toml")
+# Each [[bench]] target by name, since `--benches` would also run the crate's binaries in bench mode.
+targets=()
+for name in $(yq -p toml -o yaml '.bench[].name' "$dir/Cargo.toml"); do
+  targets+=("--bench=$name")
+done
 host=$(rustc -vV | rg -r '$1' '^host: (.*)$')
 # The same machine gives other results under another OS, through its other drivers, so the OS names the file too.
 case "$host" in
@@ -1502,25 +1556,22 @@ case "$host" in
     exit 1
     ;;
 esac
-# With no machine given, it is the maker and model the firmware reports, through each OS's query for them.
-# No mise tool reads either. `$_` is PowerShell's, so the shell must not expand it.
-# shellcheck disable=SC2016
-model=(powershell -NoProfile -Command 'Get-CimInstance Win32_ComputerSystem | % { $_.Manufacturer, $_.Model }')
-case "$os" in
-  linux) model=(coreutils cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/product_name) ;;
-  macos) model=(sysctl -n hw.model) ;;
-esac
-# A maker's company suffix is dropped, so "Dell Inc." and "Precision 5570" make dell-precision-5570.
+# With no machine given, it is the maker and model fastfetch reads from the firmware.
+# On a Mac that is the product name rather than the model code. Only those two leave jaq: fastfetch's host also
+# carries the serial number and UUID. A screen size is dropped, as nothing benchmarked here depends on it, and so
+# is a maker's company suffix, so "Apple Inc." and "MacBook Pro (16-inch, M5 Pro, 2026)" make
+# apple-macbook-pro-m5-pro-2026.
+host_name='.[0].result | .vendor, (.name | gsub("[0-9.]+-inch,? *"; ""))'
 suffixes='inc|corp|corporation|co|ltd|llc|'
-machine="${usage_machine:-$("${model[@]}" | coreutils tr '[:upper:]' '[:lower:]' | coreutils tr -cs 'a-z0-9' '\\n' |
-  rg -vx "$suffixes" | coreutils paste -sd -)}"
+machine="${usage_machine:-$(fastfetch --format json -s host | jaq -r "$host_name" |
+  coreutils tr '[:upper:]' '[:lower:]' | coreutils tr -cs 'a-z0-9' '\\n' | rg -vx "$suffixes" | coreutils paste -sd -)}"
 if [ -z "$machine" ]; then
-  echo "this machine reports no maker or model, so name it: mise run bench-gpu-probe <machine>" >&2
+  echo "this machine reports no maker or model, so name it: mise run bench $dir <machine>" >&2
   exit 1
 fi
-home=target/criterion-gpu-probe
+home="target/criterion-$(coreutils basename "$dir")"
 coreutils rm -rf "$home"
-CRITERION_HOME="$PWD/$home" cargo bench -p et-gpu-probe --features native,registry --bench gpu_probe
+CRITERION_HOME="$PWD/$home" cargo bench -p "$package" --features "$features" "${targets[@]}"
 lines="$home/benchmarks.jsonl"
 # Each value is rounded to a hundredth of a nanosecond, finer than any of them is known to, so a rerun's diff is short.
 # `$est` is the jaq variable each benchmark's estimates are bound to, so the shell must not expand it.
@@ -1533,7 +1584,7 @@ benchmarks=(rg --files --no-ignore -g '**/new/benchmark.json' "$home")
   # Named beside the metadata by swapping the file name, since on Windows the path mixes forward and back slashes.
   jaq -c --slurpfile est "${meta%benchmark.json}estimates.json" "$measure" "$meta"
 done >"$lines"
-out="libs/gpu-probe/benches/results/$machine-$os.yaml"
+out="$dir/benches/results/$machine-$os.yaml"
 coreutils mkdir -p "$(coreutils dirname "$out")"
 recorded=(--arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$(rustc -V)")
 recorded+=(--arg date "$(coreutils date -u +%F)")
@@ -1545,10 +1596,13 @@ yq -p json -o yaml '.' "$home/record.json" >"$out"
 echo "wrote $out"
 """
 shell = "{{ vars.task_shell }}"
-usage = 'arg "[machine]" help="This machine, as lowercase words joined by -: dell-precision-5570 (default: its model)"'
+usage = """
+arg "<dir>" help="The crate's directory: libs/gpu-probe"
+arg "[machine]" help="This machine, as lowercase words joined by -: dell-precision-5570 (default: its model)"
+"""
 
-[tasks.bench-gpu-probe-compare]
-description = "Fail unless two et-gpu-probe bench results files hold the same benchmarks at about the same latencies"
+[tasks.bench-compare]
+description = "Fail unless two bench results files hold the same benchmarks at about the same latencies"
 # Each latency is held to within a factor of the recorded one rather than to its confidence interval.
 # A hosted runner's speed varies between runs and between machines of one label, so a rerun on the same runner already
 # falls outside the interval it recorded; a benchmark several times slower or faster is the regression worth failing.
@@ -1565,7 +1619,7 @@ measured="$dir/measured.json"
 yq -o json . "$usage_recorded" >"$recorded"
 yq -o json . "$usage_measured" >"$measured"
 factor="${usage_factor:-2}"
-compare=.mise/bench-gpu-probe-compare.jq
+compare=.mise/bench-compare.jq
 differences=$(jaq -nr --slurpfile r "$recorded" --slurpfile m "$measured" --argjson f "$factor" -f "$compare")
 if [ -n "$differences" ]; then
   printf '%s\\n' "$differences"

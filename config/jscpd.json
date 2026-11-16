@@ -15,6 +15,7 @@
     "libs/gpu-probe/signatures.yaml",
     "modules/**/Cargo.toml",
     "modules/**/pyproject.toml",
+    "services/*/benches/results/**",
     "services/ws-wasi-runner/src/bindings.rs"
   ]
 }

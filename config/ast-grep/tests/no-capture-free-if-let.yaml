@@ -1,0 +1,45 @@
+id: no-capture-free-if-let
+valid:
+  - |
+    if let Ok(ServerMessage::ConnectAck { agent_id, .. }) = frame(text) {}
+  - |
+    if let Some(value) = found {}
+  - |
+    while let Some(Ok(frame)) = socket.next().await {}
+  - |
+    if let Point { x, .. } = point {}
+  - |
+    if let Point { x: across, .. } = point {}
+  - |
+    if let whole @ Some(_) = found {}
+  - |
+    if let Some(ref inner) = found {}
+  - |
+    if let Some(mut inner) = found {}
+  - |
+    if let ORIGIN = point {}
+  - |
+    if let Some(_) = found {}
+  - |
+    if let None = found {}
+  - |
+    while let Ok(_) = receiver.try_recv() {}
+  - |
+    if let Poll::Pending = polled {}
+  - |
+    if matches!(frame(text), Ok(ServerMessage::ConnectAck { .. })) {}
+invalid:
+  - |
+    if let Ok(ServerMessage::ConnectAck { .. }) = frame(text) {}
+  - |
+    while let Some(Frame::Ping(_)) = socket.next().await {}
+  - |
+    if let Shape::Circle = shape {}
+  - |
+    if let crate::Shape::Square(_, _) = shape {}
+  - |
+    if let Some(Shape::Circle) = shape && ready {}
+  - |
+    if let Point { x: 0, .. } = point {}
+  - |
+    if let (Shape::Circle, Some(_)) = pair {}

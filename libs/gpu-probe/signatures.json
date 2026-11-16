@@ -515,7 +515,7 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "runtime": "et-ws-web-runner 0.3.0",
-          "window": "normal",
+          "window": "none",
           "date": "2026-11-12"
         },
         {
@@ -642,7 +642,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "NVIDIA GB10 through Vulkan on Linux -- WebGPU on Chromium",
+      "label": "NVIDIA GB10 through Vulkan on Linux -- WebGPU on Chromium, wgpu with no browser, and Deno",
       "seen": [
         {
           "browser": "chromium",
@@ -653,6 +653,32 @@
           "gpu_version": "GB10",
           "backend": "vulkan",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "window": "none"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "NVIDIA GB10",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-17"
         }
       ],
       "results": {
@@ -1519,6 +1545,29 @@
           "gpu_version": "Intel(R) HD Graphics, or similar",
           "backend": "unknown",
           "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "backend": "opengl",
+          "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Intel(R) HD Graphics, or similar",
+          "backend": "unknown",
+          "device": "Dell Precision 5570",
+          "defence": "privacy.fingerprintingProtection on",
           "window": "normal"
         }
       ],
@@ -2949,6 +2998,17 @@
           "window": "none",
           "date": "2026-11-12",
           "source": "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "window": "none"
         }
       ],
       "results": {
@@ -3096,7 +3156,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "Intel Iris Xe (Alder Lake GT2) through Mesa's Vulkan driver on Linux, Dell Precision 5570 -- wgpu 29",
+      "label": "Intel Iris Xe (Alder Lake GT2) through Mesa's Vulkan driver on Linux, Dell Precision 5570 -- wgpu 29, Deno",
       "seen": [
         {
           "browser": "none",
@@ -3133,6 +3193,19 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-17"
         }
       ],
       "results": {
@@ -3418,6 +3491,19 @@
           "window": "none",
           "date": "2026-11-12",
           "source": "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "NVIDIA GB10",
+          "gpu": "none",
+          "backend": "none",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "ONNX Runtime 1.22",
+          "window": "none",
+          "date": "2026-11-17"
         }
       ],
       "results": {
@@ -3631,6 +3717,17 @@
           "gpu_version": "AMD Radeon Pro 5300M",
           "backend": "metal",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "window": "none"
         }
       ],
       "results": {
@@ -3671,6 +3768,17 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "window": "none"
         }
       ],
       "results": {
@@ -3767,6 +3875,17 @@
           "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
           "driver_version": "26.1.6",
           "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
           "backend": "vulkan",
           "window": "none"
         }
@@ -4555,6 +4674,16 @@
           "backend": "unknown",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision 5570",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4729,6 +4858,29 @@
           "backend": "unknown",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "backend": "opengl",
+          "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Intel(R) HD Graphics, or similar",
+          "backend": "unknown",
+          "device": "Dell Precision 5570",
+          "defence": "privacy.fingerprintingProtection on",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4773,6 +4925,29 @@
           "gpu_version": "Intel(R) HD Graphics, or similar",
           "backend": "unknown",
           "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "backend": "opengl",
+          "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Intel(R) HD Graphics, or similar",
+          "backend": "unknown",
+          "device": "Dell Precision 5570",
+          "defence": "privacy.fingerprintingProtection on",
           "window": "normal"
         }
       ],
@@ -5186,6 +5361,17 @@
           "api_version": "Vulkan 1.4.329",
           "backend": "vulkan",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "window": "none"
         }
       ],
       "results": {
@@ -5219,6 +5405,17 @@
           "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
           "driver_version": "595.104.2.0",
           "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
           "backend": "vulkan",
           "window": "none"
         }
@@ -6645,6 +6842,279 @@
         "atan2": "00002844",
         "tanh": "00002e61",
         "dot": "00004000"
+      }
+    },
+    {
+      "interface": "webgpu-combined",
+      "label": "NVIDIA GB10 through vulkan on linux aarch64 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "window": "none"
+        }
+      ],
+      "results": {
+        "multiply_add": "33800000",
+        "fma": "33800000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7566",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c34",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd1f",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebd",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgpu-combined",
+      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "window": "none"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00400000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c44",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087ae6",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-fixed-function",
+      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "window": "none"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c00",
+        "blend_srgb": "000000e1",
+        "filter_third": "3ea8a8a9",
+        "filter_fine": "00000000",
+        "filter_srgb": "3dddd65c",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
+      "interface": "webgpu-f16-split",
+      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "window": "none"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e64",
+        "dot": "00004000"
+      }
+    },
+    {
+      "interface": "webgpu-f16-combined",
+      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "cpu_arch": "aarch64",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "window": "none"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e64",
+        "dot": "00004000"
+      }
+    },
+    {
+      "interface": "webgl2-combined",
+      "label": "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc6e85",
+        "cos": "3f7eadd1",
+        "tan": "3dcd7dfb",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1eba",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc6e85",
+        "cos": "3f7eadd1",
+        "tan": "3dcd7dfb",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.78",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc6e85",
+        "cos": "3f7eadd1",
+        "tan": "3dcd7dfb",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "00000000"
       }
     }
   ]

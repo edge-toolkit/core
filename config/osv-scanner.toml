@@ -57,4 +57,12 @@ IgnoredVulns = [
   { id = "RUSTSEC-2026-0530", ignoreUntil = 2027-01-01 },
   { id = "RUSTSEC-2026-0531", ignoreUntil = 2027-01-01 },
   { id = "RUSTSEC-2026-0532", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0542", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0543", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0549", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0550", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0551", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0552", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0553", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0554", ignoreUntil = 2027-01-01 },
 ]

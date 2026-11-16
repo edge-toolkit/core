@@ -102,7 +102,9 @@ clap-markdown = "0.1"
 cloudevents-sdk = "0.9"
 command-error = "0.8"
 const-hex = "1.19"
+core_affinity = "0.8"
 cortex-m-rt = "0.7"
+cpu-time = "1"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 critical-section = "1"
 croner = "4"
@@ -348,6 +350,7 @@ tempfile = "3"
 textwrap = { version = "0.16", default-features = false }
 thiserror = { version = "2", default-features = false }
 tokio = "1"
+tokio-rustls = "0.26"
 tokio-tungstenite = { version = "0.30", default-features = false }
 toml = "1.1"
 # `log` is stated so a package built alone expands the tracing macros as the whole workspace does.

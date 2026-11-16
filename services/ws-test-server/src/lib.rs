@@ -8,13 +8,15 @@
     reason = "in-process test ws-server + ws client helpers; setup/protocol failures should fail the test fast"
 )]
 
-use std::net::TcpListener;
+use std::net::{Ipv6Addr, SocketAddr, TcpListener};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use actix_web::dev::ServerHandle;
 use actix_web::{App, HttpServer, web};
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ClientMessage, ServerMessage};
+use et_https_listener::tls;
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
 use et_ws_service::admin::AdminToken;
@@ -37,6 +39,9 @@ pub mod media;
 /// Actix workers per test hub; test traffic never needs more, and each worker repeats the module scan at startup.
 const TEST_HUB_WORKERS: usize = 2;
 
+/// The most sockets one actix worker holds open unless told otherwise, as actix itself defaults it.
+const ACTIX_MAX_CONNECTIONS: usize = 25_000;
+
 /// The admin bearer token every test hub accepts, so a test can drive the admin API.
 pub const ADMIN_TOKEN: &str = "test-admin-token";
 
@@ -48,6 +53,8 @@ const ROSTER_POLL_INTERVAL: Duration = Duration::from_millis(250);
 pub struct TestServer {
     pub base_url: String,
     pub ws_url: String,
+    /// The `/ws` URL of every address the hub listens on, [`TestServer::ws_url`] first.
+    pub ws_urls: Vec<String>,
     /// The hub's own storage root; unused by a [`start_clustered`] hub, whose root the caller shares between hubs.
     pub storage_dir: TempDir,
     /// What it takes to stop the hub.
@@ -73,12 +80,99 @@ pub struct HubControl {
     registry: WsAgentRegistry,
 }
 
+/// Run on each actix worker thread as it builds its app, before the hub's own services are mounted.
+///
+/// Mounted first because the modules service answers every path nothing earlier claimed.
+pub type ConfigureHook = Arc<dyn Fn(&mut web::ServiceConfig) + Send + Sync>;
+
+/// How a hub started by [`start_with`] is set up; the default is the hub [`start`] runs.
+#[derive(Clone)]
+#[non_exhaustive]
+pub struct HubOptions {
+    /// The hub's own settings, as `et-ws-server` reads them from `WS_*`; the admin token is always [`ADMIN_TOKEN`].
+    pub ws: WsConfig,
+    /// Actix worker threads, as `HTTP_WORKERS` sets them.
+    pub workers: usize,
+    /// The most sockets each worker holds open at once, as `HTTP_MAX_CONNECTIONS` sets it.
+    ///
+    /// Past it, actix stops accepting until one closes, so a hub holding more agents than this per worker raises it.
+    pub max_connections: usize,
+    /// Listen on `[::1]` as well as `127.0.0.1`.
+    ///
+    /// Each loopback address has its own range of ephemeral ports for clients connecting to it, and on macOS and
+    /// Windows one range holds about 16,000 sockets, so a client holding more than that spreads them over both.
+    pub ipv6: bool,
+    /// Called on each worker thread with that worker's app, so a caller can mount routes of its own beside the hub's.
+    pub configure: ConfigureHook,
+    /// Whether every listener speaks plain HTTP or HTTPS.
+    pub transport: Transport,
+}
+
+impl Default for HubOptions {
+    fn default() -> Self {
+        Self {
+            configure: Arc::new(|_cfg| {}),
+            ipv6: false,
+            max_connections: ACTIX_MAX_CONNECTIONS,
+            transport: Transport::Http,
+            workers: TEST_HUB_WORKERS,
+            ws: WsConfig::default(),
+        }
+    }
+}
+
+/// What a hub's listeners speak.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub enum Transport {
+    /// Plain HTTP, and `ws://` for agents.
+    Http,
+    /// HTTPS serving this TLS config, as `et-ws-server`'s secure listener does, and `wss://` for agents.
+    Https(Box<rustls::ServerConfig>),
+}
+
+impl Transport {
+    /// HTTPS with a pair self-signed for the loopback names, and a client config that trusts only that certificate.
+    #[must_use]
+    pub fn self_signed() -> (Self, Arc<rustls::ClientConfig>) {
+        let dir = TempDir::new().unwrap();
+        let (cert, key) = tls::generate_tls_certs(&dir.path().join("cert.pem"), &dir.path().join("key.pem"));
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(cert.clone()).unwrap();
+        let client = rustls::ClientConfig::builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        let server = tls::build_tls_server_config(cert, key);
+        (Self::Https(Box::new(server)), Arc::new(client))
+    }
+
+    /// The URL schemes this transport's clients use: the page's, then the websocket's.
+    const fn schemes(&self) -> (&'static str, &'static str) {
+        match self {
+            Self::Http => ("http", "ws"),
+            Self::Https(_) => ("https", "wss"),
+        }
+    }
+}
+
 /// Start an in-process ws-server on a free port with a temporary storage directory.
 ///
 /// Serves modules from the default module paths (same as production).
 #[must_use]
 pub fn start() -> TestServer {
-    start_listening(et_test_helpers::free_listener())
+    start_with(HubOptions::default())
+}
+
+/// Start an in-process ws-server set up as `options` says, on free ports with a temporary storage directory.
+#[must_use]
+pub fn start_with(options: HubOptions) -> TestServer {
+    let mut listeners = vec![et_test_helpers::free_listener()];
+    if options.ipv6 {
+        listeners.push(TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).unwrap());
+    }
+    let storage_dir = TempDir::new().unwrap();
+    let storage_config = StorageConfig::local(storage_dir.path());
+    spawn_hub(listeners, storage_dir, storage_config, options)
 }
 
 /// Start an in-process ws-server bound to a specific `port` with a temporary storage directory.
@@ -87,14 +181,10 @@ pub fn start() -> TestServer {
 /// connects to). Panics if the port is already in use.
 #[must_use]
 pub fn start_on(port: u16) -> TestServer {
-    start_listening(TcpListener::bind(("127.0.0.1", port)).unwrap())
-}
-
-/// Start an in-process ws-server on `listener` with a temporary storage directory.
-fn start_listening(listener: TcpListener) -> TestServer {
+    let listener = TcpListener::bind(("127.0.0.1", port)).unwrap();
     let storage_dir = TempDir::new().unwrap();
     let storage_config = StorageConfig::local(storage_dir.path());
-    spawn_hub(listener, storage_dir, storage_config, WsConfig::default())
+    spawn_hub(vec![listener], storage_dir, storage_config, HubOptions::default())
 }
 
 /// Start an in-process hub that shares its agents with every other hub on the NATS server at `nats_url`.
@@ -106,31 +196,41 @@ fn start_listening(listener: TcpListener) -> TestServer {
 /// in a test client sends the heartbeats a real agent would.
 #[must_use]
 pub fn start_clustered(nats_url: &str, storage_root: &Path) -> TestServer {
-    let mut ws_config = WsConfig::default();
-    ws_config.backplane = BackplaneConfig::Nats(nats_url.to_owned());
-    ws_config.connection_timeout = None;
+    let mut options = HubOptions::default();
+    options.ws.backplane = BackplaneConfig::Nats(nats_url.to_owned());
+    options.ws.connection_timeout = None;
     spawn_hub(
-        et_test_helpers::free_listener(),
+        vec![et_test_helpers::free_listener()],
         TempDir::new().unwrap(),
         StorageConfig::local(storage_root),
-        ws_config,
+        options,
     )
 }
 
-/// Run one hub on `listener` on its own thread and actix system, returning once it is serving and on its backplane.
+/// Run one hub on `listeners` on its own thread and actix system, returning once it is serving and on its backplane.
+///
+/// The first listener names [`TestServer::base_url`] and [`TestServer::ws_url`].
 fn spawn_hub(
-    listener: TcpListener,
+    listeners: Vec<TcpListener>,
     storage_dir: TempDir,
     storage_config: StorageConfig,
-    mut ws_config: WsConfig,
+    options: HubOptions,
 ) -> TestServer {
-    let port = listener.local_addr().unwrap().port();
+    let addrs: Vec<SocketAddr> = listeners
+        .iter()
+        .map(|listener| listener.local_addr().unwrap())
+        .collect();
+    let HubOptions {
+        configure,
+        max_connections,
+        transport,
+        workers,
+        ws: mut ws_config,
+        ..
+    } = options;
+    let schemes = transport.schemes();
     ws_config.admin_token = AdminToken::try_from(ADMIN_TOKEN.to_owned()).unwrap();
-    // The default search paths, with the page module named outright. The server has no default for which module it
-    // serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
-    let mut modules_config = ModulesConfig::default();
-    modules_config.root = "@edge-toolkit/et-ws-server-static".to_string();
-    let modules_config = modules_config;
+    let modules_config = page_modules();
     let registry = WsAgentRegistry::default();
     let server_registry = registry.clone();
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();
@@ -154,14 +254,20 @@ fn spawn_hub(
                     .app_data(registry.clone())
                     .app_data(backplane_data.clone())
                     .app_data(storage.clone())
+                    .configure(|cfg| configure(cfg))
                     .configure(|cfg| configure_ws(cfg, &ws_config))
                     .configure(|cfg| configure_storage::<AgentSession>(cfg, &storage))
                     .configure(|cfg| configure_modules(cfg, &modules))
             })
-            .workers(TEST_HUB_WORKERS)
-            .listen(listener)
-            .unwrap()
-            .run();
+            .workers(workers)
+            .max_connections(max_connections);
+            let server = listeners
+                .into_iter()
+                .fold(server, |server, listener| match &transport {
+                    Transport::Http => server.listen(listener).unwrap(),
+                    Transport::Https(config) => server.listen_rustls_0_23(listener, (**config).clone()).unwrap(),
+                })
+                .run();
             ready_tx.send((server.handle(), backplane)).unwrap();
             server.await.unwrap();
             delivery.stop().await;
@@ -170,15 +276,46 @@ fn spawn_hub(
 
     // Bound before the handle is sent, so the listener already queues connections by the time this returns.
     let (handle, backplane) = ready_rx.recv_timeout(Duration::from_secs(20)).unwrap();
+    let control = HubControl {
+        handle,
+        backplane,
+        registry,
+    };
+    test_server(&addrs, schemes, storage_dir, control)
+}
+
+/// The default module search paths, with the page module named outright.
+///
+/// The server has no default for which module it serves at `/` -- that is the deployment's business, and this
+/// stand-in is a deployment.
+#[expect(
+    clippy::single_call_fn,
+    reason = "names the stand-in deployment's modules apart from starting the hub"
+)]
+fn page_modules() -> ModulesConfig {
+    let mut modules_config = ModulesConfig::default();
+    modules_config.root = "@edge-toolkit/et-ws-server-static".to_string();
+    modules_config
+}
+
+/// The [`TestServer`] for a hub serving on `addrs` under the page and websocket `schemes`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "turns a running hub's addresses into the URLs its callers connect to"
+)]
+fn test_server(
+    addrs: &[SocketAddr],
+    (page_scheme, ws_scheme): (&str, &str),
+    storage_dir: TempDir,
+    control: HubControl,
+) -> TestServer {
+    let ws_urls: Vec<String> = addrs.iter().map(|addr| format!("{ws_scheme}://{addr}/ws")).collect();
     TestServer {
-        base_url: format!("http://127.0.0.1:{port}"),
-        ws_url: format!("ws://127.0.0.1:{port}/ws"),
+        base_url: format!("{page_scheme}://{}", addrs.first().unwrap()),
+        ws_url: ws_urls.first().unwrap().clone(),
+        ws_urls,
         storage_dir,
-        control: HubControl {
-            handle,
-            backplane,
-            registry,
-        },
+        control,
     }
 }
 
