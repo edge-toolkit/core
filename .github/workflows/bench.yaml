@@ -1,0 +1,147 @@
+---
+name: bench
+
+# The et-gpu-probe benchmarks on every platform test.yaml runs on, one job each.
+# Each job uploads its results file as an artifact, ready to download into libs/gpu-probe/benches/results/. The job
+# then fails unless the repository holds that runner's file and this run's latencies match it within the factor
+# `bench-gpu-probe-compare` allows. Every runner is named by its label, since a hosted runner reports no maker or
+# model that stays the same from one run to the next.
+#
+# Not path-gated: a benchmark is slowed as readily by a dependency or a toolchain bump as by the probe's own code.
+"on":
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
+
+jobs:
+  gpu-probe:
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      # Every runner test.yaml runs on, whether on each pull request or on dispatch alone.
+      # Its ubuntu-26.04 is left out: ubuntu-latest is that image, so it would measure the same runner twice.
+      # `machine` names the results file, and `system` is the OS name the bench task adds to it.
+      # `linker` is the linker the runner's Rust target needs from mise, where it needs one: config.macos.toml links
+      # through conda:lld, and x64 Windows builds for the gnullvm target, which links through llvm-mingw's clang. The
+      # arm64 Windows runner needs none -- test.yaml's `minimal` job builds the whole workspace there without one.
+      matrix:
+        include:
+          - os: ubuntu-latest
+            machine: gha-ubuntu-latest
+            system: linux
+            linker: ""
+            timeout: 45
+          - os: ubuntu-24.04-arm
+            machine: gha-ubuntu-24-04-arm
+            system: linux
+            linker: ""
+            timeout: 45
+          - os: macos-latest
+            machine: gha-macos-latest
+            system: macos
+            linker: conda:lld
+            timeout: 45
+          - os: macos-26-intel
+            machine: gha-macos-26-intel
+            system: macos
+            linker: conda:lld
+            timeout: 90
+          - os: windows-latest
+            machine: gha-windows-latest
+            system: windows
+            linker: github:mstorsjo/llvm-mingw
+            timeout: 60
+          - os: windows-11-arm
+            machine: gha-windows-11-arm
+            system: windows
+            linker: ""
+            timeout: 60
+    # Only rust, as in test.yaml's `minimal` job: the bench needs the toolchain and the tools its tasks call.
+    env:
+      MISE_ENV: rust
+      RESULTS: libs/gpu-probe/benches/results/${{ matrix.machine }}-${{ matrix.system }}.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
+      # A hosted Linux runner has no GPU, so lavapipe gives wgpu a Vulkan adapter to probe.
+      - name: Install Mesa Vulkan drivers (lavapipe)
+        if: runner.os == 'Linux'
+        uses: $/.github/actions/install-lavapipe
+
+      # install-mise rather than install-mise-tools, whose full `mise install` cannot complete on every runner here.
+      - name: Install mise
+        uses: $/.github/actions/install-mise
+
+      # The toolchain, its linker, and the tools bench-gpu-probe and bench-gpu-probe-compare run, in one install.
+      # A second `mise` call before the shim is removed fails on Windows, where the first install leaves a `mise`
+      # shim that then invokes itself:
+      #   mise: recursive shim invocation detected for mise: /c/Users/runneradmin/AppData/Local/mise/shims/mise
+      # on commit https://github.com/edge-toolkit/core/commit/5b595380636f2e85e16e0bd463f4d19c8354dff2 at
+      # https://github.com/edge-toolkit/core/actions/runs/43864664483/job/133290028442.
+      # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
+      - name: Install the tools the bench needs
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LINKER: ${{ matrix.linker }}
+        run: mise install rust aqua:01mf02/jaq yq ripgrep github:uutils/coreutils ${LINKER:+"$LINKER"}
+
+      - name: Remove mise shim
+        uses: $/.github/actions/remove-mise-shim
+
+      # The bench writes over the repository's file, so the recorded one is set aside first.
+      - name: Set aside the recorded results
+        run: |
+          if [ -f "$RESULTS" ]; then
+            mkdir -p target
+            cp "$RESULTS" target/recorded-results.yaml
+          fi
+
+      - name: Benchmark
+        timeout-minutes: 40
+        env:
+          MACHINE: ${{ matrix.machine }}
+        run: mise run bench-gpu-probe "$MACHINE"
+
+      - name: Upload the results
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-probe-bench-${{ matrix.machine }}-${{ matrix.system }}
+          path: ${{ env.RESULTS }}
+          if-no-files-found: error
+
+      # A runner the repository holds no results for fails too, so a platform is never left unmeasured unnoticed.
+      # Its artifact is already uploaded by now, ready to download into the repository.
+      # The factor is 8 because a hosted runner label is a pool of machines. Between two runs of one tree,
+      # ubuntu-latest's slowest benchmark moved 5.09 times and macos-26-intel's 2.94, while ubuntu-24.04-arm stayed
+      # within 1.11, so a factor of 8 still fails a regression of an order of magnitude without failing on the pool.
+      - name: Compare with the recorded results
+        run: |
+          if [ ! -f target/recorded-results.yaml ]; then
+            echo "::error file=$RESULTS::$RESULTS is not in the repository; add this run's artifact there"
+            exit 1
+          fi
+          mise run bench-gpu-probe-compare target/recorded-results.yaml "$RESULTS" --factor 8

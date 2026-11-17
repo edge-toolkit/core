@@ -15,16 +15,78 @@
 //! value with no shader at all, so the driver or the output stage converts the value to the target's format. The fixed-
 //! function set -- [`BLENDS`], [`FILTERS`] and [`RASTERS`] -- draws with a shader that only hands the blend unit, the
 //! texture unit or the rasterizer a constant, so the arithmetic read back is that stage's.
+//!
+//! [`f16_shaders`] puts the shader probes again in half precision, which WebGPU offers as the `shader-f16` feature.
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 #[cfg(feature = "registry")]
 pub use platforms::OS;
 
+/// Each mathematical function a probe evaluates, from `sqrt` to `tanh`, of `angle` and `three`, in output order.
+///
+/// The functions are the methods of whichever float type the two are, so one list serves `f64` and `f32` alike.
+macro_rules! function_probes {
+    ($angle:expr, $three:expr) => {
+        [
+            $three.sqrt(),
+            $three.sqrt().recip(),
+            $angle.sin(),
+            $angle.cos(),
+            $angle.tan(),
+            $angle.exp(),
+            $three.ln(),
+            $three.powf($angle),
+            $angle.atan2($three),
+            $angle.tanh(),
+        ]
+    };
+}
+
+/// The GLSL that names each of [`INPUTS`] in a fragment shader's `main` and takes the sum some probes use.
+///
+/// GLSL ES 1.00 and 3.00 spell it alike, so every fragment shader the crate writes opens its `main` with it.
+macro_rules! glsl_inputs {
+    () => {
+        "    float ulpBase = probeIn[0];
+    float negatedSquare = probeIn[1];
+    float big = probeIn[2];
+    float one = probeIn[3];
+    float angle = probeIn[4];
+    float three = probeIn[5];
+    float tiny = probeIn[6];
+    float oneHalf = probeIn[7];
+
+    float sum = big;
+    for (int turn = 0; turn < 4; turn++) {
+        sum = sum + one;
+    }
+"
+    };
+}
+
+/// The GLSL ES 3.00 that ends a fragment shader's `main`, writing the four bytes of `bits` to the pixel drawn.
+///
+/// They are written lowest first, as the pixel's red, green, blue and alpha.
+macro_rules! glsl_write_bits {
+    () => {
+        "    probeOut = vec4(
+        float(bits & 255u),
+        float((bits >> 8) & 255u),
+        float((bits >> 16) & 255u),
+        float(bits >> 24)
+    ) / 255.0;
+}
+"
+    };
+}
+
+mod batch;
 mod canvas;
 mod clear;
 mod fixed;
 mod format;
+mod half_precision;
 #[cfg(feature = "native")]
 pub mod native;
 #[cfg(feature = "registry")]
@@ -32,6 +94,7 @@ mod registry;
 #[cfg(feature = "registry")]
 mod sighting;
 
+pub use self::batch::{Batch, Glsl, NO_GLSL_BUILTIN, TRIANGLE, WEBGL1, WEBGL1_COMBINED, WEBGL2_COMBINED, batched};
 pub use self::canvas::{
     Alteration, CANVAS, CANVAS_BROWSERLEAKS, KNOWN_BLOCK, KNOWN_SIZE, ReadLength, alteration, known_colour,
     known_scene, pixel_hash,
@@ -42,10 +105,13 @@ pub use self::fixed::{
     Side, coverage, fixed_function_reference,
 };
 pub use self::format::Format;
+pub use self::half_precision::{
+    F16_INPUTS, WEBGPU_F16, WEBGPU_F16_COMBINED, f16_combined_shader, f16_reference, f16_shaders,
+};
 #[cfg(feature = "registry")]
 pub use self::registry::every_sighting;
 #[cfg(feature = "registry")]
-pub use self::sighting::{Backend, Browser, GpuVendor, RowError, Sighting, Window};
+pub use self::sighting::{Backend, Browser, GpuVendor, Named, RowError, Sighting, Window};
 
 /// How many expressions the probe set evaluates.
 pub const PROBE_COUNT: usize = 16;
@@ -134,8 +200,8 @@ const PROBES: [(&str, &str, &str); PROBE_COUNT] = [
     ),
 ];
 
-/// Where in output order the probes of mathematical functions start, which run up to the last probe.
-const FIRST_FUNCTION: usize = 6;
+/// Where in output order the probes of mathematical functions start, at `sqrt`, which run up to `dot`.
+const FIRST_FUNCTION: usize = 5;
 
 /// The vertex shader every fragment probe is drawn with: one point covering the single pixel that is read back.
 pub const VERTEX_SHADER: &str = "#version 300 es
@@ -146,53 +212,32 @@ void main() {
 ";
 
 /// The part of every fragment probe shader that comes before its expression.
-const FRAGMENT_HEAD: &str = "#version 300 es
-precision highp float;
-precision highp int;
-uniform float probeIn[8];
-out vec4 probeOut;
-
-void main() {
-    float ulpBase = probeIn[0];
-    float negatedSquare = probeIn[1];
-    float big = probeIn[2];
-    float one = probeIn[3];
-    float angle = probeIn[4];
-    float three = probeIn[5];
-    float tiny = probeIn[6];
-    float oneHalf = probeIn[7];
-
-    float sum = big;
-    for (int turn = 0; turn < 4; turn++) {
-        sum = sum + one;
-    }
-
-    uint bits = floatBitsToUint(";
+const FRAGMENT_HEAD: &str = concat!(
+    "#version 300 es\nprecision highp float;\nprecision highp int;\nuniform float probeIn[8];\nout vec4 probeOut;\n\n",
+    "void main() {\n",
+    glsl_inputs!(),
+    "\n    uint bits = floatBitsToUint("
+);
 
 /// The part of every fragment probe shader that comes after its expression.
 ///
 /// It writes the result's four bytes, lowest first, as the red, green, blue and alpha of the one pixel drawn.
-const FRAGMENT_TAIL: &str = ");
-    probeOut = vec4(
-        float(bits & 255u),
-        float((bits >> 8) & 255u),
-        float((bits >> 16) & 255u),
-        float(bits >> 24)
-    ) / 255.0;
-}
-";
+const FRAGMENT_TAIL: &str = concat!(");\n", glsl_write_bits!());
 
 /// The part of every compute probe shader that comes before the number of words it writes.
 const SHADER_OPEN: &str = "
 @group(0) @binding(0) var<storage, read>       probeIn  : array<f32, 8>;
-@group(0) @binding(1) var<storage, read_write> probeOut : array<u32, ";
+@group(0) @binding(1) var<storage, read_write> probeOut : array<";
 
-/// The part of every compute probe shader between the number of words it writes and its expressions.
-const SHADER_HEAD: &str = ">;
+/// The part of every compute probe shader between the number of words it writes and the names it gives its inputs.
+const SHADER_ENTRY: &str = ">;
 
 @compute @workgroup_size(1)
 fn main() {
-    let ulpBase = probeIn[0];
+";
+
+/// The part of an f32 compute probe shader that names each of [`INPUTS`] and takes the sum some probes use.
+const SHADER_INPUTS: &str = "    let ulpBase = probeIn[0];
     let negatedSquare = probeIn[1];
     let big = probeIn[2];
     let one = probeIn[3];
@@ -328,6 +373,11 @@ impl ProbeSet {
                 reference: fixed_function_reference(),
                 choices: &fixed::CHOICES,
             },
+            WEBGPU_F16 | WEBGPU_F16_COMBINED => Self {
+                names: PROBES.iter().map(|probe| probe.0).collect(),
+                reference: f16_reference().to_vec(),
+                choices: &half_precision::F16_CHOICES,
+            },
             _ => Self {
                 names: PROBES.iter().map(|probe| probe.0).collect(),
                 reference: reference().to_vec(),
@@ -363,12 +413,27 @@ pub fn combined_shader() -> String {
 
 /// A WGSL compute shader that writes the bits of each of `expressions` to a word of its own, in order.
 fn compute_shader(expressions: &[&str]) -> String {
-    let writes: Vec<String> = expressions
+    let words: Vec<String> = expressions
+        .iter()
+        .map(|expression| format!("bitcast<u32>({expression})"))
+        .collect();
+    wgsl_compute(("", "u32"), SHADER_INPUTS, &words)
+}
+
+/// A WGSL compute shader that opens with `enable`, names its inputs as `inputs` does, and writes each of `words`.
+///
+/// Each of `words` is an expression of the type `word`, one 32-bit word, written to an element of its own, in order.
+pub(crate) fn wgsl_compute((enable, word): (&str, &str), inputs: &str, words: &[String]) -> String {
+    let writes: Vec<String> = words
         .iter()
         .enumerate()
-        .map(|(word, expression)| format!("    probeOut[{word}] = bitcast<u32>({expression});\n"))
+        .map(|(index, bits)| format!("    probeOut[{index}] = {bits};\n"))
         .collect();
-    format!("{SHADER_OPEN}{}{SHADER_HEAD}{}}}\n", expressions.len(), writes.concat())
+    format!(
+        "{enable}{SHADER_OPEN}{word}, {}{SHADER_ENTRY}{inputs}{}}}\n",
+        words.len(),
+        writes.concat()
+    )
 }
 
 /// Each probe's name beside the GLSL ES 3.00 fragment shader that evaluates it, in output order.
@@ -407,33 +472,60 @@ pub(crate) const fn nearest(value: f64) -> f32 {
 )]
 pub fn reference() -> [u32; PROBE_COUNT] {
     let [ulp_base, negated_square, big, one, angle, three, tiny, half] = INPUTS;
-    let wide_angle = f64::from(angle);
-    let wide_three = f64::from(three);
+    in_order(
+        [
+            (ulp_base * ulp_base + negated_square).to_bits(),
+            ulp_base.mul_add(ulp_base, negated_square).to_bits(),
+            (swamped_sum(big, one) - big).to_bits(),
+            (one / three).to_bits(),
+            (tiny * half).to_bits(),
+        ],
+        functions(f64::from(angle), f64::from(three)).map(|value| nearest(value).to_bits()),
+        dot_in_order(big, one, 0.0_f32).to_bits(),
+    )
+}
+
+/// `big` with `one` added four times, one at a time: the sum the `swamped_sum` probe takes `big` from.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "the sum is of floats, f32 or f16, whose addition rounds and never panics"
+)]
+pub(crate) fn swamped_sum<Float>(big: Float, one: Float) -> Float
+where
+    Float: core::ops::AddAssign + Copy,
+{
     let mut sum = big;
     for _step in 0_u32..4_u32 {
         sum += one;
     }
-    [
-        (ulp_base * ulp_base + negated_square).to_bits(),
-        ulp_base.mul_add(ulp_base, negated_square).to_bits(),
-        (sum - big).to_bits(),
-        (one / three).to_bits(),
-        (tiny * half).to_bits(),
-        three.sqrt().to_bits(),
-        nearest(wide_three.sqrt().recip()).to_bits(),
-        nearest(wide_angle.sin()).to_bits(),
-        nearest(wide_angle.cos()).to_bits(),
-        nearest(wide_angle.tan()).to_bits(),
-        nearest(wide_angle.exp()).to_bits(),
-        nearest(wide_three.ln()).to_bits(),
-        nearest(wide_three.powf(wide_angle)).to_bits(),
-        nearest(wide_angle.atan2(wide_three)).to_bits(),
-        nearest(wide_angle.tanh()).to_bits(),
-        [big * one, one * one, one * one, -big * one]
-            .into_iter()
-            .fold(0.0_f32, |total, product| total + product)
-            .to_bits(),
-    ]
+    sum
+}
+
+/// The `dot` probe's `big + one + one - big`, each product with `one` summed in order from `zero`.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "the products and sum are of floats, f32 or f16, whose arithmetic rounds and never panics"
+)]
+pub(crate) fn dot_in_order<Float>(big: Float, one: Float, zero: Float) -> Float
+where
+    Float: core::ops::Add<Output = Float> + core::ops::Mul<Output = Float> + core::ops::Neg<Output = Float> + Copy,
+{
+    [big * one, one * one, one * one, -big * one]
+        .into_iter()
+        .fold(zero, |total, product| total + product)
+}
+
+/// The exact value of each mathematical function a probe evaluates, from `sqrt` to `tanh`, as near as f64 holds it.
+///
+/// `angle` and `three` are the inputs of those names.
+pub(crate) fn functions(angle: f64, three: f64) -> [f64; 10] {
+    function_probes!(angle, three)
+}
+
+/// A probe set's answers in output order: the five exact probes before `sqrt`, the functions, and `dot`.
+pub(crate) fn in_order(exact: [u32; 5], functions: [u32; 10], dot: u32) -> [u32; PROBE_COUNT] {
+    let mut answers = exact.into_iter().chain(functions).chain([dot]);
+    core::array::from_fn(|_probe| answers.next().unwrap_or_default())
 }
 
 /// The bits of each probe as the CPU this runs on answers it, in output order.
@@ -445,17 +537,8 @@ pub fn reference() -> [u32; PROBE_COUNT] {
 #[must_use]
 pub fn host() -> [u32; PROBE_COUNT] {
     let [_, _, _, _, angle, three, _, _] = core::hint::black_box(INPUTS);
-    let functions = [
-        three.sqrt().recip(),
-        angle.sin(),
-        angle.cos(),
-        angle.tan(),
-        angle.exp(),
-        three.ln(),
-        three.powf(angle),
-        angle.atan2(three),
-        angle.tanh(),
-    ];
+    // f32's `sqrt` is correctly rounded on every platform, so it gives the reference's answer; the rest need not.
+    let functions = function_probes!(angle, three);
     let mut bits = reference();
     for (answer, function) in bits.iter_mut().skip(FIRST_FUNCTION).zip(functions) {
         *answer = function.to_bits();
@@ -477,7 +560,7 @@ pub enum Answer {
 
 /// What one device returned for the probe set through one interface.
 pub struct Signature {
-    /// The interface the probes ran through: [`WEBGPU`], [`WEBGPU_COMBINED`], [`WEBGL2`], [`HOST`] or [`WASI_NN`].
+    /// The interface the probes ran through: [`WEBGPU`], [`WEBGPU_F16`], [`WEBGL2`], [`HOST`] or another of the names.
     interface: &'static str,
     /// What the device did with each probe, in output order.
     observed: Vec<Answer>,
@@ -488,6 +571,12 @@ impl Signature {
     #[must_use]
     pub const fn new(interface: &'static str, observed: Vec<Answer>) -> Self {
         Self { interface, observed }
+    }
+
+    /// The interface the probes ran through, as the registry files a signature measured through it.
+    #[must_use]
+    pub const fn interface(&self) -> &'static str {
+        self.interface
     }
 
     /// Every result as a hex word, `????????` where the device gave none, in output order.
@@ -613,8 +702,8 @@ impl Signature {
 
     /// One line per probe, saying what the device did with it.
     ///
-    /// An answered probe gives its name, the device's bits, the correct bits, and the distance between them in units
-    /// in the last place -- of the f32, or of the format a clear or a blend wrote. A refused one gives its name and
+    /// An answered probe gives its name, the device's bits, the correct bits, and the distance between them in units in
+    /// the last place -- of the f32 or f16, or of the format a clear or a blend wrote. A refused one gives its name and
     /// the reason.
     #[must_use]
     pub fn describe(&self) -> Vec<String> {

@@ -43,8 +43,8 @@ pub enum MeasureError {
 /// Measure every adapter in `opened` and this machine's CPU, and add what they answer to `registry`.
 ///
 /// What became of each signature is written to `out`. An adapter that did not open, or would not answer, is said so
-/// and passed over: the others are measured all the same, and the count of those passed over is the error returned
-/// once every other one is recorded.
+/// and passed over: the others are measured all the same, and the count of those passed over is the error returned once
+/// every other one is recorded.
 pub fn measure<Out>(
     registry: &Registry,
     opened: Vec<Result<Gpu, NativeError>>,
@@ -84,7 +84,7 @@ where
 }
 
 /// Every probe set `gpu` answers, each beside the label and row a sighting of it is recorded with.
-fn gpu_signatures(gpu: &Gpu) -> Result<[Measured; 4], NativeError> {
+fn gpu_signatures(gpu: &Gpu) -> Result<[Measured; 6], NativeError> {
     let info = gpu.info();
     let (system, arch) = HERE;
     let mut seen = row(&[
@@ -104,27 +104,15 @@ fn gpu_signatures(gpu: &Gpu) -> Result<[Measured; 4], NativeError> {
         info.name,
         gpu.backend()
     );
-    Ok([
-        ("webgpu-split", block_on(gpu.signature())?, label.clone(), seen.clone()),
-        (
-            "webgpu-combined",
-            block_on(gpu.combined_signature())?,
-            label.clone(),
-            seen.clone(),
-        ),
-        (
-            "webgpu-clear",
-            block_on(gpu.clear_signature())?,
-            label.clone(),
-            seen.clone(),
-        ),
-        (
-            "webgpu-fixed-function",
-            block_on(gpu.fixed_function_signature())?,
-            label,
-            seen,
-        ),
-    ])
+    let signatures = [
+        ("webgpu-split", block_on(gpu.signature())?),
+        ("webgpu-combined", block_on(gpu.combined_signature())?),
+        ("webgpu-clear", block_on(gpu.clear_signature())?),
+        ("webgpu-fixed-function", block_on(gpu.fixed_function_signature())?),
+        ("webgpu-f16-split", block_on(gpu.f16_signature())?),
+        ("webgpu-f16-combined", block_on(gpu.f16_combined_signature())?),
+    ];
+    Ok(signatures.map(|(interface, signature)| (interface, signature, label.clone(), seen.clone())))
 }
 
 /// Whose GPU an adapter is: by the vendor `id` it reports, or by its `name` where the backend, like Metal, gives none.

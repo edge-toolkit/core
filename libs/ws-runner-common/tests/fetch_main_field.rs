@@ -7,22 +7,22 @@
 #![cfg(test)]
 
 use std::io::{Read as _, Write as _};
-use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
 
-use et_test_helpers::reserve_port;
+use et_test_helpers::free_listener;
 use et_ws_runner_common::{BootstrapError, fetch_main_field};
 
 /// The `package.json` the stub hub serves once it admits to having the module.
 const PACKAGE_JSON: &str = r#"{"main":"index.js"}"#;
 
-/// Serve `misses` 404s on `port`, then one 200 carrying `body`, then stop.
+/// Serve `misses` 404s on a free port, then one 200 carrying `body`, then stop; the port is given back.
 ///
 /// Deliberately not an HTTP library: the point is to choose the status of each individual response, and a
 /// handful of bytes down a `TcpStream` does that without pulling a server framework into a low-level test.
-fn spawn_hub(port: u16, misses: usize, body: &'static str) -> JoinHandle<()> {
-    let listener = TcpListener::bind(("127.0.0.1", port)).unwrap();
-    thread::spawn(move || {
+fn spawn_hub(misses: usize, body: &'static str) -> (u16, JoinHandle<()>) {
+    let listener = free_listener();
+    let port = listener.local_addr().unwrap().port();
+    let hub = thread::spawn(move || {
         let mut answered = 0_usize;
         for stream in listener.incoming() {
             let Ok(mut stream) = stream else { break };
@@ -43,7 +43,8 @@ fn spawn_hub(port: u16, misses: usize, body: &'static str) -> JoinHandle<()> {
                 break;
             }
         }
-    })
+    });
+    (port, hub)
 }
 
 /// Point a REST client at the stub hub on `port`.
@@ -53,8 +54,7 @@ fn client_for(port: u16) -> et_rest_client::Client {
 
 /// Fetch the module's `main` from a hub that answers `misses` 404s before serving it.
 async fn main_field_after(misses: usize) -> String {
-    let port = reserve_port();
-    let hub = spawn_hub(port, misses, PACKAGE_JSON);
+    let (port, hub) = spawn_hub(misses, PACKAGE_JSON);
 
     let main = fetch_main_field(&client_for(port), "et-ws-math1").await.unwrap();
 
@@ -74,7 +74,6 @@ async fn fetch_main_field_retries_until_the_hub_serves_the_module() {
 
 #[tokio::test(start_paused = true)]
 async fn fetch_main_field_gives_up_once_the_wait_window_is_spent() {
-    let port = reserve_port();
     // A hub that never admits to having the module: the count of 404s to serve is larger than the window can
     // ask for, so every attempt misses and the loop runs until it is out of time. That is a genuinely absent
     // module rather than a slow one, and it has to be reported instead of retried forever -- a runner stuck
@@ -86,7 +85,7 @@ async fn fetch_main_field_gives_up_once_the_wait_window_is_spent() {
     //
     // The handle is dropped rather than joined: this hub never stops answering, so there is nothing to wait
     // for. Each test runs in its own process, so the listener goes away with it.
-    let _hub = spawn_hub(port, usize::MAX, PACKAGE_JSON);
+    let (port, _hub) = spawn_hub(usize::MAX, PACKAGE_JSON);
 
     let error = fetch_main_field(&client_for(port), "et-ws-never-served")
         .await
@@ -102,10 +101,9 @@ async fn fetch_main_field_gives_up_once_the_wait_window_is_spent() {
 
 #[tokio::test]
 async fn fetch_main_field_rejects_a_package_json_without_a_main_field() {
-    let port = reserve_port();
     // A body that parses but names no entry point is a property of the module rather than of timing, so it
     // must fail on the first attempt instead of being retried for the whole window.
-    let hub = spawn_hub(port, 0, r#"{"name":"et-ws-math1"}"#);
+    let (port, hub) = spawn_hub(0, r#"{"name":"et-ws-math1"}"#);
 
     let error = fetch_main_field(&client_for(port), "et-ws-math1").await.unwrap_err();
 

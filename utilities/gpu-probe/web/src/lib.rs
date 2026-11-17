@@ -1,5 +1,6 @@
 //! The GPU probe sets and canvas fingerprints as WASM, for a page to put to the browser's WebGL 2 with
-//! [`probe_webgl2`], to each of its WebGPU adapters with [`probe_webgpu`], and to its 2-D canvas with [`probe_canvas`].
+//! [`probe_webgl2`], to each of its WebGPU adapters with [`probe_webgpu`], in `f32` and in `f16`, and to its 2-D canvas
+//! with [`probe_canvas`].
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(
     target_arch = "wasm32",
@@ -17,8 +18,10 @@ use et_web as _;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::{JsError, wasm_bindgen};
 
+mod batch;
 mod canvas;
 mod targets;
+mod webgl1;
 mod webgl2;
 
 /// Take both canvas fingerprints, and give back what each answered.
@@ -61,9 +64,21 @@ pub fn probe_canvas() -> Result<String, JsError> {
 pub fn probe_webgl2() -> Result<String, JsError> {
     let (signatures, problems) = gather([
         ("webgl2-split", webgl2::signature()),
+        (et_gpu_probe::WEBGL2_COMBINED, webgl2::combined_signature()),
         ("webgl2-clear", targets::clear_signature()),
         ("webgl2-fixed-function", targets::fixed_function_signature()),
     ]);
+    let answer = json!({ "signatures": signatures, "problems": problems });
+    Ok(serde_json::to_string(&answer)?)
+}
+
+/// Put the probe set to the browser's WebGL 1, a shader a probe and then all in one, and give back what each answered.
+///
+/// The answer is JSON text as [`probe_webgl2`] gives it. A browser that gives no WebGL 1, or none with highp float in
+/// its fragment shaders, answers with one problem saying so.
+#[wasm_bindgen]
+pub fn probe_webgl1() -> Result<String, JsError> {
+    let (signatures, problems) = gather(webgl1::signatures());
     let answer = json!({ "signatures": signatures, "problems": problems });
     Ok(serde_json::to_string(&answer)?)
 }
@@ -94,6 +109,8 @@ pub async fn probe_webgpu(power: &str, fallback: bool) -> Result<String, JsError
                 ("webgpu-combined", gpu.combined_signature().await),
                 ("webgpu-clear", gpu.clear_signature().await),
                 ("webgpu-fixed-function", gpu.fixed_function_signature().await),
+                ("webgpu-f16-split", gpu.f16_signature().await),
+                ("webgpu-f16-combined", gpu.f16_combined_signature().await),
             ]);
             (signatures, gpu.report().lines, problems)
         }

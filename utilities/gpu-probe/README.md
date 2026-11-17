@@ -40,6 +40,19 @@ certificate covers localhost, each LAN address, and each address's `nip.io` name
 browser defence that treats a bare IP differently. `mise run build-gpu-probe-page` builds the WASM alone, into
 `static/pkg`.
 
+## On a static host
+
+A browser that cannot reach this machine -- Tor Browser, which sends everything through Tor -- can be probed from
+the page deployed to a public static host such as Vercel. This assembles the page, its WASM and the files the server
+serves beside it into `target/gpu-probe-site`, the directory to deploy:
+
+```bash
+mise run build-gpu-probe-site
+```
+
+With no server behind it, the page has no registry to add to, so instead of submit buttons it gives every submission
+as a line of JSON. Copy the lines into the `/submit` form of a server running here.
+
 ## Submitting
 
 `POST /register` takes one JSON object: the `interface` the signature was measured through, a `label`, the

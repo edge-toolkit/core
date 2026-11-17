@@ -27,6 +27,11 @@
     #status {
       white-space: pre-line;
     }
+    #lines {
+      width: 100%;
+      box-sizing: border-box;
+      font: 0.8rem ui-monospace, Menlo, Consolas, monospace;
+    }
     </style>
   </head>
   <body>
@@ -42,30 +47,44 @@
         <label for="browser_version">browser_version</label><input
           id="browser_version"
         >
-        <label for="os">os</label>
-        <select id="os">
+        <label for="os">os</label><input id="os" list="os-names">
+        <datalist id="os-names">
           <option>linux</option>
           <option>macos</option>
           <option>windows</option>
           <option>android</option>
           <option>ios</option>
-        </select>
+        </datalist>
         <label for="cpu_arch">cpu_arch</label><input id="cpu_arch">
-        <label for="window">window</label>
-        <select id="window">
+        <label for="window">window</label><input
+          id="window"
+          list="window-names"
+          value="normal"
+        >
+        <datalist id="window-names">
           <option>normal</option>
           <option>private</option>
-        </select>
+        </datalist>
         <label for="device">device</label><input id="device" size="40">
         <label for="defence">defence</label><input id="defence" size="40">
       </fieldset>
     </form>
     <p><button id="submit-all" disabled>Submit every probe set</button></p>
+    <div id="copy" hidden>
+      <p>
+        No gpu-probe-server serves this page, so nothing is submitted from it.
+        Copy these lines, one submission each, into the <code>/submit</code>
+        form of a running server.
+      </p>
+      <textarea id="lines" rows="8" readonly></textarea>
+      <p><button id="copy-lines">Copy the lines</button></p>
+    </div>
     <div id="gpus"></div>
     <script type="module">
     import { register } from "/register.js";
     import init, {
       probe_canvas,
+      probe_webgl1,
       probe_webgl2,
       probe_webgpu,
     } from "./pkg/et_int_gpu_probe_web.js";
@@ -73,10 +92,33 @@
     const field = (id) => document.getElementById(id);
     const status = field("status");
 
-    // Tell a driver how a run went, one console line per line of the status, each opening `gpu-probe: `. A browser
-    // with no WebDriver, Firefox among them, can be read this way from its own output.
-    const tell = (text) => {
-      for (const line of text.split("\n")) console.log(`gpu-probe: ${line}`);
+    // Whether a gpu-probe-server serves this page, which it is told by the registry being there to read. A static
+    // host, such as a Vercel deploy that Tor Browser can reach where it cannot reach a LAN, has no registry to add
+    // to, so there every submission is given as a line to paste into a server's /submit instead.
+    const served = await fetch("/signatures.yaml").then(
+      (response) => response.ok,
+      () => false,
+    );
+
+    // Tell a driver how a run went: in the console, one line per line of the status, each opening `gpu-probe: `,
+    // and to the server, which logs them. A browser with no WebDriver is read from whichever of the two reaches it.
+    // A post the server never takes, or does not answer within a few seconds, leaves the console lines standing, and
+    // is no failure of the probes themselves.
+    const statusWait = 5000;
+    const tell = async (text) => {
+      const lines = text.split("\n");
+      for (const line of lines) console.log(`gpu-probe: ${line}`);
+      if (!served) return;
+      try {
+        await fetch("/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: lines }),
+          signal: AbortSignal.timeout(statusWait),
+        });
+      } catch (error) {
+        console.log(`gpu-probe: the server was not told: ${error}`);
+      }
     };
 
     // The registry's name for the browser, and its full version, from what it says it is.
@@ -158,8 +200,8 @@
     // The GPU WebGL reports, where the browser unmasks it: its vendor, its name, and the API the browser drives it
     // through. ANGLE gives them as "ANGLE (vendor, model, API)" over OpenGL, and as
     // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan.
-    const webglGpu = () => {
-      const context = document.createElement("canvas").getContext("webgl2");
+    const webglGpu = (kind) => {
+      const context = document.createElement("canvas").getContext(kind);
       const debug = context?.getExtension("WEBGL_debug_renderer_info");
       const renderer = debug
         ? context.getParameter(debug.UNMASKED_RENDERER_WEBGL)
@@ -194,7 +236,9 @@
         ? "ios"
         : /Mac OS X/.test(agent)
         ? "macos"
-        : "linux";
+        : /Linux/.test(agent)
+        ? "linux"
+        : "unknown";
 
     // The API a browser's WebGPU runs on, which it does not say: the one each browser uses on that system, where there
     // is only one.
@@ -214,33 +258,23 @@
       return { x86: "x86_64", arm: "aarch64" }[hints.architecture] ?? "unknown";
     };
 
-    const vendors = [
-      "amd",
-      "apple",
-      "arm",
-      "broadcom",
-      "google",
-      "imgtec",
-      "intel",
-      "mesa",
-      "microsoft",
-      "nvidia",
-      "qualcomm",
-    ];
-
-    const vendorOf = (name) =>
-      vendors.includes(name.toLowerCase()) ? name.toLowerCase() : "unknown";
+    // The registry takes a vendor it has no name for as the name the browser gives, so only a vendor the browser
+    // does not name at all is unknown.
+    const vendorOf = (name) => name.trim().toLowerCase() || "unknown";
 
     // What the page was opened with: `device` names the machine, `defence` the privacy setting the browser has in
-    // force, and `submit` submits every probe set once probed.
+    // force, and `submit` submits every probe set once probed. `browser`, `browser_version` and `window` say what a
+    // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
+    // and Mullvad Browser always browses privately.
     const query = new URLSearchParams(location.search);
 
     const fillShared = async () => {
       field("device").value = query.get("device") ?? "";
       field("defence").value = query.get("defence") ?? "";
       const [browser, version] = await browserOf(navigator.userAgent);
-      field("browser").value = browser;
-      field("browser_version").value = version;
+      field("browser").value = query.get("browser") ?? browser;
+      field("browser_version").value = query.get("browser_version") ?? version;
+      field("window").value = query.get("window") ?? field("window").value;
       field("os").value = systemOf(navigator.userAgent);
       field("cpu_arch").value = await architectureOf();
     };
@@ -257,7 +291,7 @@
     // A row for one GPU: the shared part, with that GPU's fields where the registry puts them.
     const rowFor = (gpuFields) => {
       const row = sharedRow();
-      for (const name of ["gpu", "gpu_version", "backend"]) {
+      for (const name of ["gpu", "gpu_version", "backend", "reported"]) {
         const value = gpuFields[name].value.trim();
         if (value) row[name] = value;
       }
@@ -268,8 +302,9 @@
       return row;
     };
 
-    // A signature is submitted with its results, and one the browser answered with noise as withheld, with the reason.
-    const submit = async (signature, gpuFields, outcome) => {
+    // A signature's submission as JSON text: its results, or for one the browser answered with noise, withheld with
+    // the reason.
+    const submission = (signature, gpuFields) => {
       const body = {
         interface: signature.interface,
         label: gpuFields.label.value,
@@ -285,14 +320,21 @@
           body.results[name] = word;
         }
       }
-      const { kind, message } = await register(JSON.stringify(body));
+      return JSON.stringify(body);
+    };
+
+    const submit = async (signature, gpuFields, outcome) => {
+      const { kind, message } = await register(
+        submission(signature, gpuFields),
+      );
       outcome.className = kind;
       outcome.textContent = message;
       return kind;
     };
 
-    // A signature's section, with its submit button. It gives back the submitter, which says how the submission went:
-    // the registry's kind of answer, and a line naming the GPU and the interface.
+    // A signature's section, with its submit button where a server serves the page. It gives back its submission's
+    // line as it stands, and the submitter, which says how the submission went: the registry's kind of answer, and a
+    // line naming the GPU and the interface.
     const showSignature = (signature, gpuFields, into, title) => {
       const section = document.createElement("section");
       const heading = document.createElement("h3");
@@ -303,20 +345,27 @@
       const lines = document.createElement("pre");
       lines.textContent = signature.describe.join("\n");
       const outcome = document.createElement("p");
-      const button = document.createElement("button");
-      button.textContent = `Submit ${signature.interface}`;
-      button.addEventListener(
-        "click",
-        () => submit(signature, gpuFields, outcome),
-      );
-      section.append(heading, traits, button, outcome, lines);
+      section.append(heading, traits);
+      if (served) {
+        const button = document.createElement("button");
+        button.textContent = `Submit ${signature.interface}`;
+        button.addEventListener(
+          "click",
+          () => submit(signature, gpuFields, outcome),
+        );
+        section.append(button, outcome);
+      }
+      section.append(lines);
       into.append(section);
-      return async () => {
-        const kind = await submit(signature, gpuFields, outcome);
-        return {
-          kind,
-          line: `${title}, ${signature.interface}: ${outcome.textContent}`,
-        };
+      return {
+        line: () => submission(signature, gpuFields),
+        submit: async () => {
+          const kind = await submit(signature, gpuFields, outcome);
+          return {
+            kind,
+            line: `${title}, ${signature.interface}: ${outcome.textContent}`,
+          };
+        },
       };
     };
 
@@ -330,11 +379,13 @@
       legend.textContent = "This GPU's part of the row";
       fieldset.append(legend);
       const gpuFields = {};
-      for (const name of ["label", "gpu", "gpu_version", "backend"]) {
+      for (
+        const name of ["label", "gpu", "gpu_version", "backend", "reported"]
+      ) {
         const label = document.createElement("label");
         label.textContent = name;
         const input = document.createElement("input");
-        input.value = values[name];
+        input.value = values[name] ?? "";
         input.size = name === "label" ? 80 : 40;
         label.htmlFor = input.id = `${title}-${name}`;
         gpuFields[name] = input;
@@ -365,12 +416,15 @@
       const os = field("os").value;
       // The version is the row's to record; the label names only the browser, which keeps it to one line.
       const browser = field("browser").value;
-      const name = model || "unknown GPU";
+      // WebKit reports every GPU as an Apple one, so off Apple's systems that is what it said, not what the GPU is.
+      const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
+      const name = masked ? "unknown GPU" : model || "unknown GPU";
       return {
         label: `${name} through ${backend} on ${os} -- ${api} on ${browser}`,
-        gpu: vendorOf(vendor),
-        gpu_version: model,
+        gpu: masked ? "unknown" : vendorOf(vendor),
+        gpu_version: masked ? "" : model,
         backend,
+        reported: masked ? model : "",
       };
     };
 
@@ -456,25 +510,44 @@
       status.textContent = "Running the probes...";
       const submitters = [];
       const problems = [];
-      const webgl = webglGpu();
-      const webglValues = gpuValues(
-        webgl.vendor,
-        webgl.model,
-        webgl.backend,
-        "WebGL 2",
-      );
-      const webglAnswer = JSON.parse(probe_webgl2());
-      problems.push(...webglAnswer.problems);
-      submitters.push(
-        ...showGpu(`WebGL 2: ${webgl.model}`, webglValues, webglAnswer),
-      );
+      // WebGL 1 is its own row: a browser can offer it while withholding WebGL 2, and name another GPU through it.
+      for (
+        const [kind, title, probe] of [
+          ["webgl2", "WebGL 2", probe_webgl2],
+          ["webgl", "WebGL 1", probe_webgl1],
+        ]
+      ) {
+        const webgl = webglGpu(kind);
+        const webglValues = gpuValues(
+          webgl.vendor,
+          webgl.model,
+          webgl.backend,
+          title,
+        );
+        const webglAnswer = JSON.parse(probe());
+        problems.push(...webglAnswer.problems);
+        submitters.push(
+          ...showGpu(`${title}: ${webgl.model}`, webglValues, webglAnswer),
+        );
+      }
       await probeWebGpu(submitters, problems);
       // The canvas fingerprints say nothing of which GPU drew them, so their row names none.
       const canvasAnswer = JSON.parse(probe_canvas());
       problems.push(...canvasAnswer.problems);
+      // A label names the browser and system as their makers spell them, where a row gives its fixed name.
+      const spelled = {
+        "gnome-web": "GNOME Web",
+        "mullvad-browser": "Mullvad Browser",
+        "samsung-internet": "Samsung Internet",
+        "tor-browser": "Tor Browser",
+        ios: "iOS",
+        librewolf: "LibreWolf",
+        macos: "macOS",
+      };
       const named = (id) => {
         const value = field(id).value;
-        return value.charAt(0).toUpperCase() + value.slice(1);
+        return spelled[value] ??
+          value.charAt(0).toUpperCase() + value.slice(1);
       };
       const version = field("browser_version").value;
       const canvasValues = {
@@ -491,39 +564,61 @@
           ...canvasAnswer.withheld,
         ]
       ) {
-        tell(
+        await tell(
           shown.describe.map((line) => `${shown.interface}: ${line}`).join(
             "\n",
           ),
         );
       }
-      tell(canvasAnswer.report.map((line) => `read path ${line}`).join("\n"));
-      const submitAll = async () => {
-        const outcomes = [];
-        for (const submitOne of submitters) outcomes.push(await submitOne());
-        return outcomes;
-      };
-      field("submit-all").disabled = submitters.length === 0;
-      field("submit-all").addEventListener("click", submitAll);
+      await tell(
+        canvasAnswer.report.map((line) => `read path ${line}`).join("\n"),
+      );
       const missing = problems.length
         ? ` Not probed: ${problems.join("; ")}.`
         : "";
-      status.textContent = `Probed. Check each row, then submit.${missing}`;
-      if (query.has("submit")) {
-        // The status opens "Submitted." only when every set went in or was there already, and there was one to send:
-        // that is what a driver reading it is told the run succeeded by.
-        const outcomes = await submitAll();
-        const lines = outcomes.map((outcome) => outcome.line).join("\n");
-        const taken = outcomes.length > 0 &&
-          outcomes.every((outcome) => outcome.kind !== "bad");
-        const verdict = taken ? "Submitted." : "Not submitted.";
-        status.textContent = `${verdict}${missing}\n${lines}`;
-        tell(status.textContent);
+      if (!served) {
+        // The lines follow every edit to a row, so what is copied is what the rows say.
+        field("submit-all").hidden = true;
+        field("copy").hidden = false;
+        const fill = () => {
+          field("lines").value = submitters.map((shown) => shown.line()).join(
+            "\n",
+          );
+        };
+        fill();
+        document.addEventListener("input", fill);
+        field("copy-lines").addEventListener(
+          "click",
+          () => navigator.clipboard.writeText(field("lines").value),
+        );
+        status.textContent =
+          `Probed. Check each row, then copy the lines into a server's /submit.${missing}`;
+        await tell(status.textContent);
+      } else {
+        const submitAll = async () => {
+          const outcomes = [];
+          for (const shown of submitters) outcomes.push(await shown.submit());
+          return outcomes;
+        };
+        field("submit-all").disabled = submitters.length === 0;
+        field("submit-all").addEventListener("click", submitAll);
+        status.textContent = `Probed. Check each row, then submit.${missing}`;
+        if (query.has("submit")) {
+          // The status opens "Submitted." only when every set went in or was there already, and there was one to
+          // send: that is what a driver reading it is told the run succeeded by.
+          const outcomes = await submitAll();
+          const lines = outcomes.map((outcome) => outcome.line).join("\n");
+          const taken = outcomes.length > 0 &&
+            outcomes.every((outcome) => outcome.kind !== "bad");
+          const verdict = taken ? "Submitted." : "Not submitted.";
+          status.textContent = `${verdict}${missing}\n${lines}`;
+          await tell(status.textContent);
+        }
       }
     } catch (error) {
       status.className = "bad";
       status.textContent = `The probes could not run: ${error}`;
-      tell(status.textContent);
+      await tell(status.textContent);
     }
     </script>
   </body>

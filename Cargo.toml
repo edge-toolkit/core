@@ -174,6 +174,7 @@ fs-err = "3"
 futures-channel = { version = "0.3", default-features = false }
 futures-executor = "0.3"
 futures-util = "0.3"
+half = { version = "2.7", default-features = false }
 heck = "0.5"
 hostname = "0.4"
 humantime = "2"
@@ -238,6 +239,7 @@ onnx-extractor = "0.5"
 # ever needs them, and each drags its own SDK surface, so they stay off until asked for.
 object_store = { version = "0.14", default-features = false, features = ["aws", "fs"] }
 # Held to the release wgpu-hal's Metal backend is built on, so a device it hands out is one of these types.
+objc2 = { version = "0.6", default-features = false }
 objc2-metal = { version = "0.3", default-features = false }
 openapiv3 = "2"
 opentelemetry = "0.32"

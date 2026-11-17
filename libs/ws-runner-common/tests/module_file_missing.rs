@@ -8,10 +8,10 @@
 
 use std::io::{Read as _, Write as _};
 
-use et_test_helpers::reserve_port;
+use et_test_helpers::{free_listener, reserve_port};
 use et_ws_runner_common::{BootstrapError, fetch_module_file, is_module_file_missing};
 
-/// Answer one request on `port` with `status`, then stop.
+/// Answer one request on a free port with `status`, then stop; the port is given back.
 ///
 /// Deliberately not an HTTP library: the point is to choose the status of a single response, which a few bytes down a
 /// `TcpStream` does without pulling a server framework into a low-level test.
@@ -19,9 +19,10 @@ use et_ws_runner_common::{BootstrapError, fetch_module_file, is_module_file_miss
     clippy::single_call_fn,
     reason = "the stub hub is its own step; keeping it out of fetch_failure leaves that reading as the request"
 )]
-fn hub_answering(port: u16, status: &'static str) -> std::thread::JoinHandle<()> {
-    let listener = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
-    std::thread::spawn(move || {
+fn hub_answering(status: &'static str) -> (u16, std::thread::JoinHandle<()>) {
+    let listener = free_listener();
+    let port = listener.local_addr().unwrap().port();
+    let hub = std::thread::spawn(move || {
         if let Some(Ok(mut stream)) = listener.incoming().next() {
             // Read only so the client can finish sending; nothing here inspects the request.
             let mut request = [0_u8; 1024];
@@ -30,13 +31,13 @@ fn hub_answering(port: u16, status: &'static str) -> std::thread::JoinHandle<()>
             let _written = stream.write_all(response.as_bytes());
             let _flushed = stream.flush();
         }
-    })
+    });
+    (port, hub)
 }
 
-/// The error from asking a hub on `port` for a file, with `port` answering `status`.
+/// The error from asking a hub for a file, with the hub answering `status`.
 async fn fetch_failure(status: &'static str) -> BootstrapError {
-    let port = reserve_port();
-    let hub = hub_answering(port, status);
+    let (port, hub) = hub_answering(status);
 
     let error = fetch_module_file(
         &et_rest_client::Client::new(&format!("http://127.0.0.1:{port}")),

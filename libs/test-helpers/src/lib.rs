@@ -9,6 +9,7 @@
 )]
 
 use std::io::Read as _;
+use std::net::{Ipv4Addr, TcpListener};
 use std::process::Child;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -60,10 +61,21 @@ where
     temp_env::with_var("PATH", Some(&prefixed), run)
 }
 
-/// Reserve a free loopback TCP port, bound then released for the caller to claim.
+/// A loopback TCP listener on a free port, held open for a server in this process to serve on.
 ///
-/// Same bind-`:0`-then-drop trick every test-support crate used to hand-roll; there is an inherent
-/// race (another process could grab the port before the caller binds it) that is acceptable in tests.
+/// The port goes from free to served with no gap between, so no other test can take it first, as it can one from
+/// [`reserve_port`]. Its number is the listener's `local_addr`. A tokio server takes it with
+/// `tokio::net::TcpListener::from_std` once it is set non-blocking, and an actix one with `HttpServer::listen`.
+#[must_use]
+pub fn free_listener() -> TcpListener {
+    TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap()
+}
+
+/// A free loopback TCP port, bound then released: for another process to bind, or for nothing to listen on.
+///
+/// The port is free when this returns, and nothing holds it after, so another process can take it before the caller's
+/// does. A server in this process serves on a [`free_listener`] instead, which leaves no such gap. A child process has
+/// to bind its own socket, so for one the gap stays, and is accepted in tests.
 #[must_use]
 pub fn reserve_port() -> u16 {
     port_check::free_local_port().unwrap()

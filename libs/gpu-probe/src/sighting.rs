@@ -1,5 +1,9 @@
 //! Where a signature has been seen: a row of a registry entry, read into typed values.
+//!
+//! Each field a row names from a fixed set also takes a value outside it, kept as its text, so a device, browser or
+//! system the registry has no name for yet is recorded rather than refused.
 
+use core::convert::Infallible;
 use core::str::FromStr;
 
 use platforms::OS;
@@ -8,12 +12,14 @@ use target_lexicon::Architecture;
 use wgpu_hal::auxil::db;
 
 /// The browsers a row can name that the `webbrowser` crate does not, each beside the name a row gives it.
-const BROWSERS: [(&str, Browser); 8] = [
+const BROWSERS: [(&str, Browser); 10] = [
     ("brave", Browser::Brave),
     ("chromium", Browser::Chromium),
     ("deno", Browser::Deno),
     ("edge", Browser::Edge),
+    ("gnome-web", Browser::GnomeWeb),
     ("librewolf", Browser::LibreWolf),
+    ("mullvad-browser", Browser::Mullvad),
     ("samsung-internet", Browser::SamsungInternet),
     ("tor-browser", Browser::Tor),
     ("none", Browser::Absent),
@@ -100,10 +106,10 @@ const FIELDS: [&str; 18] = [
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum RowError {
-    /// The row, or the entry it should be in, lacks something every one carries.
+    /// The row, or the entry it should be in, lacks something every one carries, or gives it as empty text.
     #[error("the registry has no `{0}` where one is required")]
     Missing(&'static str),
-    /// The row gives a field a value the registry does not know, or carries a field it does not know.
+    /// The row carries a field the registry does not know.
     #[error("the registry gives `{field}` as `{value}`, which is not one it knows")]
     Unknown {
         /// The field the value was given for.
@@ -113,8 +119,31 @@ pub enum RowError {
     },
 }
 
+/// A value another crate names, or the text a row gives where that crate has no name for it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum Named<Kind> {
+    /// A value the crate names.
+    Known(Kind),
+    /// A value the crate has no name for, as the row gives it.
+    Other(String),
+}
+
+impl<Kind> core::fmt::Display for Named<Kind>
+where
+    Kind: core::fmt::Display,
+{
+    /// The name a row gives the value: the crate's name for it, or the text the row gave.
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Known(value) => value.fmt(f),
+            Self::Other(text) => f.write_str(text),
+        }
+    }
+}
+
 /// The browser a signature was seen in.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Browser {
     /// A browser the `webbrowser` crate names, such as Chrome, Firefox or Safari.
@@ -127,28 +156,35 @@ pub enum Browser {
     Deno,
     /// Microsoft Edge.
     Edge,
+    /// GNOME Web, once named Epiphany, whose engine is `WebKitGTK`.
+    GnomeWeb,
     /// `LibreWolf`.
     LibreWolf,
+    /// Mullvad Browser, Tor Browser's fingerprinting defences without the Tor network.
+    Mullvad,
     /// Samsung Internet.
     SamsungInternet,
     /// Tor Browser.
     Tor,
     /// No browser: the probes ran natively.
     Absent,
+    /// A browser the registry has no name for, as the row names it.
+    Other(String),
 }
 
 impl FromStr for Browser {
-    type Err = RowError;
+    type Err = Infallible;
 
-    fn from_str(name: &str) -> Result<Self, RowError> {
-        name.parse()
-            .map(Self::Listed)
-            .or_else(|_unlisted: webbrowser::ParseBrowserError| named(&BROWSERS, "browser", name))
+    fn from_str(name: &str) -> Result<Self, Infallible> {
+        Ok(name.parse().map_or_else(
+            |_unlisted: webbrowser::ParseBrowserError| named(&BROWSERS, name, Self::Other),
+            Self::Listed,
+        ))
     }
 }
 
 /// Who makes the GPU a signature was seen on, as wgpu names GPU vendors, with those it has no name for.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum GpuVendor {
     /// AMD.
@@ -177,6 +213,8 @@ pub enum GpuVendor {
     Unknown,
     /// No GPU was involved.
     Absent,
+    /// A vendor the registry has no name for, as the row names it.
+    Other(String),
 }
 
 impl GpuVendor {
@@ -188,7 +226,7 @@ impl GpuVendor {
         GPU_VENDOR_IDS
             .iter()
             .find(|vendor| vendor.0 == id)
-            .map_or(Self::Unknown, |vendor| vendor.1)
+            .map_or(Self::Unknown, |vendor| vendor.1.clone())
     }
 
     /// The vendor whose name the GPU's own name opens with, or [`Self::Unknown`], for a backend that gives no ID.
@@ -205,29 +243,32 @@ impl GpuVendor {
         GPU_VENDORS
             .iter()
             .find(|vendor| vendor.0 == first)
-            .map_or(Self::Unknown, |vendor| vendor.1)
+            .map_or(Self::Unknown, |vendor| vendor.1.clone())
     }
 
     /// The name a registry row gives the vendor, which reads back as it.
     #[must_use]
-    pub fn name(self) -> &'static str {
+    pub fn name(&self) -> &str {
+        if let Self::Other(name) = self {
+            return name;
+        }
         GPU_VENDORS
             .iter()
-            .find(|vendor| vendor.1 == self)
+            .find(|vendor| vendor.1 == *self)
             .map_or("unknown", |vendor| vendor.0)
     }
 }
 
 impl FromStr for GpuVendor {
-    type Err = RowError;
+    type Err = Infallible;
 
-    fn from_str(name: &str) -> Result<Self, RowError> {
-        named(&GPU_VENDORS, "gpu", name)
+    fn from_str(name: &str) -> Result<Self, Infallible> {
+        Ok(named(&GPU_VENDORS, name, Self::Other))
     }
 }
 
 /// The graphics API a signature reached the GPU through.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Backend {
     /// Metal.
@@ -246,18 +287,20 @@ pub enum Backend {
     Unknown,
     /// No graphics API was involved.
     Absent,
+    /// A graphics API the registry has no name for, as the row names it.
+    Other(String),
 }
 
 impl FromStr for Backend {
-    type Err = RowError;
+    type Err = Infallible;
 
-    fn from_str(name: &str) -> Result<Self, RowError> {
-        named(&BACKENDS, "backend", name)
+    fn from_str(name: &str) -> Result<Self, Infallible> {
+        Ok(named(&BACKENDS, name, Self::Other))
     }
 }
 
 /// The kind of browser window a signature was seen in.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Window {
     /// An ordinary window.
@@ -268,20 +311,22 @@ pub enum Window {
     Both,
     /// No browser was involved, so no window was.
     Absent,
+    /// A kind of window the registry has no name for, as the row names it.
+    Other(String),
 }
 
 impl FromStr for Window {
-    type Err = RowError;
+    type Err = Infallible;
 
-    fn from_str(name: &str) -> Result<Self, RowError> {
-        named(&WINDOWS, "window", name)
+    fn from_str(name: &str) -> Result<Self, Infallible> {
+        Ok(named(&WINDOWS, name, Self::Other))
     }
 }
 
 /// One place a signature has been seen: what a row of a registry entry names from fixed sets of values.
 ///
 /// A row's free text -- its versions, the device, where the sighting is on record -- stays in the registry.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Sighting {
     /// The graphics API the signature reached the GPU through.
@@ -289,11 +334,11 @@ pub struct Sighting {
     /// The browser the signature was seen in.
     pub browser: Browser,
     /// The architecture of the CPU, as `target-lexicon` names architectures.
-    pub cpu_arch: Architecture,
+    pub cpu_arch: Named<Architecture>,
     /// Who makes the GPU.
     pub gpu: GpuVendor,
     /// The operating system, as `std::env::consts::OS` names it.
-    pub system: OS,
+    pub system: Named<OS>,
     /// The kind of browser window.
     pub window: Window,
 }
@@ -301,8 +346,8 @@ pub struct Sighting {
 impl Sighting {
     /// Read `row`, an object as a registry entry lists them under `seen`.
     ///
-    /// A row has to give each of `browser`, `os`, `cpu_arch`, `gpu`, `backend` and `window` a value the registry knows,
-    /// and may carry no field the registry does not know.
+    /// A row has to give each of `browser`, `os`, `cpu_arch`, `gpu`, `backend` and `window` a value, and may carry no
+    /// field the registry does not know. A value outside the set the registry names for its field is kept as its text.
     pub fn read(row: &Value) -> Result<Self, RowError> {
         let stray = row
             .as_object()
@@ -316,22 +361,35 @@ impl Sighting {
                 value: field.clone(),
             });
         }
-        let cpu_arch = required(row, "cpu_arch")?;
-        let system = required(row, "os")?;
+        let Ok(backend) = required(row, "backend")?.parse();
+        let Ok(browser) = required(row, "browser")?.parse();
+        let Ok(gpu) = required(row, "gpu")?.parse();
+        let Ok(window) = required(row, "window")?.parse();
         Ok(Self {
-            backend: required(row, "backend")?.parse()?,
-            browser: required(row, "browser")?.parse()?,
-            cpu_arch: cpu_arch.parse().ok().ok_or_else(|| RowError::Unknown {
-                field: "cpu_arch",
-                value: cpu_arch.to_owned(),
-            })?,
-            gpu: required(row, "gpu")?.parse()?,
-            system: system.parse().ok().ok_or_else(|| RowError::Unknown {
-                field: "os",
-                value: system.to_owned(),
-            })?,
-            window: required(row, "window")?.parse()?,
+            backend,
+            browser,
+            cpu_arch: foreign(required(row, "cpu_arch")?),
+            gpu,
+            system: foreign(required(row, "os")?),
+            window,
         })
+    }
+
+    /// Each field this sighting gives a value outside the set the registry names for it, in the order a row has them.
+    #[must_use]
+    pub fn others(&self) -> Vec<&'static str> {
+        [
+            ("browser", matches!(self.browser, Browser::Other(_))),
+            ("os", matches!(self.system, Named::Other(_))),
+            ("cpu_arch", matches!(self.cpu_arch, Named::Other(_))),
+            ("gpu", matches!(self.gpu, GpuVendor::Other(_))),
+            ("backend", matches!(self.backend, Backend::Other(_))),
+            ("window", matches!(self.window, Window::Other(_))),
+        ]
+        .into_iter()
+        .filter(|field| field.1)
+        .map(|field| field.0)
+        .collect()
     }
 
     /// Read every row `entry`, an entry of the registry, lists under `seen`, in the order it lists them.
@@ -350,29 +408,36 @@ impl Sighting {
     /// Whether this sighting was on the operating system and CPU architecture this code is running on.
     #[must_use]
     pub fn is_here(&self) -> bool {
-        std::env::consts::OS
-            .parse()
-            .is_ok_and(|system: OS| system == self.system)
-            && self.cpu_arch.to_string() == std::env::consts::ARCH
+        self.system.to_string() == std::env::consts::OS && self.cpu_arch.to_string() == std::env::consts::ARCH
     }
 }
 
-/// The value `name` stands for in `table`, which lists each name `field` can take beside its value.
-fn named<Kind>(table: &[(&str, Kind)], field: &'static str, name: &str) -> Result<Kind, RowError>
+/// The value `name` stands for in `table`, or else `other` holding the name.
+///
+/// `table` lists each name a field can take beside the value it stands for.
+fn named<Kind>(table: &[(&str, Kind)], name: &str, other: fn(String) -> Kind) -> Kind
 where
-    Kind: Copy,
+    Kind: Clone,
 {
     table
         .iter()
         .find(|known| known.0 == name)
-        .map(|known| known.1)
-        .ok_or_else(|| RowError::Unknown {
-            field,
-            value: name.to_owned(),
-        })
+        .map_or_else(|| other(name.to_owned()), |known| known.1.clone())
 }
 
-/// The text `row` gives `field`, which every row has to give.
+/// The value another crate parses `name` as, or `name` itself where that crate has no name for it.
+fn foreign<Kind>(name: &str) -> Named<Kind>
+where
+    Kind: FromStr,
+{
+    name.parse()
+        .map_or_else(|_unnamed| Named::Other(name.to_owned()), Named::Known)
+}
+
+/// The text `row` gives `field`, which every row has to give, and not as empty text.
 fn required<'row>(row: &'row Value, field: &'static str) -> Result<&'row str, RowError> {
-    row.get(field).and_then(Value::as_str).ok_or(RowError::Missing(field))
+    row.get(field)
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+        .ok_or(RowError::Missing(field))
 }

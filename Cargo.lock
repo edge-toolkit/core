@@ -5904,6 +5904,8 @@ dependencies = [
  "et-gpu-probe",
  "futures-channel",
  "futures-executor",
+ "half",
+ "objc2",
  "objc2-metal",
  "platforms",
  "serde_json",

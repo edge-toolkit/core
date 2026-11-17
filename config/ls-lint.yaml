@@ -33,9 +33,13 @@ ls:
   # No `tests/<name>/main.rs` binary split across a directory, and no helper module tucked below `tests/`: shared
   # helpers go in a test-support crate. The first key covers a directory directly under `tests/`, the second every
   # one below that.
-  "**/tests/*":
+  # Each key names the top-level directories that hold crates, never a bare leading `**`. ls-lint expands a key's
+  # glob over the whole working tree before it applies `ignore`, following symlinks, so `**/tests/*` walked all of
+  # `target/` and left `mise run check` stuck in ls-lint for over half an hour. A crate under a new top-level
+  # directory needs that directory added here.
+  "{generated,libs,modules,services,utilities}/**/tests/*":
     .rs: exists:0
-  "**/tests/*/**":
+  "{generated,libs,modules,services,utilities}/**/tests/*/**":
     .rs: exists:0
 
 ignore:
