@@ -140,6 +140,36 @@ jobs:
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
+      # Records the state of llvm-mingw's clang after a failed Windows run, since it once refused to start.
+      # It failed mid-build with
+      #   cargo:warning=C:\i\llvm-mingw-ihpyibs4\bin\clang-23: Permission denied
+      # on commit https://github.com/edge-toolkit/core/commit/abfaf7586dcdcc5190d084432a781cd0bdbcb154 at
+      # https://github.com/edge-toolkit/core/actions/runs/43985991255/job/133714273748, with the same clang working
+      # before and after it in that run. It lists the clang files and their access lists, runs clang again to tell a
+      # passing lock from a broken file, and shows what Defender detected and logged around the failure. It reports
+      # only, so every command may fail without failing the step.
+      - name: Diagnose llvm-mingw's clang after a failure
+        if: failure() && runner.os == 'Windows'
+        timeout-minutes: 5
+        run: |
+          set +e
+          bin="$(mise where github:mstorsjo/llvm-mingw)/bin"
+          echo "== $bin"
+          ls -la "$bin" | rg -i 'clang'
+          echo "== access lists"
+          icacls "$bin/clang.exe"
+          icacls "$bin/clang-23.exe"
+          echo "== clang run again"
+          "$bin/clang.exe" --version
+          echo "clang exited $?"
+          echo "== Defender detections and the last hour of its log"
+          powershell -NoProfile -Command '
+            Get-MpThreatDetection | Format-List InitialDetectionTime, Resources, ActionSuccess
+            $since = (Get-Date).AddHours(-1)
+            Get-WinEvent -LogName "Microsoft-Windows-Windows Defender/Operational" -MaxEvents 200 |
+              Where-Object { $_.TimeCreated -gt $since } | Format-List TimeCreated, Id, Message'
+          exit 0
+
       # No `!cancelled()` here, unlike the merges and uploads below.
       # Those carry it so a failing test still publishes a report; this is a gate, and a gate has nothing to say
       # about a run whose tests did not pass. Leaving it on the default "skip if an earlier step failed" means a
