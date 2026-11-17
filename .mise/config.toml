@@ -1528,9 +1528,10 @@ lines="$home/benchmarks.jsonl"
 mean='$est[0].mean' bound='$est[0].mean.confidence_interval'
 latency="{ value: $mean.point_estimate, lower_value: $bound.lower_bound, upper_value: $bound.upper_bound }"
 measure="{ (.full_id): { latency: ($latency | map_values(. * 100 | round / 100)) } }"
-benchmarks=(rg --files --no-ignore --path-separator / -g '**/new/benchmark.json' "$home")
+benchmarks=(rg --files --no-ignore -g '**/new/benchmark.json' "$home")
 "${benchmarks[@]}" | coreutils sort | while read -r meta; do
-  jaq -c --slurpfile est "$(coreutils dirname "$meta")/estimates.json" "$measure" "$meta"
+  # Named beside the metadata by swapping the file name, since on Windows the path mixes forward and back slashes.
+  jaq -c --slurpfile est "${meta%benchmark.json}estimates.json" "$measure" "$meta"
 done >"$lines"
 out="libs/gpu-probe/benches/results/$machine-$os.yaml"
 coreutils mkdir -p "$(coreutils dirname "$out")"

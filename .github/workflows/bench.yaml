@@ -135,10 +135,13 @@ jobs:
 
       # A runner the repository holds no results for fails too, so a platform is never left unmeasured unnoticed.
       # Its artifact is already uploaded by now, ready to download into the repository.
+      # The factor is 8 because a hosted runner label is a pool of machines. Between two runs of one tree,
+      # ubuntu-latest's slowest benchmark moved 5.09 times and macos-26-intel's 2.94, while ubuntu-24.04-arm stayed
+      # within 1.11, so a factor of 8 still fails a regression of an order of magnitude without failing on the pool.
       - name: Compare with the recorded results
         run: |
           if [ ! -f target/recorded-results.yaml ]; then
             echo "::error file=$RESULTS::$RESULTS is not in the repository; add this run's artifact there"
             exit 1
           fi
-          mise run bench-gpu-probe-compare target/recorded-results.yaml "$RESULTS"
+          mise run bench-gpu-probe-compare target/recorded-results.yaml "$RESULTS" --factor 8
