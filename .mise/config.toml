@@ -1553,11 +1553,20 @@ description = "Fail unless two et-gpu-probe bench results files hold the same be
 # A hosted runner's speed varies between runs and between machines of one label, so a rerun on the same runner already
 # falls outside the interval it recorded; a benchmark several times slower or faster is the regression worth failing.
 run = """
-recorded=$(yq -o json . "$usage_recorded")
-measured=$(yq -o json . "$usage_measured")
+# Each file reaches jaq as a file, not an argument, since two of them as arguments overrun Windows' command line.
+# It fails with
+#   /c/i/jaq-c4tmwldw/jaq: Argument list too long
+# on commit https://github.com/edge-toolkit/core/commit/c86a1581e5a649097b9d53a2aa89cdc81ec54f16 at
+# https://github.com/edge-toolkit/core/actions/runs/43993730854/job/133740639487.
+dir=target/bench-compare
+coreutils mkdir -p "$dir"
+recorded="$dir/recorded.json"
+measured="$dir/measured.json"
+yq -o json . "$usage_recorded" >"$recorded"
+yq -o json . "$usage_measured" >"$measured"
 factor="${usage_factor:-2}"
 compare=.mise/bench-gpu-probe-compare.jq
-differences=$(jaq -nr --argjson r "$recorded" --argjson m "$measured" --argjson f "$factor" -f "$compare")
+differences=$(jaq -nr --slurpfile r "$recorded" --slurpfile m "$measured" --argjson f "$factor" -f "$compare")
 if [ -n "$differences" ]; then
   printf '%s\\n' "$differences"
   printf '%s differs from %s, latencies held to a factor of %s\\n' "$usage_measured" "$usage_recorded" "$factor" >&2
