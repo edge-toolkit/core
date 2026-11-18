@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use et_test_otlp::events::capture_events;
+use pretty_assertions::assert_eq;
 use tracing::{Level, info, warn};
 
 #[test]

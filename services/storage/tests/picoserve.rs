@@ -10,6 +10,7 @@ use std::time::Duration;
 use edge_toolkit::ws_server::AgentRegistry;
 use et_storage_service::picoserve::{MAX_STORED, NotStored, Storage, StorageRoutes, path};
 use picoserve::{Config, Router, Server};
+use pretty_assertions::assert_eq;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::LocalSet;

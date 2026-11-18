@@ -3,6 +3,7 @@
 
 use std::time::Duration;
 
+use pretty_assertions::assert_eq;
 use tokio::io::AsyncReadExt as _;
 
 /// Require a real TLS `ClientHello` from the supervisor's independently enabled secure transport.

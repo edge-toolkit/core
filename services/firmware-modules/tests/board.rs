@@ -8,6 +8,7 @@ use std::path::Path;
 
 use et_firmware_modules::{BOARD_VARIABLES, ModulesError, board};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::{TempDir, tempdir};
 
 /// The layout handed over as the Pico 2 W's `memory.x`.

@@ -48,6 +48,7 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 actix-http.workspace = true
 actix-rt.workspace = true
+pretty_assertions.workspace = true
 tempfile.workspace = true
 wgpu = { workspace = true, features = ["noop"] }
 

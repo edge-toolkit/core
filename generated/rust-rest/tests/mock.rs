@@ -5,6 +5,7 @@ use et_rest_client::Client;
 use et_rest_client::mock::MockServerExt as _;
 use et_rest_client::types::{BuildInfo, HealthResponse};
 use httpmock::MockServer;
+use pretty_assertions::assert_eq;
 
 #[tokio::test]
 async fn health_is_answered_by_its_typed_mock() {

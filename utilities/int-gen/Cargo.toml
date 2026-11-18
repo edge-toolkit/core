@@ -61,6 +61,7 @@ wit-parser.workspace = true
 
 [dev-dependencies]
 et-test-helpers.workspace = true
+pretty_assertions.workspace = true
 
 [lints]
 workspace = true

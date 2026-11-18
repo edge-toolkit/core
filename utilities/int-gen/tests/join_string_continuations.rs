@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use et_int_gen::wit::bindings::join_string_continuations;
+use pretty_assertions::assert_eq;
 use proc_macro2::TokenStream;
 
 /// The tokens `source` parses to, after joining, printed back as text.

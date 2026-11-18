@@ -14,6 +14,8 @@ use et_recovery_supervisor::policy::Health;
 use et_test_recovery::{config, environment};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 use tokio_tungstenite::tungstenite::Message;
 
 /// Point a default configuration at an isolated temporary state file.

@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use actix_web::{App, HttpServer};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message;

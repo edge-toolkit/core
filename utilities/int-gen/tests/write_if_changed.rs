@@ -3,6 +3,7 @@
 
 use et_int_gen::write_if_changed;
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// The names directly inside `dir`, sorted.

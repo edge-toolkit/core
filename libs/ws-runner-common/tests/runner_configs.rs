@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use et_otlp::Telemetered as _;
 use et_ws_runner_common::{pyo3_config, wasi_config, web_config};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn wasi_config_reads_the_shared_groups_and_reports_no_otlp_when_unset() {

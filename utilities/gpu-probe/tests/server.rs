@@ -12,6 +12,7 @@ use actix_web::test as served;
 use actix_web::{App, web};
 use et_gpu_probe_server::registry::RegistryTree;
 use et_gpu_probe_server::{advertised_names, app, nip_io};
+use pretty_assertions::assert_eq;
 use serde_json::Value;
 
 /// The registry's header.

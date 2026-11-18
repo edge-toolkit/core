@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use edge_toolkit::config::get_project_root;
 use et_cli::COLLECTOR_USERNAME;
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 
 /// Read `config/o2.env` the way docker's `--env-file` does: everything after the first `=` is the value.
 ///

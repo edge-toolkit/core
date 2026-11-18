@@ -30,6 +30,7 @@ use et_ws_wasi_runner::convert::Frame;
 #[cfg(feature = "core-modules")]
 use et_ws_wasi_runner::core_module::CoreError;
 use et_ws_wasi_runner::engine::{NATIVE_PULLEY, board_engine, precompile};
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 /// The id the hub assigns the guest.

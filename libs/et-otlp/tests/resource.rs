@@ -11,6 +11,7 @@ use edge_toolkit::config::get_project_root;
 use et_otlp::{exporter_headers, service_descriptors};
 use fs_err as fs;
 use opentelemetry::Value;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn headers_carry_basic_auth_only_when_the_config_supplies_it() {

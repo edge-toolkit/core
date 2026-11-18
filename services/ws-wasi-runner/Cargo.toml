@@ -197,6 +197,7 @@ et-test-helpers.workspace = true
 et-test-otlp.workspace = true
 et-ws-test-server.workspace = true
 et-ws-wasi-runner = { workspace = true, features = ["board", "precompile"] }
+pretty_assertions.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
 retry.workspace = true
 rstest.workspace = true

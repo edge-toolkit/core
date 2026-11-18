@@ -15,6 +15,7 @@ use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, configure};
 use futures_util::{Stream, stream};
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 const BLOCKED: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 0, 2, 7));

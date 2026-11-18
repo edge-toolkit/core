@@ -66,6 +66,7 @@ windows = { workspace = true, features = ["Win32_Graphics_Dxgi", "std"], optiona
 criterion.workspace = true
 et-gpu-probe = { workspace = true, features = ["registry"] }
 futures-executor.workspace = true
+pretty_assertions.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 wgpu = { workspace = true, features = ["noop"] }
 

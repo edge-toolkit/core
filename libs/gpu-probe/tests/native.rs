@@ -12,6 +12,8 @@ use std::sync::LazyLock;
 use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe::{Answer, BLENDS, CLEARS, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host};
 use futures_executor::block_on;
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 /// This machine's GPU, opened once and with the probe set compiled for it.
 static GPU: LazyLock<Gpu> = LazyLock::new(|| block_on(Gpu::open()).unwrap());

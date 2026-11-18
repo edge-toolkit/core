@@ -7,6 +7,7 @@ use std::time::Duration;
 use edge_toolkit::ws::{AgentConnectionState, MessageDeliveryStatus, ServerMessage};
 use et_ws_test_server::{connect_agent, connect_agent_as, next_payload, start};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};

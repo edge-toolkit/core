@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use et_gpu_probe_server::registry::{Outcome, RegisterError, RegistryTree, Submission};
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// The registry's header.

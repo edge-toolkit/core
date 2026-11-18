@@ -4,6 +4,7 @@ use std::path::Path;
 
 use et_path::{emit_repo_file_env, find_project_root, find_project_root_from_manifest, repo_file_env_directives};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 /// Return the path a cargo directive carries, failing the test if it does not start with `prefix`.

@@ -21,6 +21,7 @@ use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, StorageError, build_store, configure, put_file};
 use futures_util::Stream;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// Build a registry holding only `agent_id`, in `state` at the loopback address, with `session` behind it.

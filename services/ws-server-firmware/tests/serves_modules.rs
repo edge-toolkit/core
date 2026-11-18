@@ -11,6 +11,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::process::{Child, Stdio};
 
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use pretty_assertions::assert_eq;
 use tungstenite::Message;
 
 /// A WebSocket to the hub.

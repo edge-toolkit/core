@@ -8,6 +8,7 @@ use std::time::Duration;
 use actix_http::KeepAlive;
 use actix_web::{App, HttpServer, web};
 use et_actix_web_config::{HttpServerConfig, KeepAliveSetting, MAX_WORKERS, Workers, WorkersError};
+use pretty_assertions::assert_eq;
 
 /// Every setting, each at a value other than actix's default.
 ///

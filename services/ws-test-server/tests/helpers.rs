@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use edge_toolkit::ws::{ConnectStatus, ServerMessage};
 use et_ws_test_server::{connect_agent, next_payload, start, wait_for_connected_agents};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_tungstenite::{accept_async, connect_async};

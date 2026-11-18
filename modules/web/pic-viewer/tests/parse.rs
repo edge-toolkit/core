@@ -7,6 +7,7 @@
 #![cfg(test)]
 
 use et_ws_pic_viewer::parse_capture_notification;
+use pretty_assertions::assert_eq;
 use serde_json::json;
 
 /// The `et-agent-message` envelope from a live end-to-end run, pinning the real wire format.

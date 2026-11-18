@@ -15,6 +15,7 @@
 )]
 
 use et_ws_pic_viewer::show_image;
+use pretty_assertions::assert_eq;
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen_test::wasm_bindgen_test;
 

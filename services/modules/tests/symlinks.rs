@@ -26,6 +26,7 @@ use actix_web::{App, test, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use et_modules_service::{ModulesConfig, configure, list_modules};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 const ORT_BUNDLE: &[u8] = b"// pretend ort.min.js bundle";

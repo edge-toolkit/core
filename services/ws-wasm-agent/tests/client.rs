@@ -25,6 +25,7 @@ use et_ws_wasm_agent::{
     js_number_field, set_textarea_value,
 };
 use js_sys::{Object, Promise, Reflect};
+use pretty_assertions::assert_eq;
 use serde_json::json;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::Closure;

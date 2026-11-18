@@ -3,6 +3,7 @@
 #![cfg(test)]
 
 use et_ws_har1::push_section;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn appends_a_blank_separator_then_the_title() {

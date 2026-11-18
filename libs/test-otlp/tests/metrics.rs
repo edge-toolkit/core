@@ -12,6 +12,7 @@ use opentelemetry_proto::tonic::metrics::v1::{
     number_data_point,
 };
 use opentelemetry_proto::tonic::resource::v1::Resource;
+use pretty_assertions::assert_eq;
 use prost::Message as _;
 
 fn int_point(value: i64) -> NumberDataPoint {

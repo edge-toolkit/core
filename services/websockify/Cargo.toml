@@ -22,6 +22,7 @@ tracing = { workspace = true, features = ["std"] }
 [dev-dependencies]
 actix-web.workspace = true
 futures-util.workspace = true
+pretty_assertions.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 

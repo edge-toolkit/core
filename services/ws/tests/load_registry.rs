@@ -8,6 +8,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
 use edge_toolkit::ws_server::{MessageRetention, RegistryError};
 use et_ws_service::{WsAgentRegistry, load_registry};
+use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 const AGENT_1_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 5));

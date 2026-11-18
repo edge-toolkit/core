@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use et_test_helpers::temp_env;
 use et_ws_runner_common::config::{RunnerConfig, WsConfig};
+use pretty_assertions::assert_eq;
 use serde::Deserialize;
 
 /// Mirrors how each runner nests the shared structs under `runner` / `ws`.

@@ -8,6 +8,7 @@ use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe_server::measure::{MeasureError, measure};
 use et_gpu_probe_server::registry::RegistryTree;
 use futures_executor::block_on;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// A file of entries holding one, which no measurement here matches, laid out as the repository's registry's are.

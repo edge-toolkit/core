@@ -23,6 +23,11 @@ disallowed-methods = [
   { path = "std::result::Result::expect_err", reason = "use .unwrap_err() -- no message string needed" },
 ]
 
+disallowed-macros = [
+  { path = "std::assert_eq", reason = "use pretty_assertions::assert_eq; its failure prints a diff of the values" },
+  { path = "std::assert_ne", reason = "use pretty_assertions::assert_ne, whose failure prints the value readably" },
+]
+
 allowed-idents-below-min-chars = [
   # clippy defaults
   "Eq",

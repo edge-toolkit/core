@@ -6,6 +6,7 @@
 use actix_web::http::StatusCode;
 use actix_web::{App, test, web};
 use et_modules_service::{ModulesConfig, configure};
+use pretty_assertions::assert_eq;
 
 #[actix_rt::test]
 #[should_panic(expected = "Root module 'nonexistent-root' not found")]

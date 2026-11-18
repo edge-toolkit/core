@@ -5,6 +5,7 @@
 #![cfg(test)]
 
 use edge_toolkit::config::get_project_root;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn the_python_twin_writes_the_same_organisation() {

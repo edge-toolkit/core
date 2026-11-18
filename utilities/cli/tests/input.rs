@@ -10,6 +10,7 @@ use et_cli::{
     ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, Device, OutputType, infer_artifact_source,
     manifest_declares_this_repository,
 };
+use pretty_assertions::assert_eq;
 
 /// A scenario stating only what has no default, which is what the `default` verification scenario is.
 const ONLY_A_NAME: &str = "cluster_name: default\n";

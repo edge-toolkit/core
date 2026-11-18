@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use et_modules_service::{ModulesConfig, list_modules};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// Write `<root>/<dir>/package.json` declaring `name`.

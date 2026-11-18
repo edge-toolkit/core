@@ -16,6 +16,7 @@ use et_ws_wasi_runner::board::net_tokio::TokioConnector;
 use et_ws_wasi_runner::board::{Console, MemoryBudget, Platform, Transport as _, run};
 use et_ws_wasi_runner::convert::Frame;
 use et_ws_wasi_runner::engine::{NATIVE_PULLEY, board_engine, precompile};
+use pretty_assertions::assert_eq;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::LocalSet;

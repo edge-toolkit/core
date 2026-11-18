@@ -11,6 +11,7 @@ use edge_toolkit::ws::{AgentConnectionState, AgentSummary, MessageDeliveryStatus
 use et_test_nats::NatsServer;
 use et_ws_test_server::{TestServer, connect_agent, connect_agent_as, next_payload, start_clustered};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::{Bytes, Message};

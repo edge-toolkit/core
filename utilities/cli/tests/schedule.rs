@@ -10,6 +10,7 @@ use et_cli::{ClusterInput, OutputType, Schedule, generate_deployment, regenerate
 use fs_err as fs;
 use k8s_openapi::api::batch::v1::CronJob;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use pretty_assertions::assert_eq;
 use serde::Deserialize;
 use tempfile::{TempDir, tempdir};
 

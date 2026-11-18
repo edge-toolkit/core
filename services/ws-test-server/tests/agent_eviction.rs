@@ -11,6 +11,7 @@ use std::time::Duration;
 use et_test_nats::NatsServer;
 use et_ws_test_server::{ADMIN_TOKEN, TestServer, connect_agent, start_clustered};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use reqwest::{Method, Response, StatusCode};
 use tempfile::TempDir;
 use tokio::net::TcpStream;

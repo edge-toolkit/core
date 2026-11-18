@@ -1,0 +1,15 @@
+id: last-test-inner-attribute
+language: Rust
+# The last inner attribute of a file opening with `#![cfg(test)]`, as every test file does.
+# It is where an import can be inserted, since no item may come before an inner attribute.
+rule:
+  kind: inner_attribute_item
+  not:
+    precedes:
+      kind: inner_attribute_item
+      stopBy: end
+  inside:
+    kind: source_file
+    has:
+      kind: inner_attribute_item
+      regex: "^#!\\[cfg\\(test\\)\\]$"

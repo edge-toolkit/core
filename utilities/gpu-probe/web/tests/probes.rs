@@ -10,6 +10,7 @@
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
 use et_int_gpu_probe_web::{probe_canvas, probe_webgl1, probe_webgl2, probe_webgpu};
+use pretty_assertions::assert_eq;
 use serde_json::Value;
 use wasm_bindgen_test::wasm_bindgen_test;
 

@@ -11,6 +11,7 @@ use edge_toolkit::ws::{ClientMessage, ConnectStatus, MessageDeliveryStatus, Mess
 use edge_toolkit::ws_server::{AgentRegistry, MessageRetention};
 use et_ws_service::SessionMessage;
 use et_ws_service::hub::{Link, Routing, Shared, Stamps};
+use pretty_assertions::assert_eq;
 use serde_json::json;
 
 const CLIENT_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);

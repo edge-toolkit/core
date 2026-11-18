@@ -14,6 +14,7 @@ use et_ws_wasi_runner::bindings::wasi::keyvalue::store::Error as StoreError;
 use et_ws_wasi_runner::bindings::wasi::logging::logging::Level;
 use et_ws_wasi_runner::core_module::{CoreError, CoreHost, is_core_module, run};
 use et_ws_wasi_runner::host::run_core_module;
+use pretty_assertions::assert_eq;
 use spacewasm::TrapReason;
 use tokio::sync::oneshot::{self, error::RecvError};
 use tokio::time::error::Elapsed;

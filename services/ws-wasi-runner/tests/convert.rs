@@ -15,6 +15,7 @@ use et_ws_wasi_runner::bindings::et::ws_messages::messages::{
 };
 use et_ws_wasi_runner::bindings::et::ws_wasi::ws::WsError;
 use et_ws_wasi_runner::convert::{Frame, client_frame, server_message, server_message_to_wit};
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 use serde_json::json;
 

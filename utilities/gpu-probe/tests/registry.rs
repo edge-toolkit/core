@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 
 use et_gpu_probe_server::registry::{Outcome, RegisterError, Registry, Submission};
+use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 

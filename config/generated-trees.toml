@@ -71,6 +71,8 @@ required_in = [
   "config/ast-grep/rules/no-test-in-rust-docs.yaml",
   "config/ast-grep/rules/port-from-registry.yaml",
   "config/ast-grep/rules/prefer-self-mod-use.yaml",
+  "config/ast-grep/rules/pretty-assert-eq-import.yaml",
+  "config/ast-grep/rules/pretty-assert-ne-import.yaml",
   "config/ast-grep/rules/python-next-without-default.yaml",
   "config/ast-grep/rules/python-process-control-except.yaml",
   "config/ast-grep/rules/python-staticmethod-overrides-instance-method.yaml",

@@ -11,6 +11,7 @@ use et_int_gen::checks::{
     config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_is_meta, rego_summaries, repo_checks,
     rule_sources, runner_label, rust_check_summary, wrap,
 };
+use pretty_assertions::assert_eq;
 
 /// The set of paths a path-collecting function is expected to return.
 fn paths(expected: &[&str]) -> BTreeSet<String> {

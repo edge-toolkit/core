@@ -5,6 +5,7 @@ use actix_web::http::header;
 use actix_web::{App, test, web};
 use et_ws_server::health;
 use et_ws_service::health::HealthResponse;
+use pretty_assertions::assert_eq;
 
 #[actix_rt::test]
 async fn health_returns_200_with_healthy_status() {

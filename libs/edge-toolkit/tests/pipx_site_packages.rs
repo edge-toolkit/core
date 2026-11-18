@@ -8,6 +8,7 @@
 use command_error::CommandExt as _;
 use edge_toolkit::config::find_site_packages_in;
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// Build `<install>/<venv>` and assert the resolver returns exactly that directory.

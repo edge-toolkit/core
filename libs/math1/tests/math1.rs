@@ -5,6 +5,7 @@ use et_math1::{
     INPUT_FILENAME, INPUT_TYPE, Math1Input, PointerError, fed_avg, output_json, parse_pointer, pointer_frame,
 };
 use et_ws_test_server::math1::{MATH1_INPUT_JSON, verify_math1_model};
+use pretty_assertions::assert_eq;
 use serde_json::Value;
 
 #[test]

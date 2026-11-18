@@ -5,6 +5,7 @@
 use et_gpu_probe::{
     Batch, Glsl, NO_GLSL_BUILTIN, PROBE_COUNT, TRIANGLE, WEBGL1, WEBGL1_COMBINED, WEBGL2, WEBGL2_COMBINED, batched,
 };
+use pretty_assertions::assert_eq;
 
 /// Where `fma`, which GLSL has no builtin for, sits in output order.
 const FMA: usize = 1;

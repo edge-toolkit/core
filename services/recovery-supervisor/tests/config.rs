@@ -6,6 +6,7 @@ use et_recovery_supervisor::kubernetes::{Kubernetes, deployment_health};
 use et_recovery_supervisor::policy::{Budget, Health, Supervisor};
 use et_test_recovery::{config, event, supervisor};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 
 /// A dependency cycle spanning deployments is rejected, while shared dependencies remain valid.
 #[test]

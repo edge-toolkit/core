@@ -13,6 +13,7 @@ use std::time::Duration;
 use edge_toolkit::ws::ServerMessage;
 use et_ws_test_server::{connect_agent, next_payload};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

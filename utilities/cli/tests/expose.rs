@@ -13,6 +13,7 @@ use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{Service, ServicePort};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::{Metadata, Resource};
+use pretty_assertions::assert_eq;
 use serde::Deserialize as _;
 use serde::de::DeserializeOwned;
 use tempfile::tempdir;

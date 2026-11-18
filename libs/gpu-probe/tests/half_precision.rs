@@ -7,6 +7,8 @@ use et_gpu_probe::{
     f16_combined_shader, f16_reference, f16_shaders, shaders,
 };
 use half::f16;
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 /// Where in output order the probes of mathematical functions start.
 const FIRST_FUNCTION: usize = 5;
@@ -41,7 +43,7 @@ fn the_combined_f16_shader_writes_every_probe_to_a_word_of_its_own() {
 #[test]
 fn every_f16_input_is_a_value_f16_holds_exactly() {
     for input in F16_INPUTS {
-        assert_eq!(f16::from_f32(input).to_f32(), input);
+        assert_eq!(f16::from_f32(input).to_f32().to_bits(), input.to_bits());
     }
 }
 

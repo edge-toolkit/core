@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use et_core_guest::{Guest, GuestError, Imports, Level, abi};
+use pretty_assertions::assert_eq;
 
 /// The imports as a script: what each call answers, what the slot holds, and a record of what the guest did.
 #[derive(Default)]

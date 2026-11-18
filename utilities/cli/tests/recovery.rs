@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use et_cli::{OutputType, RecoverySettings, generate_deployment};
 use et_recovery_supervisor::config::{EnvConfig, Mode};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use serde::Deserialize as _;
 use serde_json::{Value, json};
 

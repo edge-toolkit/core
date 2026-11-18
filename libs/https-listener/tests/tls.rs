@@ -5,6 +5,8 @@ use et_https_listener::tls::{
     build_tls_server_config, generate_tls_certs, generate_tls_certs_covering, load_or_generate_tls_certs,
     load_tls_certs, uncovered_names,
 };
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 use rustls::pki_types::CertificateDer;
 use tempfile::tempdir;
 

@@ -1,0 +1,29 @@
+id: pretty-assert-eq-import
+language: Rust
+severity: error
+message: |
+  This test file calls `assert_eq!` without importing it from `pretty_assertions`. Its failure message prints a
+  line-by-line diff of the two values rather than both of them whole, which is what makes a mismatched struct or
+  string readable. Add `use pretty_assertions::assert_eq;`, as the fix does.
+# The fix puts the import under the file's last inner attribute; the formatter then moves it into its import group.
+rule:
+  pattern: "#![$ATTR]"
+  matches: last-test-inner-attribute
+  inside:
+    kind: source_file
+    has:
+      kind: macro_invocation
+      stopBy: end
+      has:
+        field: macro
+        regex: "^assert_eq$"
+    not:
+      has:
+        kind: use_declaration
+        regex: "pretty_assertions::(assert_eq|\\{[^}]*\\bassert_eq\\b)"
+fix: |-
+  #![$ATTR]
+
+  use pretty_assertions::assert_eq;
+ignores:
+  - generated/**

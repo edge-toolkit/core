@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use actix_web::http::{StatusCode, header};
 use actix_web::{App, test, web};
 use et_ws_service::{WsAgentRegistry, WsConfig, configure};
+use pretty_assertions::assert_eq;
 
 /// The handshake nonce from RFC 6455's opening-handshake example: base64 of the 16 bytes `the sample nonce`.
 const RFC_6455_SAMPLE_NONCE: &str = "dGhlIHNhbXBsZSBub25jZQ==";

@@ -13,6 +13,7 @@ use edge_toolkit::ws_server::{
     AcknowledgeError, AgentRecord, AgentRegistry, IpBlocklist, MAX_AGENT_ID_LEN, MessageRetention, RegistryError,
     is_valid_agent_id,
 };
+use pretty_assertions::assert_eq;
 
 const FIRST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 const SECOND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2));

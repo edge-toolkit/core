@@ -47,6 +47,7 @@ et-otlp.workspace = true
 et-test-nats.workspace = true
 et-test-otlp.workspace = true
 et-ws-runner-common.workspace = true
+pretty_assertions.workspace = true
 reqwest.workspace = true
 tokio-rustls.workspace = true
 

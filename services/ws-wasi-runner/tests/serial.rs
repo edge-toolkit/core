@@ -10,6 +10,7 @@ use std::net::{SocketAddr, TcpListener};
 use et_ws_wasi_runner::HostState;
 use et_ws_wasi_runner::bindings::serial_host::et::ws_wasi::serial::{Host as _, HostPort, SerialError};
 use et_ws_wasi_runner::host::serial::Port;
+use pretty_assertions::assert_eq;
 use wasmtime::component::Resource;
 
 /// The baud rate every open asks for; a bridged port ignores it.

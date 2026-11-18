@@ -8,6 +8,7 @@ use core::pin::pin;
 use core::task::{Context, Poll, Waker};
 
 use edge_toolkit::ws::{ConnectStatus, ServerMessage};
+use pretty_assertions::assert_eq;
 use wasmtime::ResourceLimiter as _;
 use wasmtime::component::Resource;
 

@@ -11,6 +11,7 @@ use et_test_helpers::temp_env;
 #[cfg(feature = "nats")]
 use et_ws_service::BackplaneConfig;
 use et_ws_service::{MessageRetention, WsConfig};
+use pretty_assertions::assert_eq;
 use serde::Deserialize;
 
 // Mirror the ws-server's nesting so the env key is `WS_MAX_FRAME_SIZE`.

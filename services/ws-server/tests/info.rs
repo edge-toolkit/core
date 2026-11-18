@@ -4,6 +4,8 @@
 use actix_web::{App, test, web};
 use et_ws_server::info;
 use et_ws_server::routes::BuildInfo;
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 #[actix_rt::test]
 async fn info_reports_this_build() {

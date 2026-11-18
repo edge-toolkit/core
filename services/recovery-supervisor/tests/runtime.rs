@@ -13,6 +13,7 @@ use et_recovery_supervisor::runtime::{cycle, hub, load_budget, load_supervisor, 
 use et_test_recovery::{config, environment, event, report, supervisor};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tracing::field::Field;
 use tracing::instrument::WithSubscriber as _;
 use tracing::subscriber::set_default;

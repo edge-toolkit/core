@@ -7,6 +7,8 @@ use et_gpu_probe::{
     RASTERS, Side, Signature, WEBGL2_CLEAR, WEBGL2_FIXED_FUNCTION, WEBGPU_CLEAR, WEBGPU_FIXED_FUNCTION,
     clear_reference, coverage, fixed_function_reference,
 };
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 /// Every format the probes use, each beside its WebGPU name, the bytes a texel of it takes and its red channel's mask.
 const FORMATS: [(Format, &str, u32, u32); 5] = [

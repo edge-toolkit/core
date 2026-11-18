@@ -13,6 +13,8 @@ use fs_err as fs;
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStatus};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use k8s_openapi::apimachinery::pkg::version::Info;
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};

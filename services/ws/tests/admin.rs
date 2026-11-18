@@ -13,6 +13,7 @@ use edge_toolkit::ws_server::{MessageRetention, RegistryError};
 use et_ws_service::BackplaneError;
 use et_ws_service::admin::{AdminError, AdminToken, EvictedAgent};
 use et_ws_service::{WsAgentRegistry, WsConfig, configure};
+use pretty_assertions::assert_eq;
 
 const TOKEN: &str = "s3cret";
 const AGENT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 0, 2, 7));

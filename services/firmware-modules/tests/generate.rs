@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use et_firmware_modules::{Generated, ModulesError, generate, include_path};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 use tempfile::{TempDir, tempdir};
 
 /// Write `contents` to `path` under `root`, making its directories.

@@ -4822,6 +4822,7 @@ dependencies = [
  "et-test-otlp",
  "fs-err",
  "jiff",
+ "pretty_assertions",
  "rstest",
  "schemars 1.2.3",
  "secrecy",
@@ -5883,6 +5884,7 @@ dependencies = [
  "document-features",
  "jiff",
  "nutype",
+ "pretty_assertions",
  "schemars 1.2.3",
  "serde",
  "serde-env",
@@ -5910,6 +5912,7 @@ dependencies = [
  "jiff",
  "k8s-openapi",
  "minijinja",
+ "pretty_assertions",
  "pretty_yaml",
  "rand 0.10.3",
  "rand_chacha 0.10.0",
@@ -5933,6 +5936,7 @@ version = "0.1.0"
 dependencies = [
  "dlmalloc",
  "edge-toolkit",
+ "pretty_assertions",
  "serde_json",
  "thiserror 2.0.21",
 ]
@@ -5945,6 +5949,7 @@ dependencies = [
  "et-core-guest",
  "et-ws-wasi-runner",
  "fs-err",
+ "pretty_assertions",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
@@ -5965,6 +5970,7 @@ dependencies = [
  "objc2",
  "objc2-metal",
  "platforms",
+ "pretty_assertions",
  "serde_json",
  "target-lexicon",
  "thiserror 2.0.21",
@@ -5988,6 +5994,7 @@ dependencies = [
  "et-https-listener",
  "fs-err",
  "futures-executor",
+ "pretty_assertions",
  "serde",
  "serde-saphyr",
  "serde_json",
@@ -6005,6 +6012,7 @@ dependencies = [
  "document-features",
  "fs-err",
  "local-ip-address",
+ "pretty_assertions",
  "rcgen",
  "rustls",
  "rustls-webpki",
@@ -6024,6 +6032,7 @@ dependencies = [
  "et-test-helpers",
  "et-test-nats",
  "futures-util",
+ "pretty_assertions",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -6057,6 +6066,7 @@ dependencies = [
  "jiff",
  "kdl 6.7.1",
  "openapiv3",
+ "pretty_assertions",
  "pretty_yaml",
  "prettyplease 0.3.0",
  "proc-macro2",
@@ -6092,6 +6102,7 @@ dependencies = [
  "js-sys",
  "md-5 0.11.0",
  "png",
+ "pretty_assertions",
  "serde_json",
  "thiserror 2.0.21",
  "wasm-bindgen",
@@ -6146,6 +6157,7 @@ dependencies = [
  "fs-err",
  "panic-probe",
  "picoserve",
+ "pretty_assertions",
  "serde_json",
  "static_cell",
  "tokio",
@@ -6156,6 +6168,7 @@ dependencies = [
 name = "et-lidar"
 version = "0.1.0"
 dependencies = [
+ "pretty_assertions",
  "thiserror 2.0.21",
 ]
 
@@ -6164,6 +6177,7 @@ name = "et-math1"
 version = "0.1.0"
 dependencies = [
  "et-ws-test-server",
+ "pretty_assertions",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -6180,6 +6194,7 @@ dependencies = [
  "edge-toolkit",
  "fs-err",
  "picoserve",
+ "pretty_assertions",
  "schemars 1.2.3",
  "serde",
  "serde-inline-default",
@@ -6201,6 +6216,9 @@ dependencies = [
 [[package]]
 name = "et-org"
 version = "0.2.0"
+dependencies = [
+ "pretty_assertions",
+]
 
 [[package]]
 name = "et-otlp"
@@ -6213,6 +6231,7 @@ dependencies = [
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "pretty_assertions",
  "serde",
  "serde-env",
  "serde_json",
@@ -6227,6 +6246,7 @@ name = "et-path"
 version = "0.3.0"
 dependencies = [
  "fs-err",
+ "pretty_assertions",
  "tempfile",
 ]
 
@@ -6244,6 +6264,7 @@ dependencies = [
  "fs-err",
  "futures-util",
  "k8s-openapi",
+ "pretty_assertions",
  "schemars 1.2.3",
  "serde",
  "serde-env",
@@ -6267,6 +6288,7 @@ dependencies = [
  "httpmock",
  "opentelemetry",
  "opentelemetry-http",
+ "pretty_assertions",
  "progenitor-client",
  "regex",
  "reqwest",
@@ -6308,6 +6330,7 @@ dependencies = [
  "log",
  "object_store",
  "picoserve",
+ "pretty_assertions",
  "reqwest",
  "schemars 1.2.3",
  "serde",
@@ -6329,6 +6352,7 @@ dependencies = [
  "command-error",
  "fs-err",
  "port_check",
+ "pretty_assertions",
  "retry",
  "temp-env",
  "tempfile",
@@ -6353,6 +6377,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry-proto",
  "opentelemetry_sdk",
+ "pretty_assertions",
  "prost",
  "reqwest",
  "serde_json",
@@ -6370,6 +6395,7 @@ dependencies = [
  "edge-toolkit",
  "et-recovery-supervisor",
  "futures-util",
+ "pretty_assertions",
  "serde-env",
  "serde_json",
  "tokio",
@@ -6408,6 +6434,7 @@ dependencies = [
  "actix-ws",
  "bytes",
  "futures-util",
+ "pretty_assertions",
  "tokio",
  "tokio-tungstenite",
  "tracing",
@@ -6508,6 +6535,7 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
+ "pretty_assertions",
  "serde_json",
  "tracing",
  "wasm-bindgen",
@@ -6558,6 +6586,7 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
+ "pretty_assertions",
  "serde_json",
  "tracing",
  "wasm-bindgen",
@@ -6643,6 +6672,7 @@ dependencies = [
  "et-ws-wasm-agent",
  "fs-err",
  "js-sys",
+ "pretty_assertions",
  "serde_json",
  "tracing",
  "wasm-bindgen",
@@ -6690,6 +6720,7 @@ dependencies = [
  "et-ws-runner-common",
  "futures-util",
  "jiff",
+ "pretty_assertions",
  "reqwest",
  "retry-policies",
  "schemars 1.2.3",
@@ -6735,6 +6766,7 @@ dependencies = [
  "et-storage-service",
  "et-websockify-service",
  "et-ws-service",
+ "pretty_assertions",
  "qr2term",
  "schemars 1.2.3",
  "serde",
@@ -6767,6 +6799,7 @@ dependencies = [
  "futures-util",
  "opentelemetry",
  "picoserve",
+ "pretty_assertions",
  "schemars 1.2.3",
  "secrecy",
  "serde",
@@ -6822,6 +6855,7 @@ dependencies = [
  "et-ws-service",
  "fs-err",
  "futures-util",
+ "pretty_assertions",
  "reqwest",
  "rustls",
  "serde_json",
@@ -6922,6 +6956,7 @@ dependencies = [
  "futures-util",
  "libc",
  "ort",
+ "pretty_assertions",
  "reqwest",
  "retry",
  "rstest",
@@ -6955,6 +6990,7 @@ dependencies = [
  "edge-toolkit",
  "et-web",
  "js-sys",
+ "pretty_assertions",
  "serde_json",
  "tracing",
  "wasm-bindgen",

@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use et_cli::{OutputType, generate_deployment, regenerate_verification};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::{TempDir, tempdir};
 
 /// A browser agent running math1, which the page loads from the board.

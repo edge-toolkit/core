@@ -2,6 +2,7 @@
 
 use et_cli::generate_module_package_json;
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use serde_json::Value;
 use tempfile::tempdir;
 

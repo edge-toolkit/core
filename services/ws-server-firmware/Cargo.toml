@@ -93,6 +93,7 @@ picoserve = { workspace = true, features = ["tokio"] }
 tokio = { workspace = true, features = ["net", "rt", "time"] }
 
 [dev-dependencies]
+pretty_assertions.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tungstenite.workspace = true
 

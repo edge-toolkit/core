@@ -13,6 +13,8 @@ use edge_toolkit::ws_server::{MessageRetention, PendingDirectMessage};
 use et_hub_backplane::{Backplane, BackplaneConfig, BackplaneError, Frame, Inbound, NatsBackplane, Presence};
 use et_test_nats::NatsServer;
 use futures_util::{Stream, StreamExt as _};
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 const LOOPBACK: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 const NEWEST: MessageRetention = MessageRetention::LatestPerSender;

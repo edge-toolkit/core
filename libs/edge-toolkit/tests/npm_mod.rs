@@ -7,6 +7,7 @@
 
 use edge_toolkit::config::find_npm_modules_path_in;
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 #[test]

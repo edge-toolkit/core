@@ -20,6 +20,7 @@ use et_ws_wasi_runner::bindings::et::ws_messages::messages::{
 use et_ws_wasi_runner::bindings::et::ws_wasi::ws::{Host as _, State, WsError};
 use et_ws_wasi_runner::host::ws::WsBackend;
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio_tungstenite::{connect_async, tungstenite};
 
 /// Handshake budget for both the backend and the raw peer.

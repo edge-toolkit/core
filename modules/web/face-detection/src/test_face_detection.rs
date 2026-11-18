@@ -1,8 +1,11 @@
 #![cfg(test)]
 #![expect(
     clippy::default_numeric_fallback,
-    reason = "test code: inline f64 fixtures are intentional"
+    clippy::float_cmp,
+    reason = "test code: inline f64 fixtures are intentional, and each is compared exactly against what it must equal"
 )]
+
+use pretty_assertions::assert_eq;
 
 use super::*;
 

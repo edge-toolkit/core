@@ -10,6 +10,7 @@ use et_recovery_supervisor::config::Config;
 use et_test_recovery::{config, environment, event};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio::io::{AsyncBufReadExt as _, BufReader};
 use tokio::process::{Child, Command};
 use tokio_tungstenite::tungstenite::Message;

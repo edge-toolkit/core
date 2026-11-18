@@ -6,6 +6,8 @@ use et_gpu_probe::{
     Answer, HOST, PROBE_COUNT, Signature, UNRECOGNISED, VERTEX_SHADER, WEBGL2, WEBGPU, combined_shader,
     fragment_shaders, host, reference, shaders,
 };
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 /// The fingerprint the probes gave through WebGPU on an Apple M5 Pro.
 const M5_PRO_WEBGPU: &str = concat!(
