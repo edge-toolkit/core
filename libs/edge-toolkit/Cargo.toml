@@ -77,13 +77,14 @@ std = [
   "dep:command-error",
   "dep:et-path",
   "dep:fs-err",
-  "dep:humantime-serde",
+  "dep:jiff",
   "dep:serde-inline-default",
   "dep:serde_default",
   "dep:serde_yaml",
   "dep:strum",
   "dep:tracing",
   "dep:wasmparser",
+  "jiff/serde",
   "serde/std",
   "serde_json/std",
   "thiserror/std",
@@ -111,7 +112,7 @@ command-error = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
 et-path = { workspace = true, optional = true }
 fs-err = { workspace = true, optional = true }
-humantime-serde = { workspace = true, optional = true }
+jiff = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 secrecy.workspace = true
 serde = { workspace = true, features = ["alloc"] }

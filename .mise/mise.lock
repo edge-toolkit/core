@@ -1562,36 +1562,6 @@ checksum = "sha256:32975d1493ee1a975d6bb41e4fb56fe419cb442ded628bb772ba2e614acfa
 url = "https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/lycheeverse/lychee/releases/assets/409959491"
 
-[[tools."github:microsoft/onnxruntime"]]
-version = "1.22.0"
-backend = "github:microsoft/onnxruntime"
-specifiers = ["1.22.0"]
-
-[tools."github:microsoft/onnxruntime"."platforms.linux-arm64"]
-checksum = "blake3:51c33bfd5c886d3ec77a8e4eaf249aa04893b0eaa55b0c85d2dc1960da256484"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-aarch64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300383"
-
-[tools."github:microsoft/onnxruntime"."platforms.linux-x64"]
-checksum = "sha256:8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300385"
-
-[tools."github:microsoft/onnxruntime"."platforms.macos-arm64"]
-checksum = "blake3:31837329e25a47978b9c7e68f17b71d117ae208c3da65302925796f04245436b"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-arm64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300410"
-
-[tools."github:microsoft/onnxruntime"."platforms.macos-x64"]
-checksum = "sha256:e4ec94a7696de74fb1b12846569aa94e499958af6ffa186022cfde16c9d617f0"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-x86_64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300427"
-
-[tools."github:microsoft/onnxruntime"."platforms.windows-x64"]
-checksum = "sha256:174c616efc0271194488642a72f1a514e01487da4dfe84c49296d66e40ebe0da"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-1.22.0.zip"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300435"
-
 [[tools."github:nats-io/nats-server"]]
 version = "2.15.2"
 backend = "github:nats-io/nats-server"
@@ -2144,6 +2114,34 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 [tools."http:et-rp"."platforms.windows-x64"]
 checksum = "sha256:30b96e2d50ec15f7da5563b5bbce4170ee23f5fbf8565a8973889d8f25c6279a"
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-pc-windows-msvc.tar.gz"
+
+[[tools."http:onnxruntime"]]
+version = "1.22.0"
+backend = "http:onnxruntime"
+specifiers = ["1.22.0"]
+
+[tools."http:onnxruntime".options]
+format = "zip"
+
+[tools."http:onnxruntime"."platforms.linux-arm64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.linux-x64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.macos-arm64"]
+checksum = "blake3:d222e5ffff5715174d0ce847988045e3e08744f0d8dbfb121f11611a9b55bb73"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.macos-x64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.windows-x64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
 
 [[tools."http:openobserve"]]
 version = "1.1.2"

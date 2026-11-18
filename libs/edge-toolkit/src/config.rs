@@ -22,9 +22,8 @@ pub const MODULE_TYPE_DIRS: [&str; 4] = ["modules/core", "modules/pyo3", "module
 ///
 /// Matched case-insensitively, ignoring surrounding whitespace.
 ///
-/// These sentinels let an `Option<_>` env-var field be set to `None`. A blank value can't serve that role --
-/// `serde-env` drops empty-valued vars, so a blank var is indistinguishable from unset (both fall back to the
-/// default).
+/// These sentinels let an `Option<_>` env-var field be set to `None`. A blank value can't serve that role -- `serde-
+/// env` drops empty-valued vars, so a blank var is indistinguishable from unset (both fall back to the default).
 #[must_use]
 pub fn is_disabled_sentinel(value: &str) -> bool {
     let trimmed = value.trim();
@@ -37,7 +36,7 @@ pub fn is_disabled_sentinel(value: &str) -> bool {
 ///
 /// Generic over the inner type, for fields read from env vars via `serde-env`: the value arrives as a string, so this
 /// works for any `T` whose `Deserialize` accepts a string scalar (e.g. `bytesize::ByteSize`, `String`). `Duration` is
-/// the exception -- its `Deserialize` isn't humantime -- so use [`deserialize_optional_humantime`] for duration fields.
+/// the exception -- its `Deserialize` takes no `15s` -- so use [`deserialize_optional_duration`] for duration fields.
 /// Pair either with `#[serde(default = "...")]` for the unset case.
 ///
 /// # Errors
@@ -58,15 +57,16 @@ where
     T::deserialize(inner).map(Some)
 }
 
-/// [`deserialize_optional`] for `Option<Duration>` fields, parsing a humantime duration (e.g. `15s`, `1m30s`).
+/// [`deserialize_optional`] for `Option<Duration>` fields, parsing a duration such as `15s`, `500ms` or `1m30s`.
 ///
-/// Separate from the generic [`deserialize_optional`] because `Duration`'s own `Deserialize` expects a `{secs, nanos}`
-/// struct, not a humantime string.
+/// The format is jiff's "friendly" one, units from hours down to nanoseconds, largest first; an ISO 8601 duration
+/// such as `PT15S` is read too. Days and longer units are refused, having no fixed length. Separate from the generic
+/// [`deserialize_optional`] because `Duration`'s own `Deserialize` expects a `{secs, nanos}` struct, not a string.
 ///
 /// # Errors
 /// Returns the deserializer's error if the value is neither a sentinel nor a
-/// valid humantime duration.
-pub fn deserialize_optional_humantime<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+/// valid duration.
+pub fn deserialize_optional_duration<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -77,7 +77,7 @@ where
         return Ok(None);
     }
     let inner: serde::de::value::StrDeserializer<'_, D::Error> = raw.trim().into_deserializer();
-    humantime_serde::deserialize(inner).map(Some)
+    jiff::fmt::serde::unsigned_duration::friendly::compact::required::deserialize(inner).map(Some)
 }
 
 /// Helper to find repository root.
@@ -348,9 +348,9 @@ pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
 
 /// The package's own directory (`<node_modules>/<package>`) rather than its parent `node_modules`.
 ///
-/// Use this to serve a single scoped npm package (e.g. `@mediapipe/tasks-vision`) as one module at
-/// `/modules/<package-name>`: pointing the modules service at the whole `node_modules` tree wouldn't find a nested
-/// `@scope/pkg` (the scope dir has no `package.json`), so we push the package dir directly.
+/// Use this to serve a single scoped npm package (e.g. `@mediapipe/tasks-vision`) as one module at `/modules/<package-
+/// name>`: pointing the modules service at the whole `node_modules` tree wouldn't find a nested `@scope/pkg` (the scope
+/// dir has no `package.json`), so we push the package dir directly.
 #[must_use]
 pub fn mise_npm_package_path(package: &str) -> Option<PathBuf> {
     mise_npm_modules_path(package).map(|node_modules| node_modules.join(package))
@@ -398,10 +398,10 @@ pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf
 
 /// `site-packages` directories of every `pipx:` python package `mise` has installed for the current config.
 ///
-/// Intended for pre-populating an embedded interpreter's `sys.path` so the `et-ws-pyo3-runner` can `import`
-/// mise-managed packages without the operator wiring `PYTHONPATH` by hand. Runs `mise ls --current --json` once and,
-/// for each `pipx:<pkg>` tool, locates its venv `site-packages` via [`find_site_packages_in`]. Best-effort: returns
-/// an empty vec if `mise` is unavailable, exits non-zero, or emits output we can't parse.
+/// Intended for pre-populating an embedded interpreter's `sys.path` so the `et-ws-pyo3-runner` can `import` mise-
+/// managed packages without the operator wiring `PYTHONPATH` by hand. Runs `mise ls --current --json` once and, for
+/// each `pipx:<pkg>` tool, locates its venv `site-packages` via [`find_site_packages_in`]. Best-effort: returns an
+/// empty vec if `mise` is unavailable, exits non-zero, or emits output we can't parse.
 #[must_use]
 pub fn mise_python_site_packages() -> Vec<PathBuf> {
     if !mise_is_available() {

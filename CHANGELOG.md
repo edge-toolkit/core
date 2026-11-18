@@ -209,6 +209,12 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** duration settings are read by jiff rather than the unmaintained humantime: `RUNNER_TIMEOUT`,
+  `WS_CONNECT_ACK_TIMEOUT`, `WS_CONNECTION_TIMEOUT` and the `HTTP_*` timeouts and keep-alive. `15s`, `500ms` and
+  `1m30s` read as before, and an ISO 8601 duration such as `PT15S` is now accepted too. Days, weeks, months and years
+  are refused, as is a bare number with no unit such as `0` (write `0s`), and units must run from largest to smallest,
+  once each. In `edge-toolkit`, `config::deserialize_optional_humantime` is renamed `deserialize_optional_duration`,
+  and in `et-actix-web-config`, `KeepAliveSetting`'s `TryFrom<String>` error is now `jiff::Error`.
 - **Breaking:** a GPU probe registry row may give `browser`, `os`, `cpu_arch`, `gpu`, `backend` and `window` a value
   outside the set the registry names, which is kept as its text rather than refused, so `et-gpu-probe-server`,
   `gpu-probe` and the probe page record a device, browser or system the registry has no name for yet; the server

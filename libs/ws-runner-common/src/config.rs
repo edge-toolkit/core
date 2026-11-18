@@ -16,18 +16,18 @@ pub const DEFAULT_CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Declare a runner's `Config`, with the fields every runner reads supplied and its own added after.
 ///
-/// A macro rather than a shared struct the runners nest or flatten. Nesting changes the variable names
-/// serde-env derives, and `#[serde(flatten)]` cannot rebuild these: serde-env buffers a flattened value as a
-/// string, so the inner struct fails with `invalid type: string "", expected struct RunnerConfig`. Expanding
-/// the fields leaves each runner deserialising exactly as it did while declaring them once.
+/// A macro rather than a shared struct the runners nest or flatten. Nesting changes the variable names serde-env
+/// derives, and `#[serde(flatten)]` cannot rebuild these: serde-env buffers a flattened value as a string, so the inner
+/// struct fails with `invalid type: string "", expected struct RunnerConfig`. Expanding the fields leaves each runner
+/// deserialising exactly as it did while declaring them once.
 ///
-/// What that buys is the drift: all three runners read the same three groups -- which module, which hub,
-/// where telemetry goes -- and while each spelled them out, two of them silently had no `otlp` at all.
+/// What that buys is the drift: all three runners read the same three groups -- which module, which hub, where
+/// telemetry goes -- and while each spelled them out, two of them silently had no `otlp` at all.
 ///
-/// The expansion names `::et_otlp` and `::edge_toolkit`, so a crate invoking this needs both as direct
-/// dependencies even where its own code mentions neither. Dropping one as unused fails at the call site
-/// with `cannot find et_otlp in the crate root`, pointing at the macro rather than at the manifest. Under the
-/// invoking crate's own `env-schema` feature it also derives `::schemars::JsonSchema`, for the HELP.md listing.
+/// The expansion names `::et_otlp` and `::edge_toolkit`, so a crate invoking this needs both as direct dependencies
+/// even where its own code mentions neither. Dropping one as unused fails at the call site with `cannot find et_otlp
+/// in the crate root`, pointing at the macro rather than at the manifest. Under the invoking crate's own `env-schema`
+/// feature it also derives `::schemars::JsonSchema`, for the HELP.md listing.
 #[macro_export]
 macro_rules! runner_config {
     (
@@ -66,7 +66,7 @@ pub struct RunnerConfig {
     /// Module to run, from `RUNNER_MODULE` (required).
     pub module: String,
     /// Optional wall-clock timeout, from `RUNNER_TIMEOUT` (e.g. `120s`, `3m`); `None` runs without a timeout.
-    #[serde(default, with = "humantime_serde")]
+    #[serde(default, with = "jiff::fmt::serde::unsigned_duration::friendly::compact::optional")]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub timeout: Option<Duration>,
 }
@@ -83,11 +83,11 @@ pub struct WsConfig {
 
     /// How long [`crate::connect_and_register`] waits for the server's `et-connect-ack`.
     ///
-    /// Read from `WS_CONNECT_ACK_TIMEOUT` as a humantime duration (e.g. `5s`, `500ms`). Unset defaults to 5s;
+    /// Read from `WS_CONNECT_ACK_TIMEOUT` as a duration (e.g. `5s`, `500ms`). Unset defaults to 5s;
     /// `none`/`off`/`disabled` waits forever (retry until the server answers).
     #[serde(
         default = "default_connect_ack_timeout",
-        deserialize_with = "edge_toolkit::config::deserialize_optional_humantime"
+        deserialize_with = "edge_toolkit::config::deserialize_optional_duration"
     )]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>", extend("default" = "5s")))]
     pub connect_ack_timeout: Option<Duration>,

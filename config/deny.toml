@@ -257,9 +257,10 @@ ignore = [
   { id = "RUSTSEC-2026-0553", reason = "expires 2027-01-01" },
   { id = "RUSTSEC-2026-0554", reason = "expires 2027-01-01" },
   # chrono 0.4.45 (unmaintained, so no version is patched) and humantime 2.4.0, unmaintained because it wraps chrono.
-  # Maintenance notices, not vulnerabilities. Our own crates use both, but leaving them would not drop either: chrono
-  # also comes in through deno_runtime's crates, cloudevents-sdk, object_store, schemars and croner, and humantime
-  # through humantime-serde and object_store, each at its newest release. Drop these when those move to jiff or time.
+  # Maintenance notices, not vulnerabilities. Our own crates use chrono, but leaving it would not drop it: chrono also
+  # comes in through deno_runtime's crates, cloudevents-sdk, object_store, schemars and croner, and humantime, which
+  # our crates no longer use, through object_store, each at its newest release. Drop these when those move to jiff or
+  # time.
   { id = "RUSTSEC-2026-0542", reason = "expires 2027-01-01" },
   { id = "RUSTSEC-2026-0543", reason = "expires 2027-01-01" },
   # The npm: AsyncAPI generator tools -- the entries below share one setting, so it is described once, here.

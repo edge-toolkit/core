@@ -4784,7 +4784,7 @@ dependencies = [
  "et-test-helpers",
  "et-test-otlp",
  "fs-err",
- "humantime-serde",
+ "jiff",
  "rstest",
  "schemars 1.2.3",
  "secrecy",
@@ -5844,8 +5844,7 @@ dependencies = [
  "actix-service",
  "actix-web",
  "document-features",
- "humantime",
- "humantime-serde",
+ "jiff",
  "nutype",
  "schemars 1.2.3",
  "serde",
@@ -6649,7 +6648,7 @@ dependencies = [
  "et-test-helpers",
  "et-ws-runner-common",
  "futures-util",
- "humantime-serde",
+ "jiff",
  "reqwest",
  "retry-policies",
  "schemars 1.2.3",
@@ -8037,16 +8036,6 @@ name = "humantime"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15cdd26707701c53297e2fa6afb323d55fbc1d0810c3aec078ae3ef0424c3c15"
-
-[[package]]
-name = "humantime-serde"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57a3db5ea5923d99402c94e9feb261dc5ee9b4efa158b0315f788cf549cc200c"
-dependencies = [
- "humantime",
- "serde",
-]
 
 [[package]]
 name = "hybrid-array"

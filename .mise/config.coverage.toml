@@ -89,8 +89,8 @@ RUSTUP_TOOLCHAIN = "{{ vars.rust_nightly }}"
 # ignores both lines. Drop them if the conda-clang bin dir ever stops carrying a `cc`.
 CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER = "/usr/bin/cc"
 CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER = "/usr/bin/cc"
-DYLD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
-LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
+DYLD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}"
+LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}"
 _.path = "{{ vars.a_home }}/.local/share/mise/installs/conda-clang/latest/bin"
 
 # Lower the workspace `rust-version` to the coverage nightly's own release, which it predates.

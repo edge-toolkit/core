@@ -160,10 +160,10 @@ winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
 py3_win = '{{ vars.mise_installs }}\python\3.13.18\python.exe'
 # Forward-slashed py3_win for bash task bodies (backslash-form paths mangle in busybox ash).
 py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.18/python.exe"
-# Windows install root for the github:microsoft/onnxruntime tool.
+# Windows directory of the http:onnxruntime tool's native library and import library for this host.
 # ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).
-ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
+ort_loc_win = '{{ vars.mise_installs }}\http-onnxruntime\1.22.0\runtimes\win-{{ arch() }}\native'
 # llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
 # The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
 # cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH: a bare `clang`
@@ -238,7 +238,7 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_b
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
 # The ONNX Runtime library et-ws-wasi-runner opens: the Windows install's, in place of the one config.toml names.
-ORT_DYLIB_PATH = '{{ vars.ort_loc_win }}\lib\onnxruntime.dll'
+ORT_DYLIB_PATH = '{{ vars.ort_loc_win }}\onnxruntime.dll'
 # Prepend conda:m2-gnupg's nested binary dir to PATH.
 # mise's per-tool .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly, but
 # msys2-format packages put binaries one level deeper at `<install>/Library/usr/bin/X`. Without this,

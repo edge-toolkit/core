@@ -179,8 +179,6 @@ futures-util = "0.3"
 half = { version = "2.7", default-features = false }
 heck = "0.5"
 hostname = "0.4"
-humantime = "2"
-humantime-serde = "1"
 # Already a workspace dependency via deno_image/ws-web-runner, so this adds no new crate or license to review.
 # Explicit format features only (no avif/dds/exr/hdr/ico/pnm/qoi/tga/tiff): et-storage-service only decodes
 # the extensions is_image_filename() recognises.
@@ -625,6 +623,9 @@ ignore = [
   # Unmaintained upstream at HdrHistogram/HdrHistogram_rust.
   # Pulled by deno_node (perf hooks).
   "hdrhistogram",
+  # Archived upstream at chronotope/humantime, which names jiff as its successor; our crates parse with jiff.
+  # Pulled by object_store, whose newest release, 0.14.2, still requires humantime ^2.1.
+  "humantime",
   # Unmaintained upstream at xacrimon/dashmap.
   # Pulled by deno_maybe_sync. (Marked stable / feature-complete by upstream.)
   "dashmap",

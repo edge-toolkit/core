@@ -364,8 +364,11 @@ fn over(group: &mut BenchmarkGroup<'_, WallTime>, cores: &Cores, scheme: &str, t
         runtime.block_on(alive(&mut probe.get_or_init(connect_probe).borrow_mut()));
     });
 
-    // The probe goes before the fleet it was measured beside; neither is torn down if no measure brought it up.
-    drop(probe);
+    // The probe goes before the fleet it was measured beside; neither is torn down if no measure brought it up. The
+    // probe's socket is closed as its binding goes out of scope at the end of this block.
+    if let Some(probe) = probe.into_inner() {
+        let _closed: Socket = probe.into_inner();
+    }
     if let Some(held) = held.into_inner() {
         let Held { hub, mut fleet } = held.into_inner();
         fleet.assert_all_connected();

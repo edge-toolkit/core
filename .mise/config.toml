@@ -158,10 +158,8 @@ ripgrep = "latest"
 # and redden config/jscpd-baseline.json; the lockfile holds the version until a refresh moves it. When it moves,
 # regenerate the baseline and, in the same change, set `declared_clones` in the jscpd conftest policy to the smallest
 # multiple of its `ceiling_step` at or above the new count.
-"github:kucherenko/jscpd" = "latest"
-# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
-"github:microsoft/onnxruntime" = "1.22.0"
+"github:kucherenko/jscpd" = "latest"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
@@ -519,6 +517,20 @@ url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/mac-
 [tools."http:chromedriver".platforms.macos-x64]
 url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/mac-x64/chromedriver-mac-x64.zip"
 
+# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
+# Fetched as Microsoft's NuGet package, which holds the native library of every platform under runtimes/<rid>/native;
+# ort_loc_unix and ort_loc_win name the directory of the host's. The project's GitHub repository, whose release
+# tarballs this was installed from before, answers 404 since 2026-11-18, failing every `mise install` with
+#   mise ERROR Failed to install github:microsoft/onnxruntime@1.22.0: HTTP status client error (404 Not Found)
+#   for url (https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300385)
+# on commit https://github.com/edge-toolkit/core/commit/c7dd9d585e3ee2efbfd8241c8fb2f7cd9f7bab02 at
+# https://github.com/edge-toolkit/core/actions/runs/44214873502/job/134502076181.
+[tools."http:onnxruntime"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+format = "zip"
+url = "{{ vars.ort_nuget }}/{{version}}/microsoft.ml.onnxruntime.{{version}}.nupkg"
+version = "1.22.0"
+
 [tools."http:augeas"]
 bin = "augtool"
 version = "1.14.1"
@@ -733,10 +745,14 @@ clippy_scope = "--keep-going --workspace --all-targets"
 # `cuda` is left out because it downloads a CUDA build of ONNX Runtime that exists only for some host triples.
 # `docs` only renders the feature list into rustdoc, which cargo-doc-check builds, so it would double every run.
 cargo_hack_flags = "--all-targets --feature-powerset --exclude-features cuda,docs"
-# Linux/macOS install root for the github:microsoft/onnxruntime tool.
+# Where NuGet serves each version of Microsoft's ONNX Runtime package, which the http:onnxruntime tool fetches.
+ort_nuget = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime"
+# The NuGet runtime identifier of this Linux or macOS host, naming its directory under the package's runtimes/.
+ort_rid_unix = "{% if os() == 'macos' %}osx{% else %}linux{% endif %}-{{ arch() }}"
+# Linux/macOS directory of the http:onnxruntime tool's native library for this host.
 # The ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
 # segment must match the [tools] pin (conftest's version_drift enforces this).
-ort_loc_unix = "{{ vars.a_home }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
+ort_loc_unix = "{{ vars.mise_data_dir }}/installs/http-onnxruntime/1.22.0/runtimes/{{ vars.ort_rid_unix }}/native"
 # Source/dest paths for the fetch-*-rclone model downloads, kept as vars.
 # Keeping them as vars lets each `rclone copyto` command stay on a single line without continuations.
 # face1's RetinaFace_int.onnx is mirrored to edge-toolkit/core's hf-cache-v<N> release because HuggingFace
@@ -901,7 +917,7 @@ RIPGREP_CONFIG_PATH = "{{ config_root }}/config/ripgrep.rc"
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 
 # Direct ort-sys (workspace `ort` dep) at the mise-staged ONNX Runtime install.
-# That install is github:microsoft/onnxruntime above, used instead of fetching at build time. The
+# That install is http:onnxruntime above, used instead of fetching at build time. The
 # workspace dep dropped the `download-binaries` feature, so SKIP_DOWNLOAD is
 # belt-and-braces (the download code path is gone).
 ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{ vars.ort_loc_unix }}{% endif %}"
@@ -913,7 +929,7 @@ ORT_SKIP_DOWNLOAD = "1"
 #   dyld: Library not loaded: /usr/local/opt/protobuf/lib/libprotobuf-lite.35.0.0.dylib
 LIBONNXRUNTIME_NO_PKG_CONFIG = "1"
 # The ONNX Runtime library et-ws-wasi-runner opens when a guest first uses `wasi:nn`, out of that same install.
-ORT_DYLIB_PATH = "{{ vars.ort_loc_unix }}/lib/libonnxruntime.{% if os() == 'macos' %}dylib{% else %}so{% endif %}"
+ORT_DYLIB_PATH = "{{ vars.ort_loc_unix }}/libonnxruntime.{% if os() == 'macos' %}dylib{% else %}so{% endif %}"
 
 [tasks]
 ec = "editorconfig-checker"
@@ -3220,9 +3236,11 @@ wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- -
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-gpu-probe-site]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "gen:gpu-probe-signatures"]
 description = "Assemble the GPU probe page as a static site in target/gpu-probe-site, to deploy to a host like Vercel"
-# The site is the page, its WASM, and the two files the server builds in and serves beside it.
+# The site is the page, its WASM, the files the server builds in and serves beside it, and the registry.
+# The page holds what it measured against the registry, so that it proposes only what the registry does not record.
+# The registry is regenerated first, so a deploy built from a branch judges against that branch's entries.
 # wasm-pack leaves a .gitignore of `*` in the package, which would keep the package out of a deploy that reads it, so
 # it is left behind.
 run = """
@@ -3234,6 +3252,7 @@ coreutils cp utilities/gpu-probe/static/pkg/*.js utilities/gpu-probe/static/pkg/
 coreutils cp utilities/gpu-probe/src/probe.css "$site/probe.css"
 coreutils cp utilities/gpu-probe/src/register.mjs "$site/register.js"
 coreutils cp utilities/gpu-probe/src/propose.mjs "$site/propose.js"
+coreutils cp libs/gpu-probe/signatures.json "$site/signatures.json"
 """
 shell = "{{ vars.task_shell }}"
 
