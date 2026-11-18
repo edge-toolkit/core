@@ -631,6 +631,12 @@ vulnerabilities:
     statement: >-
       undici 6.28.0; fixed in 6.29.1, 7.30.1, 8.12.2.
     expired_at: 2027-01-01
+  - id: CVE-2026-112366
+    paths:
+      - "node/24.22.2/**/npm/node_modules/tinyglobby/node_modules/picomatch/package.json"
+    statement: >-
+      picomatch 4.0.4, which npm's tinyglobby bundles; no fixed release yet.
+    expired_at: 2027-01-01
   - id: CVE-2026-19534
     paths:
       - "node/24.22.2/**/npm/node_modules/undici/package.json"
