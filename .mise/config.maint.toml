@@ -843,6 +843,7 @@ description = "Publish one batch of five workspace crates to crates.io (dry run 
 # tsort's output is one valid order; keep the existing sequence where it already satisfies the graph so batch
 # numbers stay stable for a part-published release, and re-check with the same pairs afterwards.
 run = """
+# shellcheck shell=bash # A maintainer release task, which needs bash and so a maintainer off Windows.
 crates=(
   et-org et-path et-test-otlp edge-toolkit et-test-helpers
   et-otlp et-web et-rest-client et-ws-runner-common et-ws-wasm-agent
@@ -893,6 +894,7 @@ description = "Publish the scoped module packages to GitHub Packages (dry run wi
 # An already-published version is skipped rather than retried. The registry rejects re-publishing a version,
 # and a run that stopped halfway has to be safe to repeat.
 run = """
+# shellcheck shell=bash # A maintainer release task, which needs bash and so a maintainer off Windows.
 : "${GITHUB_TOKEN:=$(gh auth token)}"
 export GITHUB_TOKEN
 # Refuse a token that cannot publish, before anything is packed or uploaded.
@@ -1016,6 +1018,7 @@ description = "Publish the edge-toolkit and et-ws Python packages to (Test)PyPI 
 # username and password, which neither index accepts. Trusted publishing is off because it needs a CI OIDC
 # token, and CI is deliberately never given write access to a package index.
 run = """
+# shellcheck shell=bash # A maintainer release task, which needs bash and so a maintainer off Windows.
 packages=(et-ws edge-toolkit)
 case "$usage_index" in
   testpypi) host=test.pypi.org upload=https://test.pypi.org/legacy/ ;;

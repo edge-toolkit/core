@@ -395,6 +395,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.wasm-cov-branch-check]
 description = "Linux-only: fail unless every wasm libs/ crate is at 100% branch coverage"
 run = """
+# shellcheck shell=bash # The wasm coverage pipeline is out of scope on Windows.
 os="$(coreutils uname -s)"
 if [ "$os" != "Linux" ]; then
   echo "wasm-cov-branch-check: the wasm coverage pipeline only runs on Linux; nothing to check on $os"
@@ -502,9 +503,9 @@ description = "Count the tests in the JUnit reports into a shields.io endpoint b
 run = """
 site=target/test-badge
 coreutils mkdir -p "$site"
-reports=(target/nextest/ci-unit/junit-unit.xml target/nextest/ci-integration/junit-integration.xml
-  target/pycov/junit-*.xml)
-count="$(rg --count-matches --no-filename '<testcase ' "${reports[@]}" |
+set -- target/nextest/ci-unit/junit-unit.xml target/nextest/ci-integration/junit-integration.xml
+set -- "$@" target/pycov/junit-*.xml
+count="$(rg --count-matches --no-filename '<testcase ' "$@" |
   goawk '{ n += $1 } END { print n }')"
 printf '{"schemaVersion":1,"label":"tests","message":"%s","color":"blue"}' "$count" >"$site/tests.json"
 coreutils cat "$site/tests.json"
@@ -532,6 +533,7 @@ description = "Coverage for the browser ws-wasm-agent: run its wasm-bindgen test
 # et-web. Gutting can leave an attribute group empty, which llc rejects, so emptied groups get a benign
 # `nounwind`.
 run = """
+# shellcheck shell=bash # The wasm coverage pipeline is out of scope on Windows.
 covdir=target/agent-cov
 coreutils mkdir -p "$covdir"
 coreutils rm -f "$covdir"/*.profraw "$covdir"/*.o "$covdir"/*.g.ll "$covdir/server-ready"
@@ -639,6 +641,7 @@ description = "Coverage for one crate's wasm-bindgen browser tests: run them hea
 # `unreachable`, keep the covmap, llc to a fixed x86_64 ELF object, llvm-cov to lcov, keep only the records under the
 # crate's source). The profiles, objects and lcov land in target/<name>-cov.
 run = """
+# shellcheck shell=bash # The wasm coverage pipeline is out of scope on Windows.
 covdir="target/$usage_name-cov"
 profdata="$covdir/$usage_name.profdata"
 coreutils mkdir -p "$covdir"

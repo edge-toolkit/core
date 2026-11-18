@@ -4,6 +4,16 @@ name: check
 "on":
   pull_request:
   workflow_dispatch:
+    inputs:
+      os:
+        description: "OS(es) to run"
+        type: choice
+        default: windows-latest
+        options:
+          - all
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
 
 permissions:
   contents: read
@@ -25,6 +35,11 @@ jobs:
   # The powerset is several hundred clippy runs, which no shared timeout fits, and as a separate lane it runs in
   # parallel rather than lengthening the check. Windows runs no powerset lane, at the operator's direction.
   # Each lane is named explicitly so the check lanes keep their existing `check (<os>, <timeout>)` names.
+  #
+  # A pull request runs the Ubuntu lanes alone, at the operator's direction; the macOS and Windows lanes run on
+  # dispatch, for the OS picked in the dropdown or all of them, to investigate a failure particular to one OS. The
+  # lane list is built here in the strategy block because `github.*` is in scope there and `matrix` is not in a
+  # job-level `if:`, and as complete objects so `include:` cannot append a lane that was filtered out.
   check:
     name: ${{ matrix.lane }}
     permissions:
@@ -38,27 +53,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - lane: check (ubuntu-latest, 40)
-            os: ubuntu-latest
-            task: check
-            timeout: 40
-          - lane: check (macos-latest, 75)
-            os: macos-latest
-            task: check
-            timeout: 75
-          - lane: check (windows-latest, 120)
-            os: windows-latest
-            task: check
-            timeout: 120
-          - lane: features (ubuntu-latest)
-            os: ubuntu-latest
-            task: cargo-hack-check
-            timeout: 60
-          - lane: features (macos-latest)
-            os: macos-latest
-            task: cargo-hack-check
-            timeout: 90
+        include: ${{ fromJSON(
+          github.event_name == 'workflow_dispatch' && (
+          github.event.inputs.os == 'all' && '[
+          {"lane":"check (ubuntu-latest, 40)","os":"ubuntu-latest","task":"check","timeout":40},
+          {"lane":"features (ubuntu-latest)","os":"ubuntu-latest","task":"cargo-hack-check","timeout":60},
+          {"lane":"check (macos-latest, 75)","os":"macos-latest","task":"check","timeout":75},
+          {"lane":"features (macos-latest)","os":"macos-latest","task":"cargo-hack-check","timeout":90},
+          {"lane":"check (windows-latest, 120)","os":"windows-latest","task":"check","timeout":120}]'
+          || github.event.inputs.os == 'macos-latest' && '[
+          {"lane":"check (macos-latest, 75)","os":"macos-latest","task":"check","timeout":75},
+          {"lane":"features (macos-latest)","os":"macos-latest","task":"cargo-hack-check","timeout":90}]'
+          || github.event.inputs.os == 'windows-latest' && '[
+          {"lane":"check (windows-latest, 120)","os":"windows-latest","task":"check","timeout":120}]'
+          )
+          || '[
+          {"lane":"check (ubuntu-latest, 40)","os":"ubuntu-latest","task":"check","timeout":40},
+          {"lane":"features (ubuntu-latest)","os":"ubuntu-latest","task":"cargo-hack-check","timeout":60}]'
+          ) }}
     # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
     # That's the shell mise's `shell = "bash"` tasks run on; Git Bash's MSYS fork-emulation cygheap breaks
     # down on long task chains. The path matches the version pin in `.mise/config.windows.toml`'s

@@ -1561,9 +1561,9 @@ dir="${usage_dir%/}"
 package=$(yq -p toml -o yaml '.package.name' "$dir/Cargo.toml")
 features=$(yq -p toml -o yaml '[.bench[]."required-features"[]] | unique | join(",")' "$dir/Cargo.toml")
 # Each [[bench]] target by name, since `--benches` would also run the crate's binaries in bench mode.
-targets=()
+set --
 for name in $(yq -p toml -o yaml '.bench[].name' "$dir/Cargo.toml"); do
-  targets+=("--bench=$name")
+  set -- "$@" "--bench=$name"
 done
 host=$(rustc -vV | rg -r '$1' '^host: (.*)$')
 # The same machine gives other results under another OS, through its other drivers, so the OS names the file too.
@@ -1591,7 +1591,7 @@ if [ -z "$machine" ]; then
 fi
 home="target/criterion-$(coreutils basename "$dir")"
 coreutils rm -rf "$home"
-CRITERION_HOME="$PWD/$home" cargo bench -p "$package" --features "$features" "${targets[@]}"
+CRITERION_HOME="$PWD/$home" cargo bench -p "$package" --features "$features" "$@"
 lines="$home/benchmarks.jsonl"
 # Each value is rounded to a hundredth of a nanosecond, finer than any of them is known to, so a rerun's diff is short.
 # `$est` is the jaq variable each benchmark's estimates are bound to, so the shell must not expand it.
@@ -1599,19 +1599,19 @@ lines="$home/benchmarks.jsonl"
 mean='$est[0].mean' bound='$est[0].mean.confidence_interval'
 latency="{ value: $mean.point_estimate, lower_value: $bound.lower_bound, upper_value: $bound.upper_bound }"
 measure="{ (.full_id): { latency: ($latency | map_values(. * 100 | round / 100)) } }"
-benchmarks=(rg --files --no-ignore -g '**/new/benchmark.json' "$home")
-"${benchmarks[@]}" | coreutils sort | while read -r meta; do
+rg --files --no-ignore -g '**/new/benchmark.json' "$home" | coreutils sort | while read -r meta; do
   # Named beside the metadata by swapping the file name, since on Windows the path mixes forward and back slashes.
   jaq -c --slurpfile est "${meta%benchmark.json}estimates.json" "$measure" "$meta"
 done >"$lines"
 out="$dir/benches/results/$machine-$os.yaml"
 coreutils mkdir -p "$(coreutils dirname "$out")"
-recorded=(--arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$(rustc -V)")
-recorded+=(--arg date "$(coreutils date -u +%F)")
-# `$id`, `$os`, `$host`, `$rustc` and `$date` are jaq variables `recorded` binds, so the shell must not expand them.
+rustc=$(rustc -V)
+date=$(coreutils date -u +%F)
+# `$id`, `$os`, `$host`, `$rustc` and `$date` are the jaq variables bound below, so the shell must not expand them.
 # shellcheck disable=SC2016
 record='{ machine: { id: $id, os: $os, host: $host, rustc: $rustc, recorded: $date }, benchmarks: add }'
-jaq -s "${recorded[@]}" "$record" "$lines" >"$home/record.json"
+set -- --arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$rustc" --arg date "$date"
+jaq -s "$@" "$record" "$lines" >"$home/record.json"
 yq -p json -o yaml '.' "$home/record.json" >"$out"
 echo "wrote $out"
 """
@@ -1875,23 +1875,33 @@ description = "shellcheck every bash-shell mise task body across .mise/config*.t
 # back to LF (a no-op on Unix) -- without it shellcheck flags every body with SC1017 (literal carriage return).
 # `-x` with the repo root as source path follows what a body sources, so a shared fragment is linted with it
 # rather than reported unread; the extracted scripts sit under target/, so a relative source needs that root.
+#
+# Every body is read as BusyBox ash, the shell MISE_BASH_PATH names on Windows, which has no arrays, `+=` or
+# here-strings: a bash-only body is a parse error there before its first command runs. A task that never runs on
+# Windows opens its body with `# shellcheck shell=bash # <why>`, which the extractor keeps ahead of the synthetic `set`
+# line, since a dialect directive after the first command applies to nothing. SC3001 stays off: busybox-w32 1.37 parses
+# process substitution although the dialect model says it cannot, as `mise-lock-check` showed on the Windows check lane
+# of commit https://github.com/edge-toolkit/core/commit/ab011a17500195a4411742d0b7a5cea0754b6260 at
+# https://github.com/edge-toolkit/core/actions/runs/44269989736/job/134683889379.
 run = '''
 boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
 coreutils rm -rf "$boot"
 coreutils mkdir -p "$boot"
-mask='{ gsub(/[{][{][^}]*[}][}]/, "MISEVAR"); gsub(/[{][%][^%]*[%][}]/, ""); print }'
+dialect='/^# shellcheck shell=/'
+mask="NR == 1 && !$dialect { print \"set -euo pipefail\" }
+  { gsub(/[{][{][^}]*[}][}]/, \"MISEVAR\"); gsub(/[{][%][^%]*[%][}]/, \"\"); print }
+  NR == 1 && $dialect { print \"set -euo pipefail\" }"
 for cfg in .mise/config*.toml; do
   stem=$(coreutils basename "$cfg" .toml)
   yq -p toml -o json "$cfg" | jaq -r -f .mise/shellcheck-mise.jq | while read -r name b64; do
     out="$boot/${stem}__${name}.sh"
     {
-      echo '#!/usr/bin/env bash'
-      echo 'set -euo pipefail'
+      echo '#!/bin/busybox sh'
       printf '%s' "$b64" | coreutils base64 -d | goawk "$mask"
     } | coreutils tr -d '\r' >"$out"
   done
 done
-shellcheck --shell=bash -x --source-path="{{ vars.config_root_fwd }}" --exclude=SC2034,SC2154 "$boot"/*.sh
+shellcheck -x --source-path="{{ vars.config_root_fwd }}" --exclude=SC2034,SC2154,SC3001 "$boot"/*.sh
 '''
 shell = "{{ vars.task_shell }}"
 
@@ -3285,6 +3295,7 @@ description = "Probe every GPU Google Chrome offers on the GPU probe page, WebGL
 # went in its status line, which the task prints. google-chrome and curl are the host's: the probes measure the
 # browser the person has.
 run = """
+# shellcheck shell=bash # Linux only: it starts the host's google-chrome with the Vulkan switches of Chrome on Linux.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
 # Wait up to $3 seconds for $1 to answer, failing as soon as $2, the process that is to serve it, has exited.
 ready() {
@@ -3368,6 +3379,7 @@ description = "Probe a browser on the GPU probe page from a fresh profile: Firef
 # sandbox, so with --submit the page is opened with `submit` and read from the server: the page posts its status
 # lines to `/status` once every set is submitted, and the server logs them.
 run = """
+# shellcheck shell=bash # Linux only: it starts the host's firefox or a Flathub Flatpak.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
 browser="$usage_browser"
 window=normal
@@ -3952,23 +3964,26 @@ shell = "{{ vars.task_shell }}"
 # in prefetch-ci: at ~118 MB the weights are a developer-side download, and only llm1 reads them.
 run = """
 opts="--http-url https://huggingface.co --progress --ignore-existing"
-files=(config.json generation_config.json tokenizer.json tokenizer_config.json onnx/model_q4f16.onnx)
-assets=(
-  '{{ vars.llm1_config_asset }}'
-  '{{ vars.llm1_gen_asset }}'
-  '{{ vars.llm1_tokenizer_asset }}'
-  '{{ vars.llm1_tokenizer_config_asset }}'
-  '{{ vars.llm1_weights_asset }}'
-)
-for index in "${!files[@]}"; do
-  dst="{{ vars.llm1_dir }}/${files[index]}"
+# Each entry is a file in the model repository and its asset row in data.toml, joined by `|`.
+# None holds a space or a glob character, so the list splits on whitespace alone.
+entries='
+config.json|{{ vars.llm1_config_asset }}
+generation_config.json|{{ vars.llm1_gen_asset }}
+tokenizer.json|{{ vars.llm1_tokenizer_asset }}
+tokenizer_config.json|{{ vars.llm1_tokenizer_config_asset }}
+onnx/model_q4f16.onnx|{{ vars.llm1_weights_asset }}
+'
+# shellcheck disable=SC2086 # split on whitespace by design, as above.
+for entry in $entries; do
+  file="${entry%%|*}"
+  dst="{{ vars.llm1_dir }}/$file"
   # shellcheck disable=SC2086
-  rclone copyto "{{ vars.llm1_repo }}/${files[index]}" "$dst" $opts
-  export asset="${assets[index]}"
+  rclone copyto "{{ vars.llm1_repo }}/$file" "$dst" $opts
+  export asset="${entry#*|}"
   sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
   actual=$(mise exec -- coreutils sha256sum -b "$dst" | mise exec -- coreutils cut -c1-64)
   [ "$actual" = "$sha" ] || {
-    echo "llm1 checksum mismatch for ${files[index]}: expected=$sha actual=$actual" >&2
+    echo "llm1 checksum mismatch for $file: expected=$sha actual=$actual" >&2
     exit 1
   }
 done
@@ -4014,43 +4029,55 @@ usage = 'arg "<package>" help="Workspace package name (e.g. et-int-ws-server-fir
 # The packages come from cargo-rail's plan of the branch's changes since its merge base with the default branch.
 # The plan widens them to every package depending on them. Without evidence it cannot rule out a build script or
 # proc-macro reading a changed non-Rust file, so any such change selects the whole workspace; cargo-rail-evidence, run
-# on the base commit, records what each compiled unit read and lets the plan narrow. A skipped plan runs nothing.
+# on the base commit, records what each compiled unit read and lets the plan narrow. The plan's work item is the
+# `nextest` one .cargo/rail.toml declares, which also takes a change to the runner configuration. A skipped plan runs
+# nothing, and so does a package selection the platform's excludes empty.
 [tasks.cargo-test-changed]
 description = "Run the Rust tests of the packages this branch's changes affect, per cargo-rail's plan"
 run = """
-evidence=()
+set --
 if [ -f target/rail-evidence.json ]; then
-  evidence=(--evidence target/rail-evidence.json)
+  set -- --evidence target/rail-evidence.json
 fi
-if ! plan="$(cargo rail plan ${evidence[@]+"${evidence[@]}"} --json)"; then
+if ! plan="$(cargo rail plan "$@" --json)"; then
   echo "cargo-test-changed: cargo rail plan failed: $plan" >&2
   exit 1
 fi
-work='.work["cargo.test"]'
-if [ "$(jaq -r "$work.state" <<<"$plan")" = skipped ]; then
+work='.work["nextest"]'
+if [ "$(printf '%s\\n' "$plan" | jaq -r "$work.state")" = skipped ]; then
   echo "cargo-test-changed: the plan requires no tests"
   exit 0
 fi
-if [ "$(jaq -r "$work.scope.selection.kind" <<<"$plan")" = workspace ]; then
-  # shellcheck disable=SC2206 # the excludes var is a space-joined flag list, split by design.
-  selection=(--workspace {{ vars.cargo_ws_excludes }})
+if [ "$(printf '%s\\n' "$plan" | jaq -r "$work.scope.selection.kind")" = workspace ]; then
+  # shellcheck disable=SC2086 # the excludes var is a space-joined flag list, split by design.
+  set -- --workspace {{ vars.cargo_ws_excludes }}
 else
-  selection=()
+  args="$(printf '%s\\n' "$plan" | jaq -r --arg ex "{{ vars.cargo_ws_excludes }}" -f .mise/cargo-test-changed.jq)"
+  if [ -z "$args" ]; then
+    echo "cargo-test-changed: every package the plan selects is excluded on this platform"
+    exit 0
+  fi
+  set --
   while IFS= read -r arg; do
-    selection+=("$arg")
-  done < <(jaq -r "$work.scope.selection.cargo_args[]" <<<"$plan")
+    set -- "$@" "$arg"
+  done <<EOF
+$args
+EOF
 fi
-cargo nextest run --config-file config/nextest.toml "${selection[@]}"
+cargo nextest run --config-file config/nextest.toml "$@"
 """
 shell = "{{ vars.task_shell }}"
 
+# Each run records to a file of its own and replaces the previous evidence only once the recording succeeds.
+# cargo-rail binds evidence to the commit it was recorded at, and refuses to merge another commit's recording into it.
 [tasks.cargo-rail-evidence]
 description = "Record which files each compiled unit reads, so cargo-test-changed can narrow its plan"
 run = """
-record=(cargo rail plan evidence --work cargo.test --output target/rail-evidence.json)
-# shellcheck disable=SC2206 # the excludes var is a space-joined flag list, split by design.
-build=(test --workspace {{ vars.cargo_ws_excludes }} --no-run)
-"${record[@]}" -- "${build[@]}"
+fresh=target/rail-evidence.json.new
+coreutils rm -f "$fresh"
+# shellcheck disable=SC2086 # the excludes var is a space-joined flag list, split by design.
+cargo rail plan evidence --work cargo.test --output "$fresh" -- test --workspace {{ vars.cargo_ws_excludes }} --no-run
+coreutils mv -f "$fresh" target/rail-evidence.json
 """
 shell = "{{ vars.task_shell }}"
 

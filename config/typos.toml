@@ -8,8 +8,8 @@ extend-exclude = ["config/jscpd-baseline.json"]
 
 [type.checks-md]
 extend-glob = ["CHECKS.md"]
-locale = "en-au"
 extend-ignore-re = ["`[^`]+`"]
+locale = "en-au"
 
 [default]
 # Each pattern suppresses one known false positive, anchored so the word is still checked everywhere else.

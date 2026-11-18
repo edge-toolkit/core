@@ -459,6 +459,7 @@ rules:
         - "/.github/workflows/coverage.yaml" # Runs the suite under it on CI.
         - "/.github/workflows/test.yaml" # Same.
         - "/config/nextest.toml" # Its own config, including the test groups that serialise port users.
+        - "/.cargo/rail.toml" # Routes a change to that config into the tests the change planner selects.
         # Every test here wants one fixed port, and only that config's test group keeps them apart.
         # That is a constraint nothing in the file itself can express, and a silent corruption when bypassed.
         - "/utilities/cli/tests/scenario_runners.rs"

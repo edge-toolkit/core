@@ -79,10 +79,11 @@ jobs:
       # Compute the OS list here in the strategy block, where `github.*` IS in scope.
       # `matrix` context isn't available in job-level `if:`, so we compute the
       # OS list right here:
-      #   pull_request       -> ubuntu-24.04-arm + macos-latest + windows-latest
+      #   pull_request       -> ubuntu-24.04-arm alone, at the operator's direction
       #                        (ubuntu-latest x64 is exercised by coverage.yaml, so
-      #                        it's dispatch-only here; skip slow Intel Mac;
-      #                        ubuntu-26.04 + windows-11-arm are dispatch-only)
+      #                        it's dispatch-only here; every macOS and Windows lane,
+      #                        and ubuntu-26.04, are dispatch-only, to investigate a
+      #                        failure particular to one OS)
       #   workflow_dispatch  -> the OS picked in the dropdown, or all of them
       # The combos are emitted as a fully-formed list of `{os, timeout}`
       # objects so the `include:` "unmatched entries append as new jobs"
@@ -109,10 +110,7 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || format('[{0},{1},{2}]',
-          '{"os":"ubuntu-24.04-arm","timeout":50}',
-          '{"os":"macos-latest","timeout":75}',
-          '{"os":"windows-latest","timeout":120}')
+          || '[{"os":"ubuntu-24.04-arm","timeout":50}]'
           ) }}
     steps:
       - name: Checkout
@@ -187,11 +185,11 @@ jobs:
   # `mingw` links that msvc archive into an x86_64-pc-windows-gnu binary with winlibs GCC. Separate from
   # the `default` job because they override the gnullvm default target rather than exercising it.
   override:
-    # Always on for pull requests; opt-in on manual dispatches.
+    # Off for pull requests, as every Windows lane is at the operator's direction; opt-in on manual dispatches.
     # The extra-lanes checkbox gates these lanes so a dispatch aimed at one OS doesn't also spawn two long
     # Windows jobs. It is one switch for every opt-in lane rather than one per job, so a dispatch is either
     # the `default` matrix alone or the whole set; `minimal` reads the same input for that reason.
-    if: github.event_name != 'workflow_dispatch' || inputs.extra-lanes
+    if: github.event_name == 'workflow_dispatch' && inputs.extra-lanes
     # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
     # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
     permissions:
@@ -293,8 +291,9 @@ jobs:
     # Gated on the same checkbox as `override`, so both opt-in lane sets turn on together.
     # Keying this on the `os` dropdown instead would let a dispatch pick one of these two platforms, but it
     # would also make a bare OS dispatch start a bring-up lane nobody asked for, which is what the gate
-    # exists to stop. One switch for every opt-in lane is the simpler contract.
-    if: github.event_name != 'workflow_dispatch' || inputs.extra-lanes
+    # exists to stop. One switch for every opt-in lane is the simpler contract. Both platforms are macOS or Windows,
+    # so like the other lanes of those OSes it is off for pull requests.
+    if: github.event_name == 'workflow_dispatch' && inputs.extra-lanes
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
