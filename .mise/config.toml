@@ -3004,6 +3004,39 @@ depends = ["gen:gpu-probe-signatures"]
 description = "Fail if libs/gpu-probe/signatures.json is stale (run `mise run gen:gpu-probe-signatures`)"
 run = "git diff --exit-code -- libs/gpu-probe/signatures.json"
 
+[tasks.clean-target]
+description = "Delete target/, which holds every build output and the agents' scratch area"
+run = """
+coreutils rm -rf target
+"""
+shell = "{{ vars.task_shell }}"
+
+# Delete every file outside target/ that git does not track, which is otherwise build output, caches, installed
+# dependencies and local runtime state. It refuses when anything could be work rather than output: a `*.local.*`
+# file, which is the repo's naming for kept-but-uncommitted notes and settings, or an untracked file that no
+# .gitignore covers. The `*.local.*` search uses rg because `git ls-files --ignored` walks all of target/ even when
+# a pathspec excludes it.
+[tasks.clean-other]
+description = "Delete every untracked file outside target/, refusing if a *.local.* or unignored file exists"
+run = """
+local_files="$(rg --files --hidden --no-ignore -g '*.local.*' -g '!/.git/' -g '!/target/')" || true
+if [ -n "$local_files" ]; then
+  echo "clean-other: refusing to delete these *.local.* files:" >&2
+  echo "$local_files" >&2
+  exit 1
+fi
+
+unignored="$(git ls-files --others --exclude-standard)"
+if [ -n "$unignored" ]; then
+  echo "clean-other: refusing, these untracked files are not covered by .gitignore:" >&2
+  echo "$unignored" >&2
+  exit 1
+fi
+
+git clean -fdx -e /target/
+"""
+shell = "{{ vars.task_shell }}"
+
 # Fail when HEAD does not already contain origin/main, because a stale branch makes every other check untrustworthy.
 # A branch behind main runs its lints against code the rest of the repo has already moved past, so failures land in
 # files the branch never touched and read as though the branch broke them. No linter can express this -- it is git
