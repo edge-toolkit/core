@@ -1,7 +1,7 @@
 # et-gpu-probe-server
 
-A server that collects GPU probe signatures into the `et-gpu-probe` registry, `libs/gpu-probe/signatures.yaml`, and
-the probe page it serves. It serves HTTPS, since WebGPU needs a secure context and browsers treat every origin but a
+A server that collects GPU probe signatures into the `et-gpu-probe` registry, `libs/gpu-probe/signatures`, and the
+probe page it serves. It serves HTTPS, since WebGPU needs a secure context and browsers treat every origin but a
 loopback one as insecure over plain HTTP; `--http` serves plain HTTP on a loopback address alone.
 
 ## The probe page
@@ -50,8 +50,20 @@ serves beside it into `target/gpu-probe-site`, the directory to deploy:
 mise run build-gpu-probe-site
 ```
 
-With no server behind it, the page has no registry to add to, so instead of submit buttons it gives every submission
-as a line of JSON. Copy the lines into the `/submit` form of a server running here.
+With no server behind it, the page has no registry to add to, so instead of submit buttons it proposes what it found
+as a pull request. It shows links to GitHub's page for adding a file, each filled in with a file of submissions for
+the registry's `submitted/` directory; GitHub forks the repository for a visitor who cannot write to it, and opens the
+pull request when they press "Propose changes". A visit takes as many files, and links, as keep each link short
+enough for GitHub to open. Each file is named for its content, so proposing the same visit twice names a file the
+first proposal already made.
+
+A pull request of a submitted file leaves `libs/gpu-probe/signatures.json` alone, since the JSON is generated from the
+curated entries only, and the tests check every submitted file is one the registry would take. Once such pull
+requests are merged, file what they proposed and regenerate the JSON on `main`, then commit the result:
+
+```bash
+mise run gpu-probe-fold
+```
 
 ## Submitting
 
@@ -77,10 +89,10 @@ and the `seen` row of where it was measured, with the fields the registry's head
 ```
 
 A signature the registry has through that interface gains the row, unless it holds the same row already; anything
-else becomes a new entry at the end. The file is edited as text, so its comments and every other entry are left as
-they were. `/submit` posts each line pasted into it, which is how a result copied from a browser that cannot reach
-the server gets registered. `/signatures.yaml` serves the registry as it stands, and `--root` serves a probe page's
-files at `/`.
+else becomes a new entry at the end of the interface's file under `curated/`, which is made if the interface has none
+yet. The file is edited as text, so its comments and every other entry are left as they were. `/submit` posts each
+line pasted into it, as JSON submissions one per line. `/signatures.yaml` serves the registry as it stands, its header
+and every curated entry as one document, and `--root` serves a probe page's files at `/`.
 
 A row the registry already holds with every field the same, perhaps among more written by hand, records the sighting
 already, so nothing is added for it.

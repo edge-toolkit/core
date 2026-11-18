@@ -1,0 +1,39 @@
+signatures:
+  - interface: webgl2
+    label: "Tor Browser on macOS, Apple M5 Pro: reporting itself as Firefox 153.0.0, and 16.0.1 in a private window"
+    seen:
+      - browser: tor-browser
+        browser_version: "reports itself as Firefox 153.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships"
+        window: private
+    blocked: true
+    reason: "WebGL 2 is unavailable (getContext returned null; only WebGL 1 is available, not WebGL 2)"
+  - interface: webgl2
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGL 2 is unavailable (getContext returned null; no WebGL context at all, so WebGL is turned off)"

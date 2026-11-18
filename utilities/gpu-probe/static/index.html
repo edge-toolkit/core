@@ -27,11 +27,6 @@
     #status {
       white-space: pre-line;
     }
-    #lines {
-      width: 100%;
-      box-sizing: border-box;
-      font: 0.8rem ui-monospace, Menlo, Consolas, monospace;
-    }
     </style>
   </head>
   <body>
@@ -70,17 +65,19 @@
       </fieldset>
     </form>
     <p><button id="submit-all" disabled>Submit every probe set</button></p>
-    <div id="copy" hidden>
+    <div id="propose" hidden>
       <p>
-        No gpu-probe-server serves this page, so nothing is submitted from it.
-        Copy these lines, one submission each, into the <code>/submit</code>
-        form of a running server.
+        No gpu-probe-server serves this page, so what it found is proposed to
+        the registry on GitHub instead, which needs a GitHub account. Each link
+        opens GitHub's page for adding a file to the registry, with these
+        results filled in. GitHub makes a copy of the repository for you, and
+        opens a pull request with the file when you press "Propose changes".
       </p>
-      <textarea id="lines" rows="8" readonly></textarea>
-      <p><button id="copy-lines">Copy the lines</button></p>
+      <ol id="proposals"></ol>
     </div>
     <div id="gpus"></div>
     <script type="module">
+    import { proposals } from "/propose.js";
     import { register } from "/register.js";
     import init, {
       probe_canvas,
@@ -94,7 +91,7 @@
 
     // Whether a gpu-probe-server serves this page, which it is told by the registry being there to read. A static
     // host, such as a Vercel deploy that Tor Browser can reach where it cannot reach a LAN, has no registry to add
-    // to, so there every submission is given as a line to paste into a server's /submit instead.
+    // to, so there the submissions are proposed on GitHub instead.
     const served = await fetch("/signatures.yaml").then(
       (response) => response.ok,
       () => false,
@@ -411,6 +408,38 @@
       return submitters;
     };
 
+    // A proposal as an item of the list, one of `parts`: its link, then the file it makes, to read before following
+    // it. A file too long for GitHub to take from a link is given to add by hand instead.
+    const showProposal = (parts) => (proposal, index) => {
+      const item = document.createElement("li");
+      const part = parts > 1 ? `, part ${index + 1} of ${parts}` : "";
+      const sets = `${proposal.count} probe set${
+        proposal.count > 1 ? "s" : ""
+      }`;
+      if (proposal.opens) {
+        const link = document.createElement("a");
+        link.href = proposal.link;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = `Propose ${sets} on GitHub${part}`;
+        item.append(link);
+      } else {
+        const tooLong = document.createElement("p");
+        tooLong.className = "bad";
+        tooLong.textContent =
+          `${sets}${part} make a file too long for GitHub to take from a link: add it to the repository by hand.`;
+        item.append(tooLong);
+      }
+      const file = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = `The file: ${proposal.name}`;
+      const text = document.createElement("pre");
+      text.textContent = proposal.text;
+      file.append(summary, text);
+      item.append(file);
+      return item;
+    };
+
     // A GPU's part of the row, and the label an entry first seen on it would take.
     const gpuValues = (vendor, model, backend, api) => {
       const os = field("os").value;
@@ -577,22 +606,27 @@
         ? ` Not probed: ${problems.join("; ")}.`
         : "";
       if (!served) {
-        // The lines follow every edit to a row, so what is copied is what the rows say.
+        // The proposals follow every edit to a row, so what is proposed is what the rows say. Making them is
+        // asynchronous, so only the latest edit's are shown.
         field("submit-all").hidden = true;
-        field("copy").hidden = false;
-        const fill = () => {
-          field("lines").value = submitters.map((shown) => shown.line()).join(
-            "\n",
+        field("propose").hidden = false;
+        let edits = 0;
+        const fill = async () => {
+          edits += 1;
+          const edit = edits;
+          const submissions = submitters.map((shown) =>
+            JSON.parse(shown.line())
+          );
+          const made = await proposals(submissions);
+          if (edit !== edits) return;
+          field("proposals").replaceChildren(
+            ...made.map(showProposal(made.length)),
           );
         };
-        fill();
+        await fill();
         document.addEventListener("input", fill);
-        field("copy-lines").addEventListener(
-          "click",
-          () => navigator.clipboard.writeText(field("lines").value),
-        );
         status.textContent =
-          `Probed. Check each row, then copy the lines into a server's /submit.${missing}`;
+          `Probed. Check each row, then propose the results on GitHub.${missing}`;
         await tell(status.textContent);
       } else {
         const submitAll = async () => {

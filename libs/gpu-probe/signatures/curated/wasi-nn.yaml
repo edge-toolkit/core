@@ -1,0 +1,92 @@
+signatures:
+  - interface: wasi-nn
+    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux x86_64, where its multiply-add is not fused"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-latest runner"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebb"
+      dot: "00000000"
+  - interface: wasi-nn
+    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: macOS arm64 and Linux arm64"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: none
+        backend: none
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub macos-latest runner"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174374"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-24.04-arm runner"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: none
+        backend: none
+        device: "NVIDIA DGX Spark"
+        runtime: "ONNX Runtime 1.22"
+        window: none
+        date: "2026-11-17"
+    results:
+      multiply_add: "00000000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebb"
+      dot: "00000000"

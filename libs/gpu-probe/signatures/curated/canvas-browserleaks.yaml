@@ -1,0 +1,366 @@
+signatures:
+  - interface: canvas-browserleaks
+    label: "Firefox 160 on macOS, fingerprintingProtection on -- BrowserLeaks test (one session's value; see next row)"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    results:
+      md5: "67456dde9d4089a8cea2e53d4ecf4b8b"
+  - interface: canvas-browserleaks
+    label: "Firefox 160 on macOS, privacy.fingerprintingProtection on"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    blocked: true
+    reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D, BrowserLeaks test (noise added to reads)"
+    seen:
+      - browser: brave
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "Shields farbling: noise added to reads"
+        window: normal
+    results:
+      md5: "ead7c33e84beeb434b1d384c6e45268b"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0.0 on macOS -- canvas 2D, BrowserLeaks test"
+    seen:
+      - browser: firefox
+        browser_version: "160.0.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: private
+    results:
+      md5: "4a05912a83d4fdbab55e5ddfaef2d3b0"
+  - interface: canvas-browserleaks
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.0 on macOS 26.7.1 -- canvas 2D, BrowserLeaks test"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.0"
+        os: macos
+        os_version: "26.7.1"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "1dc44a8e2846f0a156399977bf5ca67d"
+  - interface: canvas-browserleaks
+    label: "Safari 27.0.0 on macOS -- canvas 2D, BrowserLeaks test"
+    seen:
+      - browser: safari
+        browser_version: "27.0.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "f7316747f9adf8387510e46790f09d66"
+  - interface: canvas-browserleaks
+    label: "HP EliteBook (HSN-I6IC), Windows -- canvas 2D, BrowserLeaks test on Edge 153"
+    seen:
+      - browser: edge
+        browser_version: "153"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    results:
+      md5: "8c781e6c79d33a68ef6ae90ae071c989"
+  - interface: canvas-browserleaks
+    label: "Firefox 155.0.0 on Windows, HP EliteBook (HSN-I6IC)"
+    seen:
+      - browser: firefox
+        browser_version: "155.0.0"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    blocked: true
+    reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux -- canvas 2D, PNG encoding keyed to the session"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    blocked: true
+    reason: "randomised: the PNG's bytes differ between visits in one browser while the pixels they decode to do not"
+  - interface: canvas-browserleaks
+    label: "GNOME Web 51.2 on Linux -- canvas 2D"
+    seen:
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      md5: "088022caee3aa9e06beb5a68b62ecb60"
+  - interface: canvas-browserleaks
+    label: "LibreWolf 160.0-1 on Linux -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0-1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Brave 1.99.57 on Linux -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: toDataURL altered a scene whose every value is known (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Chromium 157.0.8103.78 on Linux -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      md5: "a756a02213c98d1de5b40aa1f6d516d7"
+  - interface: canvas-browserleaks
+    label: "Mullvad Browser 16.0.1 on Linux -- canvas 2D"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Tor Browser 16.0.1 on Linux -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux -- BrowserLeaks test (one session's value; its PNG encoding is keyed to the session)"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "2c0e27fd63a7a65725accd9f24ed9e48"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.8103.78 on Linux -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      md5: "20c042ee22fca47bd4783574c7505b57"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      md5: "d4f143ed1311e6fcb63dabb43b91fbd3"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.8103.79 and Edge 157.0.4341.60 on macOS -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        window: normal
+      - browser: edge
+        browser_version: "157.0.4341.60"
+        os: macos
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "5b56667d605255332ae8c23f24989dd5"
+  - interface: canvas-browserleaks
+    label: "Brave 157.0.0.0 on macOS -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: macos
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: toDataURL differed from getImageData of the same canvas (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on macOS -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "428cfe0f9dc3de47ded64bc8d4bc1a11"
+  - interface: canvas-browserleaks
+    label: "LibreWolf 160.0 on macOS -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Safari 27.2 on macOS -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    results:
+      md5: "f7696c533f8c043a6bbdb2eebb1ddad1"
+  - interface: canvas-browserleaks
+    label: "Tor Browser 16.0.1 on macOS -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"

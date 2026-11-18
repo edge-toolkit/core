@@ -1,0 +1,108 @@
+signatures:
+  - interface: host
+    label: "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: none
+        backend: none
+        runtime: "Rust f32 and Apple's math library"
+        window: none
+        date: "2026-11-12"
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub macos-latest runner"
+        runtime: "Rust f32 and Apple's math library"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836477"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-24.04-arm runner"
+        runtime: "Rust f32 and glibc"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836545"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub windows-latest runner"
+        runtime: "Rust f32 and the MSVC runtime"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836624"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub windows-latest runner"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836502"
+      - browser: none
+        os: windows
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub windows-latest runner"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnu"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836594"
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        device: "GitHub ubuntu-latest runner"
+        runtime: "Rust f32 and glibc"
+        window: none
+        date: "2026-11-12"
+        source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel Core i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "Rust f32 and glibc"
+        window: none
+        date: "2026-11-13"
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: none
+        backend: none
+        window: none
+    results:
+      multiply_add: "00000000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"

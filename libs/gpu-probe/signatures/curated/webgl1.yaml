@@ -1,0 +1,49 @@
+signatures:
+  - interface: webgl1
+    label: "Firefox 160.0.0 on macOS"
+    seen:
+      - browser: firefox
+        browser_version: "160.0.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGL 1 is unavailable (getContext returned null, so WebGL is turned off)"
+  - interface: webgl1
+    label: "Mullvad Browser 16.0.1 and Tor Browser 16.0.1 on Linux -- WebGL 1"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "readPixels throws NotSupportedError (Operation is not supported), as a float read and as an 8-bit one"
+  - interface: webgl1
+    label: "Tor Browser 16.0.1 on macOS, Apple M5 Pro -- WebGL 1 readback refused"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships"
+        window: private
+    blocked: true
+    reason: "WebGL 1 opens but readPixels throws NotSupportedError, so no result can be read"

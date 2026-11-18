@@ -43,3 +43,5 @@ invalid:
     if let Point { x: 0, .. } = point {}
   - |
     if let (Shape::Circle, Some(_)) = pair {}
+  - |
+    if let State::Ready = *lock.lock().unwrap() {}

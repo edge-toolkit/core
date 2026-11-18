@@ -17,7 +17,7 @@ use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe::{Answer, GpuVendor, HOST, Signature, host};
 use futures_executor::block_on;
 
-use crate::registry::{Outcome, RegisterError, Registry, Submission};
+use crate::registry::{Outcome, RegisterError, RegistryTree, Submission};
 
 /// The operating system and CPU architecture this runs on, as a registry row names them.
 const HERE: (&str, &str) = (std::env::consts::OS, std::env::consts::ARCH);
@@ -46,7 +46,7 @@ pub enum MeasureError {
 /// and passed over: the others are measured all the same, and the count of those passed over is the error returned once
 /// every other one is recorded.
 pub fn measure<Out>(
-    registry: &Registry,
+    registry: &RegistryTree,
     opened: Vec<Result<Gpu, NativeError>>,
     out: &mut Out,
 ) -> Result<(), MeasureError>
@@ -142,7 +142,7 @@ fn cpu_signature() -> Measured {
 
 /// Add `signature`, measured through `interface` and seen at `seen`, to `registry`.
 fn record(
-    registry: &Registry,
+    registry: &RegistryTree,
     interface: &str,
     signature: &Signature,
     label: &str,

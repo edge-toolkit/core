@@ -23,7 +23,7 @@
 # tool's output, not in code anyone here wrote, and adding a subcommand re-hashes the window around it -- so
 # without the exclusion the check fails afresh on changes that have nothing to do with duplication.
 #
-# jscpd also skips libs/gpu-probe/signatures.yaml and the signatures.json written from it, for a like reason: the
+# jscpd also skips libs/gpu-probe/signatures/ and the signatures.json written from it, for a like reason: the
 # registry is measurements, one entry per signature, and every entry holds the same sixteen probe names. That is the
 # shape of the data, and each signature added would otherwise read as a fresh clone of the entries before it.
 

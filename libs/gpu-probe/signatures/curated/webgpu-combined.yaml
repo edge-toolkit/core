@@ -1,0 +1,597 @@
+signatures:
+  - interface: webgpu-combined
+    label: "ARM Mali-G76, Vulkan, Galaxy S10 -- WebGPU on Chrome 157, Samsung Internet 31, Brave 1.99"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: samsung-internet
+        browser_version: "31"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+      - browser: brave
+        browser_version: "1.99"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: vulkan
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Qualcomm Adreno 830 (Samsung Galaxy S25 Ultra) through Vulkan on Android -- WebGPU on Chrome"
+    seen:
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 830"
+        backend: vulkan
+        device: "Samsung Galaxy S25 Ultra"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7578"
+      cos: "3f7eb898"
+      tan: "3dcd7c45"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "AMD Radeon RDNA 2 (HP EliteBook) through Direct3D 12 on Windows -- WebGPU on Chrome 157"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: windows
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RDNA 2"
+        backend: d3d12
+        device: "HP EliteBook"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Google SwiftShader (software renderer) on Linux -- WebGPU on Chrome, Dell Precision 5570"
+    seen:
+      - browser: chrome
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc6e85"
+      cos: "3f7eadd1"
+      tan: "3dcd7dfb"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: both
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "metal-3"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        defence: "Shields farbling, on as Brave ships"
+        reported: "metal-3"
+        window: normal
+      - browser: edge
+        browser_version: "157.0.4341.60"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "metal-3"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari 27.2, Firefox 160 and wgpu 29 alone"
+    seen:
+      - browser: firefox
+        browser_version: "160"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: both
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-12"
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "apple"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "AMD Radeon Pro (RDNA 1) through Metal on macOS, Intel MacBook Pro -- WebGPU on Chromium"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon Pro (RDNA 1)"
+        backend: metal
+        device: "Intel MacBook Pro"
+        window: normal
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari"
+    seen:
+      - browser: safari
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "Intel Xe-LPG on Windows, HP EliteBook (HSN-I6IC) -- WebGPU on Edge 153"
+    seen:
+      - browser: edge
+        browser_version: "153"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Intel Xe-LPG on Windows, HP EliteBook (HSN-I6IC) -- WebGPU on Firefox 155 (adapter info blanked)"
+    seen:
+      - browser: firefox
+        browser_version: "155"
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: unknown
+        device: "HP EliteBook (HSN-I6IC)"
+        reported: "adapter info blanked"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa's Vulkan driver on Linux, Dell Precision 5570 -- wgpu 29"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel Core i7-12800H"
+        gpu: intel
+        gpu_version: "Iris Xe (Alder Lake GT2), Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29"
+        window: none
+        date: "2026-11-13"
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: webgpu-combined
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "ampere through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "NVIDIA GB10 through vulkan on linux aarch64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: aarch64
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgpu-combined
+    label: "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: aarch64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        window: none
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"

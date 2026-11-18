@@ -1,0 +1,544 @@
+signatures:
+  - interface: webgl2-split
+    label: "AMD Radeon Graphics (0x15E7) through Direct3D 11 on Windows, HP EliteBook -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon Graphics (0x15E7)"
+        backend: d3d11
+        device: "HP EliteBook"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087707"
+      tanh: "3dcc1ebe"
+      dot: "3f800000"
+  - interface: webgl2-split
+    label: "Qualcomm Adreno on Android -- WebGL 2 on Chrome: Oppo (Adreno 610), Samsung Galaxy S22 Ultra (Adreno 730)"
+    seen:
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 610"
+        backend: opengl-es
+        device: "Oppo phone"
+        window: normal
+      - browser: chrome
+        os: android
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "Adreno 730"
+        backend: opengl-es
+        device: "Samsung Galaxy S22 Ultra"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc758b"
+      cos: "3f7eb898"
+      tan: "3dcd7c58"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Intel UHD Graphics 630 through Metal on macOS -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "UHD Graphics 630"
+        backend: metal
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "40000000"
+  - interface: webgl2-split
+    label: "Intel Iris Xe (Alder Lake GT2) through Mesa on Linux, Dell Precision 5570 -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Iris Xe (Alder Lake GT2), Mesa"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: webgl2-split
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave and Firefox"
+    seen:
+      - browser: chromium
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: both
+      - browser: safari
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: both
+      - browser: brave
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: both
+      - browser: firefox
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: both
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "ANGLE Metal Renderer: Apple M5 Pro"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        defence: "Shields farbling, on as Brave ships"
+        reported: "ANGLE Metal Renderer: Apple M5 Pro"
+        window: normal
+      - browser: edge
+        browser_version: "157.0.4341.60"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "ANGLE Metal Renderer: Apple M5 Pro"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "Apple GPU"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Mesa / llvmpipe, or similar on Linux (Firefox 159.0)"
+    seen:
+      - browser: firefox
+        browser_version: "159.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        reported: "Mesa / llvmpipe, or similar"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae6"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgl2-split
+    label: "NVIDIA GB10/PCIe through OpenGL on Linux -- WebGL 2 on Chromium and Firefox"
+    seen:
+      - browser: chromium
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: opengl
+        window: normal
+      - browser: firefox
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: opengl
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebc"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "NVIDIA GB10 through Vulkan on Linux -- WebGL 2 on Chromium"
+    seen:
+      - browser: chromium
+        os: linux
+        cpu_arch: aarch64
+        cpu_version: "NVIDIA GB10"
+        gpu: nvidia
+        gpu_version: "GB10"
+        backend: vulkan
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "40000000"
+  - interface: webgl2-split
+    label: "Intel Xe-LPG through Direct3D 11 on Windows -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: windows
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Xe-LPG"
+        backend: d3d11
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087708"
+      tanh: "3dcc1eb6"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Imagination PowerVR Rogue GE8300 through OpenGL ES on Android, Laser tablet -- WebGL 2 on Chrome 135, 157"
+    seen:
+      - browser: chrome
+        browser_version: "135"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "Laser tablet"
+        window: normal
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "Laser tablet"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c42"
+      exp: "3f8d763e"
+      log: "3f8c9f53"
+      pow: "3f8edd1f"
+      atan2: "3d087b98"
+      tanh: "3dcc1ec2"
+      dot: "3f800000"
+  - interface: webgl2-split
+    label: "ARM Mali-G76 through OpenGL ES on Android, Samsung Galaxy S10 -- WebGL 2 on Chrome"
+    seen:
+      - browser: chrome
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "Samsung Galaxy S10"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7566"
+      cos: "3f7eb897"
+      tan: "3dcd7c34"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc6e85"
+      cos: "3f7eadd1"
+      tan: "3dcd7dfb"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1eba"
+      dot: "00000000"
+  - interface: webgl2-split
+    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 2 on GNOME Web, Brave and Chromium"
+    seen:
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        reported: "Apple GPU"
+        window: normal
+      - browser: brave
+        browser_version: "1.99.57"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756a"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "40000000"

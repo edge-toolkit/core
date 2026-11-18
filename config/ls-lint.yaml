@@ -110,9 +110,8 @@ ignore:
   - modules/web/zig-math1/pkg
   - services/ws-wasm-agent/pkg
   - utilities/gpu-probe/static/pkg
-  # The GPU probe registry's lock file and staged copy, which its server and the gpu-probe binary write beside it.
-  - libs/gpu-probe/signatures.yaml.lock
-  - libs/gpu-probe/signatures.yaml.partial
+  # The GPU probe registry's lock files and staged copies, which its server and binaries write.
+  - libs/gpu-probe/signatures/writing
   # Python venvs plus the pytest and bytecode caches each Python module's test run leaves behind.
   - .venv
   - .pytest_cache

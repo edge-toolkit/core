@@ -712,7 +712,7 @@ gpu_probe_server = "cargo run -p et-gpu-probe-server --bin et-gpu-probe-server -
 # The arguments the gpu-probe server tasks share: the registry, the probe page, and the certificate they serve.
 # The pair lives under target/ so it is never committed; delete it to have one generated for a new LAN address.
 gpu_probe_server_args = """
-{{ "--registry libs/gpu-probe/signatures.yaml --root utilities/gpu-probe/static " ~
+{{ "--registry libs/gpu-probe/signatures --root utilities/gpu-probe/static " ~
   "--cert target/gpu-probe-server-cert.pem --key target/gpu-probe-server-key.pem" -}}
 """
 # Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
@@ -2935,20 +2935,33 @@ description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:d
 run = "git diff --exit-code -- .dockerignore"
 
 [tasks."gen:gpu-probe-signatures"]
-description = "Regenerate libs/gpu-probe/signatures.json from the signatures.yaml beside it"
+description = "Regenerate libs/gpu-probe/signatures.json from the signatures directory beside it"
 # The signature registry is kept as YAML, which takes comments and reads well in a diff, and embedded as JSON.
 # `et-gpu-probe` embeds it when the crate is compiled, which a consumer of the published crate does with none of
 # this repository's tools, so the JSON is committed beside its source rather than made by a build script. It is
 # staged under target/ and renamed into place for the reason the .dockerignore above is: a build running beside
 # this never reads half a file. The files are not named `registry`, which .gitignore keeps for the one a hub saves.
+# The JSON is the header with every curated file's entries appended in file-name order, which the C locale makes the
+# same on every machine; submissions waiting in submitted/ are left out until `gpu-probe-fold` files them, so a pull
+# request proposing one from the hosted probe page leaves the JSON as it was.
 run = '''
+export LC_ALL=C
 coreutils mkdir -p target
 staged="target/gpu-probe-signatures.$$"
 trap 'coreutils rm -f "$staged"' EXIT
-yq -o json libs/gpu-probe/signatures.yaml | coreutils tr -d '\r' >"$staged"
+registry=libs/gpu-probe/signatures
+# shellcheck disable=SC2016 # $file is a yq variable, not a shell one -- single quotes are intended
+merged='. as $file ireduce ({}; . *+ $file)'
+yq ea -o json "$merged" "$registry/header.yaml" "$registry"/curated/*.yaml | coreutils tr -d '\r' >"$staged"
 coreutils mv -f "$staged" libs/gpu-probe/signatures.json
 '''
 shell = "{{ vars.task_shell }}"
+
+[tasks.gpu-probe-fold]
+depends_post = ["gen:gpu-probe-signatures"]
+description = "File the GPU probe submissions waiting in libs/gpu-probe/signatures/submitted, and regenerate the JSON"
+# Run on main after merging pull requests proposed from the hosted probe page, and commit what it changes.
+run = "cargo run -p et-gpu-probe-server --bin gpu-probe-fold"
 
 [tasks.gpu-probe-signatures-check]
 depends = ["gen:gpu-probe-signatures"]
@@ -3220,6 +3233,7 @@ coreutils cp utilities/gpu-probe/static/index.html "$site/"
 coreutils cp utilities/gpu-probe/static/pkg/*.js utilities/gpu-probe/static/pkg/*.wasm "$site/pkg/"
 coreutils cp utilities/gpu-probe/src/probe.css "$site/probe.css"
 coreutils cp utilities/gpu-probe/src/register.mjs "$site/register.js"
+coreutils cp utilities/gpu-probe/src/propose.mjs "$site/propose.js"
 """
 shell = "{{ vars.task_shell }}"
 
@@ -3489,7 +3503,7 @@ flag "--submit" help="Submit every probe set from the page and print how each we
 
 [tasks.gpu-probe-server]
 depends = ["build-gpu-probe-page"]
-description = "Collect GPU probe signatures into libs/gpu-probe/signatures.yaml over HTTPS at localhost:8443"
+description = "Collect GPU probe signatures into libs/gpu-probe/signatures over HTTPS at localhost:8443"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 
 [tasks.gpu-probe-server-lan]

@@ -7,6 +7,7 @@ IgnoredVulns = [
   { id = "GHSA-5j98-2g5x-46v6", ignoreUntil = 2027-01-01 },
   { id = "GHSA-6f2x-v7q7-m7m5", ignoreUntil = 2027-01-01 },
   { id = "GHSA-858h-whjf-mvg5", ignoreUntil = 2027-01-01 },
+  { id = "GHSA-fc5q-39xc-vjpf", ignoreUntil = 2027-01-01 },
   { id = "GHSA-g3hv-75wg-m249", ignoreUntil = 2027-01-01 },
   { id = "GHSA-g4wm-2vf7-vfgr", ignoreUntil = 2027-01-01 },
   { id = "GHSA-hw8r-x6gr-5gjp", ignoreUntil = 2027-01-01 },

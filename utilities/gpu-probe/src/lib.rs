@@ -12,7 +12,7 @@ pub mod registry;
 #[command(name = "et-gpu-probe-server", version)]
 #[non_exhaustive]
 pub struct Args {
-    /// The registry file submissions are added to, such as `libs/gpu-probe/signatures.yaml`.
+    /// The registry directory submissions are added to, such as `libs/gpu-probe/signatures`.
     #[arg(long)]
     pub registry: PathBuf,
     /// A directory of static files, such as a probe page, to serve at `/`.

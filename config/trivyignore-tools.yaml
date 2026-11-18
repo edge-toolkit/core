@@ -726,15 +726,18 @@ vulnerabilities:
       @simple-git/argv-parser 1.1.1; fixed in 2.0.1.
     expired_at: 2027-01-01
 
-  # picomatch inside node's bundled npm and inside pnpm.
+  # picomatch inside node's bundled npm, inside pnpm, and inside the AsyncAPI generator and its markdown template.
   # A denial of service from a glob pattern with a single-branch repeated extglob. The patterns both package managers
-  # match come from this repository's own package.json and pnpm workspace files, so an attacker would first need a
-  # commit here. No picomatch release fixes it yet, so no bump of either tool clears it. `**` covers npm sitting under
-  # `lib/` on Unix but directly under the install directory on Windows.
+  # match come from this repository's own package.json and pnpm workspace files, and the generator's from the pinned
+  # template installed beside it, so an attacker would first need a commit here. No picomatch release fixes it yet, so
+  # no bump of any of the three clears it. `**` covers npm sitting under `lib/` on Unix but directly under the install
+  # directory on Windows, and the generator's two picomatch versions sitting at different depths in its install.
   - id: CVE-2026-112366
     paths:
       - "node/24.22.2/**/npm/node_modules/tinyglobby/node_modules/picomatch/package.json"
       - "pnpm/11.28.11/dist/node_modules/picomatch/package.json"
+      - "npm-asyncapi-generator/3.5.0~*/**/picomatch/package.json"
+      - "npm-asyncapi-markdown-template/2.0.0~*/**/picomatch/package.json"
     statement: >-
-      picomatch 4.0.4 and picomatch 4.0.7; no fixed release yet.
+      picomatch 2.3.2, 4.0.4 and 4.0.7; no fixed release yet.
     expired_at: 2027-01-01

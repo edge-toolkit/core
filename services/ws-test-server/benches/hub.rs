@@ -1,15 +1,15 @@
-//! Benchmarks one hub, held to a single CPU core, serving 25,000 agents over HTTP and again over HTTPS: connecting
-//! them all, then holding them connected while each heartbeats as the native runners do.
+//! Benchmarks one hub, held to a single CPU core, serving 25,000 agents over HTTP and again over HTTPS: connecting them
+//! all, then holding them connected while each heartbeats as the native runners do.
 //!
-//! Run with `cargo bench -p et-ws-test-server --bench hub`. The hub has one actix worker, pinned to the first core,
-//! and the agents run on a runtime whose threads are pinned to the other cores, so the agents' work never takes the
-//! hub's time. macOS offers no way to pin a thread, so there the one worker thread is the whole constraint. Over
-//! HTTPS the hub serves a certificate self-signed for the loopback names, which is all the agents trust.
+//! Run with `cargo bench -p et-ws-test-server --bench hub`. The hub has one actix worker, pinned to the first core, and
+//! the agents run on a runtime whose threads are pinned to the other cores, so the agents' work never takes the hub's
+//! time. macOS offers no way to pin a thread, so there the one worker thread is the whole constraint. Over HTTPS the
+//! hub serves a certificate self-signed for the loopback names, which is all the agents trust.
 //!
 //! Both ends of every agent's socket are open in this one process, about 50,000 descriptors, so the open-file limit
 //! must allow that. Agents alternate between the hub's `127.0.0.1` and `[::1]` addresses, since on macOS and Windows
-//! one loopback address leaves a client about 16,000 ephemeral ports. Each agent's socket is closed with a reset
-//! rather than left in `TIME_WAIT`, so one sample's ports are free again for the next.
+//! one loopback address leaves a client about 16,000 ephemeral ports. Each agent's socket is closed with a reset rather
+//! than left in `TIME_WAIT`, so one sample's ports are free again for the next.
 #![expect(
     clippy::panic,
     clippy::single_call_fn,
@@ -17,6 +17,7 @@
     reason = "criterion calls each helper once; a bench has no caller to take an error, so a failure stops the run"
 )]
 
+use std::cell::{OnceCell, RefCell};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::{Duration, Instant};
@@ -45,8 +46,8 @@ const AGENTS: usize = 25_000;
 /// How many agents are connecting at once while the fleet comes up.
 ///
 /// Held under the smallest listen backlog an OS gives by default, macOS's 128 (`kern.ipc.somaxconn`): 1,000 at once
-/// overflowed it, and the hub's side reset the excess mid-upgrade with
-/// `Io(Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" })`.
+/// overflowed it, and the hub's side reset the excess mid-upgrade with `Io(Os { code: 54, kind: ConnectionReset,
+/// message: "Connection reset by peer" })`.
 const IN_FLIGHT: usize = 100;
 
 /// Sockets the hub's worker holds beyond the agents', for the probe agent and those a reset leaves the hub to close.
@@ -150,8 +151,8 @@ impl Hub {
 
     /// Stop the hub and wait for its worker to finish, so the next hub never shares its core with this one's teardown.
     ///
-    /// The hub stops without draining, which signals the worker but does not wait for it; the worker stops its
-    /// arbiter as it drops, and a stopped arbiter refuses work.
+    /// The hub stops without draining, which signals the worker but does not wait for it; the worker stops its arbiter
+    /// as it drops, and a stopped arbiter refuses work.
     fn stop(&self, runtime: &Runtime) {
         runtime.block_on(self.server.stop());
         let worker = self.worker.get().unwrap();
@@ -275,12 +276,23 @@ async fn alive(probe: &mut Socket) {
     }
 }
 
-/// Measure `routine` as `id` in `group`; criterion keeps what it returns from being optimised away.
-fn measure<Output, Routine>(group: &mut BenchmarkGroup<'_, WallTime>, id: &str, mut routine: Routine)
-where
+/// Measure `routine` as `id` in `group`, once `ready` has run untimed.
+///
+/// Criterion keeps what `routine` returns from being optimised away. It calls back only for a benchmark it selects,
+/// so `ready` runs only when this one is measured.
+fn measure<Output, Ready, Routine>(
+    group: &mut BenchmarkGroup<'_, WallTime>,
+    id: &str,
+    ready: Ready,
+    mut routine: Routine,
+) where
+    Ready: Fn(),
     Routine: FnMut() -> Output,
 {
-    let _chained: &mut BenchmarkGroup<'_, WallTime> = group.bench_function(id, |bench| bench.iter(&mut routine));
+    let _chained: &mut BenchmarkGroup<'_, WallTime> = group.bench_function(id, |bench| {
+        ready();
+        bench.iter(&mut routine);
+    });
 }
 
 /// Measure `routine` as `id` in `group`, where `routine` runs the given number of iterations and times them itself.
@@ -294,22 +306,16 @@ where
 /// Every measure of a hub over `transport`, its ids prefixed with `scheme`.
 ///
 /// The fleet comes up on a fresh hub for every sample, since a hub keeps a registry entry for each agent it has seen.
-/// The held fleet is brought up only after that, as the two together would need twice the ports.
-fn over(group: &mut BenchmarkGroup<'_, WallTime>, scheme: &str, transport: &Transport, dialer: &Dialer) {
-    let cores = Cores::of_this_machine();
-    // `block_on` polls the probe's register and alive on this thread, so it is kept off the hub's core too; the
-    // hub's worker pins itself as it starts, so it does not inherit this.
-    let _pinned = cores
-        .agents
-        .first()
-        .is_some_and(|core| core_affinity::set_for_current(*core));
-    let runtime = agent_runtime(&cores);
+/// The held fleet is brought up only after that, as the two together would need twice the ports, and only when a
+/// measure that needs it runs, so listing the benchmarks or filtering them all out connects no agent.
+fn over(group: &mut BenchmarkGroup<'_, WallTime>, cores: &Cores, scheme: &str, transport: &Transport, dialer: &Dialer) {
+    let runtime = agent_runtime(cores);
     let _flat: &mut BenchmarkGroup<'_, WallTime> = group.sampling_mode(SamplingMode::Flat).sample_size(10);
 
     measure_custom(group, &format!("{scheme}/connect_{AGENTS}"), |iterations| {
         let mut taken = Duration::ZERO;
         for _ in 0..iterations {
-            let hub = Hub::start(&cores, transport);
+            let hub = Hub::start(cores, transport);
             let started = Instant::now();
             let mut fleet = runtime.block_on(Fleet::connect(dialer, &hub));
             taken = taken.saturating_add(started.elapsed());
@@ -320,44 +326,80 @@ fn over(group: &mut BenchmarkGroup<'_, WallTime>, scheme: &str, transport: &Tran
         taken
     });
 
-    let hub = Hub::start(&cores, transport);
-    let mut fleet = runtime.block_on(Fleet::connect(dialer, &hub));
+    let held = OnceCell::new();
+    let bring_up = || {
+        let hub = Hub::start(cores, transport);
+        let fleet = runtime.block_on(Fleet::connect(dialer, &hub));
+        RefCell::new(Held { hub, fleet })
+    };
 
     measure_custom(group, &format!("{scheme}/idle_cpu_{AGENTS}"), |iterations| {
+        let mut held = held.get_or_init(bring_up).borrow_mut();
         let mut used = Duration::ZERO;
         for _ in 0..iterations {
-            let before = hub.cpu();
+            let before = held.hub.cpu();
             // Built inside the runtime: a `Sleep` registers with the timer as it is created.
             runtime.block_on(async { tokio::time::sleep(IDLE_WINDOW).await });
-            used = used.saturating_add(hub.cpu().saturating_sub(before));
-            fleet.assert_all_connected();
+            used = used.saturating_add(held.hub.cpu().saturating_sub(before));
+            held.fleet.assert_all_connected();
         }
         used
     });
 
     let _sampled: &mut BenchmarkGroup<'_, WallTime> = group.sampling_mode(SamplingMode::Auto).sample_size(100);
-    let probe_url = hub.server.ws_url.clone();
+    let probe_url = || held.get_or_init(bring_up).borrow().hub.server.ws_url.clone();
     let probe_id = || Some(PROBE_ID.to_owned());
-    measure(group, &format!("{scheme}/connect_one_at_{AGENTS}"), || {
-        runtime.block_on(register(dialer.clone(), probe_url.clone(), probe_id()))
+    let fleet_up = || {
+        let _held: &RefCell<Held> = held.get_or_init(bring_up);
+    };
+    measure(group, &format!("{scheme}/connect_one_at_{AGENTS}"), fleet_up, || {
+        runtime.block_on(register(dialer.clone(), probe_url(), probe_id()))
     });
-    let mut probe = runtime.block_on(register(dialer.clone(), probe_url, probe_id()));
-    measure(group, &format!("{scheme}/alive_at_{AGENTS}"), || {
-        runtime.block_on(alive(&mut probe));
+    let probe = OnceCell::new();
+    let connect_probe = || RefCell::new(runtime.block_on(register(dialer.clone(), probe_url(), probe_id())));
+    let probe_up = || {
+        let _probe: &RefCell<Socket> = probe.get_or_init(connect_probe);
+    };
+    measure(group, &format!("{scheme}/alive_at_{AGENTS}"), probe_up, || {
+        runtime.block_on(alive(&mut probe.get_or_init(connect_probe).borrow_mut()));
     });
 
-    fleet.assert_all_connected();
+    // The probe goes before the fleet it was measured beside; neither is torn down if no measure brought it up.
     drop(probe);
-    runtime.block_on(fleet.disband());
-    hub.stop(&runtime);
+    if let Some(held) = held.into_inner() {
+        let Held { hub, mut fleet } = held.into_inner();
+        fleet.assert_all_connected();
+        runtime.block_on(fleet.disband());
+        hub.stop(&runtime);
+    }
+}
+
+/// The hub held through the measures after the connect one, and the fleet it holds.
+struct Held {
+    hub: Hub,
+    fleet: Fleet,
 }
 
 /// The hub over HTTP, then over HTTPS.
 fn hub(criterion: &mut Criterion) {
+    // Read before this thread is pinned: on Linux the cores listed are those the calling thread may run on.
+    let cores = Cores::of_this_machine();
+    // `block_on` polls the probe's register and alive on this thread, so it is kept off the hub's core too; the hub's
+    // worker pins itself as it starts, so it does not inherit this.
+    let _pinned = cores
+        .agents
+        .first()
+        .is_some_and(|core| core_affinity::set_for_current(*core));
     let mut group = criterion.benchmark_group("hub");
-    over(&mut group, "http", &Transport::Http, &Dialer::Plain);
+    over(&mut group, &cores, "http", &Transport::Http, &Dialer::Plain);
     let (https, trusted) = Transport::self_signed();
-    over(&mut group, "https", &https, &Dialer::Tls(TlsConnector::from(trusted)));
+    over(
+        &mut group,
+        &cores,
+        "https",
+        &https,
+        &Dialer::Tls(TlsConnector::from(trusted)),
+    );
     group.finish();
 }
 

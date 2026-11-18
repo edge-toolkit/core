@@ -296,6 +296,10 @@ ignore = [
   # walk or matches an attacker's pattern; the patterns here are fixed.
   { id = "GHSA-3g3m-2fjr-6pw4", reason = "expires 2027-01-01" },
   { id = "GHSA-g3hv-75wg-m249", reason = "expires 2027-01-01" },
+  # picomatch 2.3.2 and 4.0.7: denial of service from a glob pattern with a single-branch repeated extglob.
+  # No picomatch release fixes it yet. It costs time only, and only for a caller that matches an attacker's pattern;
+  # the patterns here are the generator's and the template's own.
+  { id = "GHSA-fc5q-39xc-vjpf", reason = "expires 2027-01-01" },
 ]
 
 [licenses]

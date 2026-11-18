@@ -12,7 +12,7 @@
     "config/trivyignore-tools.yaml",
     "libs/*/benches/results/**",
     "libs/gpu-probe/signatures.json",
-    "libs/gpu-probe/signatures.yaml",
+    "libs/gpu-probe/signatures/**",
     "modules/**/Cargo.toml",
     "modules/**/pyproject.toml",
     "services/*/benches/results/**",

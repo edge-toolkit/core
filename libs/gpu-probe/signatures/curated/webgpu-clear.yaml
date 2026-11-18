@@ -1,0 +1,228 @@
+signatures:
+  - interface: webgpu-clear
+    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgpu-clear
+    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        window: none
+      - browser: none
+        os: linux
+        cpu_arch: aarch64
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        window: none
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        cpu_arch: x86_64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        window: none
+      - browser: none
+        os: linux
+        cpu_arch: aarch64
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        window: none
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "SwiftShader (software renderer) through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c46"
+  - interface: webgpu-clear
+    label: "Apple M5 Pro GPU through Metal on macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave, Firefox and Safari"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "Apple M5 Pro"
+        backend: metal
+        window: none
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "metal-3"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        defence: "Shields farbling, on as Brave ships"
+        reported: "metal-3"
+        window: normal
+      - browser: edge
+        browser_version: "157.0.4341.60"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "metal-3"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        reported: "apple"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgpu-clear
+    label: "Intel(R) UHD Graphics 630 through metal on macos x86_64 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: macos
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        window: none
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"

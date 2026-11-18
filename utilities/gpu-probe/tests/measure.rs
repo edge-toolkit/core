@@ -3,18 +3,15 @@
 #![cfg(test)]
 
 use std::io::{self, Write};
-use std::path::PathBuf;
 
 use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe_server::measure::{MeasureError, measure};
-use et_gpu_probe_server::registry::Registry;
+use et_gpu_probe_server::registry::RegistryTree;
 use futures_executor::block_on;
 use tempfile::TempDir;
 
-/// A registry holding one entry, which no measurement here matches, laid out as `libs/gpu-probe/signatures.yaml` is.
-const REGISTRY: &str = r#"# The header, kept as it is.
-probe_set: 1
-signatures:
+/// A file of entries holding one, which no measurement here matches, laid out as the repository's registry's are.
+const ENTRIES: &str = r#"signatures:
   - interface: webgpu
     label: "Tor Browser"
     seen:
@@ -28,16 +25,17 @@ signatures:
     reason: "WebGPU is unavailable"
 "#;
 
-/// A registry file holding [`REGISTRY`], in a directory removed when the returned guard drops.
-fn registry() -> (TempDir, Registry) {
+/// A registry directory holding [`ENTRIES`] as its `webgpu` file, removed when the returned guard drops.
+fn registry() -> (TempDir, RegistryTree) {
     let dir = TempDir::new().unwrap();
-    let path = dir.path().join("signatures.yaml");
-    fs_err::write(&path, REGISTRY).unwrap();
-    (dir, Registry::new(path))
+    fs_err::create_dir(dir.path().join("curated")).unwrap();
+    fs_err::write(dir.path().join("curated/webgpu.yaml"), ENTRIES).unwrap();
+    let registry = RegistryTree::new(dir.path().to_owned());
+    (dir, registry)
 }
 
 /// What measuring `opened` into `registry` wrote, beside how it ended.
-fn measured(registry: &Registry, opened: Vec<Result<Gpu, NativeError>>) -> (String, Result<(), MeasureError>) {
+fn measured(registry: &RegistryTree, opened: Vec<Result<Gpu, NativeError>>) -> (String, Result<(), MeasureError>) {
     let mut out = Vec::new();
     let outcome = measure(registry, opened, &mut out);
     (String::from_utf8(out).unwrap(), outcome)
@@ -106,9 +104,12 @@ fn the_noop_adapter_is_measured_or_passed_over_and_the_cpu_still_recorded() {
 
 #[test]
 fn a_registry_that_cannot_be_read_is_reported() {
-    let registry = Registry::new(PathBuf::from("no-such-directory/signatures.yaml"));
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("missing");
+    let registry = RegistryTree::new(missing.clone());
     let (_out, outcome) = measured(&registry, Vec::new());
     assert!(matches!(outcome, Err(MeasureError::Register(_))), "{outcome:?}");
+    assert!(!missing.exists());
 }
 
 #[test]
