@@ -246,7 +246,7 @@ ignore = [
   # newest release. It runs at compile time inside that macro and reports its errors; none of it is in the firmware.
   # Drop this when pio-proc leaves it.
   { id = "RUSTSEC-2026-0173", reason = "expires 2027-01-01" },
-  # actix-http 3.21.0 -- three HTTP/1.1 flaws in every actix-web server here, fixed in 3.21.1, 3.21.2 and 3.21.3.
+  # actix-http 3.20.3 -- three HTTP/1.1 flaws in every actix-web server here, fixed in 3.21.1, 3.21.2 and 3.21.3.
   # A bare LF in a chunked trailer, and a CR inside an unterminated quoted chunk extension, each let a client end a
   # body early or swallow its own next pipelined request; smuggling past that needs an intermediary that frames the
   # request differently, and none was shown to. The third is live as written: the request header timeout covers only

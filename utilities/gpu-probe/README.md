@@ -43,9 +43,8 @@ browser defence that treats a bare IP differently. `mise run build-gpu-probe-pag
 ## On a static host
 
 A browser that cannot reach this machine -- Tor Browser, which sends everything through Tor -- can be probed from
-the page deployed to a public static host such as Vercel. This regenerates `libs/gpu-probe/signatures.json`, then
-assembles the page, its WASM, the files the server serves beside it and that JSON into `target/gpu-probe-site`, the
-directory to deploy:
+the page deployed to a public static host such as Vercel. This assembles the page, its WASM, the files the server
+serves beside it and `libs/gpu-probe/signatures.json` into `target/gpu-probe-site`, the directory to deploy:
 
 ```bash
 mise run build-gpu-probe-site

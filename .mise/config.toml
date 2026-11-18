@@ -3236,11 +3236,14 @@ wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- -
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-gpu-probe-site]
-depends = ["build-gpu-probe-page", "gen:gpu-probe-signatures"]
+depends = ["build-gpu-probe-page"]
 description = "Assemble the GPU probe page as a static site in target/gpu-probe-site, to deploy to a host like Vercel"
 # The site is the page, its WASM, the files the server builds in and serves beside it, and the registry.
 # The page holds what it measured against the registry, so that it proposes only what the registry does not record.
-# The registry is regenerated first, so a deploy built from a branch judges against that branch's entries.
+# The registry is the committed JSON, not a regenerated one: a Vercel deploy installs no yq, failing a regeneration
+#   [gen:gpu-probe-signatures] /vercel/path0/.mise/task-shell.sh: line 56: yq: command not found
+# on commit https://github.com/edge-toolkit/core/commit/1340bd269a5b47d15bd735eafd308900bf8eaada, and the JSON leaves
+# submitted/ out, so it is what a regeneration gives wherever gpu-probe-signatures-check passes.
 # wasm-pack leaves a .gitignore of `*` in the package, which would keep the package out of a deploy that reads it, so
 # it is left behind.
 run = """
@@ -4093,6 +4096,23 @@ shell = "{{ vars.task_shell }}"
 description = "Print $ALL_LANGS -- the comma-separated list of every language env"
 run = 'echo "$ALL_LANGS"'
 shell = "{{ vars.task_shell_plain }}"
+
+# Everything build-gpu-probe-site needs, and nothing more, for a host that builds only the site.
+# The Vercel deploy's install command runs this after installing mise, so what the site needs is decided here, not in
+# Vercel's settings. mise must be on PATH, as for any task that runs it, so once mise is installed the command goes
+# on with `export PATH="$HOME/.local/bin:$PATH" && mise trust --all && mise run install-gpu-probe-site-tools`. Its
+# stable Rust is named outright, as a bare `rust` would bring the nightly toolchain too. A Rust build links its build
+# scripts with the host's C compiler, which no mise tool supplies and Vercel's image lacks, so a host with none is
+# given gcc by its package manager; Vercel's image is Amazon Linux, whose manager is dnf.
+[tasks.install-gpu-probe-site-tools]
+description = "Install the tools build-gpu-probe-site needs, for a host such as Vercel that builds only the site"
+run = """
+if ! command -v cc >/dev/null; then
+  dnf install -y gcc
+fi
+mise install rust@stable aqua:rustwasm/wasm-pack github:uutils/coreutils
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.install-all]
 description = "Install every language toolchain (all .mise/config.<lang>.toml)"
