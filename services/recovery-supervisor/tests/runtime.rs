@@ -236,7 +236,6 @@ async fn malformed_state_fails_closed_and_atomic_updates_replace_previous_docume
 /// Preserve sender identity and acknowledge direct lifecycle messages over the real hub.
 #[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn hub_delivers_sender_bound_cloudevents_and_acknowledges_receipt() {
-    let _telemetry = et_otlp::init_guarded(None).unwrap();
     let server = et_ws_test_server::start();
     let (observer, _) = et_ws_test_server::connect_agent_as(&server.ws_url, Some("observer")).await;
     let (mut producer, producer_id) = et_ws_test_server::connect_agent_as(&server.ws_url, Some("example-worker")).await;

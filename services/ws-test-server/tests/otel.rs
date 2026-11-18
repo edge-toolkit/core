@@ -26,7 +26,12 @@ const FLUSH_TIMEOUT: Duration = Duration::from_secs(15);
 // blocking flush. On the default current-thread runtime that flush occupies the only worker, the server task
 // never gets polled, and every export fails with
 // `BatchSpanProcessor.ExportError ... HTTP export failed: network error`.
-#[test_log::test(tokio::test(flavor = "multi_thread"))]
+//
+// The test installs the global subscriber itself through `et_otlp::init`, so it cannot take `test_log::test`:
+// that installs one first, and `et_otlp::init`'s `set_global_default` then fails.
+// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The test owns the global tracing subscriber.
+// ast-grep-ignore: async-test-uses-test-log
+#[tokio::test(flavor = "multi_thread")]
 async fn hub_emits_traces_logs_and_metrics() {
     let mock = et_test_otlp::start(Protocol::HttpJson).await;
 

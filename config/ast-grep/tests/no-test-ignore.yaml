@@ -4,6 +4,12 @@ valid:
     #[test] fn runs() {}
   - |
     #[cfg_attr(windows, allow(dead_code))] fn helper() {}
+  - |
+    #[cfg_attr(
+        windows,
+        allow(dead_code)
+    )]
+    fn multiline_helper() {}
 invalid:
   - |
     #[test] #[ignore] fn skipped() {}
@@ -13,3 +19,10 @@ invalid:
     #[cfg_attr(windows, ignore = "flaky")] #[test] fn skipped_on_windows() {}
   - |
     #[cfg_attr(target_os = "macos", ignore)] #[test] fn skipped_on_macos() {}
+  - |
+    #[cfg_attr(
+        windows,
+        ignore = "flaky"
+    )]
+    #[test]
+    fn skipped_on_windows_multiline() {}

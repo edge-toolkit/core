@@ -55,7 +55,6 @@ url.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-et-otlp.workspace = true
 et-test-helpers.workspace = true
 et-test-recovery.workspace = true
 et-ws-test-server.workspace = true

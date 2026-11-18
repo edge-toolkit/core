@@ -10,4 +10,4 @@ rule:
   kind: attribute_item
   any:
     - regex: '^#\[\s*ignore\b'
-    - regex: '^#\[\s*cfg_attr\(.*,\s*ignore\b'
+    - regex: '(?s)^#\[\s*cfg_attr\(.*,\s*ignore\b'
