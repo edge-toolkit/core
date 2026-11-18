@@ -14,7 +14,7 @@ command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_
 command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 524288"
 
 [scripts.setup.stack-gpu-probe]
-command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 65536"
+command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 524288"
 
 # et-gpu-probe's native tests open real adapters, so the GPU driver's own calls run on the test's thread.
 # At the 64 KiB above, every test that opens one aborts with `fatal runtime error: stack overflow, aborting` (on
