@@ -55,7 +55,7 @@ description = "Check dotnet C# formatting"
 run = "dotnet format --verify-no-changes"
 
 [tasks.roslynator-check]
-description = "Analyze C# sources (Roslynator)"
+description = "Analyse C# sources (Roslynator)"
 # Roslynator analyzes with its embedded analyzer assemblies, against the mise dotnet SDK's own MSBuild.
 # The dotnet:roslynator.dotnet.cli tool ships the analyzers, so the csproj needs no analyzer
 # PackageReference. Diagnostics at the default info-and-up severity fail the task; loading the project

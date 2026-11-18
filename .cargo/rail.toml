@@ -1,0 +1,8 @@
+# Route a change to nextest's own configuration into the Rust tests.
+# cargo-rail's built-in cargo.test item narrows on what the compiler read, and nothing compiled reads
+# config/nextest.toml, so with recorded evidence a change to it alone would plan no tests. This item is required
+# whenever cargo.test is, takes its package selection, and adds the runner configuration as an input of its own.
+[plan.work.nextest]
+cargo = ["cargo.test"]
+paths = ["config/nextest.toml"]
+scope = "cargo"

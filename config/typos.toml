@@ -6,6 +6,11 @@
 [files]
 extend-exclude = ["config/jscpd-baseline.json"]
 
+[type.checks-md]
+extend-glob = ["CHECKS.md"]
+extend-ignore-re = ["`[^`]+`"]
+locale = "en-au"
+
 [default]
 # Each pattern suppresses one known false positive, anchored so the word is still checked everywhere else.
 # `lod-min-clamp` / `lod-max-clamp` are WebGPU sampler fields (level-of-detail) in the vendored

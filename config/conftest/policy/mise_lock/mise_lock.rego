@@ -70,7 +70,7 @@ deny contains msg if {
 }
 
 # An allowlist entry gives anything but the bare floor.
-# The comparison with the oldest image's glibc, and the missing musl build, hold for every entry and are said above.
+# This checks only the value's form. What a floor means against the oldest image is said once, above the map.
 deny contains msg if {
 	some name, glibc in gnu_allowed
 	not regex.match(`^GLIBC_\d+\.\d+$`, glibc)
