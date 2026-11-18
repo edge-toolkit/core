@@ -136,6 +136,23 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
+      # Moves the coverage build's build dir to the drive root on Windows, where rustc's command line hit the limit.
+      # Nightly cargo's build-dir layout gives every dependency its own `-L dependency=...\build\<pkg>\<hash>\out`
+      # search path, and cargo-llvm-cov's rustc wrapper appends its instrumentation flags and starts rustc directly,
+      # with no argfile fallback. Under D:\a\core\core\target the line for et-ws-runner-common's tests reached 32917
+      # characters, over Windows' 32767, and the build stopped with
+      #   error: could not execute process `...\rustc.exe --crate-name module_file_missing ... -C instrument-coverage
+      #   --cfg=coverage --cfg=coverage_nightly -C link-arg=-Wl,--no-gc-sections -Zcoverage-options=branch` (never
+      #   executed): The filename or extension is too long. (os error 206)
+      # on commit https://github.com/edge-toolkit/core/commit/478d230e1971bd599b9024f785ea37555105126b at
+      # https://github.com/edge-toolkit/core/actions/runs/44377946944/job/135062026762. D:/cov is 15 characters
+      # shorter on every one of those paths. It is set here, not in the task, so a Windows workstation keeps its build
+      # dir inside the checkout; no later step on this lane runs cargo. Drop it once the wrapper falls back to an
+      # argfile.
+      - name: Shorten the coverage build dir on Windows
+        if: runner.os == 'Windows'
+        run: echo "CARGO_BUILD_BUILD_DIR=D:/cov" >> "$GITHUB_ENV"
+
       - name: Collect Rust coverage + test results
         timeout-minutes: 75
         run: mise run cargo-llvm-cov

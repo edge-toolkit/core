@@ -151,10 +151,11 @@ coreutils rm -rf target/debug target/release "$native/debug" "$native/release"
 # LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
 eval "$(cargo llvm-cov show-env --sh)"
 # Pre-create the dirs ort-sys symlinks its dylibs into, for the same nightly-cargo reason as cargo-doc-check.
-# It has to come after the eval above, which is what points CARGO_TARGET_DIR at the instrumented target dir --
-# a `depends` task would run in its own process and never see it. This whole env builds on nightly
-# (RUSTUP_TOOLCHAIN above), so every cargo invocation below hits the same build-script layout.
-ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
+# It has to come after the eval above, which is what exports CARGO_LLVM_COV_BUILD_DIR, the build dir the
+# instrumented build-script outputs land in -- the target dir unless the Windows lane moved it -- and a `depends`
+# task would run in its own process and never see it. This whole env builds on nightly (RUSTUP_TOOLCHAIN above),
+# so every cargo invocation below hits the same build-script layout.
+ort_build_dir="${CARGO_LLVM_COV_BUILD_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
 coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # A spawned workspace binary that a test kills, rather than lets exit, contributes no coverage.
 # LLVM flushes a process's counters only at exit, and services/ws-server-firmware/tests/serves_modules.rs ends
