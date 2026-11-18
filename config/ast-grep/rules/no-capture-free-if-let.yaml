@@ -1,0 +1,44 @@
+id: no-capture-free-if-let
+language: Rust
+severity: error
+message: |
+  An `if let` or `while let` whose pattern binds nothing only asks whether the value matches, which is what
+  `matches!` says: `if let Ok(Message::Ack { .. }) = parse(text)` becomes `if matches!(parse(text), Ok(Message::Ack {
+  .. }))`. Keep `let` for a pattern that captures something the body uses. This mirrors `DeepSource RS-W1218`;
+  clippy's `redundant_pattern_matching` covers only `Some(_)`, `None`, `Ok(_)`, `Err(_)` and their kin, which it
+  turns into `.is_some()` and the like, so those are left to it.
+# A binding is any identifier in the pattern that is not part of a path.
+# So not a tuple struct's name, and not a segment of `a::b` or `A::B`; a struct field written shorthand (`Foo { a }`)
+# binds too. A pattern that is a lone identifier is a binding or a constant, which the syntax cannot tell apart, so it
+# is left alone.
+rule:
+  pattern:
+    context: if let $PAT = $VALUE {}
+    selector: let_condition
+  has:
+    field: pattern
+    not:
+      any:
+        - kind: identifier
+        - regex: "^_$"
+        - regex: '^(\w+::)*(Some|Ok|Err|Ready|V4|V6)\(\s*_\s*\)$'
+        - regex: '^(\w+::)*(None|Pending)$'
+        - has:
+            stopBy: end
+            any:
+              - kind: shorthand_field_identifier
+              - kind: identifier
+                not:
+                  any:
+                    - inside:
+                        kind: tuple_struct_pattern
+                        field: type
+                    - inside:
+                        kind: scoped_identifier
+                    - inside:
+                        kind: scoped_type_identifier
+# There is no autofix, because the rewrite would change when the scrutinee's temporaries drop.
+# `if let` keeps them alive through the body, and `matches!` drops them at the end of the condition, so rewriting
+# `if let State::Ready = *lock.lock().unwrap()` would run the body unlocked.
+ignores:
+  - generated/**

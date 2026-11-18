@@ -1,11 +1,11 @@
 ---
 name: bench
 
-# The et-gpu-probe benchmarks on every platform test.yaml runs on, one job each.
-# Each job uploads its results file as an artifact, ready to download into libs/gpu-probe/benches/results/. The job
+# The et-gpu-probe benchmarks on every platform test.yaml runs on, and the hub benchmarks on its Linux runners.
+# Each job uploads its results file as an artifact, ready to download into the crate's benches/results/. The job
 # then fails unless the repository holds that runner's file and this run's latencies match it within the factor
-# `bench-gpu-probe-compare` allows. Every runner is named by its label, since a hosted runner reports no maker or
-# model that stays the same from one run to the next.
+# `bench-compare` allows. Every runner is named by its label, since a hosted runner reports no maker or model that
+# stays the same from one run to the next.
 #
 # Not path-gated: a benchmark is slowed as readily by a dependency or a toolchain bump as by the probe's own code.
 "on":
@@ -95,7 +95,7 @@ jobs:
       - name: Install mise
         uses: $/.github/actions/install-mise
 
-      # The toolchain, its linker, and the tools bench-gpu-probe and bench-gpu-probe-compare run, in one install.
+      # The toolchain, its linker, and the tools bench and bench-compare run, in one install.
       # A second `mise` call before the shim is removed fails on Windows, where the first install leaves a `mise`
       # shim that then invokes itself:
       #   mise: recursive shim invocation detected for mise: /c/Users/runneradmin/AppData/Local/mise/shims/mise
@@ -124,7 +124,7 @@ jobs:
         timeout-minutes: 40
         env:
           MACHINE: ${{ matrix.machine }}
-        run: mise run bench-gpu-probe "$MACHINE"
+        run: mise run bench libs/gpu-probe "$MACHINE"
 
       - name: Upload the results
         uses: actions/upload-artifact@v7
@@ -144,4 +144,79 @@ jobs:
             echo "::error file=$RESULTS::$RESULTS is not in the repository; add this run's artifact there"
             exit 1
           fi
-          mise run bench-gpu-probe-compare target/recorded-results.yaml "$RESULTS" --factor 8
+          mise run bench-compare target/recorded-results.yaml "$RESULTS" --factor 8
+
+  # One hub held to one core, serving 25,000 agents, on the Linux runners only.
+  # On macOS and Windows a client reaches one loopback address through about 16,000 ephemeral ports, and the hub
+  # covers that locally by listening on two, but hosted runners of those OSes were left out of this job by choice.
+  # The two Linux runners give each address 28,000.
+  hub:
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      # `machine` names the results file, as in the gpu-probe job.
+      matrix:
+        include:
+          - os: ubuntu-latest
+            machine: gha-ubuntu-latest
+          - os: ubuntu-24.04-arm
+            machine: gha-ubuntu-24-04-arm
+    env:
+      MISE_ENV: rust
+      RESULTS: services/ws-test-server/benches/results/${{ matrix.machine }}-linux.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
+      - name: Install mise
+        uses: $/.github/actions/install-mise
+
+      - name: Install the tools the bench needs
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise install rust aqua:01mf02/jaq yq ripgrep github:uutils/coreutils
+
+      - name: Remove mise shim
+        uses: $/.github/actions/remove-mise-shim
+
+      - name: Set aside the recorded results
+        run: |
+          if [ -f "$RESULTS" ]; then
+            mkdir -p target
+            cp "$RESULTS" target/recorded-results.yaml
+          fi
+
+      # Both ends of 25,000 sockets are open in the one bench process.
+      - name: Benchmark
+        timeout-minutes: 40
+        env:
+          MACHINE: ${{ matrix.machine }}
+        run: |
+          ulimit -n 65536
+          mise run bench services/ws-test-server "$MACHINE"
+
+      - name: Upload the results
+        uses: actions/upload-artifact@v7
+        with:
+          name: hub-bench-${{ matrix.machine }}-linux
+          path: ${{ env.RESULTS }}
+          if-no-files-found: error
+
+      # The factor is the gpu-probe job's, for the same reason: a hosted runner label is a pool of machines.
+      - name: Compare with the recorded results
+        run: |
+          if [ ! -f target/recorded-results.yaml ]; then
+            echo "::error file=$RESULTS::$RESULTS is not in the repository; add this run's artifact there"
+            exit 1
+          fi
+          mise run bench-compare target/recorded-results.yaml "$RESULTS" --factor 8

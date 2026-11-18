@@ -1,0 +1,69 @@
+signatures:
+  - interface: webgpu
+    label: "Tor Browser on macOS, Apple M5 Pro: reporting itself as Firefox 153.0.0, and 16.0.1 in a private window"
+    seen:
+      - browser: tor-browser
+        browser_version: "reports itself as Firefox 153.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships"
+        window: private
+    blocked: true
+    reason: "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"
+  - interface: webgpu
+    label: "Firefox 159 on Android, Samsung Galaxy S10"
+    seen:
+      - browser: firefox
+        browser_version: "159"
+        os: android
+        os_version: "12"
+        cpu_arch: aarch64
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: unknown
+        device: "Samsung Galaxy S10"
+        window: normal
+    blocked: true
+    reason: "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"
+  - interface: webgpu
+    label: "Chrome 157 on Android 10, Laser tablet"
+    seen:
+      - browser: chrome
+        browser_version: "157"
+        os: android
+        os_version: "10"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: unknown
+        device: "Laser tablet"
+        window: normal
+    blocked: true
+    reason: "no WebGPU adapter was returned"
+  - interface: webgpu
+    label: "LibreWolf (reports itself as Firefox 160.0.0) on macOS, Apple M5 Pro"
+    seen:
+      - browser: librewolf
+        browser_version: "reports itself as Firefox 160.0.0"
+        os: macos
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: unknown
+        window: normal
+    blocked: true
+    reason: "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"

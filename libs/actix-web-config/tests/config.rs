@@ -137,6 +137,7 @@ fn keep_alive_takes_os_a_disable_word_or_a_duration() {
     assert_eq!(parse("Disabled"), KeepAlive::Disabled);
     assert_eq!(parse("0s"), KeepAlive::Disabled);
     assert_eq!(parse("1m30s"), KeepAlive::Timeout(Duration::from_secs(90)));
+    let _refused: jiff::Error = KeepAliveSetting::try_from("1d".to_owned()).unwrap_err();
 }
 
 /// Start `config` on an ephemeral port, send one HTTP/1.1 request, and return the raw response, lower-cased.

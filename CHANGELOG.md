@@ -27,7 +27,11 @@ Changelog 1.1.0.
   `WEBGPU_F16_COMBINED`. `native::Gpu` asks for `shader-f16` where the adapter has it, gains `f16_signature`,
   `f16_combined_signature` and `computes_f16`, and a device without the feature refuses every probe of the set. The
   probe page and `gpu-probe` measure it beside the `f32` set.
-- `et-gpu-probe-server` collects GPU probe signatures over HTTPS into `libs/gpu-probe/signatures.yaml`: a paste form
+- The probe page deployed to a static host proposes what it found as a GitHub pull request: links to GitHub's
+  new-file page, filled in with files for the registry's `submitted/` directory, which the tests check and
+  `mise run gpu-probe-fold` files into the registry. The registry is now a directory, `libs/gpu-probe/signatures`: a
+  header and one file of entries per interface, from which `signatures.json` is generated as before.
+- `et-gpu-probe-server` collects GPU probe signatures over HTTPS into `libs/gpu-probe/signatures`: a paste form
   at `/submit`, JSON submissions at `POST /register`, each added as a new entry or as another place a known one was
   seen. `mise run gpu-probe-server` serves this machine and `mise run gpu-probe-server-lan` the LAN. Its TLS and
   LAN-address code is the new `et-https-listener` crate, which `et-ws-server` now re-exports as its `tls` and `net`
@@ -205,6 +209,12 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** duration settings are read by jiff rather than the unmaintained humantime: `RUNNER_TIMEOUT`,
+  `WS_CONNECT_ACK_TIMEOUT`, `WS_CONNECTION_TIMEOUT` and the `HTTP_*` timeouts and keep-alive. `15s`, `500ms` and
+  `1m30s` read as before, and an ISO 8601 duration such as `PT15S` is now accepted too. Days, weeks, months and years
+  are refused, as is a bare number with no unit such as `0` (write `0s`), and units must run from largest to smallest,
+  once each. In `edge-toolkit`, `config::deserialize_optional_humantime` is renamed `deserialize_optional_duration`,
+  and in `et-actix-web-config`, `KeepAliveSetting`'s `TryFrom<String>` error is now `jiff::Error`.
 - **Breaking:** a GPU probe registry row may give `browser`, `os`, `cpu_arch`, `gpu`, `backend` and `window` a value
   outside the set the registry names, which is kept as its text rather than refused, so `et-gpu-probe-server`,
   `gpu-probe` and the probe page record a device, browser or system the registry has no name for yet; the server

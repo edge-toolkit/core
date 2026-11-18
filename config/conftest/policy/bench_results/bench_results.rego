@@ -2,7 +2,7 @@
 # Run with `--combine --namespace bench_results` over `libs/*/benches/results/*.yaml`, so `input` is an array of
 # {path, contents}, one per results file.
 #
-# A results file is what `mise run bench-gpu-probe [machine]` writes: the machine it was measured on under `machine`,
+# A results file is what `mise run bench <dir> [machine]` writes: the machine it was measured on under `machine`,
 # with its `id` and the `os` it ran, and every benchmark's estimates under `benchmarks`. The same machine gives other
 # results under another OS, through its other drivers, so a file is found by both, and its name must agree with what
 # it records: a file renamed by hand, or one recorded under a mistyped id, would sit beside the real one as a second
@@ -15,7 +15,10 @@ import data.paths
 id_pattern := `^[a-z0-9]+(-[a-z0-9]+)*$`
 
 # The directory a results file sits in, and its suffix; what is between them is the machine id and the OS.
-results_path := `^libs/[^/]+/benches/results/([^/]+)\.yaml$`
+results_path := `^(?:libs|services)/[^/]+/benches/results/([^/]+)\.yaml$`
+
+# Where a results file belongs, as the denial for one elsewhere names it.
+results_home := "<libs|services>/<crate>/benches/results/<machine>-<os>.yaml"
 
 # Every OS a host build runs the benchmarks on, as the registry's rows name it.
 oses := {"linux", "macos", "windows"}
@@ -24,7 +27,7 @@ oses := {"linux", "macos", "windows"}
 deny contains msg if {
 	some file in paths.files
 	not regex.match(results_path, file.path)
-	msg := sprintf("%s: a benchmark results file belongs in libs/<crate>/benches/results/<machine>-<os>.yaml", [file.path])
+	msg := sprintf("%s: a benchmark results file belongs in %s", [file.path, results_home])
 }
 
 # A results file is named for the machine and OS it records.

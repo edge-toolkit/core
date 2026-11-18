@@ -79,6 +79,8 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
+# Names the machine a benchmark ran on, from the maker and model the firmware reports.
+"aqua:fastfetch-cli/fastfetch" = "latest"
 # The secret scanner Codacy and DeepSource both run against a pushed branch.
 "aqua:gitleaks/gitleaks" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
@@ -156,10 +158,8 @@ ripgrep = "latest"
 # and redden config/jscpd-baseline.json; the lockfile holds the version until a refresh moves it. When it moves,
 # regenerate the baseline and, in the same change, set `declared_clones` in the jscpd conftest policy to the smallest
 # multiple of its `ceiling_step` at or above the new count.
-"github:kucherenko/jscpd" = "latest"
-# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
-"github:microsoft/onnxruntime" = "1.22.0"
+"github:kucherenko/jscpd" = "latest"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
@@ -517,6 +517,20 @@ url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/mac-
 [tools."http:chromedriver".platforms.macos-x64]
 url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/mac-x64/chromedriver-mac-x64.zip"
 
+# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
+# Fetched as Microsoft's NuGet package, which holds the native library of every platform under runtimes/<rid>/native;
+# ort_loc_unix and ort_loc_win name the directory of the host's. The project's GitHub repository, whose release
+# tarballs this was installed from before, answers 404 since 2026-11-18, failing every `mise install` with
+#   mise ERROR Failed to install github:microsoft/onnxruntime@1.22.0: HTTP status client error (404 Not Found)
+#   for url (https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300385)
+# on commit https://github.com/edge-toolkit/core/commit/c7dd9d585e3ee2efbfd8241c8fb2f7cd9f7bab02 at
+# https://github.com/edge-toolkit/core/actions/runs/44214873502/job/134502076181.
+[tools."http:onnxruntime"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+format = "zip"
+url = "{{ vars.ort_nuget }}/{{version}}/microsoft.ml.onnxruntime.{{version}}.nupkg"
+version = "1.22.0"
+
 [tools."http:augeas"]
 bin = "augtool"
 version = "1.14.1"
@@ -710,7 +724,7 @@ gpu_probe_server = "cargo run -p et-gpu-probe-server --bin et-gpu-probe-server -
 # The arguments the gpu-probe server tasks share: the registry, the probe page, and the certificate they serve.
 # The pair lives under target/ so it is never committed; delete it to have one generated for a new LAN address.
 gpu_probe_server_args = """
-{{ "--registry libs/gpu-probe/signatures.yaml --root utilities/gpu-probe/static " ~
+{{ "--registry libs/gpu-probe/signatures --root utilities/gpu-probe/static " ~
   "--cert target/gpu-probe-server-cert.pem --key target/gpu-probe-server-key.pem" -}}
 """
 # Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
@@ -731,10 +745,14 @@ clippy_scope = "--keep-going --workspace --all-targets"
 # `cuda` is left out because it downloads a CUDA build of ONNX Runtime that exists only for some host triples.
 # `docs` only renders the feature list into rustdoc, which cargo-doc-check builds, so it would double every run.
 cargo_hack_flags = "--all-targets --feature-powerset --exclude-features cuda,docs"
-# Linux/macOS install root for the github:microsoft/onnxruntime tool.
+# Where NuGet serves each version of Microsoft's ONNX Runtime package, which the http:onnxruntime tool fetches.
+ort_nuget = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime"
+# The NuGet runtime identifier of this Linux or macOS host, naming its directory under the package's runtimes/.
+ort_rid_unix = "{% if os() == 'macos' %}osx{% else %}linux{% endif %}-{{ arch() }}"
+# Linux/macOS directory of the http:onnxruntime tool's native library for this host.
 # The ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
 # segment must match the [tools] pin (conftest's version_drift enforces this).
-ort_loc_unix = "{{ vars.a_home }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
+ort_loc_unix = "{{ vars.mise_data_dir }}/installs/http-onnxruntime/1.22.0/runtimes/{{ vars.ort_rid_unix }}/native"
 # Source/dest paths for the fetch-*-rclone model downloads, kept as vars.
 # Keeping them as vars lets each `rclone copyto` command stay on a single line without continuations.
 # face1's RetinaFace_int.onnx is mirrored to edge-toolkit/core's hf-cache-v<N> release because HuggingFace
@@ -899,7 +917,7 @@ RIPGREP_CONFIG_PATH = "{{ config_root }}/config/ripgrep.rc"
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 
 # Direct ort-sys (workspace `ort` dep) at the mise-staged ONNX Runtime install.
-# That install is github:microsoft/onnxruntime above, used instead of fetching at build time. The
+# That install is http:onnxruntime above, used instead of fetching at build time. The
 # workspace dep dropped the `download-binaries` feature, so SKIP_DOWNLOAD is
 # belt-and-braces (the download code path is gone).
 ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{ vars.ort_loc_unix }}{% endif %}"
@@ -911,7 +929,7 @@ ORT_SKIP_DOWNLOAD = "1"
 #   dyld: Library not loaded: /usr/local/opt/protobuf/lib/libprotobuf-lite.35.0.0.dylib
 LIBONNXRUNTIME_NO_PKG_CONFIG = "1"
 # The ONNX Runtime library et-ws-wasi-runner opens when a guest first uses `wasi:nn`, out of that same install.
-ORT_DYLIB_PATH = "{{ vars.ort_loc_unix }}/lib/libonnxruntime.{% if os() == 'macos' %}dylib{% else %}so{% endif %}"
+ORT_DYLIB_PATH = "{{ vars.ort_loc_unix }}/libonnxruntime.{% if os() == 'macos' %}dylib{% else %}so{% endif %}"
 
 [tasks]
 ec = "editorconfig-checker"
@@ -1014,6 +1032,49 @@ description = "Run the Rust + universal repo-wide checks"
 # activation and the `[env]` exec on Windows.)
 depends = ["check:*"]
 description = "Run all checks: check:rust + any loaded guest check:<lang>"
+
+[tasks.check-meta]
+# The checks whose subject is the repository rather than a language's source code.
+# That is CI workflows, configs and lockfiles, policies and the linters' own rule tests, docs and links, file names,
+# spelling, secrets, Dockerfiles and manifests, and the checked-in files generated without cargo. Left out are every
+# compiler, language linter and formatter (cargo, clippy, ruff, the guest check:<lang> tasks), ast-grep's code rules,
+# the code-duplication and shell-script checks, and the checks that build or run Rust to regenerate what they compare.
+# Its name keeps it out of `check`'s `check:*` glob, which every task here already reaches through check:rust.
+depends = [
+  "action-validator-check",
+  "actionlint-check",
+  "agent-lint-check",
+  "ast-grep-check-rule-tests",
+  "branch-up-to-date-check",
+  "checks-md-check",
+  "conftest-check",
+  "dockerignore-check",
+  "dprint-check",
+  "editorconfig-check",
+  "gitleaks-check",
+  "gpu-probe-signatures-check",
+  "hadolint-check",
+  "j2lint-check",
+  "kubeconform-check",
+  "link-check",
+  "ls-lint-check",
+  "mise-lock-check",
+  "readme-mise-version-check",
+  "regal-check",
+  "rumdl-check",
+  "ryl-check",
+  "semgrep-check",
+  "semgrep-check-rule-tests",
+  "shellcheck-mise-check",
+  "shfmt-mise-check",
+  "taplo-check",
+  "taplo-fmt-check",
+  "trivy-check",
+  "trivy-tools-check",
+  "typos-check",
+  "zizmor-check",
+]
+description = "Run the checks that are about the repository rather than its code: CI, config, docs, policies, locks"
 
 [tasks."fix:rust"]
 # Rust + universal lint-fix passes.
@@ -1476,11 +1537,11 @@ description = "Check the jscpd baseline has not grown (conftest)"
 run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-baseline.json"
 
 # The files are found on disk rather than in git's index.
-# So one a fresh `bench-gpu-probe` run wrote, or one renamed and not yet staged, is checked as it stands.
+# So one a fresh `bench` run wrote, or one renamed and not yet staged, is checked as it stands.
 [tasks.conftest-check-bench-results]
 description = "Check each benchmark results file is named for the machine and OS it records (conftest)"
 run = """
-find libs -path '*/benches/results/*.yaml' -print0 |
+find libs services -path '*/benches/results/*.yaml' -print0 |
   xargs -0 -r conftest test --combine --namespace bench_results -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
@@ -1488,9 +1549,18 @@ shell = "{{ vars.task_shell }}"
 # Each benchmark is recorded in Bencher Metric Format: its mean as `latency`, with its 95% interval, in nanoseconds.
 # The bench writes to a criterion home of its own, emptied first, so a benchmark since renamed or removed leaves
 # nothing behind to be recorded. criterion's raw samples stay in that home, out of the repository.
-[tasks.bench-gpu-probe]
-description = "Benchmark et-gpu-probe and record the estimates in libs/gpu-probe/benches/results/<machine>-<os>.yaml"
+# The crate's package name, and the features its benches require, are read from its Cargo.toml.
+[tasks.bench]
+description = "Benchmark the crate in <dir> and record the estimates in <dir>/benches/results/<machine>-<os>.yaml"
 run = """
+dir="${usage_dir%/}"
+package=$(yq -p toml -o yaml '.package.name' "$dir/Cargo.toml")
+features=$(yq -p toml -o yaml '[.bench[]."required-features"[]] | unique | join(",")' "$dir/Cargo.toml")
+# Each [[bench]] target by name, since `--benches` would also run the crate's binaries in bench mode.
+targets=()
+for name in $(yq -p toml -o yaml '.bench[].name' "$dir/Cargo.toml"); do
+  targets+=("--bench=$name")
+done
 host=$(rustc -vV | rg -r '$1' '^host: (.*)$')
 # The same machine gives other results under another OS, through its other drivers, so the OS names the file too.
 case "$host" in
@@ -1502,25 +1572,22 @@ case "$host" in
     exit 1
     ;;
 esac
-# With no machine given, it is the maker and model the firmware reports, through each OS's query for them.
-# No mise tool reads either. `$_` is PowerShell's, so the shell must not expand it.
-# shellcheck disable=SC2016
-model=(powershell -NoProfile -Command 'Get-CimInstance Win32_ComputerSystem | % { $_.Manufacturer, $_.Model }')
-case "$os" in
-  linux) model=(coreutils cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/product_name) ;;
-  macos) model=(sysctl -n hw.model) ;;
-esac
-# A maker's company suffix is dropped, so "Dell Inc." and "Precision 5570" make dell-precision-5570.
+# With no machine given, it is the maker and model fastfetch reads from the firmware.
+# On a Mac that is the product name rather than the model code. Only those two leave jaq: fastfetch's host also
+# carries the serial number and UUID. A screen size is dropped, as nothing benchmarked here depends on it, and so
+# is a maker's company suffix, so "Apple Inc." and "MacBook Pro (16-inch, M5 Pro, 2026)" make
+# apple-macbook-pro-m5-pro-2026.
+host_name='.[0].result | .vendor, (.name | gsub("[0-9.]+-inch,? *"; ""))'
 suffixes='inc|corp|corporation|co|ltd|llc|'
-machine="${usage_machine:-$("${model[@]}" | coreutils tr '[:upper:]' '[:lower:]' | coreutils tr -cs 'a-z0-9' '\\n' |
-  rg -vx "$suffixes" | coreutils paste -sd -)}"
+machine="${usage_machine:-$(fastfetch --format json -s host | jaq -r "$host_name" |
+  coreutils tr '[:upper:]' '[:lower:]' | coreutils tr -cs 'a-z0-9' '\\n' | rg -vx "$suffixes" | coreutils paste -sd -)}"
 if [ -z "$machine" ]; then
-  echo "this machine reports no maker or model, so name it: mise run bench-gpu-probe <machine>" >&2
+  echo "this machine reports no maker or model, so name it: mise run bench $dir <machine>" >&2
   exit 1
 fi
-home=target/criterion-gpu-probe
+home="target/criterion-$(coreutils basename "$dir")"
 coreutils rm -rf "$home"
-CRITERION_HOME="$PWD/$home" cargo bench -p et-gpu-probe --features native,registry --bench gpu_probe
+CRITERION_HOME="$PWD/$home" cargo bench -p "$package" --features "$features" "${targets[@]}"
 lines="$home/benchmarks.jsonl"
 # Each value is rounded to a hundredth of a nanosecond, finer than any of them is known to, so a rerun's diff is short.
 # `$est` is the jaq variable each benchmark's estimates are bound to, so the shell must not expand it.
@@ -1533,7 +1600,7 @@ benchmarks=(rg --files --no-ignore -g '**/new/benchmark.json' "$home")
   # Named beside the metadata by swapping the file name, since on Windows the path mixes forward and back slashes.
   jaq -c --slurpfile est "${meta%benchmark.json}estimates.json" "$measure" "$meta"
 done >"$lines"
-out="libs/gpu-probe/benches/results/$machine-$os.yaml"
+out="$dir/benches/results/$machine-$os.yaml"
 coreutils mkdir -p "$(coreutils dirname "$out")"
 recorded=(--arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$(rustc -V)")
 recorded+=(--arg date "$(coreutils date -u +%F)")
@@ -1545,10 +1612,13 @@ yq -p json -o yaml '.' "$home/record.json" >"$out"
 echo "wrote $out"
 """
 shell = "{{ vars.task_shell }}"
-usage = 'arg "[machine]" help="This machine, as lowercase words joined by -: dell-precision-5570 (default: its model)"'
+usage = """
+arg "<dir>" help="The crate's directory: libs/gpu-probe"
+arg "[machine]" help="This machine, as lowercase words joined by -: dell-precision-5570 (default: its model)"
+"""
 
-[tasks.bench-gpu-probe-compare]
-description = "Fail unless two et-gpu-probe bench results files hold the same benchmarks at about the same latencies"
+[tasks.bench-compare]
+description = "Fail unless two bench results files hold the same benchmarks at about the same latencies"
 # Each latency is held to within a factor of the recorded one rather than to its confidence interval.
 # A hosted runner's speed varies between runs and between machines of one label, so a rerun on the same runner already
 # falls outside the interval it recorded; a benchmark several times slower or faster is the regression worth failing.
@@ -1565,7 +1635,7 @@ measured="$dir/measured.json"
 yq -o json . "$usage_recorded" >"$recorded"
 yq -o json . "$usage_measured" >"$measured"
 factor="${usage_factor:-2}"
-compare=.mise/bench-gpu-probe-compare.jq
+compare=.mise/bench-compare.jq
 differences=$(jaq -nr --slurpfile r "$recorded" --slurpfile m "$measured" --argjson f "$factor" -f "$compare")
 if [ -n "$differences" ]; then
   printf '%s\\n' "$differences"
@@ -2881,20 +2951,33 @@ description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:d
 run = "git diff --exit-code -- .dockerignore"
 
 [tasks."gen:gpu-probe-signatures"]
-description = "Regenerate libs/gpu-probe/signatures.json from the signatures.yaml beside it"
+description = "Regenerate libs/gpu-probe/signatures.json from the signatures directory beside it"
 # The signature registry is kept as YAML, which takes comments and reads well in a diff, and embedded as JSON.
 # `et-gpu-probe` embeds it when the crate is compiled, which a consumer of the published crate does with none of
 # this repository's tools, so the JSON is committed beside its source rather than made by a build script. It is
 # staged under target/ and renamed into place for the reason the .dockerignore above is: a build running beside
 # this never reads half a file. The files are not named `registry`, which .gitignore keeps for the one a hub saves.
+# The JSON is the header with every curated file's entries appended in file-name order, which the C locale makes the
+# same on every machine; submissions waiting in submitted/ are left out until `gpu-probe-fold` files them, so a pull
+# request proposing one from the hosted probe page leaves the JSON as it was.
 run = '''
+export LC_ALL=C
 coreutils mkdir -p target
 staged="target/gpu-probe-signatures.$$"
 trap 'coreutils rm -f "$staged"' EXIT
-yq -o json libs/gpu-probe/signatures.yaml | coreutils tr -d '\r' >"$staged"
+registry=libs/gpu-probe/signatures
+# shellcheck disable=SC2016 # $file is a yq variable, not a shell one -- single quotes are intended
+merged='. as $file ireduce ({}; . *+ $file)'
+yq ea -o json "$merged" "$registry/header.yaml" "$registry"/curated/*.yaml | coreutils tr -d '\r' >"$staged"
 coreutils mv -f "$staged" libs/gpu-probe/signatures.json
 '''
 shell = "{{ vars.task_shell }}"
+
+[tasks.gpu-probe-fold]
+depends_post = ["gen:gpu-probe-signatures"]
+description = "File the GPU probe submissions waiting in libs/gpu-probe/signatures/submitted, and regenerate the JSON"
+# Run on main after merging pull requests proposed from the hosted probe page, and commit what it changes.
+run = "cargo run -p et-gpu-probe-server --bin gpu-probe-fold"
 
 [tasks.gpu-probe-signatures-check]
 depends = ["gen:gpu-probe-signatures"]
@@ -3155,7 +3238,12 @@ shell = "{{ vars.task_shell }}"
 [tasks.build-gpu-probe-site]
 depends = ["build-gpu-probe-page"]
 description = "Assemble the GPU probe page as a static site in target/gpu-probe-site, to deploy to a host like Vercel"
-# The site is the page, its WASM, and the two files the server builds in and serves beside it.
+# The site is the page, its WASM, the files the server builds in and serves beside it, and the registry.
+# The page holds what it measured against the registry, so that it proposes only what the registry does not record.
+# The registry is the committed JSON, not a regenerated one: a Vercel deploy installs no yq, failing a regeneration
+#   [gen:gpu-probe-signatures] /vercel/path0/.mise/task-shell.sh: line 56: yq: command not found
+# on commit https://github.com/edge-toolkit/core/commit/1340bd269a5b47d15bd735eafd308900bf8eaada, and the JSON leaves
+# submitted/ out, so it is what a regeneration gives wherever gpu-probe-signatures-check passes.
 # wasm-pack leaves a .gitignore of `*` in the package, which would keep the package out of a deploy that reads it, so
 # it is left behind.
 run = """
@@ -3166,6 +3254,8 @@ coreutils cp utilities/gpu-probe/static/index.html "$site/"
 coreutils cp utilities/gpu-probe/static/pkg/*.js utilities/gpu-probe/static/pkg/*.wasm "$site/pkg/"
 coreutils cp utilities/gpu-probe/src/probe.css "$site/probe.css"
 coreutils cp utilities/gpu-probe/src/register.mjs "$site/register.js"
+coreutils cp utilities/gpu-probe/src/propose.mjs "$site/propose.js"
+coreutils cp libs/gpu-probe/signatures.json "$site/signatures.json"
 """
 shell = "{{ vars.task_shell }}"
 
@@ -3435,7 +3525,7 @@ flag "--submit" help="Submit every probe set from the page and print how each we
 
 [tasks.gpu-probe-server]
 depends = ["build-gpu-probe-page"]
-description = "Collect GPU probe signatures into libs/gpu-probe/signatures.yaml over HTTPS at localhost:8443"
+description = "Collect GPU probe signatures into libs/gpu-probe/signatures over HTTPS at localhost:8443"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 
 [tasks.gpu-probe-server-lan]
@@ -4006,6 +4096,23 @@ shell = "{{ vars.task_shell }}"
 description = "Print $ALL_LANGS -- the comma-separated list of every language env"
 run = 'echo "$ALL_LANGS"'
 shell = "{{ vars.task_shell_plain }}"
+
+# Everything build-gpu-probe-site needs, and nothing more, for a host that builds only the site.
+# The Vercel deploy's install command runs this after installing mise, so what the site needs is decided here, not in
+# Vercel's settings. mise must be on PATH, as for any task that runs it, so once mise is installed the command goes
+# on with `export PATH="$HOME/.local/bin:$PATH" && mise trust --all && mise run install-gpu-probe-site-tools`. Its
+# stable Rust is named outright, as a bare `rust` would bring the nightly toolchain too. A Rust build links its build
+# scripts with the host's C compiler, which no mise tool supplies and Vercel's image lacks, so a host with none is
+# given gcc by its package manager; Vercel's image is Amazon Linux, whose manager is dnf.
+[tasks.install-gpu-probe-site-tools]
+description = "Install the tools build-gpu-probe-site needs, for a host such as Vercel that builds only the site"
+run = """
+if ! command -v cc >/dev/null; then
+  dnf install -y gcc
+fi
+mise install rust@stable aqua:rustwasm/wasm-pack github:uutils/coreutils
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.install-all]
 description = "Install every language toolchain (all .mise/config.<lang>.toml)"

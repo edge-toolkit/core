@@ -1,0 +1,40 @@
+# Every signature the probe set has been seen to give, one entry per distinct signature.
+# An entry is one GPU, driver, backend, interface and browser combination, or a CPU and math library where no GPU
+# is involved. A numeric signature is filed under its interface and the mode it was taken in: webgpu-split,
+# webgl2-split or webgl1-split when a browser compiled each expression in a shader of its own, and the -combined
+# forms when it compiled them all in one shader, because the two can differ on one device. WebGPU is filed the same
+# way whoever implemented it, a row with no browser being wgpu called directly. host and wasi-nn are not WebGPU: the
+# CPU answering as f32 arithmetic and its math library, and the probes as ONNX operators behind wasi:nn. canvas is a
+# classic 2-D canvas fingerprint kept for comparison: a page's own scene, read with getImageData from a canvas the
+# page made. canvas-browserleaks is the BrowserLeaks canvas test, read with toDataURL from a canvas made in a
+# sandboxed frame; its md5 result is the signature that site shows. webgpu-clear and webgpu-fixed-function are the
+# probe sets no shader compiler decides: render passes clearing a target to a value, and draws whose answer comes
+# from the blend unit, texture unit or rasterizer; webgl2-clear and webgl2-fixed-function are the same sets on WebGL
+# 2, a clearBufferfv taking the place of a render pass's clear. A new mechanism brings its own interface name.
+# The entries are kept beside this file, one file per interface under curated/, named for the interface, each a
+# "signatures" list. submitted/ holds sightings proposed from the hosted probe page, a "submissions" list per file in
+# the shape the server's /register takes, until gpu-probe-fold files them under curated/.
+# A signature can be shared by several devices, so each entry lists every place it has been seen, one row each, under
+# "seen"; when a new sighting matches an existing entry, add a row rather than a duplicate entry. The label is only a
+# summary of the rows. A row names, from fixed sets of values:
+#   browser    chrome, firefox, safari, opera (and whatever else the webbrowser crate names), brave, chromium, deno,
+#              edge, gnome-web, librewolf, mullvad-browser, samsung-internet, tor-browser, or none where no browser
+#              was involved
+#   os         android, ios, linux, macos, windows
+#   cpu_arch   an architecture as a target triple spells it (aarch64, x86_64), or unknown
+#   gpu        the GPU's vendor as wgpu names it (amd, apple, arm, broadcom, imgtec, intel, mesa, nvidia, qualcomm),
+#              google or microsoft for their software renderers, none where no GPU was involved, or unknown
+#   backend    metal, d3d11, d3d12, vulkan, opengl, opengl-es, none, or unknown
+#   window     normal, private (an incognito window), both (each gave the signature, so one row stands for the two),
+#              or none where no browser was involved
+# and may add, as free text: browser_version, os_version, cpu_version (the chip), gpu_version (the model and driver),
+# driver_version and api_version (the versions the graphics API itself reports for the driver and the device, as the
+# native test prints them, not as a browser or wgpu describes them), device (the machine), runtime (what ran the
+# probes where no browser did), defence (a privacy setting in force), reported (what the interface said the GPU was,
+# where that is not what it is), date and source (where the sighting is on record).
+# Each result is keyed by a name its mechanism gives it (a probe, a hash lane) so fields can be added.
+# An interface a browser blocks or does not offer is recorded as an entry with "blocked: true" and a "reason"
+# instead of results, so the registry also shows which browsers withhold which interface, and why.
+# probe_set numbers the probes and inputs the numeric signatures answer. It goes up when either changes, since a
+# signature taken before the change cannot be compared with one taken after.
+probe_set: 1

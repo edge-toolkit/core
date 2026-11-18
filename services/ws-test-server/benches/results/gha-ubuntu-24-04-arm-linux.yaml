@@ -1,0 +1,47 @@
+machine:
+  id: gha-ubuntu-24-04-arm
+  os: linux
+  host: aarch64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+benchmarks:
+  hub/http/alive_at_25000:
+    latency:
+      value: 61498.02
+      lower_value: 60160.72
+      upper_value: 62932.53
+  hub/http/connect_25000:
+    latency:
+      value: 2.0373099596e+09
+      lower_value: 2.02218502644e+09
+      upper_value: 2.0550446267e+09
+  hub/http/connect_one_at_25000:
+    latency:
+      value: 297337.41
+      lower_value: 291391.04
+      upper_value: 303743.48
+  hub/http/idle_cpu_25000:
+    latency:
+      value: 1.0337008184e+09
+      lower_value: 1.0284067232e+09
+      upper_value: 1.0386274656e+09
+  hub/https/alive_at_25000:
+    latency:
+      value: 82796.13
+      lower_value: 81487.25
+      upper_value: 84246.91
+  hub/https/connect_25000:
+    latency:
+      value: 7.1577049617e+09
+      lower_value: 6.7828129147e+09
+      upper_value: 7.52383550352e+09
+  hub/https/connect_one_at_25000:
+    latency:
+      value: 983717.95
+      lower_value: 970016.72
+      upper_value: 999581.21
+  hub/https/idle_cpu_25000:
+    latency:
+      value: 1.3561977408e+09
+      lower_value: 1.34918867114e+09
+      upper_value: 1.3631659594e+09

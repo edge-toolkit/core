@@ -1,7 +1,7 @@
 # et-gpu-probe-server
 
-A server that collects GPU probe signatures into the `et-gpu-probe` registry, `libs/gpu-probe/signatures.yaml`, and
-the probe page it serves. It serves HTTPS, since WebGPU needs a secure context and browsers treat every origin but a
+A server that collects GPU probe signatures into the `et-gpu-probe` registry, `libs/gpu-probe/signatures`, and the
+probe page it serves. It serves HTTPS, since WebGPU needs a secure context and browsers treat every origin but a
 loopback one as insecure over plain HTTP; `--http` serves plain HTTP on a loopback address alone.
 
 ## The probe page
@@ -43,15 +43,31 @@ browser defence that treats a bare IP differently. `mise run build-gpu-probe-pag
 ## On a static host
 
 A browser that cannot reach this machine -- Tor Browser, which sends everything through Tor -- can be probed from
-the page deployed to a public static host such as Vercel. This assembles the page, its WASM and the files the server
-serves beside it into `target/gpu-probe-site`, the directory to deploy:
+the page deployed to a public static host such as Vercel. This assembles the page, its WASM, the files the server
+serves beside it and `libs/gpu-probe/signatures.json` into `target/gpu-probe-site`, the directory to deploy:
 
 ```bash
 mise run build-gpu-probe-site
 ```
 
-With no server behind it, the page has no registry to add to, so instead of submit buttons it gives every submission
-as a line of JSON. Copy the lines into the `/submit` form of a server running here.
+With no server behind it, the page has no registry to add to, so instead of submit buttons it proposes what it found
+as a pull request. It first holds each probe set against the JSON it was deployed with, as the server would, and
+leaves out what the registry already records, saying how many sets were new signatures and which were known ones seen
+somewhere new, such as on a new browser version. The rest go in files of submissions for the registry's `submitted/`
+directory. The first file's link opens GitHub's page for adding a file, filled in with it; GitHub forks the repository
+for a visitor who cannot write to it, and opens the pull request when they press "Propose changes". A visit takes as
+many files as keep each link short enough for GitHub to open, so once the pull request is open, the visitor gives the
+page its link: the page asks GitHub's API for the branch it came from, and each later file's link adds that file to
+the same branch, so the whole visit is one pull request. Each file is named for its content, so proposing the same
+visit twice names a file the first proposal already made.
+
+A pull request of a submitted file leaves `libs/gpu-probe/signatures.json` alone, since the JSON is generated from the
+curated entries only, and the tests check every submitted file is one the registry would take. Once such pull
+requests are merged, file what they proposed and regenerate the JSON on `main`, then commit the result:
+
+```bash
+mise run gpu-probe-fold
+```
 
 ## Submitting
 
@@ -77,10 +93,10 @@ and the `seen` row of where it was measured, with the fields the registry's head
 ```
 
 A signature the registry has through that interface gains the row, unless it holds the same row already; anything
-else becomes a new entry at the end. The file is edited as text, so its comments and every other entry are left as
-they were. `/submit` posts each line pasted into it, which is how a result copied from a browser that cannot reach
-the server gets registered. `/signatures.yaml` serves the registry as it stands, and `--root` serves a probe page's
-files at `/`.
+else becomes a new entry at the end of the interface's file under `curated/`, which is made if the interface has none
+yet. The file is edited as text, so its comments and every other entry are left as they were. `/submit` posts each
+line pasted into it, as JSON submissions one per line. `/signatures.yaml` serves the registry as it stands, its header
+and every curated entry as one document, and `--root` serves a probe page's files at `/`.
 
 A row the registry already holds with every field the same, perhaps among more written by hand, records the sighting
 already, so nothing is added for it.

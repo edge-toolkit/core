@@ -559,6 +559,36 @@ url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose
 url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117303"
 provenance = "cosign"
 
+[[tools."aqua:fastfetch-cli/fastfetch"]]
+version = "2.71.0"
+backend = "aqua:fastfetch-cli/fastfetch"
+specifiers = ["latest"]
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.linux-arm64"]
+checksum = "sha256:458248f2b3abab9c5e0a5b9df12cdcd1a966b355ddd5f3244a5eb47d17d33412"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715731574"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.linux-x64"]
+checksum = "sha256:abf5c99a3702cce8d3c7fa2cccd3ac205076ae0f2e45bced24a42a68821702d6"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715731359"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.macos-arm64"]
+checksum = "sha256:6e503980ac268b072259f00e5c439eb90a420535f3593704c096b5b3bea64199"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715730326"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.macos-x64"]
+checksum = "sha256:6e503980ac268b072259f00e5c439eb90a420535f3593704c096b5b3bea64199"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715730326"
+
+[tools."aqua:fastfetch-cli/fastfetch"."platforms.windows-x64"]
+checksum = "sha256:58eeee82c52120e981891826be1c5810788bc0083b13d870684bbc85b03628e9"
+url = "https://github.com/fastfetch-cli/fastfetch/releases/download/2.71.0/fastfetch-windows-amd64.zip"
+url_api = "https://api.github.com/repos/fastfetch-cli/fastfetch/releases/assets/715729834"
+
 [[tools."aqua:gitleaks/gitleaks"]]
 version = "8.30.1"
 backend = "aqua:gitleaks/gitleaks"
@@ -1532,36 +1562,6 @@ checksum = "sha256:32975d1493ee1a975d6bb41e4fb56fe419cb442ded628bb772ba2e614acfa
 url = "https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/lycheeverse/lychee/releases/assets/409959491"
 
-[[tools."github:microsoft/onnxruntime"]]
-version = "1.22.0"
-backend = "github:microsoft/onnxruntime"
-specifiers = ["1.22.0"]
-
-[tools."github:microsoft/onnxruntime"."platforms.linux-arm64"]
-checksum = "blake3:51c33bfd5c886d3ec77a8e4eaf249aa04893b0eaa55b0c85d2dc1960da256484"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-aarch64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300383"
-
-[tools."github:microsoft/onnxruntime"."platforms.linux-x64"]
-checksum = "sha256:8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300385"
-
-[tools."github:microsoft/onnxruntime"."platforms.macos-arm64"]
-checksum = "blake3:31837329e25a47978b9c7e68f17b71d117ae208c3da65302925796f04245436b"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-arm64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300410"
-
-[tools."github:microsoft/onnxruntime"."platforms.macos-x64"]
-checksum = "sha256:e4ec94a7696de74fb1b12846569aa94e499958af6ffa186022cfde16c9d617f0"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-x86_64-1.22.0.tgz"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300427"
-
-[tools."github:microsoft/onnxruntime"."platforms.windows-x64"]
-checksum = "sha256:174c616efc0271194488642a72f1a514e01487da4dfe84c49296d66e40ebe0da"
-url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-1.22.0.zip"
-url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300435"
-
 [[tools."github:nats-io/nats-server"]]
 version = "2.15.2"
 backend = "github:nats-io/nats-server"
@@ -1852,18 +1852,6 @@ url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.1
 url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892169"
 provenance = "github-attestations"
 
-[tools."github:utkuozdemir/nvidia_gpu_exporter"."platforms.macos-x64"]
-checksum = "sha256:b10d8bf52997e1e2cd6cb12d06fdb3936306c6d3f5712900badbf48582fad4da"
-url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.17.0/nvidia_gpu_exporter_1.17.0_darwin_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892171"
-provenance = "github-attestations"
-
-[tools."github:utkuozdemir/nvidia_gpu_exporter"."platforms.windows-x64"]
-checksum = "sha256:07bd20f93e59c9920ed38043ec5a31fe3f5f7156969b60aebe336573d667e0c0"
-url = "https://github.com/utkuozdemir/nvidia_gpu_exporter/releases/download/v1.17.0/nvidia_gpu_exporter_1.17.0_windows_x86_64.zip"
-url_api = "https://api.github.com/repos/utkuozdemir/nvidia_gpu_exporter/releases/assets/699892208"
-provenance = "github-attestations"
-
 [[tools."github:uutils/coreutils"]]
 version = "0.6.0"
 backend = "github:uutils/coreutils"
@@ -1905,11 +1893,6 @@ specifiers = ["0.10.0"]
 [tools."github:uutils/findutils".options]
 asset_pattern = '*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*'
 
-[tools."github:uutils/findutils"."platforms.linux-arm64"]
-checksum = "sha256:c2dad7fbf0cd6b108f833b0a42651f3ad796b6dfa71d303ca1ab51eed3ce3afe"
-url = "https://github.com/uutils/findutils/releases/download/0.10.0/findutils-aarch64-unknown-linux-musl.tar.xz"
-url_api = "https://api.github.com/repos/uutils/findutils/releases/assets/500572461"
-
 [tools."github:uutils/findutils"."platforms.linux-x64"]
 checksum = "sha256:e7c10ea19e1dce2549aaf6f35e15bf42a5e8141d6100c499b6d6fc9b25ea9209"
 url = "https://github.com/uutils/findutils/releases/download/0.10.0/findutils-x86_64-unknown-linux-musl.tar.xz"
@@ -1935,27 +1918,12 @@ version = "0.7.2"
 backend = "github:vladkens/macmon"
 specifiers = ["0.7.2"]
 
-[tools."github:vladkens/macmon"."platforms.linux-arm64"]
-checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
-url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
-url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
-
-[tools."github:vladkens/macmon"."platforms.linux-x64"]
-checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
-url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
-url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
-
 [tools."github:vladkens/macmon"."platforms.macos-arm64"]
 checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
 url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
 
 [tools."github:vladkens/macmon"."platforms.macos-x64"]
-checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
-url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
-url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
-
-[tools."github:vladkens/macmon"."platforms.windows-x64"]
 checksum = "sha256:c79fdc7ab02b456b897dcc3ea041678420d7a1d5bd669aaac36fda3885572ad6"
 url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2.tar.gz"
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
@@ -2146,6 +2114,34 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 [tools."http:et-rp"."platforms.windows-x64"]
 checksum = "sha256:30b96e2d50ec15f7da5563b5bbce4170ee23f5fbf8565a8973889d8f25c6279a"
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-pc-windows-msvc.tar.gz"
+
+[[tools."http:onnxruntime"]]
+version = "1.22.0"
+backend = "http:onnxruntime"
+specifiers = ["1.22.0"]
+
+[tools."http:onnxruntime".options]
+format = "zip"
+
+[tools."http:onnxruntime"."platforms.linux-arm64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.linux-x64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.macos-arm64"]
+checksum = "blake3:d222e5ffff5715174d0ce847988045e3e08744f0d8dbfb121f11611a9b55bb73"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.macos-x64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
+
+[tools."http:onnxruntime"."platforms.windows-x64"]
+checksum = "sha256:d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a"
+url = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg"
 
 [[tools."http:openobserve"]]
 version = "1.1.2"

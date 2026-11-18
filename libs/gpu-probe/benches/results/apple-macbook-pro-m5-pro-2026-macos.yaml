@@ -1,5 +1,5 @@
 machine:
-  id: apple-macbook-pro-m5-pro
+  id: apple-macbook-pro-m5-pro-2026
   os: macos
   host: aarch64-apple-darwin
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)

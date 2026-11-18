@@ -32,7 +32,7 @@ edge-toolkit = { workspace = true, features = ["std"] }
 et-otlp.workspace = true
 et-rest-client.workspace = true
 futures-util.workspace = true
-humantime-serde.workspace = true
+jiff = { workspace = true, features = ["serde"] }
 reqwest.workspace = true
 retry-policies.workspace = true
 schemars = { workspace = true, optional = true }

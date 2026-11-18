@@ -14,13 +14,13 @@ Pending connections the listening socket queues before refusing more.
 
 Type: string.
 
-Time a client gets to close a connection before it is dropped, as a humantime duration; `0s` waits forever.
+Time a client gets to close a connection before it is dropped, as a duration; `0s` waits forever.
 
 ### `HTTP_CLIENT_REQUEST_TIMEOUT`
 
 Type: string.
 
-Time a client gets to send a request's head, as a humantime duration; `0s` waits forever.
+Time a client gets to send a request's head, as a duration; `0s` waits forever.
 
 ### `HTTP_H1_ALLOW_HALF_CLOSED`
 
@@ -50,7 +50,7 @@ Initial stream-level HTTP/2 flow-control window, in bytes.
 
 Type: string.
 
-HTTP keep-alive: `os`, `off`/`disabled`, or a humantime duration such as `5s`.
+HTTP keep-alive: `os`, `off`/`disabled`, or a duration such as `5s`.
 
 ### `HTTP_MAX_CONNECTIONS`
 
@@ -86,7 +86,7 @@ Whether `TCP_NODELAY` is set on accepted connections.
 
 Type: string.
 
-Time a client gets to complete the TLS handshake, as a humantime duration.
+Time a client gets to complete the TLS handshake, as a duration.
 
 ### `HTTP_WORKERS`
 
@@ -228,7 +228,7 @@ directory and mailbox live in `JetStream`, so the registry file is neither read 
 
 Type: string. Default: `15s`.
 
-Idle period before the hub closes a connection, as a humantime duration (e.g. `15s`, `1m30s`).
+Idle period before the hub closes a connection, as a duration (e.g. `15s`, `1m30s`).
 
 Unset defaults to 15s; `none`/`off`/`disabled` turns the idle timeout off (the hub never closes a connection for
 inactivity), which suits a frontend that sits idle.

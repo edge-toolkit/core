@@ -1,6 +1,6 @@
-//! `WS_*` deserialization, through the real `serde_env::from_env` path the ws-server uses, with the process env set
-//! via `temp-env`. Verifies the human-byte-size parsing (`64MiB`, plain byte counts), the idle timeout, the backplane
-//! and message-retention choices, and each default when its variable is absent.
+//! `WS_*` deserialization, through the real `serde_env::from_env` path the ws-server uses, with the process env set via
+//! `temp-env`. Verifies the human-byte-size parsing (`64MiB`, plain byte counts), the idle timeout, the backplane and
+//! message-retention choices, and each default when its variable is absent.
 #![cfg(test)]
 #![expect(
     clippy::decimal_literal_representation,
@@ -53,7 +53,7 @@ fn connection_timeout_absent_defaults_to_15s() {
 }
 
 #[test]
-fn connection_timeout_parses_humantime() {
+fn connection_timeout_parses_a_duration() {
     temp_env::with_var("WS_CONNECTION_TIMEOUT", Some("1m30s"), || {
         assert_eq!(load().connection_timeout, Some(std::time::Duration::from_secs(90)));
     });

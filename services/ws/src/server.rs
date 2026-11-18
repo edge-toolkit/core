@@ -52,25 +52,25 @@ pub struct WsConfig {
     #[cfg_attr(feature = "env-schema", schemars(with = "String", extend("default" = "64MiB")))]
     pub max_frame_size: usize,
 
-    /// Idle period before the hub closes a connection, as a humantime duration (e.g. `15s`, `1m30s`).
+    /// Idle period before the hub closes a connection, as a duration (e.g. `15s`, `1m30s`).
     ///
     /// Unset defaults to 15s; `none`/`off`/`disabled` turns the idle timeout off (the hub never closes a connection for
     /// inactivity), which suits a frontend that sits idle.
     #[serde(
         default = "default_connection_timeout",
-        deserialize_with = "edge_toolkit::config::deserialize_optional_humantime"
+        deserialize_with = "edge_toolkit::config::deserialize_optional_duration"
     )]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>", extend("default" = "15s")))]
     pub connection_timeout: Option<Duration>,
 
     /// What the hub shares its agents through: `local` (the default) or a `nats://` / `tls://` URL.
     ///
-    /// `local` keeps every agent in this process, persisted to the `WS_AGENT_REGISTRY` file. A NATS URL names a
-    /// server with `JetStream`, and every hub pointed at it shares one agent directory, one mailbox of unacknowledged
-    /// direct messages, and delivery between them, so hubs scale out behind a load balancer: an agent on one hub
-    /// lists, messages, broadcasts to and acknowledges agents on any other, and may reconnect to a different hub
-    /// without losing what was queued for it. The directory and mailbox live in `JetStream`, so the registry file is
-    /// neither read nor written in this mode.
+    /// `local` keeps every agent in this process, persisted to the `WS_AGENT_REGISTRY` file. A NATS URL names a server
+    /// with `JetStream`, and every hub pointed at it shares one agent directory, one mailbox of unacknowledged direct
+    /// messages, and delivery between them, so hubs scale out behind a load balancer: an agent on one hub lists,
+    /// messages, broadcasts to and acknowledges agents on any other, and may reconnect to a different hub without
+    /// losing what was queued for it. The directory and mailbox live in `JetStream`, so the registry file is neither
+    /// read nor written in this mode.
     #[cfg(feature = "nats")]
     #[serde(default)]
     #[cfg_attr(feature = "env-schema", schemars(with = "String", extend("default" = "local")))]
@@ -181,8 +181,8 @@ pub async fn ws_handler(
 ) -> Result<HttpResponse, Error> {
     let _span = HubSpan::start("ws.connect");
 
-    // The socket peer only, never `Forwarded` / `X-Forwarded-For`: those are client-supplied text that would reach
-    // the logs unvalidated. Every listener is TCP, so a request without a peer means the server was bound wrongly.
+    // The socket peer only, never `Forwarded` / `X-Forwarded-For`: those are client-supplied text that would reach the
+    // logs unvalidated. Every listener is TCP, so a request without a peer means the server was bound wrongly.
     let client_ip = req
         .peer_addr()
         .ok_or_else(|| actix_web::error::ErrorInternalServerError("websocket request has no peer address"))?

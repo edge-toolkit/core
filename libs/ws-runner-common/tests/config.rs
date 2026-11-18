@@ -1,7 +1,6 @@
 //! Verifies serde-env maps the shared `RUNNER_*` / `WS_*` env vars onto the nested config structs.
 //!
-//! Covers humantime `RUNNER_TIMEOUT` parsing and the defaults applied when a
-//! variable is absent.
+//! Covers `RUNNER_TIMEOUT` duration parsing and the defaults applied when a variable is absent.
 #![cfg(test)]
 
 use std::time::Duration;
@@ -33,10 +32,17 @@ fn maps_runner_and_ws_env_vars() {
 }
 
 #[test]
-fn humantime_seconds_suffix_parses() {
+fn seconds_suffix_parses() {
     let config: Config = serde_env::from_iter([("RUNNER_MODULE", "m"), ("RUNNER_TIMEOUT", "120s")]).unwrap();
 
     assert_eq!(config.runner.timeout, Some(Duration::from_secs(120)));
+}
+
+#[test]
+fn a_timeout_in_days_is_refused() {
+    let result: Result<Config, _> = serde_env::from_iter([("RUNNER_MODULE", "m"), ("RUNNER_TIMEOUT", "1d")]);
+
+    let _refused: serde_env::Error = result.unwrap_err();
 }
 
 #[test]
@@ -56,12 +62,9 @@ fn missing_required_module_errors() {
 
 // --- WS_CONNECT_ACK_TIMEOUT, via the real `from_env` path (temp-env) --------
 //
-// Unset -> 5s default; a humantime value -> that duration. A *blank* value is
-// dropped by serde-env (it filters empty-valued vars), so it is
-// indistinguishable from unset and falls back to the default -- which is why
-// the timeout can't be disabled with an empty env var, and why the field uses
-// the plain `#[serde(default, with = "humantime_serde")]` form with no custom
-// blank handling.
+// Unset -> 5s default; a duration -> that duration. A *blank* value is dropped by serde-env (it filters empty-valued
+// vars), so it is indistinguishable from unset and falls back to the default -- which is why the timeout can't be
+// disabled with an empty env var, and why the field needs no custom blank handling.
 
 #[derive(Debug, Deserialize)]
 struct WsOnly {
@@ -81,7 +84,7 @@ fn connect_ack_timeout_absent_defaults_to_5s() {
 }
 
 #[test]
-fn connect_ack_timeout_parses_humantime() {
+fn connect_ack_timeout_parses_a_duration() {
     temp_env::with_var("WS_CONNECT_ACK_TIMEOUT", Some("1m30s"), || {
         assert_eq!(load_ws().connect_ack_timeout, Some(Duration::from_secs(90)));
     });
@@ -102,9 +105,8 @@ fn connect_ack_timeout_none_sentinel_disables() {
 
 #[test]
 fn blank_env_var_is_filtered_by_serde_env_so_default_applies() {
-    // serde-env drops empty-valued vars, so a blank value behaves exactly like
-    // an unset one (the 5s default), NOT as a way to disable the timeout --
-    // which is why disabling uses the `none` / `off` sentinel above.
+    // serde-env drops empty-valued vars, so a blank value behaves exactly like an unset one (the 5s default), NOT as a
+    // way to disable the timeout -- which is why disabling uses the `none` / `off` sentinel above.
     temp_env::with_var("WS_CONNECT_ACK_TIMEOUT", Some(""), || {
         assert_eq!(load_ws().connect_ack_timeout, Some(Duration::from_secs(5)));
     });

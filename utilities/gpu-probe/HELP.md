@@ -14,7 +14,7 @@ Collect GPU probe signatures into a registry over HTTPS
 
 ### Options
 
-- `--registry <REGISTRY>` -- The registry file submissions are added to, such as `libs/gpu-probe/signatures.yaml`
+- `--registry <REGISTRY>` -- The registry directory submissions are added to, such as `libs/gpu-probe/signatures`
 - `--root <ROOT>` -- A directory of static files, such as a probe page, to serve at `/`.
 
   Absent, the server serves only the form, the endpoint and the registry: there is no page to serve.

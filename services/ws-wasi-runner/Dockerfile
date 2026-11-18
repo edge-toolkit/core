@@ -63,14 +63,20 @@ WORKDIR /workspace
 
 # The mise configs come first, on their own layer, so editing source does not refetch ONNX Runtime.
 # Its version is whatever `.mise/config.toml` pins, never a copy of that number kept here; the install is then
-# lifted to a fixed path so neither the ENV below nor the runtime stage has to name the version at all.
+# lifted to a fixed path so neither the ENV below nor the runtime stage has to name the version at all. The install
+# is Microsoft's NuGet package, which holds every platform's library; only this machine's directory is lifted.
 COPY .miserc.toml .miserc.toml
 COPY .mise/ .mise/
 RUN bash <<'EOF'
 set -euo pipefail
 mise trust
-mise install github:microsoft/onnxruntime
-cp -a "$(mise where github:microsoft/onnxruntime)" /opt/onnxruntime
+mise install http:onnxruntime
+case "$(uname -m)" in
+  x86_64) rid=linux-x64 ;;
+  aarch64) rid=linux-arm64 ;;
+  *) echo "no ONNX Runtime build for $(uname -m)" >&2; exit 1 ;;
+esac
+cp -a "$(mise where http:onnxruntime)/runtimes/$rid/native" /opt/onnxruntime
 EOF
 
 # ort is told where ONNX Runtime already is instead of downloading its own copy at build time.
@@ -102,7 +108,7 @@ EOF
 WORKDIR /app
 
 # ONNX Runtime is opened by the path named here, so the loader's search plays no part in finding it.
-COPY --from=builder /opt/onnxruntime/lib /usr/local/lib/onnxruntime
+COPY --from=builder /opt/onnxruntime /usr/local/lib/onnxruntime
 ENV ORT_DYLIB_PATH=/usr/local/lib/onnxruntime/libonnxruntime.so
 
 COPY --from=builder /workspace/target/release/et-ws-wasi-runner /usr/local/bin/et-ws-wasi-runner

@@ -23,6 +23,12 @@ name = "gpu-probe"
 path = "src/bin/gpu-probe.rs"
 test = false
 
+[[bin]]
+doctest = false
+name = "gpu-probe-fold"
+path = "src/bin/gpu-probe-fold.rs"
+test = false
+
 [dependencies]
 actix-files.workspace = true
 actix-web = { workspace = true, features = ["macros", "rustls-0_23"] }

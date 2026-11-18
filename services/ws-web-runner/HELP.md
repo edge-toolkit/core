@@ -63,8 +63,8 @@ Type: string. Default: `5s`.
 
 How long `crate::connect_and_register` waits for the server's `et-connect-ack`.
 
-Read from `WS_CONNECT_ACK_TIMEOUT` as a humantime duration (e.g. `5s`, `500ms`). Unset defaults to 5s;
-`none`/`off`/`disabled` waits forever (retry until the server answers).
+Read from `WS_CONNECT_ACK_TIMEOUT` as a duration (e.g. `5s`, `500ms`). Unset defaults to 5s; `none`/`off`/`disabled`
+waits forever (retry until the server answers).
 
 ### `WS_SERVER_URL`
 

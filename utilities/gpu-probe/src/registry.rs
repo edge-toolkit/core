@@ -1,10 +1,13 @@
-//! The registry a submission is added to: `libs/gpu-probe/signatures.yaml`, or a file of the same shape.
+//! The registry a submission is added to: `libs/gpu-probe/signatures`, or a directory of the same shape.
 //!
-//! A submission is one signature, or one interface a browser withheld, and the one place it was seen. When the registry
-//! already holds that signature through that interface, the place is added to the entry's `seen` rows, unless an
-//! identical row is there already; otherwise the submission becomes a new entry at the end of the file. The file is
-//! edited as text, a row inserted or an entry appended in the layout the file already has, so its comments, its header
-//! and every other entry stay byte for byte as they were.
+//! The directory holds `header.yaml`, the header; `curated/`, one file of entries per interface, named for it; and
+//! `submitted/`, files of submissions proposed from the hosted probe page, waiting to be filed under `curated/`.
+//!
+//! A submission is one signature, or one interface a browser withheld, and the one place it was seen. When the file
+//! of its interface already holds that signature, the place is added to the entry's `seen` rows, unless an identical
+//! row is there already; otherwise the submission becomes a new entry at the end of the file, which is made if the
+//! interface has none yet. The file is edited as text, a row inserted or an entry appended in the layout the file
+//! already has, so its comments and every other entry stay byte for byte as they were.
 #![expect(
     clippy::single_call_fn,
     reason = "each step of Registry::register is a named function for readability; most are called from one place"
@@ -33,6 +36,26 @@ const MAX_TEXT: usize = 200;
 
 /// The line each entry of the registry starts with, before the interface it was measured through.
 const ENTRY_START: &str = "  - interface:";
+
+/// The line a file of entries starts with, before its first entry.
+const ENTRIES_START: &str = "signatures:\n";
+
+/// The registry's header, in its directory: what a row may say, and the probe set the signatures answer.
+const HEADER: &str = "header.yaml";
+
+/// The directory of the registry's entries, one file per interface.
+const CURATED: &str = "curated";
+
+/// The directory of submissions proposed from the hosted probe page, waiting to be filed under [`CURATED`].
+const SUBMITTED: &str = "submitted";
+
+/// The directory of the lock file and staged copy of each file of entries.
+///
+/// They are kept apart so that [`CURATED`] holds the entries alone.
+const WRITING: &str = "writing";
+
+/// The repository's own registry directory, from the repository's root.
+const REPOSITORY_REGISTRY: &str = "libs/gpu-probe/signatures";
 
 /// Every field a row may carry, in the order the registry writes them.
 const ROW_ORDER: [&str; 18] = [
@@ -93,6 +116,12 @@ pub enum RegisterError {
     /// Another request panicked while it held the registry.
     #[error("the registry lock was poisoned by a failed request")]
     Poisoned,
+    /// A file of entries does not open with the `signatures:` line every one starts with.
+    #[error("a file of entries must start with a `signatures:` line")]
+    NotEntries,
+    /// An entry is filed under another interface than its own, in the file of the one named.
+    #[error("an entry measured through {0} is filed under another interface")]
+    Misfiled(String),
 }
 
 impl RegisterError {
@@ -203,7 +232,7 @@ impl<'de> serde::de::Visitor<'de> for InOrder {
 #[derive(Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Outcome {
-    /// It became a new entry, and the registry now holds this many.
+    /// It became a new entry, and its interface's file now holds this many.
     Added(usize),
     /// Its row was added to the entry with this label.
     Sighted(String),
@@ -214,15 +243,15 @@ pub enum Outcome {
 impl fmt::Display for Outcome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Added(entries) => write!(f, "added; the registry now holds {entries} entries"),
+            Self::Added(entries) => write!(f, "added as entry {entries} of its interface"),
             Self::Sighted(label) => write!(f, "added a sighting to: {label}"),
             Self::Present(label) => write!(f, "already present: {label}"),
         }
     }
 }
 
-/// The registry, as far as matching a submission needs to read it.
-#[derive(Deserialize)]
+/// A file of entries, as far as matching a submission needs to read it.
+#[derive(Default, Deserialize)]
 struct File {
     /// Every entry, in file order.
     #[serde(default)]
@@ -260,21 +289,39 @@ impl Entry {
     }
 }
 
-/// A registry file, which one request at a time adds to.
+/// One file of a registry's entries, which one request at a time adds to.
 #[derive(Debug)]
 pub struct Registry {
     /// The file.
     path: PathBuf,
+    /// The lock file every writer of the file locks, in or out of this process.
+    lock_file: PathBuf,
+    /// Where each update is written before it is renamed over the file.
+    staged: PathBuf,
     /// Held for the whole of each read, change and write, so that two submissions never interleave.
     lock: Mutex<()>,
 }
 
 impl Registry {
-    /// The registry held in the file at `path`.
+    /// The entries held in the file at `path`, which need not exist yet.
+    ///
+    /// Its lock file and staged copy are written beside it.
     #[must_use]
-    pub const fn new(path: PathBuf) -> Self {
+    pub fn new(path: PathBuf) -> Self {
+        let working = path.clone();
+        Self::working_at(path, &working)
+    }
+
+    /// The entries held in the file at `path`, which need not exist yet, with its lock file and staged copy elsewhere.
+    ///
+    /// They are written at `working` with the extensions `yaml.lock` and `yaml.partial`. The staged copy is renamed
+    /// over the file, so `working` must be on the same file system.
+    #[must_use]
+    pub fn working_at(path: PathBuf, working: &Path) -> Self {
         Self {
             path,
+            lock_file: working.with_extension("yaml.lock"),
+            staged: working.with_extension("yaml.partial"),
             lock: Mutex::new(()),
         }
     }
@@ -289,8 +336,8 @@ impl Registry {
     ///
     /// The whole read, change and write is held against every other writer: another request through this `Registry`,
     /// and another process -- a `gpu-probe` run beside a running server -- through a lock file beside the registry,
-    /// which is left in place for the next writer to lock. An update that would not read back as the registry with
-    /// just this one sighting added is refused, and the registry left as it was.
+    /// which is left in place for the next writer to lock. An update that would not read back as the registry with just
+    /// this one sighting added is refused, and the registry left as it was.
     pub fn register(&self, submission: &Submission) -> Result<Outcome, RegisterError> {
         let others = validate(submission)?;
         let _held = self.lock.lock()?;
@@ -298,10 +345,16 @@ impl Registry {
             .create(true)
             .write(true)
             .truncate(false)
-            .open(self.path.with_extension("yaml.lock"))?;
+            .open(&self.lock_file)?;
         lock_file.file().lock()?;
-        let text = fs_err::read_to_string(&self.path)?;
-        let file: File = serde_saphyr::from_str(&text)?;
+        let (text, file) = match fs_err::read_to_string(&self.path) {
+            Ok(text) => {
+                let file: File = serde_saphyr::from_str(&text)?;
+                (text, file)
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (ENTRIES_START.to_owned(), File::default()),
+            Err(error) => return Err(error.into()),
+        };
         let row = row_text(&submission.seen, &others);
         let held = file.signatures.iter().position(|entry| entry.holds(submission));
         let (updated, outcome, index) = if let Some(index) = held {
@@ -316,17 +369,189 @@ impl Registry {
             (append_entry(&text, submission, &row), added, file.signatures.len())
         };
         reads_back(&updated, &file, index)?;
-        // The update is written beside the registry and renamed over it, so the registry is never seen half written.
-        // A staged file the rename did not take is removed; that removal is best effort, as a write that failed may
-        // have left nothing to remove.
-        let staged = self.path.with_extension("yaml.partial");
-        let replaced = fs_err::write(&staged, updated).and_then(|()| fs_err::rename(&staged, &self.path));
+        // The update is written beside the registry and renamed over it, so the registry is never seen half written. A
+        // staged file the rename did not take is removed; that removal is best effort, as a write that failed may have
+        // left nothing to remove.
+        let replaced = fs_err::write(&self.staged, updated).and_then(|()| fs_err::rename(&self.staged, &self.path));
         if replaced.is_err() {
-            let _removed: Result<(), std::io::Error> = fs_err::remove_file(&staged);
+            let _removed: Result<(), std::io::Error> = fs_err::remove_file(&self.staged);
         }
         replaced?;
         Ok(outcome)
     }
+}
+
+/// A file of submissions waiting in a registry's `submitted/` directory.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Waiting {
+    /// Each submission, in the order it is filed.
+    submissions: Vec<Submission>,
+}
+
+/// What is wrong with one file of a registry directory, or what stopped it being read or filed.
+#[derive(Debug, thiserror::Error)]
+#[error("{}: {problem}", path.display())]
+#[non_exhaustive]
+pub struct FileError {
+    /// The file.
+    pub path: PathBuf,
+    /// What is wrong with it, boxed so an error is as small as a path and a pointer.
+    pub problem: Box<RegisterError>,
+}
+
+impl FileError {
+    /// A `problem` with the file at `path`.
+    fn new<Problem>(path: &Path, problem: Problem) -> Self
+    where
+        Problem: Into<RegisterError>,
+    {
+        Self {
+            path: path.to_owned(),
+            problem: Box::new(problem.into()),
+        }
+    }
+}
+
+/// `result`, any problem it holds named as one with the file at `path`.
+fn in_file<Value, Problem>(path: &Path, result: Result<Value, Problem>) -> Result<Value, FileError>
+where
+    Problem: Into<RegisterError>,
+{
+    match result {
+        Ok(value) => Ok(value),
+        Err(problem) => Err(FileError::new(path, problem)),
+    }
+}
+
+/// A registry directory: its header, a file of entries per interface, and the submissions waiting to be filed.
+#[derive(Debug)]
+pub struct RegistryTree {
+    /// The directory.
+    dir: PathBuf,
+}
+
+impl RegistryTree {
+    /// The registry held in the directory `dir`.
+    #[must_use]
+    pub const fn new(dir: PathBuf) -> Self {
+        Self { dir }
+    }
+
+    /// The repository's own registry, found from the working directory.
+    #[must_use]
+    pub fn repository() -> Self {
+        Self::new(edge_toolkit::config::get_project_root().join(REPOSITORY_REGISTRY))
+    }
+
+    /// Add `submission` to the file of its interface's entries, as [`Registry::register`] does.
+    pub fn register(&self, submission: &Submission) -> Result<Outcome, RegisterError> {
+        // The interface is checked to be a name before it is made into a path, so it cannot name a file elsewhere.
+        let _others: Vec<&str> = validate(submission)?;
+        let file = format!("{}.yaml", submission.interface);
+        // Only the working directory is made, so a registry directory that does not exist is an error, not created.
+        let writing = self.dir.join(WRITING);
+        match fs_err::create_dir(&writing) {
+            Err(error) if error.kind() != std::io::ErrorKind::AlreadyExists => return Err(error.into()),
+            Ok(()) | Err(_) => {}
+        }
+        Registry::working_at(self.dir.join(CURATED).join(&file), &writing.join(file)).register(submission)
+    }
+
+    /// The registry as one YAML document: the header, then every entry, their files taken in name order.
+    pub fn text(&self) -> Result<String, FileError> {
+        let header = self.dir.join(HEADER);
+        let mut text = read(&header)?;
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(ENTRIES_START);
+        for path in self.files(CURATED)? {
+            let entries = read(&path)?;
+            let body = in_file(
+                &path,
+                entries.strip_prefix(ENTRIES_START).ok_or(RegisterError::NotEntries),
+            )?;
+            text.push_str(body);
+        }
+        Ok(text)
+    }
+
+    /// Check every file but the header, answering how many submissions are waiting to be filed.
+    ///
+    /// Each entry must be filed under its own interface, and each waiting submission must be one the registry would
+    /// take. That is what keeps a submission proposed from the hosted page from being merged unless it can be filed.
+    pub fn check(&self) -> Result<usize, FileError> {
+        for path in self.files(CURATED)? {
+            let file: File = parse(&path)?;
+            let own = path.file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
+            if let Some(stray) = file.signatures.iter().find(|entry| entry.interface != own) {
+                return Err(FileError::new(&path, RegisterError::Misfiled(stray.interface.clone())));
+            }
+        }
+        let mut waiting = 0_usize;
+        for path in self.files(SUBMITTED)? {
+            let submitted: Waiting = parse(&path)?;
+            for submission in &submitted.submissions {
+                let _others: Vec<&str> = in_file(&path, validate(submission))?;
+            }
+            waiting = waiting.saturating_add(submitted.submissions.len());
+        }
+        Ok(waiting)
+    }
+
+    /// File every waiting submission with [`Self::register`], removing each submitted file once all of it is filed.
+    ///
+    /// What became of each submission is given beside the file it came from. A submission refused stops the filing,
+    /// and its file stays where it was; those before it in the file are filed already, and are found present when it is
+    /// filed again.
+    pub fn fold(&self) -> Result<Vec<(PathBuf, Vec<Outcome>)>, FileError> {
+        let mut folded = Vec::new();
+        for path in self.files(SUBMITTED)? {
+            let submitted: Waiting = parse(&path)?;
+            let filed: Result<Vec<_>, _> = submitted
+                .submissions
+                .iter()
+                .map(|submission| self.register(submission))
+                .collect();
+            let outcomes = in_file(&path, filed)?;
+            in_file(&path, fs_err::remove_file(&path))?;
+            folded.push((path, outcomes));
+        }
+        Ok(folded)
+    }
+
+    /// Every YAML file in the directory `part` of the registry, in name order; none if there is no such directory.
+    fn files(&self, part: &str) -> Result<Vec<PathBuf>, FileError> {
+        let dir = self.dir.join(part);
+        let listed = match fs_err::read_dir(&dir) {
+            Ok(listed) => listed,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(FileError::new(&dir, error)),
+        };
+        let mut files = Vec::new();
+        for item in listed {
+            let path = in_file(&dir, item)?.path();
+            if path.extension().is_some_and(|extension| extension == "yaml") {
+                files.push(path);
+            }
+        }
+        files.sort();
+        Ok(files)
+    }
+}
+
+/// The text of the file at `path`.
+fn read(path: &Path) -> Result<String, FileError> {
+    in_file(path, fs_err::read_to_string(path))
+}
+
+/// The file at `path`, read as YAML.
+fn parse<Read>(path: &Path) -> Result<Read, FileError>
+where
+    Read: serde::de::DeserializeOwned,
+{
+    in_file(path, serde_saphyr::from_str(&read(path)?))
 }
 
 /// Check `updated` reads back as `before` with only the one row added.

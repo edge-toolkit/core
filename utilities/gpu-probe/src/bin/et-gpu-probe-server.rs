@@ -4,7 +4,7 @@ use std::net::IpAddr;
 
 use actix_web::{App, HttpServer, web};
 use clap::Parser as _;
-use et_gpu_probe_server::registry::Registry;
+use et_gpu_probe_server::registry::RegistryTree;
 use et_gpu_probe_server::{Args, advertised_names, app};
 use et_https_listener::{net, tls};
 use tracing::info;
@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt().with_env_filter(filter).init();
     let args = Args::parse();
     args.check()?;
-    let registry = web::Data::new(Registry::new(args.registry.clone()));
+    let registry = web::Data::new(RegistryTree::new(args.registry.clone()));
     let root = args.root.clone();
     let server = HttpServer::new(move || {
         App::new().configure(|services| app::configure(services, registry.clone(), root.clone()))

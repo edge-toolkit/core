@@ -1,0 +1,47 @@
+machine:
+  id: gha-ubuntu-latest
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+benchmarks:
+  hub/http/alive_at_25000:
+    latency:
+      value: 82488.05
+      lower_value: 80049.85
+      upper_value: 85050.84
+  hub/http/connect_25000:
+    latency:
+      value: 3.0160985058e+09
+      lower_value: 2.9795109608e+09
+      upper_value: 3.0545817607e+09
+  hub/http/connect_one_at_25000:
+    latency:
+      value: 321828.52
+      lower_value: 313871.4
+      upper_value: 330203.05
+  hub/http/idle_cpu_25000:
+    latency:
+      value: 1459939617
+      lower_value: 1.45518633111e+09
+      upper_value: 1.46472553618e+09
+  hub/https/alive_at_25000:
+    latency:
+      value: 104006.29
+      lower_value: 101367.81
+      upper_value: 107285.73
+  hub/https/connect_25000:
+    latency:
+      value: 1.09976054102e+10
+      lower_value: 10664626043
+      upper_value: 11199218553
+  hub/https/connect_one_at_25000:
+    latency:
+      value: 913233.7
+      lower_value: 896800.12
+      upper_value: 930706.83
+  hub/https/idle_cpu_25000:
+    latency:
+      value: 1.7178414259e+09
+      lower_value: 1.70812162979e+09
+      upper_value: 1.72972511666e+09

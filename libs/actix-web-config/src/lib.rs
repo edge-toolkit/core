@@ -8,12 +8,12 @@
 //!
 //! Every field but `workers` is optional, and an unset one keeps actix's own default rather than a default restated
 //! here. Those defaults live in two crates -- the connection limits in actix-server's worker config, the timeouts in
-//! actix-web and actix-http -- and a copy of them here would drift on the next upgrade. The worker count always holds
-//! a value, the machine's available parallelism unless set, so the config says how many workers the server runs. A
-//! value actix itself rejects by panicking is rejected while the settings are read instead.
+//! actix-web and actix-http -- and a copy of them here would drift on the next upgrade. The worker count always holds a
+//! value, the machine's available parallelism unless set, so the config says how many workers the server runs. A value
+//! actix itself rejects by panicking is rejected while the settings are read instead.
 //!
 //! Values are strings, as environment variables are: counts and sizes are plain integers, `shutdown_timeout` is whole
-//! seconds because that is all actix takes, and the other timeouts are humantime durations such as `500ms` or `1m30s`.
+//! seconds because that is all actix takes, and the other timeouts are durations such as `500ms` or `1m30s`.
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
@@ -36,13 +36,13 @@ pub use self::workers::{MAX_WORKERS, Workers, WorkersError};
 /// HTTP keep-alive, as actix's own [`KeepAlive`], read from a string.
 ///
 /// `os` defers to the operating system's keep-alive, `off` or `disabled` turns keep-alive off, and anything else is a
-/// humantime duration (e.g. `5s`, `1m30s`), of which `0s` also turns it off.
+/// duration (e.g. `5s`, `1m30s`), of which `0s` also turns it off.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(try_from = "String")]
 pub struct KeepAliveSetting(KeepAlive);
 
 impl TryFrom<String> for KeepAliveSetting {
-    type Error = humantime::DurationError;
+    type Error = jiff::Error;
 
     fn try_from(raw: String) -> Result<Self, Self::Error> {
         let value = raw.trim();
@@ -52,7 +52,8 @@ impl TryFrom<String> for KeepAliveSetting {
         if value.eq_ignore_ascii_case("off") || value.eq_ignore_ascii_case("disabled") {
             return Ok(Self(KeepAlive::Disabled));
         }
-        humantime::parse_duration(value).map(|duration| Self(KeepAlive::from(duration)))
+        let parsed = jiff::fmt::friendly::SpanParser::new().parse_unsigned_duration(value);
+        parsed.map(|duration| Self(KeepAlive::from(duration)))
     }
 }
 
@@ -72,13 +73,13 @@ pub struct HttpServerConfig {
     #[serde(default)]
     pub backlog: Option<u32>,
 
-    /// Time a client gets to close a connection before it is dropped, as a humantime duration; `0s` waits forever.
-    #[serde(default, deserialize_with = "humantime_option")]
+    /// Time a client gets to close a connection before it is dropped, as a duration; `0s` waits forever.
+    #[serde(default, deserialize_with = "duration_option")]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub client_disconnect_timeout: Option<Duration>,
 
-    /// Time a client gets to send a request's head, as a humantime duration; `0s` waits forever.
-    #[serde(default, deserialize_with = "humantime_option")]
+    /// Time a client gets to send a request's head, as a duration; `0s` waits forever.
+    #[serde(default, deserialize_with = "duration_option")]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub client_request_timeout: Option<Duration>,
 
@@ -98,7 +99,7 @@ pub struct HttpServerConfig {
     #[serde(default)]
     pub h2_initial_window_size: Option<u32>,
 
-    /// HTTP keep-alive: `os`, `off`/`disabled`, or a humantime duration such as `5s`.
+    /// HTTP keep-alive: `os`, `off`/`disabled`, or a duration such as `5s`.
     #[serde(default)]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub keep_alive: Option<KeepAliveSetting>,
@@ -125,9 +126,9 @@ pub struct HttpServerConfig {
     #[serde(default)]
     pub tcp_nodelay: Option<bool>,
 
-    /// Time a client gets to complete the TLS handshake, as a humantime duration.
+    /// Time a client gets to complete the TLS handshake, as a duration.
     #[cfg(feature = "rustls-0_23")]
-    #[serde(default, deserialize_with = "humantime_option")]
+    #[serde(default, deserialize_with = "duration_option")]
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub tls_handshake_timeout: Option<Duration>,
 
@@ -141,12 +142,12 @@ pub struct HttpServerConfig {
     pub workers: Workers,
 }
 
-/// Read a set field as a humantime duration (e.g. `500ms`, `1m30s`).
-fn humantime_option<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+/// Read a set field as a duration (e.g. `500ms`, `1m30s`).
+fn duration_option<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    humantime_serde::deserialize(deserializer).map(Some)
+    jiff::fmt::serde::unsigned_duration::friendly::compact::required::deserialize(deserializer).map(Some)
 }
 
 impl HttpServerConfig {

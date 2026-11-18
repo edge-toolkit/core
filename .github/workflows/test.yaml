@@ -359,7 +359,7 @@ jobs:
         timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: mise install rust python protoc github:microsoft/onnxruntime github:nextest-rs/nextest
+        run: mise install rust python protoc http:onnxruntime github:nextest-rs/nextest
 
       # conda:lld is macOS-only, and only config.macos.toml declares it, so it cannot join the list above.
       # Its rustflags pass `-fuse-ld=<conda-lld>/bin/ld64.lld`, and a missing path there is fatal rather than

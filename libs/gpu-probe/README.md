@@ -10,7 +10,7 @@ texture formats' conversions, reading a signature through each interface, the re
 putting every probe set to each adapter the machine has. Record a machine's results with
 
 ```bash
-mise run bench-gpu-probe dell-precision-5570
+mise run bench libs/gpu-probe dell-precision-5570
 ```
 
 naming the machine as lowercase words joined by `-`. That runs the bench and writes

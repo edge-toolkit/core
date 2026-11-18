@@ -10,23 +10,27 @@ use actix_web::http::StatusCode;
 use actix_web::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use actix_web::test as served;
 use actix_web::{App, web};
-use et_gpu_probe_server::registry::Registry;
+use et_gpu_probe_server::registry::RegistryTree;
 use et_gpu_probe_server::{advertised_names, app, nip_io};
 use serde_json::Value;
 
-/// A registry holding one known signature.
-const REGISTRY: &str = r#"signatures:
+/// The registry's header.
+const HEADER: &str = "probe_set: 1\n";
+
+/// The registry's one file of entries, holding one known signature.
+const ENTRIES: &str = r#"signatures:
   - interface: webgpu-split
-    label: "Known GPU"
+    label: "An iPhone"
     seen:
-      - browser: chrome
-        os: macos
+      - browser: safari
+        os: ios
         cpu_arch: aarch64
         gpu: apple
         backend: metal
-        window: normal
+        window: private
     results:
-      fma: "33800000"
+      fma: "33800001"
+      mad: "7"
 "#;
 
 /// A submission of a new signature, as a page posts it.
@@ -34,7 +38,7 @@ const NEW: &str = r#"{"interface": "webgpu-clear", "label": "New", "results": {"
   "seen": {"browser": "firefox", "os": "linux", "cpu_arch": "x86_64", "gpu": "intel", "backend": "vulkan",
   "window": "normal"}}"#;
 
-/// The server's routes, adding to a registry at `path` and serving the files under `root`.
+/// The server's routes, adding to a registry directory at `path` and serving the files under `root`.
 #[expect(
     clippy::future_not_send,
     reason = "actix serves in process on the test's own thread, and its service is not Send"
@@ -43,14 +47,18 @@ async fn service(
     path: PathBuf,
     root: Option<PathBuf>,
 ) -> impl Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error> {
-    let registry = web::Data::new(Registry::new(path));
+    let registry = web::Data::new(RegistryTree::new(path));
     served::init_service(App::new().configure(|config| app::configure(config, registry, root))).await
 }
 
-/// A directory holding a registry file of [`REGISTRY`] and a probe page, removed when the guard drops.
+/// A directory holding a registry directory, `registry`, and a probe page, removed when the guard drops.
+///
+/// The registry is [`HEADER`] and [`ENTRIES`], filed as the `webgpu-split` interface's.
 fn workspace() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    fs_err::write(dir.path().join("signatures.yaml"), REGISTRY).unwrap();
+    fs_err::create_dir_all(dir.path().join("registry/curated")).unwrap();
+    fs_err::write(dir.path().join("registry/header.yaml"), HEADER).unwrap();
+    fs_err::write(dir.path().join("registry/curated/webgpu-split.yaml"), ENTRIES).unwrap();
     fs_err::write(dir.path().join("index.html"), "<p>probe page</p>").unwrap();
     dir
 }
@@ -89,11 +97,12 @@ async fn register_as(path: PathBuf, body: &str, content_type: &str) -> (StatusCo
 #[actix_rt::test]
 async fn the_form_and_what_the_pages_share_are_served_and_never_cached() {
     let dir = workspace();
-    let app = service(dir.path().join("signatures.yaml"), None).await;
+    let app = service(dir.path().join("registry"), None).await;
     let built_in = [
         ("/submit", "text/html", "import { register } from \"/register.js\""),
         ("/probe.css", "text/css", ".bad {"),
         ("/register.js", "text/javascript", "fetch(\"/register\""),
+        ("/propose.js", "text/javascript", "export const proposals"),
     ];
     for (path, kind, holds) in built_in {
         let response = served::call_service(&app, served::TestRequest::get().uri(path).to_request()).await;
@@ -116,12 +125,12 @@ async fn the_form_and_what_the_pages_share_are_served_and_never_cached() {
 #[actix_rt::test]
 async fn the_registry_is_served_as_it_stands() {
     let dir = workspace();
-    let app = service(dir.path().join("signatures.yaml"), None).await;
+    let app = service(dir.path().join("registry"), None).await;
     let response = served::call_service(&app, served::TestRequest::get().uri("/signatures.yaml").to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(served::read_body(response).await, REGISTRY.as_bytes());
+    assert_eq!(served::read_body(response).await, [HEADER, ENTRIES].concat().as_bytes());
 
-    let missing = service(dir.path().join("missing.yaml"), None).await;
+    let missing = service(dir.path().join("missing"), None).await;
     let response = served::call_service(
         &missing,
         served::TestRequest::get().uri("/signatures.yaml").to_request(),
@@ -133,12 +142,12 @@ async fn the_registry_is_served_as_it_stands() {
 #[actix_rt::test]
 async fn a_probe_page_is_served_from_the_root_given() {
     let dir = workspace();
-    let app = service(dir.path().join("signatures.yaml"), Some(dir.path().to_owned())).await;
+    let app = service(dir.path().join("registry"), Some(dir.path().to_owned())).await;
     let response = served::call_service(&app, served::TestRequest::get().uri("/").to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(served::read_body(response).await, b"<p>probe page</p>".as_slice());
 
-    let without = service(dir.path().join("signatures.yaml"), None).await;
+    let without = service(dir.path().join("registry"), None).await;
     let response = served::call_service(&without, served::TestRequest::get().uri("/").to_request()).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
@@ -146,14 +155,10 @@ async fn a_probe_page_is_served_from_the_root_given() {
 #[actix_rt::test]
 async fn a_submission_is_added_then_found_present() {
     let dir = workspace();
-    let path = dir.path().join("signatures.yaml");
+    let path = dir.path().join("registry");
     assert_eq!(
         register(path.clone(), NEW).await,
-        (
-            StatusCode::OK,
-            true,
-            "added; the registry now holds 2 entries".to_owned()
-        )
+        (StatusCode::OK, true, "added as entry 1 of its interface".to_owned())
     );
     assert_eq!(
         register(path, NEW).await,
@@ -164,7 +169,7 @@ async fn a_submission_is_added_then_found_present() {
 #[actix_rt::test]
 async fn a_body_that_is_not_a_submission_is_a_bad_request() {
     let dir = workspace();
-    let (status, accepted, message) = register(dir.path().join("signatures.yaml"), "not json").await;
+    let (status, accepted, message) = register(dir.path().join("registry"), "not json").await;
     assert_eq!((status, accepted), (StatusCode::BAD_REQUEST, false));
     assert!(message.starts_with("bad submission: "));
 }
@@ -172,13 +177,12 @@ async fn a_body_that_is_not_a_submission_is_a_bad_request() {
 #[actix_rt::test]
 async fn a_submission_not_sent_as_json_is_refused_unread() {
     let dir = workspace();
-    let path = dir.path().join("signatures.yaml");
-    let before = fs_err::read_to_string(&path).unwrap();
+    let path = dir.path().join("registry");
     // text/plain is what a page on another origin can post with no preflight.
     let (status, accepted, message) = register_as(path.clone(), NEW, "text/plain").await;
     assert_eq!((status, accepted), (StatusCode::UNSUPPORTED_MEDIA_TYPE, false));
     assert!(message.contains("application/json"));
-    assert_eq!(fs_err::read_to_string(&path).unwrap(), before);
+    assert!(!path.join("curated/webgpu-clear.yaml").exists());
 }
 
 /// What `/status` answers `body`, sent as `content_type`.
@@ -188,7 +192,7 @@ async fn a_submission_not_sent_as_json_is_refused_unread() {
 )]
 async fn status_as(body: &str, content_type: &str) -> StatusCode {
     let dir = workspace();
-    let app = service(dir.path().join("signatures.yaml"), None).await;
+    let app = service(dir.path().join("registry"), None).await;
     let request = served::TestRequest::post()
         .uri("/status")
         .insert_header(("content-type", content_type))
@@ -223,7 +227,7 @@ async fn a_page_status_not_sent_as_json_is_refused_unread() {
 async fn a_submission_the_registry_cannot_hold_is_a_conflict() {
     let dir = workspace();
     let unknown = NEW.replace(r#""window": "normal""#, r#""window": "normal", "colour": "blue""#);
-    let (status, accepted, message) = register(dir.path().join("signatures.yaml"), &unknown).await;
+    let (status, accepted, message) = register(dir.path().join("registry"), &unknown).await;
     assert_eq!((status, accepted), (StatusCode::CONFLICT, false));
     assert!(message.contains("colour"));
 }
@@ -232,14 +236,14 @@ async fn a_submission_the_registry_cannot_hold_is_a_conflict() {
 async fn a_submission_from_a_browser_the_registry_has_no_name_for_is_recorded() {
     let dir = workspace();
     let unknown = NEW.replace("firefox", "netscape");
-    let (status, accepted, _message) = register(dir.path().join("signatures.yaml"), &unknown).await;
+    let (status, accepted, _message) = register(dir.path().join("registry"), &unknown).await;
     assert_eq!((status, accepted), (StatusCode::OK, true));
 }
 
 #[actix_rt::test]
 async fn a_registry_that_cannot_be_read_is_a_server_error() {
     let dir = workspace();
-    let (status, accepted, _message) = register(dir.path().join("missing.yaml"), NEW).await;
+    let (status, accepted, _message) = register(dir.path().join("missing"), NEW).await;
     assert_eq!((status, accepted), (StatusCode::INTERNAL_SERVER_ERROR, false));
 }
 

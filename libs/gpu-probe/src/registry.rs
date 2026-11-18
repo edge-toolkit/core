@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::ProbeSet;
 use crate::sighting::{RowError, Sighting};
 
-/// The registry: the JSON written from `signatures.yaml`, embedded as text when the crate is compiled.
+/// The registry: the JSON written from the YAML under `signatures/`, embedded as text when the crate is compiled.
 ///
 /// The text is read into a value the first time anything is asked of the registry, rather than written out as code
 /// for the compiler to build, because building a value this size in one function takes more stack than a thread can

@@ -14,6 +14,18 @@ test_a_file_named_for_its_machine_and_os_passes if {
 	count(bench_results.deny) == 0 with input as [named]
 }
 
+test_a_service_crates_results_file_passes if {
+	named := results("services/ws-test-server/benches/results/dell-linux.yaml", "dell", "linux")
+	count(bench_results.deny) == 0 with input as [named]
+}
+
+test_a_file_outside_libs_and_services_is_refused if {
+	msgs := bench_results.deny with input as [results("utilities/cli/benches/results/dell-linux.yaml", "dell", "linux")]
+	count(msgs) == 1
+	some msg in msgs
+	contains(msg, "belongs in <libs|services>/<crate>/benches/results/<machine>-<os>.yaml")
+}
+
 test_the_same_machine_under_two_oses_is_two_files if {
 	linux := results("libs/gpu-probe/benches/results/dell-linux.yaml", "dell", "linux")
 	windows := results("libs/gpu-probe/benches/results/dell-windows.yaml", "dell", "windows")
@@ -62,7 +74,7 @@ test_a_file_outside_a_results_directory_is_refused if {
 	msgs := bench_results.deny with input as [results("libs/gpu-probe/benches/dell-linux.yaml", "dell", "linux")]
 	count(msgs) == 1
 	some msg in msgs
-	contains(msg, "belongs in libs/<crate>/benches/results/<machine>-<os>.yaml")
+	contains(msg, "belongs in <libs|services>/<crate>/benches/results/<machine>-<os>.yaml")
 }
 
 # A results file named for its machine and OS, whose `benchmarks` is `value`.

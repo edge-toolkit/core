@@ -8,7 +8,7 @@ use et_gpu_probe_server::registry::{Outcome, RegisterError, Registry, Submission
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
-/// A registry with one signature and one withheld interface, laid out as `libs/gpu-probe/signatures.yaml` is.
+/// A file of entries with one signature and one withheld interface, laid out as the repository registry's files are.
 const REGISTRY: &str = r#"# The header, kept as it is.
 probe_set: 1
 signatures:
@@ -213,7 +213,7 @@ fn a_new_withheld_interface_is_appended_with_its_reason() {
 
 #[test]
 fn each_outcome_says_what_became_of_the_submission() {
-    assert_eq!(Outcome::Added(3).to_string(), "added; the registry now holds 3 entries");
+    assert_eq!(Outcome::Added(3).to_string(), "added as entry 3 of its interface");
     assert_eq!(Outcome::Sighted("G".to_owned()).to_string(), "added a sighting to: G");
     assert_eq!(Outcome::Present("G".to_owned()).to_string(), "already present: G");
 }

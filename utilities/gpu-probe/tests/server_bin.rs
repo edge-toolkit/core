@@ -14,7 +14,7 @@ fn started(dir: &TempDir, args: &[&str]) -> Output {
     let path = |name: &str| dir.path().join(name);
     std::process::Command::new(env!("CARGO_BIN_EXE_et-gpu-probe-server"))
         .arg("--registry")
-        .arg(path("signatures.yaml"))
+        .arg(path("signatures"))
         .arg("--cert")
         .arg(path("cert.pem"))
         .arg("--key")

@@ -27,11 +27,6 @@
     #status {
       white-space: pre-line;
     }
-    #lines {
-      width: 100%;
-      box-sizing: border-box;
-      font: 0.8rem ui-monospace, Menlo, Consolas, monospace;
-    }
     </style>
   </head>
   <body>
@@ -70,17 +65,38 @@
       </fieldset>
     </form>
     <p><button id="submit-all" disabled>Submit every probe set</button></p>
-    <div id="copy" hidden>
+    <div id="propose" hidden>
       <p>
-        No gpu-probe-server serves this page, so nothing is submitted from it.
-        Copy these lines, one submission each, into the <code>/submit</code>
-        form of a running server.
+        No gpu-probe-server serves this page, so what it found is proposed to
+        the registry on GitHub instead, which needs a GitHub account. A probe
+        set the registry already records is left out. The link opens GitHub's
+        page for adding a file to the registry, with these results filled in.
+        GitHub makes a copy of the repository for you, and opens a pull request
+        with the file when you press "Propose changes".
       </p>
-      <textarea id="lines" rows="8" readonly></textarea>
-      <p><button id="copy-lines">Copy the lines</button></p>
+      <p id="judged"></p>
+      <ol id="proposals"></ol>
+      <div id="more" hidden>
+        <p>
+          GitHub takes one file from a link, so the rest are added to that same
+          pull request. Once it is open, give its link here, and the links below
+          add each file to it.
+        </p>
+        <p>
+          <label for="pull">Pull request</label>
+          <input
+            id="pull"
+            size="60"
+            placeholder="https://github.com/edge-toolkit/core/pull/..."
+          >
+        </p>
+        <p id="pull-status"></p>
+        <ol id="more-proposals"></ol>
+      </div>
     </div>
     <div id="gpus"></div>
     <script type="module">
+    import { judged, linkInto, proposals, pullOf } from "/propose.js";
     import { register } from "/register.js";
     import init, {
       probe_canvas,
@@ -94,7 +110,7 @@
 
     // Whether a gpu-probe-server serves this page, which it is told by the registry being there to read. A static
     // host, such as a Vercel deploy that Tor Browser can reach where it cannot reach a LAN, has no registry to add
-    // to, so there every submission is given as a line to paste into a server's /submit instead.
+    // to, so there the submissions are proposed on GitHub instead.
     const served = await fetch("/signatures.yaml").then(
       (response) => response.ok,
       () => false,
@@ -411,6 +427,51 @@
       return submitters;
     };
 
+    // A proposal as an item of the list, one of `parts`: its link, then the file it makes, to read before following
+    // it. The first file's link opens the pull request; each later one's adds its file to the pull request `pull`,
+    // and waits for it to be given. A file too long for GitHub to take from a link is given to add by hand instead.
+    const showProposal = (parts, pull) => (proposal, index) => {
+      const item = document.createElement("li");
+      const part = parts > 1 ? `, part ${index + 1} of ${parts}` : "";
+      const sets = `${proposal.count} probe set${
+        proposal.count > 1 ? "s" : ""
+      }`;
+      if (proposal.opens && index === 0) {
+        const link = document.createElement("a");
+        link.href = proposal.link;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = `Propose ${sets} on GitHub${part}`;
+        item.append(link);
+      } else if (proposal.opens && pull) {
+        const link = document.createElement("a");
+        link.href = linkInto(pull, proposal);
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = `Add ${sets} to the pull request${part}`;
+        item.append(link);
+      } else if (proposal.opens) {
+        const waiting = document.createElement("p");
+        waiting.textContent =
+          `${sets}${part}: give the pull request's link above to add them to it.`;
+        item.append(waiting);
+      } else {
+        const tooLong = document.createElement("p");
+        tooLong.className = "bad";
+        tooLong.textContent =
+          `${sets}${part} make a file too long for GitHub to take from a link: add it to the repository by hand.`;
+        item.append(tooLong);
+      }
+      const file = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = `The file: ${proposal.name}`;
+      const text = document.createElement("pre");
+      text.textContent = proposal.text;
+      file.append(summary, text);
+      item.append(file);
+      return item;
+    };
+
     // A GPU's part of the row, and the label an entry first seen on it would take.
     const gpuValues = (vendor, model, backend, api) => {
       const os = field("os").value;
@@ -577,22 +638,85 @@
         ? ` Not probed: ${problems.join("; ")}.`
         : "";
       if (!served) {
-        // The lines follow every edit to a row, so what is copied is what the rows say.
+        // The registry the site was built with, which every probe set is held against so that only what it does not
+        // record is proposed. A site without it proposes everything, and says so.
+        const known = await fetch("/signatures.json").then(
+          (response) => (response.ok ? response.json() : null),
+          () => null,
+        );
+        // The proposals follow every edit to a row, so what is proposed is what the rows say. Making them is
+        // asynchronous, so only the latest edit's are shown. The pull request the later files go into outlives an
+        // edit.
         field("submit-all").hidden = true;
-        field("copy").hidden = false;
-        const fill = () => {
-          field("lines").value = submitters.map((shown) => shown.line()).join(
-            "\n",
+        field("propose").hidden = false;
+        let pull = null;
+        let edits = 0;
+        const fill = async () => {
+          edits += 1;
+          const edit = edits;
+          const submissions = submitters.map((shown) =>
+            JSON.parse(shown.line())
+          );
+          const judgements = known
+            ? judged(submissions, known)
+            : submissions.map((submission) => ({ submission, kind: "new" }));
+          const proposed = judgements.filter(({ kind }) => kind !== "recorded");
+          const made = await proposals(
+            proposed.map(({ submission }) => submission),
+          );
+          if (edit !== edits) return;
+          const count = (kind) =>
+            judgements.filter((judgement) => judgement.kind === kind).length;
+          const sightings = proposed
+            .filter(({ kind }) => kind === "sighting")
+            .map(({ submission, label }) =>
+              `${submission.interface} (${label})`
+            );
+          field("judged").textContent = known
+            ? [
+              `Of ${judgements.length} probe sets, the registry already records ${
+                count("recorded")
+              }, ${count("new")} are new signatures, and ${
+                count("sighting")
+              } are known signatures seen somewhere new.`,
+              ...(sightings.length
+                ? [`Seen somewhere new: ${sightings.join("; ")}.`]
+                : []),
+            ]
+              .join(" ")
+            : "The registry could not be read, so every probe set is proposed.";
+          const show = showProposal(made.length, pull);
+          field("proposals").replaceChildren(...made.slice(0, 1).map(show));
+          field("more").hidden = made.length < 2;
+          field("more-proposals").replaceChildren(
+            ...made.slice(1).map((proposal, index) =>
+              show(proposal, index + 1)
+            ),
           );
         };
-        fill();
-        document.addEventListener("input", fill);
-        field("copy-lines").addEventListener(
-          "click",
-          () => navigator.clipboard.writeText(field("lines").value),
-        );
+        field("pull").addEventListener("change", async () => {
+          const address = field("pull").value;
+          pull = null;
+          field("pull-status").className = "";
+          field("pull-status").textContent = address ? "Asking GitHub..." : "";
+          if (address) {
+            try {
+              pull = await pullOf(address);
+              field("pull-status").textContent =
+                `The files are added to ${pull.repository}, branch ${pull.branch}.`;
+            } catch (error) {
+              field("pull-status").className = "bad";
+              field("pull-status").textContent = error.message;
+            }
+          }
+          await fill();
+        });
+        await fill();
+        document.addEventListener("input", (event) => {
+          if (event.target !== field("pull")) fill();
+        });
         status.textContent =
-          `Probed. Check each row, then copy the lines into a server's /submit.${missing}`;
+          `Probed. Check each row, then propose the results on GitHub.${missing}`;
         await tell(status.textContent);
       } else {
         const submitAll = async () => {

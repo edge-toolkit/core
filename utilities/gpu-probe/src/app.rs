@@ -12,7 +12,7 @@ use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, web};
 use serde_json::json;
 use tracing::info;
 
-use crate::registry::{Registry, Submission};
+use crate::registry::{RegistryTree, Submission};
 
 /// The paste-and-register page served at `/submit`.
 const SUBMIT_PAGE: &str = include_str!("submit.html");
@@ -23,11 +23,14 @@ const STYLES: &str = include_str!("probe.css");
 /// The module the server's pages post a submission with, served at `/register.js`.
 const REGISTER_SCRIPT: &str = include_str!("register.mjs");
 
+/// The module the probe page proposes its submissions on GitHub with where no server serves it, at `/propose.js`.
+const PROPOSE_SCRIPT: &str = include_str!("propose.mjs");
+
 /// Add the server's routes to `config`, adding to `registry` and serving the files under `root`, if given, at `/`.
 ///
 /// Nothing is cached: the registry changes while signatures are being collected, and a probe page being worked on
 /// changes between visits.
-pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<Registry>, root: Option<PathBuf>) {
+pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<RegistryTree>, root: Option<PathBuf>) {
     let mut scope = web::scope("")
         .wrap(DefaultHeaders::new().add((CACHE_CONTROL, "no-store")))
         .app_data(registry)
@@ -36,6 +39,10 @@ pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<Registry>,
         .route(
             "/register.js",
             embedded("text/javascript; charset=utf-8", REGISTER_SCRIPT),
+        )
+        .route(
+            "/propose.js",
+            embedded("text/javascript; charset=utf-8", PROPOSE_SCRIPT),
         )
         .route("/register", web::post().to(register))
         .route("/status", web::post().to(status))
@@ -55,9 +62,9 @@ fn embedded(content_type: &'static str, body: &'static str) -> actix_web::Route 
     })
 }
 
-/// The registry as it stands, for a probe page to say whether a device is in it already.
-async fn signatures(registry: web::Data<Registry>) -> HttpResponse {
-    match fs_err::read_to_string(registry.path()) {
+/// The registry as it stands, as one YAML document, for a probe page to say whether a device is in it already.
+async fn signatures(registry: web::Data<RegistryTree>) -> HttpResponse {
+    match registry.text() {
         Ok(text) => HttpResponse::Ok()
             .insert_header((CONTENT_TYPE, "application/yaml; charset=utf-8"))
             .body(text),
@@ -77,7 +84,7 @@ async fn signatures(registry: web::Data<Registry>) -> HttpResponse {
     clippy::future_not_send,
     reason = "actix runs each handler on its worker's own thread, and the request it takes is not Send"
 )]
-async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Registry>) -> HttpResponse {
+async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<RegistryTree>) -> HttpResponse {
     if request.content_type() != "application/json" {
         let message = "a submission must be sent as application/json";
         return reply(HttpResponse::UnsupportedMediaType(), false, message);

@@ -11,10 +11,16 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[[bench]]
+harness = false
+name = "hub"
+
 [dependencies]
 actix-rt.workspace = true
-actix-web.workspace = true
+# A hub can listen over HTTPS through the same rustls listener et-ws-server serves its secure port on.
+actix-web = { workspace = true, features = ["rustls-0_23"] }
 edge-toolkit = { workspace = true, features = ["std"] }
+et-https-listener = { workspace = true, features = ["tls-self-signed"] }
 et-modules-service = { workspace = true, features = ["std"] }
 et-storage-service = { workspace = true, features = ["std"] }
 # Encodes what the simulated COIN-D6 sends.
@@ -23,6 +29,7 @@ et-test-helpers.workspace = true
 et-ws-service = { workspace = true, features = ["nats", "otel"] }
 fs-err.workspace = true
 futures-util.workspace = true
+rustls.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
 thiserror = { workspace = true, features = ["std"] }
@@ -33,10 +40,15 @@ tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing-actix-web = { workspace = true, features = ["opentelemetry_0_32"] }
 
 [dev-dependencies]
+core_affinity.workspace = true
+cpu-time.workspace = true
+criterion.workspace = true
 et-otlp.workspace = true
 et-test-nats.workspace = true
 et-test-otlp.workspace = true
+et-ws-runner-common.workspace = true
 reqwest.workspace = true
+tokio-rustls.workspace = true
 
 [lints]
 workspace = true

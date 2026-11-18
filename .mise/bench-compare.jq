@@ -1,4 +1,4 @@
-# Every way a measured et-gpu-probe bench results file differs from the recorded one, one line each.
+# Every way a measured bench results file differs from the recorded one, one line each.
 # `$r` is the recorded file, `$m` the measured one, each read with `--slurpfile` into a one-element array, and `$f` the
 # factor a latency may be slower or faster by.
 $r[0] as $r | $m[0] as $m

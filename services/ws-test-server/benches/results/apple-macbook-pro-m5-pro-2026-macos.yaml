@@ -1,0 +1,47 @@
+machine:
+  id: apple-macbook-pro-m5-pro-2026
+  os: macos
+  host: aarch64-apple-darwin
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+benchmarks:
+  hub/http/alive_at_25000:
+    latency:
+      value: 46675.49
+      lower_value: 45378.5
+      upper_value: 48044.06
+  hub/http/connect_25000:
+    latency:
+      value: 2.2642928125e+09
+      lower_value: 2.1785242791e+09
+      upper_value: 2.3714501208e+09
+  hub/http/connect_one_at_25000:
+    latency:
+      value: 381936.74
+      lower_value: 274275.66
+      upper_value: 513832.04
+  hub/http/idle_cpu_25000:
+    latency:
+      value: 1.6695351458e+09
+      lower_value: 1.6111976332e+09
+      upper_value: 1.71665516093e+09
+  hub/https/alive_at_25000:
+    latency:
+      value: 55409
+      lower_value: 50422.74
+      upper_value: 64123.68
+  hub/https/connect_25000:
+    latency:
+      value: 4.5491352126e+09
+      lower_value: 4.45140935753e+09
+      upper_value: 4.66431859836e+09
+  hub/https/connect_one_at_25000:
+    latency:
+      value: 588968.52
+      lower_value: 519963.74
+      upper_value: 674484.27
+  hub/https/idle_cpu_25000:
+    latency:
+      value: 2.0304987542e+09
+      lower_value: 1919016875
+      upper_value: 2.1345684626e+09

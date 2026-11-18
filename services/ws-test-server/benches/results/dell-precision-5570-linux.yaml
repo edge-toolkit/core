@@ -1,0 +1,47 @@
+machine:
+  id: dell-precision-5570
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+benchmarks:
+  hub/http/alive_at_25000:
+    latency:
+      value: 17268.91
+      lower_value: 16643.65
+      upper_value: 17941.08
+  hub/http/connect_25000:
+    latency:
+      value: 1.8143229416e+09
+      lower_value: 1.79244412882e+09
+      upper_value: 1.83325818393e+09
+  hub/http/connect_one_at_25000:
+    latency:
+      value: 66917.16
+      lower_value: 64748.01
+      upper_value: 69235.16
+  hub/http/idle_cpu_25000:
+    latency:
+      value: 1.7329382107e+09
+      lower_value: 1.7191772433e+09
+      upper_value: 1.7455687841e+09
+  hub/https/alive_at_25000:
+    latency:
+      value: 19019.83
+      lower_value: 18300.73
+      upper_value: 19809.42
+  hub/https/connect_25000:
+    latency:
+      value: 7.8936193654e+09
+      lower_value: 7781273017
+      upper_value: 7.9951219063e+09
+  hub/https/connect_one_at_25000:
+    latency:
+      value: 334782.61
+      lower_value: 327172.99
+      upper_value: 343545.47
+  hub/https/idle_cpu_25000:
+    latency:
+      value: 2.2415728967e+09
+      lower_value: 2.2159569279e+09
+      upper_value: 2.26503976443e+09

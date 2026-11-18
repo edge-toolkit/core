@@ -27,15 +27,11 @@
 //!
 //! ### Non-JS module loaders / incompatible runtimes
 //!
-//! All currently-shipped data1-family modules run -- including
-//! `et-ws-zig-data1`, which spawns a module `Worker` and proxies
-//! WebSocket + REST through a `SharedArrayBuffer` with the worker
-//! blocking on `Atomics.wait`. That worked once the runner switched
-//! from raw `JsRuntime` to `deno_runtime::MainWorker`, which provides
-//! the `CreateWebWorkerCb` callback this runner wires recursively so
-//! workers can spawn their own workers, sharing a
-//! `CrossIsolateStore<SharedRef<BackingStore>>` across isolates for
-//! the `SharedArrayBuffer` transfer.
+//! All currently-shipped data1-family modules run -- including `et-ws-zig-data1`, which spawns a module `Worker`
+//! and proxies WebSocket + REST through a `SharedArrayBuffer` with the worker blocking on `Atomics.wait`.
+//! That worked once the runner switched from raw `JsRuntime` to `deno_runtime::MainWorker`, which provides the
+//! `CreateWebWorkerCb` callback this runner wires recursively so workers can spawn their own workers, sharing a
+//! `CrossIsolateStore<SharedRef<BackingStore>>` across isolates for the `SharedArrayBuffer` transfer.
 //!
 //! ### R modules (webR spawns a *classic* Worker)
 //!
@@ -64,9 +60,9 @@ use rstest::rstest;
 
 /// The name the hub serves one of this project's modules under, which is the name it publishes under.
 ///
-/// The cases below name modules the way the repository talks about them, and this puts the owner scope back
-/// on at the one place it matters -- what `RUNNER_MODULE` is set to. The server reshapes no name, so a runner
-/// asking for the bare one would be asking for a module nothing answers to.
+/// The cases below name modules the way the repository talks about them, and this puts the owner scope back on at the
+/// one place it matters -- what `RUNNER_MODULE` is set to. The server reshapes no name, so a runner asking for the bare
+/// one would be asking for a module nothing answers to.
 fn served(module: &str) -> String {
     format!("{}{module}", et_org::NPM_SCOPE)
 }
@@ -85,10 +81,8 @@ fn served(module: &str) -> String {
 #[case::pywasm1("et-ws-pywasm1", Language::Python)]
 #[case::js_data1("et-ws-js-data1", Language::Js)]
 fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
-    // When CI narrows MISE_ENV (e.g. `dotnet,rust`) the env-gated guest
-    // configs don't load and the matching `pkg/` never gets built. Skip
-    // cases whose language isn't loaded instead of 404'ing on the module
-    // fetch.
+    // When CI narrows MISE_ENV (e.g. `dotnet,rust`) the env-gated guest configs don't load and the matching `pkg/`
+    // never gets built. Skip cases whose language isn't loaded instead of 404'ing on the module fetch.
     if !mise_env_includes(language) {
         println!(
             "skipping {module}: requires the `{}` mise env, not loaded",
@@ -116,11 +110,10 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
 
 /// Run each math1 module through the storage-driven exchange and verify its stored model.
 ///
-/// The fake-agent side lives in `et_ws_test_server::math1`: it injects the canonical input JSON
-/// into storage, broadcasts the `math1-input` pointer, and reads back the module's
-/// `math1-output.json`, which is verified against the expected weights for that input. The
-/// runner's own exit status is asserted too, so a module that errors after storing its output
-/// still fails the case.
+/// The fake-agent side lives in `et_ws_test_server::math1`: it injects the canonical input JSON into storage,
+/// broadcasts the `math1-input` pointer, and reads back the module's `math1-output.json`, which is verified against the
+/// expected weights for that input. The runner's own exit status is asserted too, so a module that errors after storing
+/// its output still fails the case.
 #[rstest]
 #[case::math1("et-ws-math1", Language::Rust)]
 #[case::dart_math1("et-ws-dart-math1", Language::Dart)]
@@ -161,8 +154,8 @@ async fn math1_module_stores_verified_model(#[case] module: &str, #[case] langua
         std::time::Duration::from_secs(90),
     )
     .await;
-    // Reap the runner regardless of the exchange outcome; it exits on its own once the module
-    // completes (RUNNER_TIMEOUT bounds a hung module).
+    // Reap the runner regardless of the exchange outcome; it exits on its own once the module completes (RUNNER_TIMEOUT
+    // bounds a hung module).
     let status = wait_for_runner_exit(&mut runner);
     let (weight, bias) = outcome.unwrap_or_else(|err| panic!("{module}: {err}"));
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap_or_else(|err| panic!("{module}: {err}"));
@@ -173,10 +166,10 @@ async fn math1_module_stores_verified_model(#[case] module: &str, #[case] langua
 
 /// The manual-trigger pair: math1-sender plays the fake agent while the Rust math1 twin computes.
 ///
-/// Both modules spawn against one server. The sender uploads the embedded canonical input,
-/// broadcasts the pointer (for a minute -- its manual-use window, which this test's wall clock
-/// includes), and math1 stores its model, which is then verified against the expected weights.
-/// This is the end-to-end proof of the browser-only trigger path, with no harness fake agent.
+/// Both modules spawn against one server. The sender uploads the embedded canonical input, broadcasts the pointer (for
+/// a minute -- its manual-use window, which this test's wall clock includes), and math1 stores its model, which is
+/// then verified against the expected weights. This is the end-to-end proof of the browser-only trigger path, with no
+/// harness fake agent.
 #[test]
 fn math1_sender_triggers_math1() {
     if !mise_env_includes(Language::Rust) {
@@ -219,8 +212,8 @@ fn math1_sender_triggers_math1() {
 
 /// Poll the spawned runner until it exits, killing it if it overstays the runner-timeout bound.
 ///
-/// Blocking here is fine: this runs after the exchange future has already resolved, so nothing
-/// else is pending on the current-thread runtime.
+/// Blocking here is fine: this runs after the exchange future has already resolved, so nothing else is pending on the
+/// current-thread runtime.
 #[expect(
     clippy::arithmetic_side_effects,
     reason = "the deadline addition cannot overflow within a test's lifetime"
@@ -241,10 +234,10 @@ fn wait_for_runner_exit(runner: &mut std::process::Child) -> std::process::ExitS
 
 /// Probe for dotnet-data1's built `pkg/` wasm artifacts, logging a skip instead of failing when absent.
 ///
-/// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
-/// host, so probe one and log a skip instead of failing on a checkout where the module wasn't built. The
-/// probe file is `dotnet.js` -- the one stably-named artifact `dotnet publish` emits (the rest carry
-/// content-hash fingerprints) -- and NOT `package.json`, which is committed and therefore always present.
+/// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this host, so probe
+/// one and log a skip instead of failing on a checkout where the module wasn't built. The probe file is `dotnet.js`
+/// -- the one stably-named artifact `dotnet publish` emits (the rest carry content-hash fingerprints) -- and NOT
+/// `package.json`, which is committed and therefore always present.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct probe step; kept named for the skip-trace log line"
@@ -257,8 +250,8 @@ fn dotnet_data1_pkg_built() -> bool {
 
 /// Probe for dotnet-math1's built `pkg/` wasm artifacts, logging a skip instead of failing when absent.
 ///
-/// Same shape as [`dotnet_data1_pkg_built`]: probe the stably-named `dotnet.js` that
-/// `build-ws-dotnet-math1-module` copies into `pkg/`, and skip rather than 404 on the fetch.
+/// Same shape as [`dotnet_data1_pkg_built`]: probe the stably-named `dotnet.js` that `build-ws-dotnet-math1-module`
+/// copies into `pkg/`, and skip rather than 404 on the fetch.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct probe step; kept named for the skip-trace log line"
@@ -271,9 +264,9 @@ fn dotnet_math1_pkg_built() -> bool {
 
 /// Probe for js-data1's esbuild bundle, logging a skip instead of failing when absent.
 ///
-/// The AWS SDK v3 bundle `pkg/et_ws_js_data1.js` is generated by `build-ws-js-data1-module` and gitignored, so
-/// on a checkout where that task has not run it is absent. Probe it and skip rather than 404 on the fetch. The
-/// committed `pkg/package.json` is always present, so it is not a useful probe.
+/// The AWS SDK v3 bundle `pkg/et_ws_js_data1.js` is generated by `build-ws-js-data1-module` and gitignored, so on a
+/// checkout where that task has not run it is absent. Probe it and skip rather than 404 on the fetch. The committed
+/// `pkg/package.json` is always present, so it is not a useful probe.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct probe step; kept named for the skip-trace log line"
@@ -286,10 +279,9 @@ fn js_data1_pkg_built() -> bool {
 
 /// Probe for kotlin-data1's Kotlin/Wasm build output, logging a skip instead of failing when absent.
 ///
-/// The `WasmGC` module and its loader glue (`pkg/et_ws_kotlin_data1_compiled.*`) are generated by
-/// `build-ws-kotlin-data1-module` and gitignored, so on a checkout where that task has not run they are
-/// absent. Probe the loader and skip rather than 404 on the fetch. The committed `pkg/package.json` is always
-/// present, so it is not a useful probe.
+/// The `WasmGC` module and its loader glue (`pkg/et_ws_kotlin_data1_compiled.*`) are generated by `build-ws-kotlin-
+/// data1-module` and gitignored, so on a checkout where that task has not run they are absent. Probe the loader and
+/// skip rather than 404 on the fetch. The committed `pkg/package.json` is always present, so it is not a useful probe.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct probe step; kept named for the skip-trace log line"
@@ -302,8 +294,8 @@ fn kotlin_data1_pkg_built() -> bool {
 
 /// Probe for kotlin-math1's Kotlin/Wasm build output, logging a skip instead of failing when absent.
 ///
-/// Same shape as [`kotlin_data1_pkg_built`]: the `WasmGC` module and loader glue are generated by
-/// `build-ws-kotlin-math1-module` and gitignored, so probe the loader and skip rather than 404 on the fetch.
+/// Same shape as [`kotlin_data1_pkg_built`]: the `WasmGC` module and loader glue are generated by `build-ws-kotlin-
+/// math1-module` and gitignored, so probe the loader and skip rather than 404 on the fetch.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct probe step; kept named for the skip-trace log line"
@@ -315,8 +307,9 @@ fn kotlin_math1_pkg_built() -> bool {
 }
 
 /// Spawn two runners against one ws-server and assert both finish ok.
-/// Used by communication modules that need to discover at least one peer
-/// via `et-list-agents` before they can complete (comm1, dart-comm1).
+///
+/// Used by communication modules that need to discover at least one peer via `et-list-agents` before they can complete
+/// (comm1, dart-comm1).
 #[rstest]
 #[case::comm1("et-ws-comm1", Language::Rust)]
 #[case::dart_comm1("et-ws-dart-comm1", Language::Dart)]
@@ -330,10 +323,9 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
     }
     let server = et_ws_test_server::start();
 
-    // Each runner needs its own thread because Command::output() blocks until
-    // the child closes its stdout pipe -- a sequential wait would let the
-    // second child's pipe fill and stall it before we ever read it. A failed
-    // runner panics, surfacing through `thread::join().Err(_)`.
+    // Each runner needs its own thread because Command::output() blocks until the child closes its stdout pipe --
+    // a sequential wait would let the second child's pipe fill and stall it before we ever read it. A failed runner
+    // panics, surfacing through `thread::join().Err(_)`.
     let handles: Vec<_> = (0_u32..2)
         .map(|index| {
             let url = server.ws_url.clone();
@@ -357,16 +349,15 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
 
 /// Load + run each hardware/sensor module and assert it fails without the device API it needs.
 ///
-/// The modules listed under "Hardware / browser-only APIs" above touch a browser sensor/media API the runner's
-/// shims deliberately do NOT provide (only `navigator.userAgent` is stubbed) -- camera `getUserMedia`,
-/// `DeviceMotionEvent`, geolocation, `navigator.bluetooth`, `NDEFReader`, `webkitSpeechRecognition`. So they
-/// cannot complete under Deno, which is why they are excluded from `module_runs_successfully`. Running them
-/// anyway still exercises the fetch + module-graph load + entry-evaluation paths -- in the runner AND in each
-/// module's wasm-bindgen glue up to the point it reaches for the missing API -- which is otherwise uncovered
-/// (har1 and face-detection especially). We assert a non-zero exit: the module either throws when the absent API
-/// is touched or is killed by `RUNNER_TIMEOUT` while awaiting a device callback that never fires. A module that
-/// unexpectedly EXITS 0 here is a real finding -- the runner can now run it, so move it to
-/// `module_runs_successfully`.
+/// The modules listed under "Hardware / browser-only APIs" above touch a browser sensor/media API the runner's shims
+/// deliberately do NOT provide (only `navigator.userAgent` is stubbed) -- camera `getUserMedia`, `DeviceMotionEvent`,
+/// geolocation, `navigator.bluetooth`, `NDEFReader`, `webkitSpeechRecognition`. So they cannot complete under Deno,
+/// which is why they are excluded from `module_runs_successfully`. Running them anyway still exercises the fetch +
+/// module-graph load + entry-evaluation paths -- in the runner AND in each module's wasm-bindgen glue up to the point
+/// it reaches for the missing API -- which is otherwise uncovered (har1 and face-detection especially). We assert
+/// a non-zero exit: the module either throws when the absent API is touched or is killed by `RUNNER_TIMEOUT` while
+/// awaiting a device callback that never fires. A module that unexpectedly EXITS 0 here is a real finding -- the runner
+/// can now run it, so move it to `module_runs_successfully`.
 #[rstest]
 #[case::audio1("et-ws-audio1", Language::Rust)]
 #[case::bluetooth("et-ws-bluetooth", Language::Rust)]
@@ -391,9 +382,9 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
         return;
     }
     let server = et_ws_test_server::start();
-    // A missing sensor/media API throws promptly once the module runs, so the module usually exits well under
-    // this bound; it only bites if a module instead awaits a device callback that never fires, in which case
-    // RUNNER_TIMEOUT kills it -- still the non-zero exit we assert.
+    // A missing sensor/media API throws promptly once the module runs, so the module usually exits well under this
+    // bound; it only bites if a module instead awaits a device callback that never fires, in which case RUNNER_TIMEOUT
+    // kills it -- still the non-zero exit we assert.
     let output = run_runner(module, &server.ws_url, 30);
     #[cfg(feature = "coverage")]
     collect_module_coverage(&server);
@@ -408,8 +399,8 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr),
     );
-    // A Python module has to fail at the missing API, not before it: a wheel the shim never installed fails the
-    // import instead, and that is a non-zero exit too.
+    // A Python module has to fail at the missing API, not before it: a wheel the shim never installed fails the import
+    // instead, and that is a non-zero exit too.
     for stream in [&output.stdout, &output.stderr] {
         assert!(!String::from_utf8_lossy(stream).contains("ModuleNotFoundError"));
     }
@@ -417,14 +408,14 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
 
 /// Load + run each R module and assert it fails under Deno's classic-worker limitation.
 ///
-/// rdata1 and rcomm1 run R through webR, whose `WebR.init()` spawns the R interpreter on a *classic* Web Worker.
-/// Deno implements only module workers, so the spawn throws `NotSupportedError: Classic workers are not
-/// supported` and the module aborts in its `init()` default export -- before any WebSocket, peer-discovery, or
-/// storage logic runs (so one runner suffices even for the comm-style rcomm1). Running them here still exercises
-/// the fetch + module-graph load + entry-evaluation paths up to the failing `new Worker(...)`. We assert a
-/// non-zero exit; a module that unexpectedly EXITS 0 is a real finding -- the runner gained classic-worker
-/// support, so move it to `module_runs_successfully`. Both modules work in a real browser (classic workers +
-/// the `SharedArrayBuffer` channel the ws-server's COOP/COEP headers enable).
+/// rdata1 and rcomm1 run R through webR, whose `WebR.init()` spawns the R interpreter on a *classic* Web Worker. Deno
+/// implements only module workers, so the spawn throws `NotSupportedError: Classic workers are not supported` and the
+/// module aborts in its `init()` default export -- before any WebSocket, peer-discovery, or storage logic runs (so one
+/// runner suffices even for the comm-style rcomm1). Running them here still exercises the fetch + module-graph load +
+/// entry-evaluation paths up to the failing `new Worker(...)`. We assert a non-zero exit; a module that unexpectedly
+/// EXITS 0 is a real finding -- the runner gained classic-worker support, so move it to `module_runs_successfully`.
+/// Both modules work in a real browser (classic workers + the `SharedArrayBuffer` channel the ws-server's COOP/COEP
+/// headers enable).
 #[rstest]
 #[case::rdata1("et-ws-rdata1", Language::R)]
 #[case::rcomm1("et-ws-rcomm1", Language::R)]
@@ -438,9 +429,9 @@ fn r_module_load_fails(#[case] module: &str, #[case] language: Language) {
         return;
     }
     let server = et_ws_test_server::start();
-    // webR's classic-worker spawn throws promptly in init(), so the module exits well under this bound; the
-    // budget only bites if webR instead hangs before that point, in which case RUNNER_TIMEOUT kills it -- still
-    // the non-zero exit we assert.
+    // webR's classic-worker spawn throws promptly in init(), so the module exits well under this bound; the budget only
+    // bites if webR instead hangs before that point, in which case RUNNER_TIMEOUT kills it -- still the non-zero exit
+    // we assert.
     let output = run_runner(module, &server.ws_url, 30);
     #[cfg(feature = "coverage")]
     collect_module_coverage(&server);
@@ -459,13 +450,12 @@ fn r_module_load_fails(#[case] module: &str, #[case] language: Language) {
 
 /// Spawn one `et-ws-web-runner` against `ws_url` and return its captured output.
 ///
-/// `timeout_secs` is passed as `RUNNER_TIMEOUT` (humantime, e.g. `120s`); the
-/// multi-agent harness bumps it because two cold V8 starts contending for the
-/// same box widen the discovery window past the single-agent budget.
+/// `timeout_secs` is passed as `RUNNER_TIMEOUT` (a duration, e.g. `120s`); the multi-agent harness bumps it because two
+/// cold V8 starts contending for the same box widen the discovery window past the single-agent budget.
 fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Output {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
-    // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent
-    // env), so the Pyodide shims collect coverage into ws-server storage -- no explicit forwarding needed.
+    // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent env), so
+    // the Pyodide shims collect coverage into ws-server storage -- no explicit forwarding needed.
     std::process::Command::new(bin)
         .env("RUNNER_MODULE", served(module))
         .env("WS_SERVER_URL", ws_url)
@@ -484,8 +474,8 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
 /// - `.profraw` (Rust browser-wasm minicov) -> `target/wasi-cov/` (where the `wasm-cov` task turns each into
 ///   lcov via the same llc/llvm-cov pipeline).
 ///
-/// Compiled in only under the `coverage` feature (like the runner's capture code); the call sites are gated to
-/// match. Without a coverage build this whole helper is absent, and a plain test run never captures.
+/// Compiled in only under the `coverage` feature (like the runner's capture code); the call sites are gated to match.
+/// Without a coverage build this whole helper is absent, and a plain test run never captures.
 #[cfg(feature = "coverage")]
 fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
     let root = edge_toolkit::config::get_project_root();
