@@ -178,7 +178,10 @@ async fn stale_cycles_and_future_timestamps_are_unhealthy_but_progress_restores_
     let session = Session::acquire(&config).unwrap();
     for (timestamp, message) in [
         (SystemTime::UNIX_EPOCH, "stale"),
-        (SystemTime::now().checked_add(Duration::from_secs(3600)).unwrap(), "future"),
+        (
+            SystemTime::now().checked_add(Duration::from_secs(3600)).unwrap(),
+            "future",
+        ),
     ] {
         session.advance().await.unwrap();
         replace(&config, "completed_at", serde_json::to_value(timestamp).unwrap());

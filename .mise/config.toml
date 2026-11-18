@@ -1699,9 +1699,9 @@ description = "Fail when the branch modifies more files than CodeRabbit reviews 
 # compare against, and skips as branch-up-to-date-check does.
 # A branch whose name contains `reorg` is exempt: a reorganisation moves files wholesale, and splitting one to fit
 # the limit would leave the tree half-moved between pull requests. Branches named in full below are exempt as
-# mechanical sweeps: `pretty_assertions` adds one import line to every test file that asserts equality. CI checks
-# out the pull request's merge commit detached, so the name comes from `GITHUB_HEAD_REF` there and from git
-# everywhere else.
+# mechanical sweeps: `pretty_assertions` adds one import line to every test file that asserts equality, and `test-log`
+# wraps the runtime attribute of every async service test. CI checks out the pull request's merge commit detached, so
+# the name comes from `GITHUB_HEAD_REF` there and from git everywhere else.
 run = """
 branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
 case "$branch" in
@@ -1709,7 +1709,7 @@ case "$branch" in
     echo "conftest-check-branch-size: $branch is a reorganisation branch, which the file limit exempts; skipping"
     exit 0
     ;;
-  pretty_assertions)
+  pretty_assertions | test-log)
     echo "conftest-check-branch-size: $branch is a mechanical sweep, which the file limit exempts; skipping"
     exit 0
     ;;

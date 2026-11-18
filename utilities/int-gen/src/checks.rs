@@ -12,6 +12,8 @@
     reason = "each helper is one named step of the render, kept separate so the steps read one at a time"
 )]
 
+use core::iter::Peekable;
+use core::str::Chars;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -673,6 +675,8 @@ fn reachable(tasks: &[Task], root: &str) -> Result<(BTreeSet<String>, Parents), 
 ///
 /// Commands end at an unquoted newline, `;`, `|`, `||` or `&&`. A `$(...)` substitution stays one word, operators and
 /// all, so it can be searched as a command of its own, and a `#` that starts a word comments out the rest of the line.
+/// The pattern of each `case` arm, which follows the `case ... in` header or the `;;` ending the arm before, is
+/// dropped.
 fn commands(body: &str) -> Vec<Vec<String>> {
     let mut commands = Vec::new();
     let mut words = Vec::new();
@@ -680,16 +684,8 @@ fn commands(body: &str) -> Vec<Vec<String>> {
     let mut quote = None;
     let mut inner_quote = None;
     let mut depth = 0_usize;
-    let mut comment = false;
     let mut chars = body.chars().peekable();
     while let Some(current) = chars.next() {
-        if comment {
-            if current == '\n' {
-                comment = false;
-                end_command(&mut commands, &mut words, &mut word);
-            }
-            continue;
-        }
         if let Some(open) = quote {
             if current == open {
                 quote = None;
@@ -704,29 +700,104 @@ fn commands(body: &str) -> Vec<Vec<String>> {
             continue;
         }
         if depth > 0 {
-            // Quotes inside the substitution are kept, and shield a `)` they contain from closing it.
-            if inner_quote == Some(current) {
-                inner_quote = None;
-            } else if inner_quote.is_none() && matches!(current, '\'' | '"') {
-                inner_quote = Some(current);
-            } else if inner_quote.is_none() && current == ')' {
-                depth = depth.saturating_sub(1);
-            } else {
-                // Any other character is part of the substitution's text.
-            }
+            in_substitution(current, &mut depth, &mut inner_quote);
             word.push(current);
             continue;
         }
         match current {
             '\'' | '"' => quote = Some(current),
-            '#' if word.is_empty() => comment = true,
-            '\n' | ';' | '|' | '&' => end_command(&mut commands, &mut words, &mut word),
-            ' ' | '\t' => end_word(&mut words, &mut word),
+            '#' if word.is_empty() => {
+                let _comment_end: Option<char> = chars.find(|skipped| *skipped == '\n');
+                end_command(&mut commands, &mut words, &mut word);
+            }
+            '\n' | ';' | '|' | '&' | ' ' | '\t' => separate(current, &mut chars, &mut commands, &mut words, &mut word),
             _ => word.push(current),
         }
     }
     end_command(&mut commands, &mut words, &mut word);
     commands
+}
+
+/// Track one character of a `$(...)` substitution: the quotes it opens and closes, and the `)` that closes it.
+///
+/// Quotes inside the substitution shield a `)` they contain from closing it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `commands`; kept separate to hold its complexity down"
+)]
+fn in_substitution(current: char, depth: &mut usize, inner_quote: &mut Option<char>) {
+    if *inner_quote == Some(current) {
+        *inner_quote = None;
+    } else if inner_quote.is_none() && matches!(current, '\'' | '"') {
+        *inner_quote = Some(current);
+    } else if inner_quote.is_none() && current == ')' {
+        *depth = depth.saturating_sub(1);
+    } else {
+        // Any other character is part of the substitution's text.
+    }
+}
+
+/// Close the word at an unquoted separator, and the command with it unless the separator is a blank.
+///
+/// A `case ... in` header, and the `;;`, `;&` or `;;&` that ends an arm, are each followed by an arm's pattern, which
+/// is skipped.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `commands`; kept separate to hold its complexity down"
+)]
+fn separate(
+    current: char,
+    chars: &mut Peekable<Chars<'_>>,
+    commands: &mut Vec<Vec<String>>,
+    words: &mut Vec<String>,
+    word: &mut String,
+) {
+    end_word(words, word);
+    let arm_end = current == ';' && chars.next_if(|next| matches!(next, ';' | '&')).is_some();
+    if arm_end {
+        let _fallthrough: Option<char> = chars.next_if_eq(&'&');
+    }
+    let case_header = words.last().is_some_and(|last| last == "in")
+        && words.iter().rev().nth(2).is_some_and(|keyword| keyword == "case");
+    if arm_end || case_header {
+        end_command(commands, words, word);
+        skip_case_pattern(chars);
+    } else if !matches!(current, ' ' | '\t') {
+        end_command(commands, words, word);
+    } else {
+        // A blank only separates words.
+    }
+}
+
+/// Consume the pattern of a `case` arm through the `)` that ends it, or the `esac` that closes the `case` instead.
+///
+/// A pattern names no command, and its `|` alternatives would otherwise split it into commands the tool search reads:
+/// `main | release)` would report a tool called `main`.
+fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
+    let mut pattern = String::default();
+    let mut quote = None;
+    while let Some(current) = chars.next() {
+        if let Some(open) = quote {
+            if current == open {
+                quote = None;
+            }
+            continue;
+        }
+        match current {
+            '\'' | '"' => quote = Some(current),
+            ')' => return,
+            '#' if pattern.is_empty() => {
+                let _comment_end: Option<char> = chars.find(|skipped| *skipped == '\n');
+            }
+            _ if current.is_whitespace() || current == ';' => {
+                if pattern == "esac" {
+                    return;
+                }
+                pattern.clear();
+            }
+            _ => pattern.push(current),
+        }
+    }
 }
 
 /// Close the word being built, if any.

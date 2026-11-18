@@ -110,6 +110,18 @@ the agent's browser can read it, or paste that part themselves, whichever is qui
 worked example: its failure says only "Deployment has failed", and the cause is in the log on vercel.com behind a
 sign-in, so the useful message names that log and the error lines in it, not a question about access.
 
+## Give the operator commands that finish without keyboard input
+
+A command handed to the operator to run must complete on its own: no editor, pager, prompt or confirmation along the
+way. Add the flag or setting that supplies the answer up front -- `git rebase --continue` and `git merge --continue`
+run as `GIT_EDITOR=true git rebase --continue`, a commit gets `-m` or `--no-edit`, a pager is disabled with
+`--no-pager` or `GH_PAGER=cat`, and a confirmation takes the tool's `--yes` / `-y` / `--force`. A command that stops
+in an editor or prompt leaves the operator in a program they did not mean to open, and the obvious ways out of it
+-- Ctrl-C in vim, or quitting without saving -- can abort the operation halfway or leave a swap file that reads as a
+failure. The worked example from this repo: a `git rebase --continue` offered bare opened vim on `COMMIT_EDITMSG`
+mid-rebase, and getting out of it looked like a failed rebase. When no flag exists for an answer, say so with the
+command and state exactly what to type at the prompt.
+
 ## On macOS: use homebrew bash for ad-hoc agent commands
 
 On macOS, every ad-hoc command the agent runs that is **not** a `mise run <task>` invocation -- investigations,
