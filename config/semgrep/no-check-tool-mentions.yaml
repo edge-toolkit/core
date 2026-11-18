@@ -141,9 +141,9 @@ rules:
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)clang-tidy"
     message: >-
-      Do not name the C static analyzer outside its config. Its suppression marker is a bare `// NOLINT` naming
-      the check, which is all a reader needs -- spelling out the analyzer beside it adds nothing and dates the
-      comment to whichever analyzer happened to run that week.
+      Do not name the C static analyser outside its config. Its suppression marker is a bare `// NOLINT` naming
+      the check, which is all a reader needs -- spelling out the analyser beside it adds nothing and dates the
+      comment to whichever analyser happened to run that week.
     severity: ERROR
 
   - id: no-codacy-mentions
@@ -163,7 +163,7 @@ rules:
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)codacy"
     message: >-
-      Do not name this analyzer outside its own config and the few files it excludes by path, where the header
+      Do not name this analyser outside its own config and the few files it excludes by path, where the header
       is the exclusion's canonical home. It runs after a push, so a source comment about it describes something
       the reader cannot see, run, or check; state the property the code actually has.
     severity: ERROR
@@ -252,7 +252,7 @@ rules:
     # requiring that shape is what keeps this from being a way back in for prose about the tool.
     pattern-regex: '(?i)deepsource(?! (RS|JS|CXX|CS|DOK|PTC|PY|PYL|SCT|TYP)-[A-Z]{0,2}[0-9]{3,4}\b)'
     message: >-
-      Do not name this analyzer outside its own config, the pragmas it reads, and a reference to one of its
+      Do not name this analyser outside its own config, the pragmas it reads, and a reference to one of its
       codes. Naming it in front of a code -- `DeepSource RS-W1079` -- is required, because the code alone does
       not say whose it is. Naming it anywhere else describes the tool's reaction rather than the code.
     severity: ERROR
@@ -578,7 +578,7 @@ rules:
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)roslynator"
     message: >-
-      Do not name the C# analyzer outside the tasks and images that install it. A `#pragma warning disable`
+      Do not name the C# analyser outside the tasks and images that install it. A `#pragma warning disable`
       already names the diagnostic, which is the part a reader can look up.
     severity: ERROR
 

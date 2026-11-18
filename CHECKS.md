@@ -121,7 +121,7 @@ Rules, from `config/ast-grep/rules`:
   conformance to interfaces defined elsewhere.
 - `js-no-function-declaration-in-script` -- A top-level `function` declaration in a file with no `import` or `export`
   (`DeepSource JS-0067`). Such a file parses as a classic script, where the declaration becomes a property of the global
-  object shared with every other script, and the external analyzer reads it that way even when the file is loaded as a
+  object shared with every other script, and the external analyser reads it that way even when the file is loaded as a
   module worker. Bind the function with `const` instead. Check-only: an arrow function is not hoisted and has no `this`
   or `arguments` of its own, so the rewrite can change behaviour and needs reading per site.
 - `new-fn-returns-option` -- This function returns `Option`, and a new one may not. The return type is where the reason
@@ -921,7 +921,7 @@ Rules, from `utilities/repo-check/src`:
 
 ## `roslynator`
 
-- `roslynator-check` (`dotnet` env; run by `check:dotnet`) -- Analyze C# sources (Roslynator). Repaired by
+- `roslynator-check` (`dotnet` env; run by `check:dotnet`) -- Analyse C# sources (Roslynator). Repaired by
   `roslynator-fix`.
 
 ## `ruff`
@@ -970,9 +970,9 @@ Rules, from `config/semgrep`:
 - `comment-summary-line-c` -- A multi-line C-style comment (a `/* */` block or a `//` run) must open with a single
   summary line ending in a full stop (PEP 257 style). The summary describes the whole block in one sentence;
   continuation lines follow. End the first comment line with a `.`.
-- `deepsource-code-must-name-its-analyzer` -- Write a DeepSource finding as `DeepSource RS-W1079`, naming the analyzer
+- `deepsource-code-must-name-its-analyzer` -- Write a DeepSource finding as `DeepSource RS-W1079`, naming the analyser
   in front of the code. A bare code is unreadable to anyone who does not already know whose it is: `RS-`, `JS-` and
-  `CXX-` look like they could belong to any of the analyzers this repo runs, and a search for one turns up nothing
+  `CXX-` look like they could belong to any of the analysers this repo runs, and a search for one turns up nothing
   unless the searcher guesses the vendor first. The exception is a `skipcq:` pragma, whose grammar DeepSource defines --
   leave the code bare there, and let the surrounding comment carry the reason.
 - `dockerfile-heredoc-set-euo-pipefail` -- Dockerfile RUN heredocs must begin with `set -euo pipefail` as the first body
@@ -1041,16 +1041,16 @@ Rules, from `config/semgrep`:
   aggregate, or its rule moves, and the comment keeps asserting the old arrangement. State the constraint.
 - `no-clang-format-mentions` -- Do not name the C formatter outside its own config. Formatted code carries no evidence
   of who formatted it, and a comment claiming a brace or a blank line is the formatter's doing is unverifiable noise.
-- `no-clang-tidy-mentions` -- Do not name the C static analyzer outside its config. Its suppression marker is a bare `//
-  NOLINT` naming the check, which is all a reader needs -- spelling out the analyzer beside it adds nothing and dates
-  the comment to whichever analyzer happened to run that week.
+- `no-clang-tidy-mentions` -- Do not name the C static analyser outside its config. Its suppression marker is a bare `//
+  NOLINT` naming the check, which is all a reader needs -- spelling out the analyser beside it adds nothing and dates
+  the comment to whichever analyser happened to run that week.
 - `no-cmd-scripts` -- A `.cmd` file is banned everywhere in this tree, with no exemption at all -- not in `.mise/`, and
   not under a `.venv/` the way its sibling extensions are. The reasoning is the same one that bans `.bat` and `.ps1`: a
   Windows-only shell file is exercised on one of five platforms and silently untested on the other four. It gets no
   carve-out because nothing generates one -- a virtualenv writes `activate.bat` and `activate.ps1` but never a `.cmd` --
   so every `.cmd` in the tree is something a person wrote by hand, and belongs in a task body under `.mise/` or its own
   directory under `utilities/` instead.
-- `no-codacy-mentions` -- Do not name this analyzer outside its own config and the few files it excludes by path, where
+- `no-codacy-mentions` -- Do not name this analyser outside its own config and the few files it excludes by path, where
   the header is the exclusion's canonical home. It runs after a push, so a source comment about it describes something
   the reader cannot see, run, or check; state the property the code actually has.
 - `no-codecov-mentions` -- Do not name the coverage service outside the jobs that upload to it. A test exists to pin
@@ -1074,7 +1074,7 @@ Rules, from `config/semgrep`:
   --to-command=<cmd>` runs every archive member through that command, and `-I` / `--use-compress-program` likewise hand
   an arbitrary program the stream, so a piped archive can execute code just as a piped script can. Fetch, verify, then
   extract.
-- `no-deepsource-mentions` -- Do not name this analyzer outside its own config, the pragmas it reads, and a reference to
+- `no-deepsource-mentions` -- Do not name this analyser outside its own config, the pragmas it reads, and a reference to
   one of its codes. Naming it in front of a code -- `DeepSource RS-W1079` -- is required, because the code alone does
   not say whose it is. Naming it anywhere else describes the tool's reaction rather than the code.
 - `no-dprint-mentions` -- Do not name the markdown/YAML/JSON formatter outside its config and the configs held to agree
@@ -1156,7 +1156,7 @@ Rules, from `config/semgrep`:
 - `no-repo-mentions-in-verification` -- A scenario's generated docs must not mention git or a checkout. They are read by
   whoever deploys the scenario, on machines that hold the generated directory and nothing else, so an instruction that
   assumes the source repository is there is one that reader cannot follow. Change the et-cli text that renders it.
-- `no-roslynator-mentions` -- Do not name the C# analyzer outside the tasks and images that install it. A `#pragma
+- `no-roslynator-mentions` -- Do not name the C# analyser outside the tasks and images that install it. A `#pragma
   warning disable` already names the diagnostic, which is the part a reader can look up.
 - `no-ruff-mentions` -- Do not name the Python linter/formatter outside its config and the configs that defer to it. A
   `# noqa` carries the code it silences and should carry the reason too; the tool that issued the code does not need
