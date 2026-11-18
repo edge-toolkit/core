@@ -13,6 +13,7 @@
             "enum": [
               "cargo:action-validator",
               "cargo:cargo-expand",
+              "cargo:cargo-rail",
               "cargo:dart-typegen",
               "cargo:findutils",
               "cargo:open",

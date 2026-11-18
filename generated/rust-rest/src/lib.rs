@@ -8,6 +8,24 @@ use progenitor_client::{ClientHooks, OperationInfo, RequestBuilderExt, encode_pa
 /// Types used as operation parameters and responses.
 #[allow(clippy::all)]
 pub mod types {
+    /**How the answering server was built.
+
+    Returned by `GET /info`, so an operator can tell which release, toolchain and feature set a hub is running.*/
+    #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+    pub struct BuildInfo {
+        ///The crate features it was built with, which name the services it can mount.
+        pub features: ::std::vec::Vec<::std::string::String>,
+        ///The crate the server was built from.
+        pub name: ::std::string::String,
+        ///The cargo profile, `debug` or `release`.
+        pub profile: ::std::string::String,
+        ///The `rustc --version` that compiled it.
+        pub rustc: ::std::string::String,
+        ///The target triple it was compiled for.
+        pub target: ::std::string::String,
+        ///Its version.
+        pub version: ::std::string::String,
+    }
     ///An agent the hub has evicted, and the address now refused because of it.
     #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
     pub struct EvictedAgent {
@@ -52,11 +70,12 @@ pub mod types {
 #[derive(Clone, Debug)]
 /**Client for Edge Toolkit REST API
 
-ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
-the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
-interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
-PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
-the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token.
+ws-server HTTP surface: health probe, build information, module discovery, module assets,
+per-agent storage, and the admin routes that block client addresses and evict agents. The storage routes are an
+anonymous S3-compatible interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id,
+key = filename), they answer PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without
+credentials. A client address the hub has blocked is refused by them with 403. The admin routes take the hub's
+WS_ADMIN_TOKEN as a bearer token.
 
 Version: 0.1.0*/
 pub struct Client {
@@ -273,6 +292,59 @@ impl Client {
             .headers(header_map)
             .build()?;
         let info = OperationInfo { operation_id: "health" };
+        match (|request: &mut ::reqwest::Request| {
+            #[cfg(feature = "tracing")]
+            {
+                let cx = <::tracing::Span as ::tracing_opentelemetry::OpenTelemetrySpanExt>::context(
+                    &::tracing::Span::current(),
+                );
+                ::opentelemetry::global::get_text_map_propagator(|propagator| {
+                    propagator.inject_context(&cx, &mut ::opentelemetry_http::HeaderInjector(request.headers_mut()));
+                });
+            }
+            #[cfg(not(feature = "tracing"))]
+            let _ = request;
+            async { Ok::<(), ::std::convert::Infallible>(()) }
+        })(&mut request)
+        .await
+        {
+            Ok(_) => {}
+            Err(e) => return Err(Error::Custom(e.to_string())),
+        }
+        self.pre(&mut request, &info).await?;
+        let result = self.exec(request, &info).await;
+        self.post(&result, &info).await?;
+        let response = result?;
+        match response.status().as_u16() {
+            200u16 => ResponseValue::from_response(response).await,
+            _ => Err(Error::UnexpectedResponse(response)),
+        }
+    }
+    /**Build information
+
+    Returns the release, toolchain, target and features the server was built with.
+
+    Sends a `GET` request to `/info`
+
+    */
+    pub async fn info<'a>(&'a self) -> Result<ResponseValue<types::BuildInfo>, Error<()>> {
+        let url = format!("{}/info", self.baseurl,);
+        let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+        header_map.append(
+            ::reqwest::header::HeaderName::from_static("api-version"),
+            ::reqwest::header::HeaderValue::from_static(Self::api_version()),
+        );
+        #[allow(unused_mut)]
+        let mut request = self
+            .client
+            .get(url)
+            .header(
+                ::reqwest::header::ACCEPT,
+                ::reqwest::header::HeaderValue::from_static("application/json"),
+            )
+            .headers(header_map)
+            .build()?;
+        let info = OperationInfo { operation_id: "info" };
         match (|request: &mut ::reqwest::Request| {
             #[cfg(feature = "tracing")]
             {
@@ -620,3 +692,6 @@ pub mod prelude {
     #[allow(unused_imports)]
     pub use super::Client;
 }
+
+#[cfg(feature = "mock")]
+pub mod mock;

@@ -1,3 +1,51 @@
+experimental = ["setup-scripts"]
+
+# Stack ceilings: each setup script hands its tests RUST_MIN_STACK, which sizes the thread libtest runs a test on.
+# It goes through a setup script rather than the environment because nextest's own tokio workers honour it too,
+# and abort at these sizes. Every test gets the value of the last script whose filter matches it, so the filters
+# below are kept disjoint rather than relying on order.
+#
+# scenario_runners stays unlimited: it drives `mise` and `cargo`, which pass the variable down to rustc, whose
+# compiler thread honours it and overflows building the workspace at these sizes.
+[scripts.setup.stack-actix]
+command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 1048576"
+
+[scripts.setup.stack-clap]
+command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 524288"
+
+[scripts.setup.stack-gpu-probe]
+command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 65536"
+
+# et-gpu-probe's native tests open real adapters, so the GPU driver's own calls run on the test's thread.
+# At the 64 KiB above, every test that opens one aborts with `fatal runtime error: stack overflow, aborting` (on
+# Windows, `0xc00000fd: Recursion too deep; the stack overflowed`), on every lane of commit
+# https://github.com/edge-toolkit/core/commit/ccf4b07fd86795ce125f7839ff5a7ee4b8d5c143, e.g.
+# https://github.com/edge-toolkit/core/actions/runs/44244160798/job/134598919973. Metal needs 256 KiB; the drivers
+# CI uses differ, so they get the margin the actix servers do.
+[scripts.setup.stack-gpu-driver]
+command = "goawk 'BEGIN { print \"RUST_MIN_STACK=\" ARGV[1] > ENVIRON[\"NEXTEST_ENV\"] }' 1048576"
+
+[[profile.default.scripts]]
+filter = '''
+package(et-gpu-probe-server) or package(et-ws-service) or package(et-websockify-service)
+or package(et-modules-service) or package(et-storage-service) or package(et-ws-server)
+or package(et-ws-test-server) or package(et-actix-web-config)'''
+setup = "stack-actix"
+
+[[profile.default.scripts]]
+filter = '''
+(package(et-cli) and not binary(scenario_runners)) or package(et-int-gen) or package(et-onnx)
+or package(et-test-recovery)'''
+setup = "stack-clap"
+
+[[profile.default.scripts]]
+filter = "package(et-gpu-probe) and not binary(native)"
+setup = "stack-gpu-probe"
+
+[[profile.default.scripts]]
+filter = "package(et-gpu-probe) and binary(native)"
+setup = "stack-gpu-driver"
+
 # The coverage mise task runs its unit and integration passes under these, one JUnit report per profile dir.
 # A test is an integration test when it is in either group below; every other test is a unit test. The task
 # selects them with `-E`, because nextest does not allow group() in a profile's `default-filter`.

@@ -12,10 +12,11 @@ pub use et_https_listener::net;
 pub use et_https_listener::tls;
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
+mod built_info;
 pub mod config;
 pub mod routes;
 
-pub use self::routes::health;
+pub use self::routes::{health, info};
 use crate::config::Config;
 
 pub async fn no_content() -> HttpResponse {
@@ -27,7 +28,8 @@ pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsA
         .app_data(agent_registry)
         .app_data(web::Data::new(config.clone()))
         .route("/favicon.ico", web::get().to(no_content))
-        .route("/health", web::get().to(health));
+        .route("/health", web::get().to(health))
+        .route("/info", web::get().to(info));
 
     et_ws_service::configure(cfg, &config.ws);
     #[cfg(feature = "storage")]

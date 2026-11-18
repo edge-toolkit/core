@@ -24,6 +24,7 @@ gnu_allowed := {
 	"dprint": "GLIBC_2.17",
 	"github:caldempsey/parfit": "GLIBC_2.34",
 	"github:grok-rs/waitup": "GLIBC_2.39 on x64, above the 2.35 floor",
+	"github:loadingalias/cargo-rail": "GLIBC_2.39, above the 2.35 floor; v0.32.0 publishes no musl build",
 	"github:nextest-rs/nextest": "GLIBC_2.27",
 	"github:noemaforge/vimanam": "GLIBC_2.34",
 	"github:owenlamont/ryl": "GLIBC_2.34",

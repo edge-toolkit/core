@@ -2,11 +2,12 @@ openapi: 3.0.3
 info:
   title: Edge Toolkit REST API
   description: |-
-    ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
-    the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
-    interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
-    PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
-    the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token.
+    ws-server HTTP surface: health probe, build information, module discovery, module assets,
+    per-agent storage, and the admin routes that block client addresses and evict agents. The storage routes are an
+    anonymous S3-compatible interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id,
+    key = filename), they answer PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without
+    credentials. A client address the hub has blocked is refused by them with 403. The admin routes take the hub's
+    WS_ADMIN_TOKEN as a bearer token.
   version: 0.1.0
 servers:
   - url: http://localhost:8080
@@ -97,6 +98,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /info:
+    get:
+      tags:
+        - info
+      summary: Build information.
+      description: Returns the release, toolchain, target and features the server was built with.
+      operationId: info
+      responses:
+        "200":
+          description: How the server was built
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildInfo"
   /modules/:
     get:
       tags:
@@ -280,6 +295,40 @@ paths:
           description: No such file
 components:
   schemas:
+    BuildInfo:
+      description: |-
+        How the answering server was built.
+
+        Returned by `GET /info`, so an operator can tell which release, toolchain and feature set a hub is running.
+      type: object
+      properties:
+        features:
+          description: The crate features it was built with, which name the services it can mount.
+          type: array
+          items:
+            type: string
+        name:
+          description: The crate the server was built from.
+          type: string
+        profile:
+          description: The cargo profile, `debug` or `release`.
+          type: string
+        rustc:
+          description: The `rustc --version` that compiled it.
+          type: string
+        target:
+          description: The target triple it was compiled for.
+          type: string
+        version:
+          description: Its version.
+          type: string
+      required:
+        - name
+        - version
+        - rustc
+        - target
+        - profile
+        - features
     EvictedAgent:
       description: An agent the hub has evicted, and the address now refused because of it.
       type: object

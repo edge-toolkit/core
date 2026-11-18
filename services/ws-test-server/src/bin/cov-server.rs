@@ -15,12 +15,13 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use edge_toolkit::ports::Services;
 use fs_err as fs;
 
 /// Fixed port the browser wasm-agent tests dial (`ws://127.0.0.1:8080/ws`).
 ///
 /// Matches the ws-server port the existing `web.rs` end-to-end test and `ws-e2e-chrome` use.
-const COV_SERVER_PORT: u16 = 8080;
+const COV_SERVER_PORT: u16 = Services::InsecureWebSocketServer.port();
 
 fn main() -> Result<(), Box<dyn Error>> {
     let ready_path = std::env::args_os()

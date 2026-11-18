@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 
 use chrono::Utc;
+use edge_toolkit::ports::Services;
 use edge_toolkit::ws::CloudEvent;
 use et_recovery_supervisor::config::{Config, EnvConfig, Mode};
 use et_recovery_supervisor::policy::{Budget, Supervisor};
@@ -40,15 +41,17 @@ pub fn environment() -> BTreeMap<String, String> {
         ("RECOVERY_POLICY_STALL_SECONDS", "180"),
         ("RECOVERY_POLL_SECONDS", "2"),
         ("RECOVERY_STATE_FILE", "target/recovery-state.json"),
-        // Intentionally default to a loopback-only test endpoint; configuration parsing does not open a connection.
-        // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
-        // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
-        ("RECOVERY_WS_URL", "ws://127.0.0.1:8080/ws"),
     ];
     let mut env: BTreeMap<String, String> = values
         .into_iter()
         .map(|(key, value)| (key.into(), value.into()))
         .collect();
+    let hub_port = Services::InsecureWebSocketServer.port();
+    // Intentionally default to a loopback-only test endpoint; configuration parsing does not open a connection.
+    // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
+    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
+    let ws_url = format!("ws://127.0.0.1:{hub_port}/ws");
+    let _previous = env.insert("RECOVERY_WS_URL".into(), ws_url);
     let workloads = serde_json::json!([{
         "deployment": "example-worker", "agent_id": "example-worker", "source": "/modules/example-worker"
     }]);

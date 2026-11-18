@@ -228,6 +228,10 @@ allowed_os_scoped_tool := {
 	# windows_exporter is a Windows-only host/GPU Prometheus exporter, so the o2-winmetrics task scopes it to Windows.
 	"github:prometheus-community/windows_exporter",
 	"cargo:findutils",
+	# cargo-rail is covered by two per-platform entries.
+	# The github prebuilt covers every platform upstream ships an archive for; a cargo source build covers macos/x64.
+	"github:loadingalias/cargo-rail",
+	"cargo:cargo-rail",
 	# vector is the OTLP store-and-forward relay, covered by two per-platform entries.
 	# The aqua prebuilt covers every platform upstream ships (no darwin/amd64 asset exists); a cargo source
 	# build from the same git tag covers macos/x64. Between the two every platform is covered.

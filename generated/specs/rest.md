@@ -1,10 +1,11 @@
 # Edge Toolkit REST API
 
-ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
-the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
-interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
-PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
-the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token.
+ws-server HTTP surface: health probe, build information, module discovery, module assets,
+per-agent storage, and the admin routes that block client addresses and evict agents. The storage routes are an
+anonymous S3-compatible interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id,
+key = filename), they answer PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without
+credentials. A client address the hub has blocked is refused by them with 403. The admin routes take the hub's
+WS_ADMIN_TOKEN as a bearer token.
 
 API Version: 0.1.0
 
@@ -23,6 +24,8 @@ API Version: 0.1.0
   - [block_ip](#admin-put-blocked-ips-ip)
 - [health](#health)
   - [health](#health-get-health)
+- [info](#info)
+  - [info](#info-get-info)
 - [modules](#modules)
   - [list_modules_handler](#modules-get-modules)
   - [get_module_file](#modules-get-modules-name-path)
@@ -126,6 +129,30 @@ No request schema available.
 | Field      | Type                                     | Required | Description                                                |
 | ---------- | ---------------------------------------- | -------: | ---------------------------------------------------------- |
 | `response` | [HealthResponse](#schema-healthresponse) |        - | Server liveness probe response. Returned by `GET /health`. |
+
+## info {#info}
+
+### info {#info-get-info}
+
+**Operation:** GET /info
+**Description:** Returns the release, toolchain, target and features the server was built with.
+**Operation ID:** `info`
+
+#### Responses
+
+| Code | Type             | Description              |
+| ---- | ---------------- | ------------------------ |
+| 200  | application/json | How the server was built |
+
+#### Request Schema
+
+No request schema available.
+
+#### Response Schema
+
+| Field      | Type                           | Required | Description                                                                                                                                     |
+| ---------- | ------------------------------ | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `response` | [BuildInfo](#schema-buildinfo) |        - | How the answering server was built. Returned by `GET /info`, so an operator can tell which release, toolchain and feature set a hub is running. |
 
 ## modules {#modules}
 
@@ -299,3 +326,16 @@ No response schema available.
 | `HealthResponse`         | object |        - | Server liveness probe response. Returned by `GET /health`. |
 | `HealthResponse.service` | string |      Yes | -                                                          |
 | `HealthResponse.status`  | string |      Yes | -                                                          |
+
+### BuildInfo {#schema-buildinfo}
+
+| Field                  | Type          | Required | Description                                                                                                                                     |
+| ---------------------- | ------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BuildInfo`            | object        |        - | How the answering server was built. Returned by `GET /info`, so an operator can tell which release, toolchain and feature set a hub is running. |
+| `BuildInfo.features`   | array<string> |      Yes | The crate features it was built with, which name the services it can mount.                                                                     |
+| `BuildInfo.features[]` | string        |        - | -                                                                                                                                               |
+| `BuildInfo.name`       | string        |      Yes | The crate the server was built from.                                                                                                            |
+| `BuildInfo.profile`    | string        |      Yes | The cargo profile, `debug` or `release`.                                                                                                        |
+| `BuildInfo.rustc`      | string        |      Yes | The `rustc --version` that compiled it.                                                                                                         |
+| `BuildInfo.target`     | string        |      Yes | The target triple it was compiled for.                                                                                                          |
+| `BuildInfo.version`    | string        |      Yes | Its version.                                                                                                                                    |

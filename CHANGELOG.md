@@ -7,6 +7,13 @@ Changelog 1.1.0.
 
 ### Added
 
+- `et-ws-server` answers `GET /info` with how it was built: crate name, version, `rustc` version, target triple,
+  cargo profile and enabled features, so an operator can tell which release and service set a hub is running. The
+  REST spec and the generated Rust and Python clients gain the route and its `BuildInfo` schema.
+- `et-rest-client`'s new `mock` feature adds the `mock` module, a typed `httpmock` extension generated from the same
+  spec as the client. `MockServerExt` gives `httpmock::MockServer` one method per REST operation, whose `when`/`then`
+  builders take that operation's parameters and response types, so a test of a REST consumer can stand in for the
+  hub.
 - The `graphics-info` module tells GPUs apart by their arithmetic. It puts sixteen expressions to the WebGPU device,
   each as a compute shader of its own so that a device refusing one still answers the rest, and its `info_detected`
   event gains a `gpu_numeric_probe` object: how many probes were answered, how many were not correctly rounded, which
@@ -215,6 +222,8 @@ Changelog 1.1.0.
   are refused, as is a bare number with no unit such as `0` (write `0s`), and units must run from largest to smallest,
   once each. In `edge-toolkit`, `config::deserialize_optional_humantime` is renamed `deserialize_optional_duration`,
   and in `et-actix-web-config`, `KeepAliveSetting`'s `TryFrom<String>` error is now `jiff::Error`.
+- **Breaking:** `gpu-probe-server` listens on port 8444 by default, its own entry in `edge_toolkit::ports::Services`
+  (`GpuProbeServer`), rather than 8443, the hub's secure WebSocket port. Pass `--port 8443` to keep the old port.
 - **Breaking:** a GPU probe registry row may give `browser`, `os`, `cpu_arch`, `gpu`, `backend` and `window` a value
   outside the set the registry names, which is kept as its text rather than refused, so `et-gpu-probe-server`,
   `gpu-probe` and the probe page record a device, browser or system the registry has no name for yet; the server

@@ -523,7 +523,10 @@ fn openobserve_service() -> ComposeService {
         // Bound to loopback, not every interface. A collector published on 0.0.0.0 would hand its root login to anyone
         // who can reach the host and read the scenario's generated env file. Nothing outside the developer's machine
         // needs to talk to it: the ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
-        ports: vec!["127.0.0.1:5080:5080".to_string()],
+        ports: vec![format!(
+            "127.0.0.1:{port}:{port}",
+            port = Services::OtlpCollector.port()
+        )],
         // The scenario's own file is the only one, and it carries only the credential. Per-scenario credentials mean
         // two stacks running side by side cannot authenticate against each other's collector.
         env_file: vec![SECRETS_ENV_FILE.to_string()],
@@ -564,7 +567,7 @@ fn hub_environment(
         ("OTLP_AUTH_USERNAME".to_string(), COLLECTOR_USERNAME.to_string()),
         (
             "OTLP_COLLECTOR_URL".to_string(),
-            "http://127.0.0.1:5080/api/default/v1".to_string(),
+            format!("http://127.0.0.1:{}/api/default/v1", Services::OtlpCollector.port()),
         ),
     ];
     // Hubs that share storage are pointed at it by the caller instead.

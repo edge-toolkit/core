@@ -246,16 +246,6 @@ ignore = [
   # newest release. It runs at compile time inside that macro and reports its errors; none of it is in the firmware.
   # Drop this when pio-proc leaves it.
   { id = "RUSTSEC-2026-0173", reason = "expires 2027-01-01" },
-  # actix-http 3.20.3 -- three HTTP/1.1 flaws in every actix-web server here, fixed in 3.21.1, 3.21.2 and 3.21.3.
-  # A bare LF in a chunked trailer, and a CR inside an unterminated quoted chunk extension, each let a client end a
-  # body early or swallow its own next pipelined request; smuggling past that needs an intermediary that frames the
-  # request differently, and none was shown to. The third is live as written: the request header timeout covers only
-  # a connection's first request, so a client that sends one byte of a second request holds the connection open, and
-  # enough of them exhaust connections or descriptors. The fixes were published 2026-11-15, and the 7-day minimum
-  # publish age in .cargo/config.toml admits 3.21.3 on 2026-11-22 UTC; drop these when Cargo.lock moves to it.
-  { id = "RUSTSEC-2026-0552", reason = "expires 2027-01-01" },
-  { id = "RUSTSEC-2026-0553", reason = "expires 2027-01-01" },
-  { id = "RUSTSEC-2026-0554", reason = "expires 2027-01-01" },
   # chrono 0.4.45 (unmaintained, so no version is patched) and humantime 2.4.0, unmaintained because it wraps chrono.
   # Maintenance notices, not vulnerabilities. Our own crates use chrono, but leaving it would not drop it: chrono also
   # comes in through deno_runtime's crates, cloudevents-sdk, object_store, schemars and croner, and humantime, which
@@ -347,6 +337,11 @@ allow = [
 crate = "libuv-sys-lite"
 expression = "MIT AND BSD-2-Clause"
 license-files = [{ path = "LICENSE", hash = 0xc2efc575 }]
+
+[[licenses.clarify]]
+crate = "stringmetrics"
+expression = "Apache-2.0"
+license-files = [{ path = "LICENSE", hash = 0xc9663a1e }]
 
 [[licenses.clarify]]
 crate = "saffron"

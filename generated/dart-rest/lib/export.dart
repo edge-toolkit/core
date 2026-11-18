@@ -5,9 +5,11 @@
 // Clients
 export 'clients/admin.dart';
 export 'clients/health.dart';
+export 'clients/info.dart';
 export 'clients/modules.dart';
 export 'clients/storage.dart';
 // Data classes
+export 'models/build_info.dart';
 export 'models/evicted_agent.dart';
 export 'models/health_response.dart';
 // Root client

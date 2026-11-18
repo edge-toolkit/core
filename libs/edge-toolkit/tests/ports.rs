@@ -9,6 +9,7 @@ use edge_toolkit::ports::Services;
 #[case::backplane(Services::Backplane, 4222)]
 #[case::backplane_monitor(Services::BackplaneMonitor, 8222)]
 #[case::shared_storage(Services::SharedStorage, 9000)]
+#[case::gpu_probe_server(Services::GpuProbeServer, 8444)]
 fn port(#[case] service: Services, #[case] expected: u16) {
     assert_eq!(service.port(), expected);
 }

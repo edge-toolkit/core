@@ -924,6 +924,11 @@ version = "1.0.127"
 backend = "cargo:cargo-expand"
 specifiers = ["latest"]
 
+[[tools."cargo:cargo-rail"]]
+version = "0.32.0"
+backend = "cargo:cargo-rail"
+specifiers = ["latest"]
+
 [[tools."cargo:findutils"]]
 version = "0.10.0"
 backend = "cargo:findutils"
@@ -1527,6 +1532,35 @@ provenance = "github-attestations"
 checksum = "sha256:a7927e3bbdd341a139459c684d3f5e0b6409b7b1660bae275d44523f63128d87"
 url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.2/jscpd-windows-x64-msvc.tar.gz"
 url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/659819508"
+provenance = "github-attestations"
+
+[[tools."github:loadingalias/cargo-rail"]]
+version = "0.32.0"
+backend = "github:loadingalias/cargo-rail"
+specifiers = ["latest"]
+
+[tools."github:loadingalias/cargo-rail"."platforms.linux-arm64"]
+checksum = "sha256:abc107d859ae72d48d22fec6935e89f921ed9564c86e5c51ec1b99e51d93e8a2"
+url = "https://github.com/loadingalias/cargo-rail/releases/download/v0.32.0/cargo-rail-aarch64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/loadingalias/cargo-rail/releases/assets/648028166"
+provenance = "github-attestations"
+
+[tools."github:loadingalias/cargo-rail"."platforms.linux-x64"]
+checksum = "sha256:5fcda1a62d36d51834ad49a5ef2ebc82777fd9d134d3d409f7021ce1a495dee4"
+url = "https://github.com/loadingalias/cargo-rail/releases/download/v0.32.0/cargo-rail-x86_64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/loadingalias/cargo-rail/releases/assets/648028192"
+provenance = "github-attestations"
+
+[tools."github:loadingalias/cargo-rail"."platforms.macos-arm64"]
+checksum = "sha256:7cd7c4484b0bdf123822ea83ac450840c4df7d02727ef321b4be76268b3787c7"
+url = "https://github.com/loadingalias/cargo-rail/releases/download/v0.32.0/cargo-rail-aarch64-apple-darwin.zip"
+url_api = "https://api.github.com/repos/loadingalias/cargo-rail/releases/assets/648028165"
+provenance = "github-attestations"
+
+[tools."github:loadingalias/cargo-rail"."platforms.windows-x64"]
+checksum = "sha256:cd4d8570164218d269afc8d21a4fa05283cf9b7c1d74dad8a97e89179b1a62c7"
+url = "https://github.com/loadingalias/cargo-rail/releases/download/v0.32.0/cargo-rail-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/loadingalias/cargo-rail/releases/assets/648028191"
 provenance = "github-attestations"
 
 [[tools."github:lycheeverse/lychee"]]

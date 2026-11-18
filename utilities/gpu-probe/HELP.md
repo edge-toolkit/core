@@ -23,7 +23,7 @@ Collect GPU probe signatures into a registry over HTTPS
   Default value: `127.0.0.1`
 - `--port <PORT>` -- The port to listen on
 
-  Default value: `8443`
+  Default value: `8444`
 - `--cert <CERT>` -- The PEM certificate to serve, generated self-signed with the key when either is missing
 - `--key <KEY>` -- The PEM private key of the certificate
 - `--public-host <PUBLIC_HOST>` -- Another name to advertise the server at, which a generated certificate covers too
