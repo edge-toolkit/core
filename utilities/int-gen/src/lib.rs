@@ -201,7 +201,7 @@ pub fn generate_core() -> Result<(), Error> {
     Ok(())
 }
 
-/// Emit the typed Rust REST client (`generated/rust-rest/src/lib.rs`).
+/// Emit the typed Rust REST client (`generated/rust-rest/src/lib.rs`) and its `httpmock` extension (`src/mock.rs`).
 ///
 /// Same `progenitor::Generator` engine the retired `cargo-progenitor` CLI used, but driven in-process so the spec
 /// and client always reflect the same source. Self-contained: re-derives the `OpenAPI` doc in-process, so it needs no
@@ -210,6 +210,8 @@ pub fn generate_rust() -> Result<(), Error> {
     let project_root = get_project_root();
     let rust_client = openapi::render_rust_client()?;
     write_if_changed(&project_root.join("generated/rust-rest/src/lib.rs"), &rust_client)?;
+    let rust_mock = openapi::render_rust_mock()?;
+    write_if_changed(&project_root.join("generated/rust-rest/src/mock.rs"), &rust_mock)?;
     Ok(())
 }
 

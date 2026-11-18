@@ -18,17 +18,19 @@ use crate::Error;
     info(
         title = "Edge Toolkit REST API",
         version = "0.1.0",
-        description = "ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
-the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
-interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
-PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
-the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token."
+        description = "ws-server HTTP surface: health probe, build information, module discovery, module assets,
+per-agent storage, and the admin routes that block client addresses and evict agents. The storage routes are an
+anonymous S3-compatible interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id,
+key = filename), they answer PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without
+credentials. A client address the hub has blocked is refused by them with 403. The admin routes take the hub's
+WS_ADMIN_TOKEN as a bearer token."
     ),
     servers(
         (url = "http://localhost:8080", description = "Default ws-server bind address")
     ),
     paths(
         et_ws_server::routes::health,
+        et_ws_server::routes::info,
         et_modules_service::routes::list_modules_handler,
         et_modules_service::routes::get_module_file,
         et_storage_service::routes::get_file::<et_ws_server::AgentSession>,
@@ -37,7 +39,11 @@ the hub has blocked is refused by them with 403. The admin routes take the hub's
         et_ws_service::admin::block_ip,
         et_ws_service::admin::evict_agent,
     ),
-    components(schemas(et_ws_service::health::HealthResponse, et_ws_service::admin::EvictedAgent)),
+    components(schemas(
+        et_ws_service::health::HealthResponse,
+        et_ws_server::routes::BuildInfo,
+        et_ws_service::admin::EvictedAgent
+    )),
     modifiers(&AdminTokenScheme)
 )]
 struct ApiDoc;
@@ -148,6 +154,7 @@ pub fn render_rust_client() -> Result<String, Error> {
     let body = prettyplease::unparse(&ast);
     let body = inject_wasm_baseurl_fallback(&body);
     let body = inject_retry_exec(&body);
+    let body = format!("{body}\n#[cfg(feature = \"mock\")]\npub mod mock;\n");
     // progenitor wraps each handler doc as a `/**...*/` block, immediately appending its own `Sends a METHOD request
     // to /path` line at +4 spaces; any non-empty description from the `OpenAPI` spec then leaves that following block
     // indented by 4 from the first line, which CommonMark promotes to an indented code block -- rustdoc then tries to
@@ -169,6 +176,31 @@ pub fn render_rust_client() -> Result<String, Error> {
         "#![allow(unused_results)]",
     );
     Ok(format!("{header}\n{body}"))
+}
+
+/// Generate the client's typed `httpmock` extension (`generated/rust-rest/src/mock.rs`) from the `OpenAPI` document.
+///
+/// Each operation gains a method on `httpmock::MockServer` whose `when` and `then` builders take the operation's own
+/// parameter and response types, so a stand-in for the hub is written in the spec's terms rather than raw paths.
+#[expect(
+    clippy::unwrap_in_result,
+    clippy::unwrap_used,
+    reason = "progenitor's emit feeds straight into syn::parse2; a parse failure means progenitor produced invalid Rust"
+)]
+pub fn render_rust_mock() -> Result<String, Error> {
+    let spec = build_spec();
+    let mut generator = progenitor::Generator::new(&progenitor::GenerationSettings::default());
+    let tokens = generator.httpmock(&spec, "crate")?;
+    let ast = syn::parse2(tokens).unwrap();
+    // progenitor interpolates each path parameter into its matcher regex unescaped, so `ip("127.0.0.1")` would also
+    // match `/blocked-ips/127x0x0x1`; escaping makes the value match only itself. Every parameter is a `&str`, so
+    // progenitor's `value.to_string()` is dropped along the way.
+    let source = prettyplease::unparse(&ast).replace(", value.to_string()))", ", regex::escape(value)))");
+    // A path with no parameter is still emitted as an anchored regex of a literal, which is an exact match spelled
+    // the slow way, so it becomes httpmock's own exact-path matcher.
+    let literal_path =
+        regex::Regex::new(r#"\.path_matches\(regex::Regex::new\("\^(/[A-Za-z0-9/_-]*)\$"\)\.unwrap\(\)\)"#)?;
+    Ok(literal_path.replace_all(&source, r#".path("$1")"#).into_owned())
 }
 
 /// Wrap progenitor's `pub fn new(baseurl: &str) -> Self` with a browser-origin fallback for an empty `baseurl`.

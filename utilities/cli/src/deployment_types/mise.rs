@@ -137,11 +137,12 @@ fn insert_entry_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[Runn
     if server_delivery(cluster) != Delivery::Tasks {
         return;
     }
+    let open_command = format!("open http://localhost:{}/", Services::OtlpCollector.port());
     let opener = mise_task(
         None,
         Some("Open the OpenObserve UI"),
         None,
-        Some("open http://localhost:5080/"),
+        Some(&open_command),
         None,
         None,
     );
@@ -421,11 +422,12 @@ fn openobserve_run_body(cluster_name: &str) -> String {
             "container={container}\n",
             "settings=\"{flags}\"\n",
             "# $settings is a word-split flag list by design; do not quote it.\n",
-            "docker run --rm --name \"$container\" -p 127.0.0.1:5080:5080 $settings ",
+            "docker run --rm --name \"$container\" -p 127.0.0.1:{port}:{port} $settings ",
             "-e ZO_ROOT_USER_PASSWORD \"$image\"\n",
         ),
         container = collector_container(cluster_name),
         flags = collector_flags,
+        port = Services::OtlpCollector.port(),
     )
 }
 

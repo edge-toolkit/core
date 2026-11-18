@@ -120,6 +120,10 @@ conftest = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
 "github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
+# cargo-rail plans which workspace packages a branch's changes affect, for cargo-test-changed.
+# It ships no macos/x64 archive, which the cargo: entry builds from source instead.
+"cargo:cargo-rail" = { version = "latest", os = ["macos/x64"] }
+"github:loadingalias/cargo-rail" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 taplo = "latest"
 watchexec = "latest"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
@@ -2867,13 +2871,13 @@ description = "Audit dependencies with cargo-deny (advisories, bans, licenses, s
 # Escalate `no-license-field` to a hard error, except where clarify-allowlisted.
 # The exception is crates with an explicit clarify entry in config/deny.toml. cargo-deny has no per-crate
 # diagnostic-level config, so we post-filter its output: any `warning[no-license-field]` whose crate isn't
-# allowlisted (currently just `saffron`) fails the task. A new transitive dep without an SPDX `license`
+# allowlisted (currently `saffron` and `stringmetrics`) fails the task. A new transitive dep without an SPDX `license`
 # expression must then land in clarify intentionally, not silently.
 run = """
 rc=0
 out="$(cargo deny --config config/deny.toml check 2>&1)" || rc=$?
 echo "$out"
-extra="$(echo "$out" | rg 'warning\\[no-license-field\\]' | rg -v 'saffron' || true)"
+extra="$(echo "$out" | rg 'warning\\[no-license-field\\]' | rg -v 'saffron|stringmetrics' || true)"
 if [ -n "$extra" ]; then
   echo "ERROR: no-license-field warning for crate not in clarify allowlist:" >&2
   echo "$extra" >&2
@@ -3525,12 +3529,12 @@ flag "--submit" help="Submit every probe set from the page and print how each we
 
 [tasks.gpu-probe-server]
 depends = ["build-gpu-probe-page"]
-description = "Collect GPU probe signatures into libs/gpu-probe/signatures over HTTPS at localhost:8443"
+description = "Collect GPU probe signatures into libs/gpu-probe/signatures over HTTPS at localhost:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 
 [tasks.gpu-probe-server-lan]
 depends = ["build-gpu-probe-page"]
-description = "Collect GPU probe signatures over HTTPS from other devices on the LAN, listening on 0.0.0.0:8443"
+description = "Collect GPU probe signatures over HTTPS from other devices on the LAN, listening on 0.0.0.0:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --bind {{ vars.lan_bind }}"
 
 [tasks.ws-server-no-otel]

@@ -30,28 +30,28 @@ url = "https://github.com/gradle/gradle-distributions/releases/download/v9.8.2/g
 url_api = "https://api.github.com/repos/gradle/gradle-distributions/releases/assets/656830895"
 
 [[tools.java]]
-version = "26.0.1"
+version = "26.0.2.1"
 backend = "core:java"
 
 [tools.java.options]
 shorthand_vendor = "openjdk"
 
 [tools.java."platforms.linux-arm64"]
-checksum = "sha256:12a3649b2f4a0c9f6491d220bdd04b4fff07cae502b435aaff46eac0e36f4df1"
-url = "https://download.java.net/java/GA/jdk26.0.1/458fda22e4c54d5ba572ab8d2b22eb83/8/GPL/openjdk-26.0.1_linux-aarch64_bin.tar.gz"
+checksum = "sha256:b96b265a4a1a36c02454148891aa58ca63303cbc2d1b7979c33b4fe99e09117b"
+url = "https://download.java.net/java/GA/jdk26.0.2.1/3b8e6c7ec6274148a7aa15e7e7dfb53c/1/GPL/openjdk-26.0.2.1_linux-aarch64_bin.tar.gz"
 
 [tools.java."platforms.linux-x64"]
-checksum = "sha256:2f2802d57b5fc414f1ddf6648ba12cc9a6454cf67b32ac95407c018f2e6ab0b0"
-url = "https://download.java.net/java/GA/jdk26.0.1/458fda22e4c54d5ba572ab8d2b22eb83/8/GPL/openjdk-26.0.1_linux-x64_bin.tar.gz"
+checksum = "sha256:a1489256029b389ce6ee52da0de1d01496c5df1776d6870241fe4823b998ea61"
+url = "https://download.java.net/java/GA/jdk26.0.2.1/3b8e6c7ec6274148a7aa15e7e7dfb53c/1/GPL/openjdk-26.0.2.1_linux-x64_bin.tar.gz"
 
 [tools.java."platforms.macos-arm64"]
-checksum = "sha256:b2d57405194a312ed4ec6ec08e83b314d3fd2e425e895d704ec5ef8ea6059e17"
-url = "https://download.java.net/java/GA/jdk26.0.1/458fda22e4c54d5ba572ab8d2b22eb83/8/GPL/openjdk-26.0.1_macos-aarch64_bin.tar.gz"
+checksum = "sha256:3a61f9bbfbf2e09308aa4b1a5c044fcbc82f6ba49e074be49a7b7911e1f00efd"
+url = "https://download.java.net/java/GA/jdk26.0.2.1/3b8e6c7ec6274148a7aa15e7e7dfb53c/1/GPL/openjdk-26.0.2.1_macos-aarch64_bin.tar.gz"
 
 [tools.java."platforms.macos-x64"]
-checksum = "sha256:e52bc05aefe4991329a6a103c9b42ae4b9b77240a9f9d3d12f6a7365db1ae16a"
-url = "https://download.java.net/java/GA/jdk26.0.1/458fda22e4c54d5ba572ab8d2b22eb83/8/GPL/openjdk-26.0.1_macos-x64_bin.tar.gz"
+checksum = "sha256:5ec3817530ffa1c38f15a55609a2767335bbd0c59ea8ce41aad68d3cd620c0ae"
+url = "https://download.java.net/java/GA/jdk26.0.2.1/3b8e6c7ec6274148a7aa15e7e7dfb53c/1/GPL/openjdk-26.0.2.1_macos-x64_bin.tar.gz"
 
 [tools.java."platforms.windows-x64"]
-checksum = "sha256:b381d30647aed9ff440abed5ab61af01d8578c290cd407c57e064ebc4b0151be"
-url = "https://download.java.net/java/GA/jdk26.0.1/458fda22e4c54d5ba572ab8d2b22eb83/8/GPL/openjdk-26.0.1_windows-x64_bin.zip"
+checksum = "sha256:0c3a8a30993de864937e6bced5270edc39c80c584cfd359ac222638c42758f1c"
+url = "https://download.java.net/java/GA/jdk26.0.2.1/3b8e6c7ec6274148a7aa15e7e7dfb53c/1/GPL/openjdk-26.0.2.1_windows-x64_bin.zip"

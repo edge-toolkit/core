@@ -1,0 +1,65 @@
+id: port-from-registry
+valid:
+  - |
+    const PORT: u16 = Services::InsecureWebSocketServer.port();
+  - |
+    const MAX_AGENTS: u16 = 8080;
+  - |
+    const PORT_NAME_MAX: usize = 15;
+  - |
+    struct Args {
+        #[arg(long, default_value_t = Services::GpuProbeServer.port())]
+        port: u16,
+    }
+  - |
+    struct Args {
+        #[arg(long, default_value_t = 30)]
+        timeout: u16,
+    }
+  - |
+    struct Args {
+        #[arg(long, default_value_t = 8443)]
+        count: u16,
+        #[serde(default)]
+        port: u16,
+    }
+  - |
+    #[asyncapi_server(name = "local", host = "localhost:8080")]
+    struct WsApi;
+  - |
+    fn url() -> String {
+        format!("http://localhost:{}", Services::OtlpCollector.port())
+    }
+  - |
+    fn time() -> &'static str {
+        "12:30"
+    }
+invalid:
+  - |
+    const COV_SERVER_PORT: u16 = 8080;
+  - |
+    static PORT: u16 = 9000;
+  - |
+    struct Args {
+        #[arg(long, default_value_t = 8443)]
+        port: u16,
+    }
+  - |
+    struct Args {
+        #[arg(long, default_value_t = 8443)]
+        /// The port to listen on.
+        #[serde(default)]
+        port: u16,
+    }
+  - |
+    fn ports() -> Vec<String> {
+        vec!["127.0.0.1:5080:5080".to_string()]
+    }
+  - |
+    fn url() -> &'static str {
+        "http://localhost:8080/ws"
+    }
+  - |
+    fn bind() -> &'static str {
+        "0.0.0.0:4222"
+    }

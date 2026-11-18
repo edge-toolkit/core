@@ -97,6 +97,7 @@ bytesize = { version = "2", features = ["serde"] }
 cc = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 # Benchmarks; rayon and the plotters charts are left out, since a run's numbers are what a README records.
+built = { version = "0.8", default-features = false }
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1"
 cloudevents-sdk = "0.9"
@@ -115,6 +116,7 @@ defmt-rtt = "1"
 deno_core = "0.413"
 deno_error = "=0.7.1"
 deno_resolver = "0.91"
+httpmock = { version = "0.8", default-features = false }
 # `transpile` enables on-the-fly TS transpilation (deno_node ships its own TS).
 # `hmr` makes `op_snapshot_options` use `state.try_take(...).unwrap_or_default()`
 # instead of panicking when no SnapshotOptions struct is in OpState -- without

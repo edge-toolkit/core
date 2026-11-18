@@ -100,6 +100,16 @@ searching for it. Their honorific, position and school are public in Curtin Prof
 browser pane rather than fetching it. Web search finds neither, so do not spend searches on a name. The older
 `https://staffportal.curtin.edu.au/staff/profile/view/` profile URLs redirect to Curtin Profiles.
 
+## A page behind a sign-in: say what to do and what is needed, never ask for access
+
+When a page the work needs stops at a sign-in -- a Vercel deployment's build log, a dashboard, anything private --
+never ask the operator whether they will grant access or sign in for you. Tell them instead, in one place, what to do
+and what you need: the site and the page to sign in to, the URL of the page that holds the information, and exactly
+which part of it you are after, such as the lines around the first error of the build log. They can then sign in where
+the agent's browser can read it, or paste that part themselves, whichever is quicker for them. A Vercel deploy is the
+worked example: its failure says only "Deployment has failed", and the cause is in the log on vercel.com behind a
+sign-in, so the useful message names that log and the error lines in it, not a question about access.
+
 ## On macOS: use homebrew bash for ad-hoc agent commands
 
 On macOS, every ad-hoc command the agent runs that is **not** a `mise run <task>` invocation -- investigations,

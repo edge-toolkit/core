@@ -7,7 +7,7 @@
 # unlike mvn.cmd it does not require JAVA_HOME on any platform.
 gradle = "9.8.2"
 # Same JDK pin as config.java.toml carries for Maven; bump the two in lockstep.
-java = "26.0.1"
+java = "26.0.2.1"
 
 [env]
 # Cross-platform gradle invocation.

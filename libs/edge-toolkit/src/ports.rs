@@ -1,7 +1,8 @@
 //! Port allocation.
 
 use Services::{
-    Backplane, BackplaneMonitor, InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer, SharedStorage,
+    Backplane, BackplaneMonitor, GpuProbeServer, InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer,
+    SharedStorage,
 };
 
 /// Define each services port.
@@ -22,6 +23,9 @@ pub enum Services {
     BackplaneMonitor,
     /// S3 endpoint of the object store several hubs share.
     SharedStorage,
+
+    /// HTTPS server that collects GPU probe signatures.
+    GpuProbeServer,
 }
 
 impl Services {
@@ -39,6 +43,8 @@ impl Services {
             Backplane => 4222,
             BackplaneMonitor => 8222,
             SharedStorage => 9000,
+
+            GpuProbeServer => 8444,
         }
     }
 }

@@ -3,6 +3,8 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
 
+use edge_toolkit::ports::Services;
+
 pub mod app;
 pub mod measure;
 pub mod registry;
@@ -24,7 +26,7 @@ pub struct Args {
     #[arg(long, default_value = "127.0.0.1")]
     pub bind: IpAddr,
     /// The port to listen on.
-    #[arg(long, default_value_t = 8443)]
+    #[arg(long, default_value_t = Services::GpuProbeServer.port())]
     pub port: u16,
     /// The PEM certificate to serve, generated self-signed with the key when either is missing.
     #[arg(long)]
