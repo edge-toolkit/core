@@ -20,7 +20,7 @@ use tokio_tungstenite::{client_async, connect_async};
 /// What the route the caller mounts below answers.
 const HOOKED: &str = "hooked";
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn one_worker_serves_agents_on_both_loopback_addresses_and_the_callers_route() {
     let mut options = HubOptions::default();
     options.workers = 1;
@@ -46,7 +46,7 @@ async fn one_worker_serves_agents_on_both_loopback_addresses_and_the_callers_rou
     assert_eq!(body, HOOKED);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_https_hub_registers_an_agent_that_trusts_its_self_signed_certificate() {
     let (transport, trusted) = Transport::self_signed();
     let mut options = HubOptions::default();
@@ -73,7 +73,7 @@ async fn an_https_hub_registers_an_agent_that_trusts_its_self_signed_certificate
     ));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_worker_at_its_most_connections_holds_back_the_next_until_one_closes() {
     let mut options = HubOptions::default();
     options.workers = 1;

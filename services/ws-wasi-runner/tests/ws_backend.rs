@@ -62,7 +62,7 @@ async fn connect_peer(
 ///
 /// The hub forwards any frame it cannot parse as a known `ClientMessage` verbatim, so a raw binary payload
 /// lands on the reader pump's `Message::Binary` arm -- the one that calls `from_binary_frame`.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn binary_frame_arrives_as_relay_binary() {
     let server = et_ws_test_server::start();
     let backend = WsBackend::connect(&server.ws_url, Some(ACK_TIMEOUT)).await.unwrap();
@@ -94,7 +94,7 @@ async fn binary_frame_arrives_as_relay_binary() {
 /// The server only bumps `last_activity` on inbound frames and closes an idle connection at 15s, so a backend
 /// whose pinger never ticked is shut by the time this assertion runs. Staying `Connected` is therefore direct
 /// evidence the pinger loop ran and its `Ping` was accepted as activity.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn heartbeat_keeps_the_connection_past_the_idle_close() {
     let server = et_ws_test_server::start();
     let backend = WsBackend::connect(&server.ws_url, Some(ACK_TIMEOUT)).await.unwrap();
@@ -114,7 +114,7 @@ async fn heartbeat_keeps_the_connection_past_the_idle_close() {
 /// The outbound counterpart to the test above, and it goes through `HostState` rather than `WsBackend` because
 /// the WIT-to-Rust conversion and the relay-vs-typed-JSON choice both live in `<HostState as Host>::send`.
 /// Constructing the state needs no wasmtime store -- it is a plain struct of the URLs and the REST client.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn relay_binary_leaves_as_a_raw_binary_frame() {
     let server = et_ws_test_server::start();
     let mut peer = connect_peer(&server.ws_url).await;
@@ -166,14 +166,14 @@ async fn send_guest_event(time: &str, specversion: &str) -> Result<(), WsError> 
 }
 
 /// A guest event whose `time` is not an RFC 3339 timestamp is refused as undecodable before anything is sent.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_client_event_with_an_unparsable_time_is_refused() {
     let sent = send_guest_event("yesterday", "1.0").await;
     assert!(matches!(sent, Err(WsError::Decode(_))));
 }
 
 /// A guest event declaring a `specversion` the protocol does not support is refused the same way.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_client_event_at_an_unsupported_specversion_is_refused() {
     let sent = send_guest_event("2026-10-06T00:00:00Z", "0.3").await;
     assert!(matches!(sent, Err(WsError::Decode(_))));

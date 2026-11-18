@@ -69,14 +69,14 @@ fn config_names_local_or_a_nats_url() {
     assert!(error.to_string().contains("bogus"));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_local_backplane_knows_nobody() {
     let backplane = Backplane::connect(&BackplaneConfig::Local).await.unwrap();
     assert!(matches!(backplane, Backplane::Local));
     assert_eq!(backplane.presence("anyone").await.unwrap(), Presence::Unknown);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_unreachable_broker_fails_to_connect_naming_its_url() {
     let url = format!("nats://127.0.0.1:{}", et_test_helpers::reserve_port());
     let error = Backplane::connect(&BackplaneConfig::Nats(url.clone()))
@@ -112,7 +112,7 @@ fn credentials_never_reach_debug_output_or_error_text() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_failed_connection_names_the_server_but_not_its_credentials() {
     let port = et_test_helpers::reserve_port();
     let url = format!("nats://hub:s3cret@127.0.0.1:{port}");
@@ -123,7 +123,7 @@ async fn a_failed_connection_names_the_server_but_not_its_credentials() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn the_directory_follows_an_agent_across_hubs() {
     let server = NatsServer::start();
     let first = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -170,7 +170,7 @@ async fn the_directory_follows_an_agent_across_hubs() {
     assert_eq!(backplane.presence("ghost").await.unwrap(), Presence::Unknown);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_deleted_directory_entry_reads_as_unknown() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -184,7 +184,7 @@ async fn a_deleted_directory_entry_reads_as_unknown() {
     assert_eq!(hub.list_agents().await.unwrap(), []);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn corrupt_records_are_reported_not_ignored() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -218,7 +218,7 @@ async fn corrupt_records_are_reported_not_ignored() {
     ));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn the_mailbox_keeps_the_newest_message_per_sender_until_acknowledged() {
     let server = NatsServer::start();
     let first = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -248,7 +248,7 @@ async fn the_mailbox_keeps_the_newest_message_per_sender_until_acknowledged() {
     assert_eq!(ids(first.pending_for("r").await.unwrap()), ["m4"]);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn the_mailbox_keeps_every_message_under_all_retention() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -265,7 +265,7 @@ async fn the_mailbox_keeps_every_message_under_all_retention() {
     assert_eq!(ids(hub.pending_for("r").await.unwrap()), ["m2"]);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn forgetting_a_sender_empties_its_messages_from_every_mailbox() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -283,7 +283,7 @@ async fn forgetting_a_sender_empties_its_messages_from_every_mailbox() {
     assert_eq!(ids(hub.pending_for("t").await.unwrap()), ["m4"]);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 4))]
 async fn concurrent_senders_all_land_in_one_mailbox() {
     let server = NatsServer::start();
     let hubs = [
@@ -317,7 +317,7 @@ async fn concurrent_senders_all_land_in_one_mailbox() {
 //
 // on commit https://github.com/edge-toolkit/core/commit/c91d332c72d0c94f9fd4aa915c1d485fee251fd0 at
 // https://github.com/edge-toolkit/core/actions/runs/39857810014/job/120100468951.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn frames_reach_the_named_hub_and_broadcasts_reach_the_others() {
     let server = NatsServer::start();
     let first = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -355,7 +355,7 @@ async fn frames_reach_the_named_hub_and_broadcasts_reach_the_others() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn undecodable_messages_are_skipped_and_the_stream_carries_on() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -398,7 +398,7 @@ async fn undecodable_messages_are_skipped_and_the_stream_carries_on() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_lost_broker_surfaces_as_an_error_naming_the_action() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -415,7 +415,7 @@ async fn a_lost_broker_surfaces_as_an_error_naming_the_action() {
     assert_eq!(error.to_string(), "NATS failed to announce an agent");
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_block_on_one_hub_reaches_every_hub() {
     let server = NatsServer::start();
     let first = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -437,7 +437,7 @@ async fn a_block_on_one_hub_reaches_every_hub() {
     ));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn corrupt_blocklist_keys_are_skipped_by_the_watch_and_the_listing() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();
@@ -460,7 +460,7 @@ async fn corrupt_blocklist_keys_are_skipped_by_the_watch_and_the_listing() {
     assert_eq!(hub.blocked_ips().await.unwrap(), BTreeSet::from([LOOPBACK]));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_lost_broker_fails_a_block_naming_the_action() {
     let server = NatsServer::start();
     let hub = NatsBackplane::connect(&server.url()).await.unwrap();

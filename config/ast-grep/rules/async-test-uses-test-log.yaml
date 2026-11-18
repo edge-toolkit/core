@@ -1,0 +1,18 @@
+id: async-test-uses-test-log
+language: Rust
+severity: error
+message: |
+  An async test in a service runs the service's own code in process, so wrap its runtime attribute in
+  `test_log::test`, as `#[test_log::test(tokio::test)]`. That installs a tracing subscriber for the test, and the
+  logs the code emitted are printed when the test fails, which is when they are wanted; a passing test stays quiet.
+  `RUST_LOG` overrides the default `info` level. Stacking `#[test_log::test]` under the runtime attribute instead
+  registers the test twice, because neither tokio nor actix recognises it as a test attribute.
+rule:
+  kind: attribute_item
+  has:
+    kind: attribute
+    regex: '^(tokio|actix_rt|actix_web)::test\b'
+    pattern: $ATTR
+fix: "#[test_log::test($ATTR)]"
+files:
+  - "services/*/tests/*.rs"

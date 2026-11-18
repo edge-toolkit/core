@@ -88,7 +88,7 @@ impl Cluster {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_eviction_on_one_hub_cuts_the_address_off_everywhere() {
     let cluster = Cluster::start().await;
     let agent_id = cluster.agent_id.clone();
@@ -109,7 +109,7 @@ async fn an_eviction_on_one_hub_cuts_the_address_off_everywhere() {
     cluster.assert_cut_off_everywhere().await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn blocking_an_address_on_one_hub_cuts_it_off_everywhere() {
     let cluster = Cluster::start().await;
 
@@ -123,7 +123,7 @@ async fn blocking_an_address_on_one_hub_cuts_it_off_everywhere() {
 ///
 /// The heartbeat would close the socket within a second anyway, so this shows the frame is refused rather than which
 /// of the two closed it.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_frame_from_a_blocked_address_closes_its_socket() {
     let hub = et_ws_test_server::start();
     let (mut socket, _agent_id) = connect_agent(&hub.ws_url).await;

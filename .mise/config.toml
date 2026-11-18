@@ -3019,7 +3019,7 @@ shell = "{{ vars.task_shell }}"
 [tasks.clean-other]
 description = "Delete every untracked file outside target/, refusing if a *.local.* or unignored file exists"
 run = """
-local_files="$(rg --files --hidden --no-ignore -g '*.local.*' -g '!/.git/' -g '!/target/')" || true
+local_files="$(rg --files --hidden --no-ignore -g '*.local.*' -g '!/.git/' -g '!/target/' -g '!/.claude/')" || true
 if [ -n "$local_files" ]; then
   echo "clean-other: refusing to delete these *.local.* files:" >&2
   echo "$local_files" >&2

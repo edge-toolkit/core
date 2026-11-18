@@ -102,7 +102,7 @@ enum Exchange {
 #[case::cowsay("cowsay_probe", Gate::Python, Exchange::TextContains { send: "cowsay-round-trip", extra: &["^__^"] })]
 #[case::torch("torch_inference", Gate::Torch, Exchange::TextJson("run-torch", check_torch))]
 #[case::echo_binary("echo", Gate::Always, Exchange::BinaryEcho(b"\x00binary\xffframe"))]
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn module_behaves(
     #[case] module: &str,
     #[case] gate: Gate,
@@ -182,7 +182,7 @@ fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
 ///
 /// It runs with `ET_TEST_COVERAGE=false`, the one case here that does, so that a coverage build also runs its
 /// hooks with measurement compiled in but never started, as it is whenever that variable is not `true`.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
     let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
@@ -370,7 +370,7 @@ async fn run_exchange(
 /// `PYO3_PYTHONPATH` still names the module's own directory, which is the point -- a configured python path that
 /// does not resolve the requested name must fall through to the hub rather than fail. Each `module_behaves` case
 /// names a test module by the name its file defines, and so takes the local import.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
     let name = "et-ws-pyo3-math1";

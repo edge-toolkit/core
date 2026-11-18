@@ -145,7 +145,7 @@ async fn sent_directly(
     matches!(receive(client).await, ServerMessage::MessageStatus { status, .. } if status == *expected)
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn agents_on_separate_sockets_reach_each_other() {
     on_one_thread(async || {
         let (_hub, address) = served_hub().await;
@@ -174,7 +174,7 @@ async fn agents_on_separate_sockets_reach_each_other() {
     .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_message_waits_for_a_recipient_that_has_gone() {
     on_one_thread(async || {
         let (_hub, address) = served_hub().await;
@@ -196,7 +196,7 @@ async fn a_message_waits_for_a_recipient_that_has_gone() {
     .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn control_frames_and_undecodable_frames_leave_the_connection_open() {
     on_one_thread(async || {
         let (_hub, address) = served_hub().await;
@@ -219,7 +219,7 @@ async fn control_frames_and_undecodable_frames_leave_the_connection_open() {
     .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_frame_larger_than_the_hub_reads_ends_its_connection() {
     on_one_thread(async || {
         let (_hub, address) = served_hub().await;
@@ -231,7 +231,7 @@ async fn a_frame_larger_than_the_hub_reads_ends_its_connection() {
     .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_blocked_address_is_refused_and_other_paths_are_not_found() {
     on_one_thread(async || {
         let (hub, address) = served_hub().await;
@@ -253,7 +253,7 @@ async fn local_receive(link: &mut LocalLink<'_, Counter>) -> ServerMessage {
     message
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn an_agent_in_process_reaches_one_on_a_socket_and_leaves_when_dropped() {
     on_one_thread(async || {
         let (hub, address) = served_hub().await;
@@ -306,7 +306,7 @@ async fn an_agent_in_process_reaches_one_on_a_socket_and_leaves_when_dropped() {
     .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn an_agent_in_process_is_held_to_the_frames_a_connection_may_send() {
     let hub = Hub::new(Counter::default(), MessageRetention::All, MAX_FRAME_SIZE, MAX_QUEUED);
     let mut board = hub.local(IpAddr::V4(Ipv4Addr::LOCALHOST));
@@ -329,7 +329,7 @@ async fn an_agent_in_process_is_held_to_the_frames_a_connection_may_send() {
     ));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn an_agent_in_process_that_never_reads_keeps_only_its_latest_replies() {
     let hub = Hub::new(Counter::default(), MessageRetention::All, MAX_FRAME_SIZE, MAX_QUEUED);
     let mut board = hub.local(IpAddr::V4(Ipv4Addr::LOCALHOST));
@@ -355,7 +355,7 @@ async fn an_agent_in_process_that_never_reads_keeps_only_its_latest_replies() {
         .unwrap_err();
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn an_agent_in_process_reconnecting_to_more_than_its_outbox_holds_is_still_acknowledged() {
     on_one_thread(async || {
         let (hub, address) = served_hub().await;
@@ -391,7 +391,7 @@ async fn an_agent_in_process_reconnecting_to_more_than_its_outbox_holds_is_still
     .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_full_outbox_drops_its_oldest_message() {
     let outbox = Outbox::new(2);
     for text in ["first", "second", "third"] {

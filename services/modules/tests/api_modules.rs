@@ -1,18 +1,18 @@
 #![cfg(test)]
 
-use actix_web::{App, test, web};
+use actix_web::{App, test as actix_test, web};
 use edge_toolkit::config::{Language, mise_env_includes};
 use edge_toolkit::ws_server::AgentRegistry;
 use et_modules_service::{ModulesConfig, configure};
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn list_modules_api() {
     // The default search paths, but the root named outright: the server has no default for which module is
     // a deployment's front page, so every caller says which one it means.
     let mut config = ModulesConfig::default();
     config.root = "@edge-toolkit/et-ws-server-static".to_string();
     let config = config;
-    let app = test::init_service(
+    let app = actix_test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
             .app_data(web::Data::new(config.clone()))
@@ -20,8 +20,8 @@ async fn list_modules_api() {
     )
     .await;
 
-    let req = test::TestRequest::get().uri("/modules/").to_request();
-    let resp: Vec<String> = test::call_and_read_body_json(&app, req).await;
+    let req = actix_test::TestRequest::get().uri("/modules/").to_request();
+    let resp: Vec<String> = actix_test::call_and_read_body_json(&app, req).await;
 
     // Modules whose `pkg/` is built by an always-loaded task (the wasm agent in
     // the base config) or shipped as a static directory (the page module and the

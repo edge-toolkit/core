@@ -123,7 +123,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
 #[case::kotlin_math1("et-ws-kotlin-math1", Language::Kotlin)]
 #[case::pymath1("et-ws-pymath1", Language::Python)]
 #[case::zig_math1("et-ws-zig-math1", Language::Zig)]
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn math1_module_stores_verified_model(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
         println!(

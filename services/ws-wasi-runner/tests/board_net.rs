@@ -64,7 +64,7 @@ fn transport_to(address: SocketAddr, board: Board) -> NetTransport<Board> {
     NetTransport::new(link, board)
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_guest_round_trips_a_value_through_a_hub_elsewhere() {
     let server = et_ws_test_server::start();
     let address: SocketAddr = server.base_url.trim_start_matches("http://").parse().unwrap();
@@ -93,7 +93,7 @@ async fn a_guest_round_trips_a_value_through_a_hub_elsewhere() {
     assert!(buckets > 0);
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn storage_answers_nothing_stored_and_refuses_a_stranger() {
     let server = et_ws_test_server::start();
     let address: SocketAddr = server.base_url.trim_start_matches("http://").parse().unwrap();
@@ -115,7 +115,7 @@ async fn storage_answers_nothing_stored_and_refuses_a_stranger() {
         .await;
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_hub_that_cannot_be_reached_is_said_to_be() {
     let unused = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let address = unused.local_addr().unwrap();
@@ -175,7 +175,7 @@ async fn read_frame(socket: &mut TcpStream) -> (u8, Vec<u8>) {
     (opcode, payload)
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn frames_cross_both_ways_and_a_ping_is_answered() {
     let (seen_tx, seen_rx) = tokio::sync::oneshot::channel();
     LocalSet::new()
@@ -220,7 +220,7 @@ async fn frames_cross_both_ways_and_a_ping_is_answered() {
         .await;
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_hub_that_closes_or_refuses_the_upgrade_is_reported() {
     LocalSet::new()
         .run_until(async {

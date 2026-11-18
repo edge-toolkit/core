@@ -27,7 +27,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use actix_web::http::StatusCode;
-use actix_web::{App, test, web};
+use actix_web::{App, test as actix_test, web};
 use command_error::CommandExt as _;
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
@@ -172,7 +172,7 @@ fn aws_env(port: u16) -> Vec<(&'static str, Option<String>)> {
 // https://github.com/edge-toolkit/core/commit/59f4ab6368af5c6824dafe2e11c9c598f16f5334 at
 // https://github.com/edge-toolkit/core/actions/runs/30980282749/job/92223040435 (default (windows-latest, 120)).
 // Re-enable by dropping this attribute once the `rustfs` mise tool is bumped to a release that includes #5663.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 #[cfg_attr(
     windows,
     ignore = "rustfs beta.12 cannot init storage on Windows (ERROR_SHARING_VIOLATION) -- see above"
@@ -192,28 +192,28 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
     let config = StorageConfig::new(format!("s3://{BUCKET}"));
 
     let (put_status, put_body, get_status, body) = temp_env::async_with_vars(aws_env(port), async {
-        let app = test::init_service(
+        let app = actix_test::init_service(
             App::new()
                 .app_data(web::Data::new(registry_with_agent(AGENT)))
                 .configure(|cfg| configure::<()>(cfg, &config)),
         )
         .await;
 
-        let put = test::TestRequest::put()
+        let put = actix_test::TestRequest::put()
             .uri(&format!("/storage/{AGENT}/{FILENAME}"))
             .peer_addr(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 40123))
             .set_payload(BODY)
             .to_request();
-        let put_response = test::call_service(&app, put).await;
+        let put_response = actix_test::call_service(&app, put).await;
         let put_status = put_response.status();
-        let put_body = test::read_body(put_response).await;
+        let put_body = actix_test::read_body(put_response).await;
 
-        let get = test::TestRequest::get()
+        let get = actix_test::TestRequest::get()
             .uri(&format!("/storage/{AGENT}/{FILENAME}"))
             .to_request();
-        let get_resp = test::call_service(&app, get).await;
+        let get_resp = actix_test::call_service(&app, get).await;
         let get_status = get_resp.status();
-        let body = test::read_body(get_resp).await;
+        let body = actix_test::read_body(get_resp).await;
 
         (put_status, put_body, get_status, body)
     })

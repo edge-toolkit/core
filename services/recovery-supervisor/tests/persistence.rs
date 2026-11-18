@@ -83,7 +83,7 @@ impl Serialize for PausedDocument {
 }
 
 /// Keep cancelled callers from allowing older blocking writes to overtake later state commits.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn cancellation_cannot_let_an_older_save_overwrite_the_final_report() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("state.json");
@@ -123,7 +123,7 @@ async fn cancelled_write(writer: StateStore) -> std::sync::mpsc::Sender<()> {
 struct InvalidDocument;
 
 /// An unfinished cancelled save retains ownership, preventing an old report from overwriting a replacement's context.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn cancelled_persistence_keeps_the_owner_until_the_blocking_write_finishes() {
     let directory = tempfile::tempdir().unwrap();
     let mut config = et_test_recovery::config();
@@ -162,7 +162,7 @@ impl Serialize for InvalidDocument {
 }
 
 /// Preserve committed state after serialization failure and permit a subsequent successful save.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn failed_serialization_preserves_the_last_document_and_releases_the_writer() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("state.json");

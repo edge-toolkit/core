@@ -106,7 +106,7 @@ async fn send(socket: &mut et_ws_runner_common::RegisteredSocket, kind: &str, pr
 }
 
 /// Save accepted but not yet polled checkpoint evidence and release the lease on the normal container-stop signal.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn sigterm_saves_the_final_report_before_a_successful_exit() {
     let directory = tempfile::tempdir().unwrap();
     let empty = tempfile::tempdir().unwrap();

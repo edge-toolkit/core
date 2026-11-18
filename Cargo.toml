@@ -348,6 +348,7 @@ temp-env = "0.3"
 # Names CPU architectures the way a target triple spells them.
 target-lexicon = "0.13"
 tempfile = "3"
+test-log = { version = "0.2", default-features = false, features = ["trace"] }
 textwrap = { version = "0.16", default-features = false }
 thiserror = { version = "2", default-features = false }
 tokio = "1"

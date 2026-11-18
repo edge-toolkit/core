@@ -81,7 +81,7 @@ async fn direct(server: &mut WebSocketStream<TcpStream>, identity: &str, payload
 }
 
 /// Preserve replacement startup and later progress under overload while keeping outbound heartbeats active.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn queue_backpressure_preserves_replacement_identity_and_recovery_progress() {
     let (client, mut server) = peer().await;
     let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
@@ -126,7 +126,7 @@ async fn queue_backpressure_preserves_replacement_identity_and_recovery_progress
 }
 
 /// Acknowledge malformed direct events, answer pings and ignore unrelated frames without losing later valid events.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn malformed_events_and_non_event_frames_do_not_stop_delivery() {
     let (client, mut server) = peer().await;
     let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
@@ -156,7 +156,7 @@ async fn malformed_events_and_non_event_frames_do_not_stop_delivery() {
 }
 
 /// Preserve protocol errors instead of presenting a malformed WebSocket frame as a clean shutdown.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn invalid_websocket_frames_preserve_the_transport_error() {
     let (client, mut server) = peer().await;
     let (sender, _receiver) = tokio::sync::mpsc::channel(4);

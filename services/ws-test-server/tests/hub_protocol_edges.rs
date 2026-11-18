@@ -28,7 +28,7 @@ async fn send_json(socket: &mut Socket, body: &serde_json::Value) {
     socket.send(Message::text(body.to_string())).await.unwrap();
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn requests_before_connect_are_answered_invalid() {
     let server = start();
     let (mut socket, _response) = connect_async(&server.ws_url).await.unwrap();
@@ -49,7 +49,7 @@ async fn requests_before_connect_are_answered_invalid() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_undecodable_frame_and_a_pong_leave_the_connection_working() {
     let server = start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
@@ -74,7 +74,7 @@ fn client_event(specversion: &str, event_type: &str, data: &serde_json::Value) -
     })
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn client_events_are_logged_without_a_reply() {
     let server = start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
@@ -89,7 +89,7 @@ async fn client_events_are_logged_without_a_reply() {
 /// An unsupported `specversion` fails to decode, which the hub logs like any other malformed frame: no reply.
 ///
 /// The roster is the next payload only if nothing was sent back for the event first.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_client_event_at_an_unsupported_specversion_is_dropped_without_a_reply() {
     let server = start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
@@ -109,7 +109,7 @@ async fn assert_still_serving(agent: &mut Socket) {
     assert!(matches!(reply, ServerMessage::ListAgentsResponse { .. }));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_ack_for_an_unknown_message_is_answered_invalid() {
     let server = start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
@@ -127,7 +127,7 @@ async fn an_ack_for_an_unknown_message_is_answered_invalid() {
     assert_eq!(message_id.as_deref(), Some("no-such-message"));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_message_for_a_disconnected_agent_is_queued_then_delivered_on_reconnect() {
     let server = start();
     let (mut sender, sender_id) = connect_agent(&server.ws_url).await;
@@ -149,7 +149,7 @@ async fn a_message_for_a_disconnected_agent_is_queued_then_delivered_on_reconnec
     assert_eq!(from_agent_id, sender_id);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_binary_relay_sent_as_text_reaches_peers_as_binary() {
     let server = start();
     let (mut sender, _sender_id) = connect_agent(&server.ws_url).await;

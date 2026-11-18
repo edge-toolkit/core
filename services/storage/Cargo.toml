@@ -109,6 +109,7 @@ pretty_assertions.workspace = true
 reqwest.workspace = true
 temp-env = { workspace = true, features = ["async_closure"] }
 tempfile.workspace = true
+test-log.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "time"] }
 
 [lints]

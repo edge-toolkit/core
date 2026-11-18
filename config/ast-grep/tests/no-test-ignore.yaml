@@ -1,0 +1,15 @@
+id: no-test-ignore
+valid:
+  - |
+    #[test] fn runs() {}
+  - |
+    #[cfg_attr(windows, allow(dead_code))] fn helper() {}
+invalid:
+  - |
+    #[test] #[ignore] fn skipped() {}
+  - |
+    #[test] #[ignore = "slow"] fn skipped_with_reason() {}
+  - |
+    #[cfg_attr(windows, ignore = "flaky")] #[test] fn skipped_on_windows() {}
+  - |
+    #[cfg_attr(target_os = "macos", ignore)] #[test] fn skipped_on_macos() {}

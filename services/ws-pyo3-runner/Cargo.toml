@@ -52,6 +52,7 @@ et-test-helpers.workspace = true
 et-ws-test-server.workspace = true
 rstest.workspace = true
 serde_json = { workspace = true, features = ["std"] }
+test-log.workspace = true
 
 [build-dependencies]
 pyo3-build-config.workspace = true

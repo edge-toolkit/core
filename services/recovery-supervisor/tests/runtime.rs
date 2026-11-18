@@ -70,7 +70,7 @@ impl Backend for FakeBackend {
 }
 
 /// Only an absent file starts a fresh supervisor; unreadable or invalid saved state fails closed.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn supervisor_loading_preserves_committed_state_and_rejects_invalid_storage() {
     let directory = tempfile::tempdir().unwrap();
     let mut settings = config();
@@ -119,7 +119,7 @@ impl Backend for DependencyBackend {
 }
 
 /// Read dependencies before deciding on restarts, whether or not they are themselves supervised.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn cycles_observe_dependencies_once_and_gate_actions_on_their_current_health() {
     for supervised in [false, true] {
         for health in [Health::Ready, Health::Unready, Health::Unknown] {
@@ -161,7 +161,7 @@ async fn cycles_observe_dependencies_once_and_gate_actions_on_their_current_heal
 }
 
 /// Persist restart reservations before backend calls and retain attempts even when execution fails.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn cycle_persists_budget_before_action_and_retains_failed_attempts() {
     let directory = tempfile::tempdir().unwrap();
     let (config, mut supervisor, mut backend) = assisted_fixture(directory.path());
@@ -193,7 +193,7 @@ async fn cycle_persists_budget_before_action_and_retains_failed_attempts() {
 }
 
 /// Prevent external recovery actions when the durable budget cannot be committed.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn persistence_failure_prevents_external_restart() {
     let directory = tempfile::tempdir().unwrap();
     let (config, mut supervisor, mut backend) = assisted_fixture(directory.path());
@@ -213,7 +213,7 @@ async fn persistence_failure_prevents_external_restart() {
 }
 
 /// Reject invalid restored budgets and verify that complete reports replace their predecessors.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn malformed_state_fails_closed_and_atomic_updates_replace_previous_documents() {
     let directory = tempfile::tempdir().unwrap();
     let mut config = config();
@@ -234,7 +234,7 @@ async fn malformed_state_fails_closed_and_atomic_updates_replace_previous_docume
 }
 
 /// Preserve sender identity and acknowledge direct lifecycle messages over the real hub.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn hub_delivers_sender_bound_cloudevents_and_acknowledges_receipt() {
     let _telemetry = et_otlp::init_guarded(None).unwrap();
     let server = et_ws_test_server::start();
@@ -258,7 +258,7 @@ async fn hub_delivers_sender_bound_cloudevents_and_acknowledges_receipt() {
 }
 
 /// Reject undeclared deployments before launching any Kubernetes command.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn kubernetes_rejects_non_allowlisted_targets_before_running_a_command() {
     let backend = Kubernetes::new(config()).unwrap();
     let mut workload = config().workloads.remove(0);
@@ -295,7 +295,7 @@ impl Backend for GatedBackend {
 }
 
 /// Retain evidence until capacity returns without requiring the producer to resend it, and fail on consumer loss.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn full_evidence_queue_waits_for_capacity_without_requiring_a_resend() {
     let server = et_ws_test_server::start();
     let (observer, _) = et_ws_test_server::connect_agent_as(&server.ws_url, Some("observer")).await;
@@ -327,7 +327,7 @@ async fn full_evidence_queue_waits_for_capacity_without_requiring_a_resend() {
 }
 
 /// Exercise real kubectl errors using a fixture whose current context is undefined, so no cluster is contacted.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn kubernetes_reports_command_errors_without_contacting_a_cluster() {
     let _logging = set_default(tracing_subscriber::fmt().with_test_writer().finish());
     let mut config = config();
@@ -381,7 +381,7 @@ impl Backend for ReadyBackend {
 }
 
 /// Reject foreign and replayed evidence while accepting valid work between polls and persisting it on disconnect.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn idle_control_rejects_invalid_evidence_without_losing_subsequent_valid_work() {
     let directory = tempfile::tempdir().unwrap();
     let server = et_ws_test_server::start();
@@ -417,7 +417,7 @@ async fn idle_control_rejects_invalid_evidence_without_losing_subsequent_valid_w
 }
 
 /// A replacement hub at the same endpoint restores supervision without replacing its owner or resetting state.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn supervisor_reconnects_to_a_replacement_hub_and_retains_lifecycle_context() {
     let directory = tempfile::tempdir().unwrap();
     let server = et_ws_test_server::start();
@@ -536,7 +536,7 @@ fn connected_config(
 }
 
 /// Consume real hub evidence while preventing concurrent ownership of the same durable budget.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn service_consumes_lifecycle_evidence_and_excludes_a_second_budget_owner() {
     let directory = tempfile::tempdir().unwrap();
     let server = et_ws_test_server::start();

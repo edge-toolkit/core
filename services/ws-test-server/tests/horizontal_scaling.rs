@@ -17,6 +17,9 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
+/// How many agents the many-agent case spreads over its hubs.
+const AGENTS: usize = 30;
+
 /// A client connection to a hub.
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -238,7 +241,7 @@ async fn two_acknowledged(socket: &mut Socket) -> BTreeSet<String> {
     acknowledged
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn every_hub_lists_the_agents_of_every_hub() {
     let cluster = cluster(2);
     let mut agents = one_agent_per_hub(&cluster).await;
@@ -259,7 +262,7 @@ async fn every_hub_lists_the_agents_of_every_hub() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_direct_message_and_its_ack_cross_between_hubs() {
     let cluster = cluster(2);
     let [(mut alice, alice_id), (mut bob, bob_id)] = <[_; 2]>::try_from(one_agent_per_hub(&cluster).await).unwrap();
@@ -269,7 +272,7 @@ async fn a_direct_message_and_its_ack_cross_between_hubs() {
     receive_and_acknowledge(&mut bob, &mut alice, (&alice_id, &sent_id), &body).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn broadcasts_and_relayed_frames_reach_every_hub_but_the_sender() {
     let cluster = cluster(3);
     let [(mut alice, alice_id), (mut bob, _), (mut carol, _)] =
@@ -299,7 +302,7 @@ async fn broadcasts_and_relayed_frames_reach_every_hub_but_the_sender() {
         .unwrap_err();
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_message_queued_via_one_hub_is_delivered_through_another() {
     let cluster = cluster(3);
     let (bob, _) = connect_agent_as(&cluster.hubs[0].ws_url, Some("agent-b")).await;
@@ -316,7 +319,7 @@ async fn a_message_queued_via_one_hub_is_delivered_through_another() {
     wait_for_state(&mut alice, "agent-b", &AgentConnectionState::Connected).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_agent_that_moves_hub_keeps_its_identity_and_its_messages() {
     let cluster = cluster(3);
     let (old, _) = connect_agent_as(&cluster.hubs[0].ws_url, Some("agent-t")).await;
@@ -332,7 +335,7 @@ async fn an_agent_that_moves_hub_keeps_its_identity_and_its_messages() {
     deliver(&mut alice, &mut moved, "agent-t", &serde_json::json!({"n": 2_i32})).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn storage_accepts_an_upload_through_a_hub_the_agent_never_joined() {
     let cluster = cluster(2);
     let (_alice, alice_id) = connect_agent(&cluster.hubs[0].ws_url).await;
@@ -351,7 +354,7 @@ async fn storage_accepts_an_upload_through_a_hub_the_agent_never_joined() {
     assert_eq!(stranger.status(), reqwest::StatusCode::NOT_FOUND);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn storage_refuses_an_upload_for_an_agent_that_left_another_hub() {
     let cluster = cluster(2);
     let [(alice, alice_id), (mut bob, _bob_id)] = <[_; 2]>::try_from(one_agent_per_hub(&cluster).await).unwrap();
@@ -363,9 +366,8 @@ async fn storage_refuses_an_upload_for_an_agent_that_left_another_hub() {
     assert_eq!(put.status(), reqwest::StatusCode::FORBIDDEN);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 4))]
 async fn thirty_agents_spread_over_three_hubs_all_reach_each_other() {
-    const AGENTS: usize = 30;
     let cluster = cluster(3);
     // Agents are dealt round the hubs, so neighbours in this list always sit on different hubs.
     let mut sockets = Vec::with_capacity(AGENTS);
@@ -401,7 +403,7 @@ async fn thirty_agents_spread_over_three_hubs_all_reach_each_other() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn the_remaining_hubs_carry_on_when_one_shuts_down() {
     let cluster = cluster(2);
     let (_alice, alice_id) = connect_agent(&cluster.hubs[0].ws_url).await;
@@ -414,7 +416,7 @@ async fn the_remaining_hubs_carry_on_when_one_shuts_down() {
     deliver(&mut bob, &mut carol, &carol_id, &serde_json::json!({"still": "here"})).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_lost_broker_is_reported_to_the_agent_rather_than_hidden() {
     let cluster = cluster(1);
     let (mut alice, _) = connect_agent(&cluster.hubs[0].ws_url).await;
@@ -426,7 +428,7 @@ async fn a_lost_broker_is_reported_to_the_agent_rather_than_hidden() {
     expect_backplane_unavailable(&mut alice).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn requests_no_hub_can_honour_are_refused_as_a_lone_hub_would() {
     let cluster = cluster(2);
     let [(mut alice, _), (mut bob, _)] = <[_; 2]>::try_from(one_agent_per_hub(&cluster).await).unwrap();
@@ -440,7 +442,7 @@ async fn requests_no_hub_can_honour_are_refused_as_a_lone_hub_would() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn an_ack_is_confirmed_to_its_recipient_after_the_sender_has_left() {
     let cluster = cluster(2);
     let [(mut alice, alice_id), (mut bob, bob_id)] = <[_; 2]>::try_from(one_agent_per_hub(&cluster).await).unwrap();
@@ -458,7 +460,7 @@ async fn an_ack_is_confirmed_to_its_recipient_after_the_sender_has_left() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_lone_hub_stops_cleanly_without_a_backplane() {
     let hub = et_ws_test_server::start();
     let (_alice, _) = connect_agent(&hub.ws_url).await;

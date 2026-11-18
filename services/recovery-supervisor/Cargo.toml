@@ -62,6 +62,7 @@ et-ws-test-server.workspace = true
 k8s-openapi.workspace = true
 pretty_assertions.workspace = true
 serde_yaml.workspace = true
+test-log.workspace = true
 
 [lints]
 workspace = true

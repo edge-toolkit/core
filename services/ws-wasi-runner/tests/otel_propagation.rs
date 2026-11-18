@@ -40,6 +40,8 @@ use tokio::runtime::Runtime;
 // that disables `modules::module_runs_successfully` there. Re-enable once
 // the Windows task-shell story is sorted.
 #[test]
+// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
+// ast-grep-ignore: no-test-ignore
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 #[expect(
     clippy::too_many_lines,

@@ -204,6 +204,7 @@ rstest.workspace = true
 secrecy.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+test-log.workspace = true
 wat.workspace = true
 
 [lints]

@@ -30,6 +30,8 @@ fn served(module: &str) -> String {
     all(feature = "lidar", feature = "nn", feature = "webgpu"),
     case::wasi_graphics_info("et-ws-wasi-graphics-info", Language::Python)
 )]
+// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
+// ast-grep-ignore: no-test-ignore
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
@@ -64,7 +66,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
 #[rstest]
 #[case::wasi("et-ws-wasi-math1")]
 #[cfg_attr(feature = "core-modules", case::core("et-ws-core-math1"))]
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 #[cfg_attr(
     windows,
     ignore = "pkg/package.json 404 on Windows -- see module_runs_successfully's comment"

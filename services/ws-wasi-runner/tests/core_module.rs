@@ -193,7 +193,7 @@ async fn run_on(wasm: &[u8], script: &mut Script) -> Result<(), CoreError> {
     run(wasm, script).await
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn run_returning_success_succeeds() {
     run_on(&guest("", "(i32.const 0)"), &mut Script::default())
         .await
@@ -207,13 +207,13 @@ fn a_core_module_is_told_by_its_header_from_a_component_and_from_compiled_code()
     assert!(!is_core_module(b"\x7fELF"));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn run_returning_a_failure_is_the_guests_failure() {
     let ended = run_on(&guest("", "(i32.const 7)"), &mut Script::default()).await;
     assert!(matches!(ended, Err(CoreError::Guest(7_i32))));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_module_needs_a_run_function_of_its_own() {
     let unnamed = module(r#"(func (export "main") (result i32) (i32.const 0))"#);
     let memory = module(r#"(export "run" (memory 0))"#);
@@ -226,7 +226,7 @@ async fn a_module_needs_a_run_function_of_its_own() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn run_must_take_nothing_and_return_an_i32() {
     let taking = module(r#"(func (export "run") (param i32) (result i32) (i32.const 0))"#);
     let returning_nothing = module(r#"(func (export "run"))"#);
@@ -236,7 +236,7 @@ async fn run_must_take_nothing_and_return_an_i32() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn the_start_function_runs_before_run() {
     let wasm = module(
         r#"(func $start (drop (call $connect))) (start $start)
@@ -251,7 +251,7 @@ async fn the_start_function_runs_before_run() {
     assert!(message.starts_with("connect failed"));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_module_that_cannot_run_to_its_end_fails() {
     let trapping_start = module(
         r#"(func $start unreachable) (start $start)
@@ -284,7 +284,7 @@ async fn a_module_that_cannot_run_to_its_end_fails() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_long_computation_runs_to_its_end() {
     let counting = guest(
         "",
@@ -295,7 +295,7 @@ async fn a_long_computation_runs_to_its_end() {
     run_on(&counting, &mut Script::default()).await.unwrap();
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn the_agent_id_is_taken_out_of_the_slot() {
     // The id goes into memory at 100 and becomes the bucket the guest stores "v" under "k" in.
     let wasm = guest(
@@ -310,7 +310,7 @@ async fn the_agent_id_is_taken_out_of_the_slot() {
     assert_eq!(script.value("agent-1", "k"), b"v");
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn send_hands_the_host_a_typed_message() {
     let mut script = Script::default();
     run_on(&guest(LIST_AGENTS, SEND_LIST_AGENTS), &mut script)
@@ -319,7 +319,7 @@ async fn send_hands_the_host_a_typed_message() {
     assert!(matches!(script.sent.as_slice(), [ClientMessage::ListAgents]));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn send_of_json_that_is_no_client_message_is_a_decode_failure() {
     let wasm = guest(
         r#"{\"type\":\"et-bogus\"}"#,
@@ -329,7 +329,7 @@ async fn send_of_json_that_is_no_client_message_is_a_decode_failure() {
     assert!(matches!(ended, Err(CoreError::Guest(abi::DECODE))));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn send_that_the_host_cannot_deliver_is_a_transport_failure() {
     let mut script = Script {
         send_error: Some(WsError::Transport("down".to_owned())),
@@ -339,7 +339,7 @@ async fn send_that_the_host_cannot_deliver_is_a_transport_failure() {
     assert!(matches!(ended, Err(CoreError::Guest(abi::TRANSPORT))));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn recv_puts_the_message_json_in_the_slot() {
     // The message is taken into memory at 100, then stored under "k" in bucket "b" so the test can read it back.
     let wasm = guest(
@@ -359,7 +359,7 @@ async fn recv_puts_the_message_json_in_the_slot() {
     assert_eq!(script.value("b", "k"), serde_json::to_vec(&message).unwrap());
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn recv_with_nothing_arrived_answers_nothing_and_a_failure_its_code() {
     let wasm = guest("", "(call $recv (i32.const 100))");
     run_on(&wasm, &mut Script::default()).await.unwrap();
@@ -379,7 +379,7 @@ async fn recv_with_nothing_arrived_answers_nothing_and_a_failure_its_code() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn kv_get_finds_a_value_and_take_copies_it_only_into_a_buffer_it_fits() {
     // "value" is found under "k" in "b", a 2-byte take copies nothing, a 5-byte one copies it, and it is stored back
     // under "c" in "b".
@@ -399,7 +399,7 @@ async fn kv_get_finds_a_value_and_take_copies_it_only_into_a_buffer_it_fits() {
     assert_eq!(script.value("b", "c"), b"value");
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn kv_get_of_an_absent_key_answers_absent() {
     let wasm = guest(
         "bk",
@@ -408,7 +408,7 @@ async fn kv_get_of_an_absent_key_answers_absent() {
     run_on(&wasm, &mut Script::default()).await.unwrap();
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_storage_failure_is_a_store_failure() {
     let getting = guest(
         "bk",
@@ -428,7 +428,7 @@ async fn a_storage_failure_is_a_store_failure() {
     }
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn log_records_each_level() {
     let wasm = guest(
         "cm",
@@ -460,7 +460,7 @@ async fn log_records_each_level() {
     );
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn disconnect_closes_the_websocket() {
     let mut script = Script::default();
     run_on(&guest("", "(call $disconnect) (i32.const 0)"), &mut script)
@@ -469,7 +469,7 @@ async fn disconnect_closes_the_websocket() {
     assert!(script.disconnected);
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_call_the_host_cannot_read_traps_the_guest() {
     let calls = [
         // A message past the end of the guest's one page of memory.
@@ -487,7 +487,7 @@ async fn a_call_the_host_cannot_read_traps_the_guest() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn dropping_a_run_stops_its_module_and_releases_its_host() {
     // One guest computes forever and one waits forever on the host; dropping the run has to stop either.
     let stuck = [
@@ -505,7 +505,7 @@ async fn dropping_a_run_stops_its_module_and_releases_its_host() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn a_core_module_reaches_a_real_hub_through_the_runners_host() {
     // Connect, send `et-list-agents`, take the ack the hub registered the guest with, store "v" under "k" in the
     // guest's own bucket, read it back, and disconnect, failing with a distinct code at each step that goes wrong.

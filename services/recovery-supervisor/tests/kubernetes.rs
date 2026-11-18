@@ -335,7 +335,7 @@ fn kubeconfig(directory: &Path, endpoint: &str) -> PathBuf {
 }
 
 /// Verify the diagnostic failure path locally without claiming to reproduce the Windows timeout.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 #[should_panic(expected = "fixture_finished=false: diagnostic probe")]
 async fn command_failure_reports_the_operation_and_live_fixture() {
     let diagnostics = Diagnostics {
@@ -347,7 +347,7 @@ async fn command_failure_reports_the_operation_and_live_fixture() {
 }
 
 /// Preserve target-rejection errors through both public backend methods before launching kubectl.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn backend_methods_propagate_non_allowlisted_target_errors() {
     let mut backend = Kubernetes::new(et_test_recovery::config()).unwrap();
     let mut workload = et_test_recovery::config().workloads.remove(0);

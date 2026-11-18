@@ -1,0 +1,27 @@
+id: async-test-uses-test-log
+valid:
+  - |
+    #[test_log::test(tokio::test)]
+    async fn wrapped() {}
+  - |
+    #[test_log::test(actix_rt::test)]
+    async fn wrapped_actix() {}
+  - |
+    #[test]
+    fn synchronous() {}
+  - |
+    #[tokio::main]
+    async fn main() {}
+invalid:
+  - |
+    #[tokio::test]
+    async fn bare() {}
+  - |
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn with_arguments() {}
+  - |
+    #[actix_rt::test]
+    async fn actix() {}
+  - |
+    #[actix_web::test]
+    async fn actix_web() {}

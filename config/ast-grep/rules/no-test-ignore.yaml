@@ -1,0 +1,13 @@
+id: no-test-ignore
+language: Rust
+severity: error
+message: |
+  `#[ignore]`, and a `#[cfg_attr(..., ignore)]` that applies it on some platforms, turns a test off while it still
+  reads as coverage. A test that cannot pass is a bug to fix, and skipping one needs the operator's explicit
+  approval. Where that approval is given, suppress this finding on that one attribute with an `ast-grep-ignore`
+  comment, and keep the reason and the evidence for it in the comment above.
+rule:
+  kind: attribute_item
+  any:
+    - regex: '^#\[\s*ignore\b'
+    - regex: '^#\[\s*cfg_attr\(.*,\s*ignore\b'
