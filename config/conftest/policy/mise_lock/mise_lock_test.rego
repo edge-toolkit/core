@@ -40,6 +40,15 @@ test_allowlisted_gnu_build_is_allowed if {
 	count(msgs) == 0
 }
 
+test_allowlist_entry_with_more_than_its_floor_is_denied if {
+	some msg in mise_lock.deny with input as lock(
+		"github:example/allowed",
+		"https://example.test/allowed-x86_64-unknown-linux-gnu.zip",
+	)
+		with mise_lock.gnu_allowed as {"github:example/allowed": "GLIBC_2.39, above the 2.35 floor"}
+	contains(msg, "gnu_allowed gives github:example/allowed")
+}
+
 test_stale_allowlist_entry_is_denied if {
 	some msg in mise_lock.deny with input as lock(
 		"github:example/tool",

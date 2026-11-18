@@ -23,21 +23,21 @@ gnu_allowed := {
 	"cargo-binstall": "GLIBC_2.17",
 	"dprint": "GLIBC_2.17",
 	"github:caldempsey/parfit": "GLIBC_2.34",
-	"github:grok-rs/waitup": "GLIBC_2.39 on x64, above the 2.35 floor",
-	"github:loadingalias/cargo-rail": "GLIBC_2.39, above the 2.35 floor; v0.32.0 publishes no musl build",
+	"github:grok-rs/waitup": "GLIBC_2.39",
+	"github:loadingalias/cargo-rail": "GLIBC_2.39",
 	"github:nextest-rs/nextest": "GLIBC_2.27",
 	"github:noemaforge/vimanam": "GLIBC_2.34",
 	"github:owenlamont/ryl": "GLIBC_2.34",
-	"github:wasm-bindgen/wasm-bindgen": "GLIBC_2.39 on arm64, above the 2.35 floor",
-	"http:augeas": "GLIBC_2.38, above the 2.35 floor; the upstream-cache mirror builds no musl variant",
-	"http:et-rp": "GLIBC_2.38, above the 2.35 floor; the upstream-cache mirror builds no musl variant",
+	"github:wasm-bindgen/wasm-bindgen": "GLIBC_2.39",
+	"http:augeas": "GLIBC_2.38",
+	"http:et-rp": "GLIBC_2.38",
 	"http:oxfmt": "GLIBC_2.18",
 	"http:oxlint": "GLIBC_2.18",
 	"python": "GLIBC_2.17",
 	"ripgrep": "GLIBC_2.18",
 	"ruff": "GLIBC_2.17",
 	"uv": "GLIBC_2.28",
-	"watchexec": "GLIBC_2.39 on arm64, above the 2.35 floor",
+	"watchexec": "GLIBC_2.39",
 	"zizmor": "GLIBC_2.34",
 }
 
@@ -67,6 +67,14 @@ deny contains msg if {
 	some name, reason in gnu_allowed
 	not name in gnu_locked_names
 	msg := $"mise_lock.rego: gnu_allowed lists {name} ({reason}), which no longer locks a glibc build; drop the entry"
+}
+
+# An allowlist entry gives anything but the bare floor.
+# The comparison with the oldest image's glibc, and the missing musl build, hold for every entry and are said above.
+deny contains msg if {
+	some name, glibc in gnu_allowed
+	not regex.match(`^GLIBC_\d+\.\d+$`, glibc)
+	msg := $"mise_lock.rego: gnu_allowed gives {name} \"{glibc}\"; write only its floor, as GLIBC_<major>.<minor>"
 }
 
 gnu_locked_names contains name if {
