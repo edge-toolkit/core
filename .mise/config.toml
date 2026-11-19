@@ -3011,11 +3011,11 @@ coreutils rm -rf target
 """
 shell = "{{ vars.task_shell }}"
 
-# Delete every file outside target/ that git does not track, which is otherwise build output, caches, installed
-# dependencies and local runtime state. It refuses when anything could be work rather than output: a `*.local.*`
-# file, which is the repo's naming for kept-but-uncommitted notes and settings, or an untracked file that no
-# .gitignore covers. The `*.local.*` search uses rg because `git ls-files --ignored` walks all of target/ even when
-# a pathspec excludes it.
+# Delete every file outside target/ that git does not track.
+# Those are otherwise build output, caches, installed dependencies and local runtime state. It refuses when
+# anything could be work rather than output: a `*.local.*` file, which is the repo's naming for kept-but-uncommitted
+# notes and settings, or an untracked file that no .gitignore covers. The `*.local.*` search uses rg because
+# `git ls-files --ignored` walks all of target/ even when a pathspec excludes it.
 [tasks.clean-other]
 description = "Delete every untracked file outside target/, refusing if a *.local.* or unignored file exists"
 run = """

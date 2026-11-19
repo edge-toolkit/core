@@ -58,12 +58,29 @@ wasm_cov_libs = "wasi-guest web"
 # the assertion then holds it to the opposite invariant: records appearing means the crate has grown code, and
 # it has to move to the native list to be held to 100% like everything else.
 const_cov_libs = "org"
+# et-cli sits in the triple-less target/debug, because this env unsets CARGO_BUILD_TARGET below.
+et_cli = "{{ vars.config_root_fwd }}/target/debug/{{ vars.a_et_cli_exe }}"
 
 # The wasm coverage builds run on nightly (-Zno-profiler-runtime) with the wasm-capable conda clang on PATH.
 # It is set env-wide here because this env loads only under the coverage workflow; per-command RUSTFLAGS and
 # the minicov feature come from the wasm_cov / *_cov_feat vars so uninstrumented builds stay clean.
 [env]
 RUSTUP_TOOLCHAIN = "{{ vars.rust_nightly }}"
+# Builds for the host without naming it, so Windows' target triple drops out of every path on rustc's command line.
+# config.windows.toml names the host's own triple, which changes nothing about what is built but puts
+# `x86_64-pc-windows-gnullvm\` into each of the ~300 `-L dependency=` and `--extern` paths that nightly cargo's
+# build-dir layout passes, one per dependency. cargo hands rustc an argfile once its own spawn of
+# cargo-llvm-cov's rustc wrapper would be too long, but the wrapper then appends ~120 characters of
+# instrumentation flags and starts rustc directly, so a line landing in that gap fails. et-storage-service's
+# tests did, with cargo's spawn at 32760 characters and the wrapper's at 32829, over Windows' 32767:
+#   error: could not execute process `...\rustc.exe --crate-name blocked ... -C instrument-coverage --cfg=coverage
+#   --cfg=coverage_nightly -C link-arg=-Wl,--no-gc-sections -Zcoverage-options=branch` (never executed): The
+#   filename or extension is too long. (os error 206)
+# on commit https://github.com/edge-toolkit/core/commit/9626fbffdd7d12e545606f753fb1d421f2487e90 at
+# https://github.com/edge-toolkit/core/actions/runs/44394320510/job/135173498743. Dropping the triple takes about
+# 8000 characters off that line. Unset here, in the env, rather than in the task, because the task's nested
+# `mise run`s would otherwise set it again. Drop it once the wrapper falls back to an argfile of its own.
+CARGO_BUILD_TARGET = false
 # Resolve libonnxruntime at runtime from the mise install rather than from ort-sys's dylib copies.
 # ort-sys symlinks the ONNX Runtime dylibs next to the built binaries, but it derives that directory from
 # `OUT_DIR/../../..`, which nightly's `build/<pkg>/<hash>/out` layout shifts down to `<target>/debug/build`.
@@ -142,10 +159,8 @@ cargo llvm-cov clean --workspace
 # The prior `build-modules` step compiled et-cli + its native dep tree (edge-toolkit, et-path, int-gen, ...)
 # NON-instrumented into target/{debug,release}, and `cargo llvm-cov clean` leaves those in place; without this the
 # coverage build reuses them uninstrumented so those crates report zero coverage (et-path was the symptom). The
-# wasm guest .ll that wasm-cov consumes live under target/wasm32-wasip2 and are left untouched. Where
-# CARGO_BUILD_TARGET is set (Windows), the native crates build under target/<triple>/ instead, so those go too.
-native="target${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}"
-coreutils rm -rf target/debug target/release "$native/debug" "$native/release"
+# wasm guest .ll that wasm-cov consumes live under target/wasm32-wasip2 and are left untouched.
+coreutils rm -rf target/debug target/release
 # Apply cargo-llvm-cov's instrumentation env via `eval` of its `show-env` exports.
 # `--sh` is the current flag (the old `--export-prefix` alias is deprecated). This sets the rustc wrapper +
 # LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
@@ -155,7 +170,7 @@ eval "$(cargo llvm-cov show-env --sh)"
 # instrumented build-script outputs land in -- the target dir unless the Windows lane moved it -- and a `depends`
 # task would run in its own process and never see it. This whole env builds on nightly (RUSTUP_TOOLCHAIN above),
 # so every cargo invocation below hits the same build-script layout.
-ort_build_dir="${CARGO_LLVM_COV_BUILD_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
+ort_build_dir="${CARGO_LLVM_COV_BUILD_DIR:-target}/debug/build"
 coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # A spawned workspace binary that a test kills, rather than lets exit, contributes no coverage.
 # LLVM flushes a process's counters only at exit, and services/ws-server-firmware/tests/serves_modules.rs ends
