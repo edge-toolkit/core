@@ -513,7 +513,7 @@ fn reconnect_requires_renewed_evidence_and_keeps_the_original_incident() {
 }
 
 /// Dependency permissions allow read-only observation but never authorize rollout mutation of supporting services.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn supporting_dependency_is_not_an_intervention_target() {
     let mut settings = config();
     let _previous = settings

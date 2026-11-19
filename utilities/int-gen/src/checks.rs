@@ -12,6 +12,8 @@
     reason = "each helper is one named step of the render, kept separate so the steps read one at a time"
 )]
 
+use core::iter::Peekable;
+use core::str::Chars;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -72,8 +74,14 @@ const PLUMBING: &[&str] = &[
 
 /// Shell words that introduce a command rather than being one, so the search continues past them.
 const PREFIXES: &[&str] = &[
-    "!", "do", "done", "elif", "else", "esac", "fi", "if", "then", "until", "while", "{", "}",
+    "!", "(", ")", "do", "done", "elif", "else", "esac", "fi", "if", "then", "until", "while", "{", "}",
 ];
+
+/// What a quoted or escaped part of a `case` pattern word is recorded as.
+///
+/// It starts the word, so a `#` later in it is not a comment, and it keeps the word from spelling `esac`, which
+/// quoting stops the shell reading as the reserved word.
+const QUOTED: char = '\0';
 
 /// The section of the repo's own multi-check binary, whose rules are its check modules rather than any config.
 const REPO_CHECK: &str = "et-int-repo-check";
@@ -673,6 +681,8 @@ fn reachable(tasks: &[Task], root: &str) -> Result<(BTreeSet<String>, Parents), 
 ///
 /// Commands end at an unquoted newline, `;`, `|`, `||` or `&&`. A `$(...)` substitution stays one word, operators and
 /// all, so it can be searched as a command of its own, and a `#` that starts a word comments out the rest of the line.
+/// The pattern of each `case` arm, which follows the `case ... in` header or the `;;` ending the arm before, is
+/// dropped.
 fn commands(body: &str) -> Vec<Vec<String>> {
     let mut commands = Vec::new();
     let mut words = Vec::new();
@@ -680,16 +690,8 @@ fn commands(body: &str) -> Vec<Vec<String>> {
     let mut quote = None;
     let mut inner_quote = None;
     let mut depth = 0_usize;
-    let mut comment = false;
     let mut chars = body.chars().peekable();
     while let Some(current) = chars.next() {
-        if comment {
-            if current == '\n' {
-                comment = false;
-                end_command(&mut commands, &mut words, &mut word);
-            }
-            continue;
-        }
         if let Some(open) = quote {
             if current == open {
                 quote = None;
@@ -704,29 +706,183 @@ fn commands(body: &str) -> Vec<Vec<String>> {
             continue;
         }
         if depth > 0 {
-            // Quotes inside the substitution are kept, and shield a `)` they contain from closing it.
-            if inner_quote == Some(current) {
-                inner_quote = None;
-            } else if inner_quote.is_none() && matches!(current, '\'' | '"') {
-                inner_quote = Some(current);
-            } else if inner_quote.is_none() && current == ')' {
-                depth = depth.saturating_sub(1);
-            } else {
-                // Any other character is part of the substitution's text.
-            }
+            in_substitution(current, &mut depth, &mut inner_quote);
             word.push(current);
             continue;
         }
         match current {
             '\'' | '"' => quote = Some(current),
-            '#' if word.is_empty() => comment = true,
-            '\n' | ';' | '|' | '&' => end_command(&mut commands, &mut words, &mut word),
-            ' ' | '\t' => end_word(&mut words, &mut word),
+            '#' if word.is_empty() => {
+                let _comment_end: Option<char> = chars.find(|skipped| *skipped == '\n');
+                end_command(&mut commands, &mut words, &mut word);
+            }
+            '\n' | ';' | '|' | '&' | ' ' | '\t' => separate(current, &mut chars, &mut commands, &mut words, &mut word),
             _ => word.push(current),
         }
     }
     end_command(&mut commands, &mut words, &mut word);
     commands
+}
+
+/// Track one character of a `$(...)` substitution: the quotes it opens and closes, and the `)` that closes it.
+///
+/// Quotes inside the substitution shield a `)` they contain from closing it.
+fn in_substitution(current: char, depth: &mut usize, inner_quote: &mut Option<char>) {
+    if *inner_quote == Some(current) {
+        *inner_quote = None;
+    } else if inner_quote.is_none() && matches!(current, '\'' | '"') {
+        *inner_quote = Some(current);
+    } else if inner_quote.is_none() && current == ')' {
+        *depth = depth.saturating_sub(1);
+    } else {
+        // Any other character is part of the substitution's text.
+    }
+}
+
+/// Close the word at an unquoted separator, and the command with it unless the separator is a blank.
+///
+/// A `case ... in` header, and the `;;`, `;&` or `;;&` that ends an arm, are each followed by an arm's pattern, which
+/// is skipped.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `commands`; kept separate to hold its complexity down"
+)]
+fn separate(
+    current: char,
+    chars: &mut Peekable<Chars<'_>>,
+    commands: &mut Vec<Vec<String>>,
+    words: &mut Vec<String>,
+    word: &mut String,
+) {
+    end_word(words, word);
+    let arm_end = current == ';' && chars.next_if(|next| matches!(next, ';' | '&')).is_some();
+    if arm_end {
+        let _fallthrough: Option<char> = chars.next_if_eq(&'&');
+    }
+    if arm_end || is_case_header(words) {
+        end_command(commands, words, word);
+        skip_case_pattern(chars);
+    } else if !matches!(current, ' ' | '\t') {
+        end_command(commands, words, word);
+    } else {
+        // A blank only separates words.
+    }
+}
+
+/// Whether the words so far are a `case ... in` header, with `case` in command position.
+///
+/// Only the shell words that introduce a command, or `time`, may precede `case`; after any other word, such as
+/// `echo case x in`, it is an ordinary argument.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `separate`; kept separate to hold its complexity down"
+)]
+fn is_case_header(words: &[String]) -> bool {
+    let mut reversed = words.iter().rev();
+    reversed.next().is_some_and(|last| last == "in")
+        && reversed.nth(1).is_some_and(|keyword| keyword == "case")
+        && reversed.all(|prefix| prefix == "time" || PREFIXES.contains(&prefix.as_str()))
+}
+
+/// Consume the pattern of a `case` arm through the `)` that ends it, or the `esac` that closes the `case` instead.
+///
+/// A pattern names no command, and its `|` alternatives would otherwise split it into commands the tool search reads:
+/// `main | release)` would report a tool called `main`. A backslash takes the character after it literally, so `\)`
+/// does not end the pattern. The separator after `esac` is left for the caller, which ends the command at it.
+fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
+    let mut pattern = String::default();
+    while let Some(current) = chars.next() {
+        match current {
+            '\'' | '"' | '\\' | '$' => {
+                skip_quoted(current, chars);
+                pattern.push(QUOTED);
+            }
+            ')' => return,
+            '#' if pattern.is_empty() => {
+                let _comment_end: Option<char> = chars.find(|skipped| *skipped == '\n');
+            }
+            _ if is_word_boundary(current) => pattern.clear(),
+            _ => pattern.push(current),
+        }
+        if closes_case(&pattern, chars.peek()) {
+            return;
+        }
+    }
+}
+
+/// Consume what an opening quote, a backslash or a `$` takes out of a pattern's literal text.
+///
+/// A quote runs through its matching quote, a backslash takes the one character after it, and a `$(` runs through the
+/// `)` closing the substitution, so none of the `)` inside ends the arm's pattern.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_case_pattern`; kept separate to hold its complexity down"
+)]
+fn skip_quoted(opener: char, chars: &mut Peekable<Chars<'_>>) {
+    match opener {
+        '\\' => {
+            let _literal: Option<char> = chars.next();
+        }
+        '"' => skip_double_quoted(chars),
+        '$' => {
+            if chars.next_if_eq(&'(').is_some() {
+                skip_substitution(chars);
+            }
+        }
+        _ => {
+            let _closing: Option<char> = chars.find(|next| *next == opener);
+        }
+    }
+}
+
+/// Consume a double-quoted string through its closing quote, where a backslash keeps the next `"` from closing it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_quoted`; kept separate to hold its complexity down"
+)]
+fn skip_double_quoted(chars: &mut Peekable<Chars<'_>>) {
+    while let Some(current) = chars.next() {
+        if current == '"' {
+            return;
+        }
+        if current == '\\' {
+            let _escaped: Option<char> = chars.next();
+        }
+    }
+}
+
+/// Consume a `$(...)` substitution after its opening `(`, through the `)` closing it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_quoted`; kept separate to hold its complexity down"
+)]
+fn skip_substitution(chars: &mut Peekable<Chars<'_>>) {
+    let mut depth = 1_usize;
+    let mut inner_quote = None;
+    while depth > 0 {
+        let Some(current) = chars.next() else {
+            return;
+        };
+        if current == '$' && inner_quote.is_none() && chars.peek() == Some(&'(') {
+            depth = depth.saturating_add(1);
+        } else {
+            in_substitution(current, &mut depth, &mut inner_quote);
+        }
+    }
+}
+
+/// Whether `pattern` is the `esac` closing a `case`: the whole unquoted word, so the next character ends it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_case_pattern`; kept separate to hold its complexity down"
+)]
+fn closes_case(pattern: &str, next: Option<&char>) -> bool {
+    pattern == "esac" && next.is_none_or(|following| is_word_boundary(*following))
+}
+
+/// Whether an unquoted character ends a word: a blank, or a shell operator character.
+const fn is_word_boundary(current: char) -> bool {
+    current.is_whitespace() || matches!(current, ';' | '&' | '|')
 }
 
 /// Close the word being built, if any.

@@ -84,6 +84,43 @@ fn env_provided_tools_and_pure_shell_bodies() {
 }
 
 #[test]
+fn case_patterns_are_not_commands() {
+    let arms = [
+        "case \"$branch\" in\n",
+        "  *reorg*)\n    echo reorg\n    exit 0\n    ;;\n",
+        "  # a comment between arms\n",
+        "  main | release-x)\n    echo sweep\n    exit 0\n    ;;\n",
+        "esac\n",
+        "scanz check",
+    ]
+    .concat();
+    assert_tool(&arms, "scanz");
+    assert_tool("case $x in a) lintx;; esac", "lintx");
+    assert_tool(
+        "if [ -n \"$x\" ]; then case $x in\n  main | dev) scanz;;\nesac; fi",
+        "scanz",
+    );
+    assert_tool(
+        "case $x in\n  'a)b' | c) echo;&\n  d) echo;;&\n  *) scanz;;\nesac",
+        "scanz",
+    );
+    assert_tool("echo case x in\nscanz", "scanz");
+    assert_tool("case \"$x\" in foo\\)bar | baz) echo ok ;; esac\nscanz", "scanz");
+    assert_tool("case x in a) echo ok;; esac&&scanz", "scanz");
+    assert_tool("( case \"$x\" in main | release) scanz ;; esac )", "scanz");
+    assert_tool(
+        "case \"$x\" in \\esac | main | release) echo ok ;; esac\nscanz",
+        "scanz",
+    );
+    assert_tool("case \"$x\" in \"foo\"#bar) echo ok ;; esac\nscanz", "scanz");
+    assert_tool(
+        "case x in $(printf a) | main | release) echo ok ;; esac\nscanz",
+        "scanz",
+    );
+    assert_tool("case x in \"a\\\"b\" | c) echo ok ;; esac\nscanz", "scanz");
+}
+
+#[test]
 fn config_paths_finds_config_files_and_mise_helpers_only() {
     let found = config_paths(
         "--config config/audit.toml {{ config_root }}/config/scanz.toml -f .mise/fmt-mise.awk .mise/config*.toml",

@@ -84,6 +84,7 @@ required_in = [
   "config/semgrep/anyhow-only-in-error-rs.yaml",
   "config/semgrep/comment-summary-line.yaml",
   "config/semgrep/no-check-tool-mentions.yaml",
+  "config/semgrep/no-inline-suppressions.yaml",
   "config/semgrep/no-python-outside-modules.yaml",
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
@@ -91,6 +92,12 @@ required_in = [
   "config/semgrep/python-exception-safety.yaml",
   "config/semgrep/sorted-lists.yaml",
 ]
+
+# Configs that skip only named files in this tree, rather than all of it.
+# The inline-suppression bans skip the one hand-written file here that carries a suppression marker, so a
+# generator that starts emitting one is still caught.
+[tree.generated.narrower]
+"config/semgrep/no-inline-suppressions.yaml" = ["/generated/rust-rest/src/retry.rs"]
 
 # mise's npm/PyPI dependency graphs beside the .mise/mise*.lock files that reference them.
 # Package-manager lockfiles repeat the same resolution blocks across tools and against pnpm-lock.yaml by

@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 // Compile-time inclusion keeps private guard tests under tests/ without exposing policy internals.
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- Required compile-time path annotation.
 // ast-grep-ignore: no-relative-path-literal
 #[path = "../tests/unit/policy_guards.rs"]
 mod guard_tests;

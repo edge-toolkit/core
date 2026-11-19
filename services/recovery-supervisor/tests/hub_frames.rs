@@ -8,7 +8,7 @@ use et_recovery_supervisor::RecoveryError;
 use et_recovery_supervisor::config::Mode;
 use et_recovery_supervisor::policy::{Health, Status};
 use et_recovery_supervisor::runtime::hub;
-use et_test_recovery::{config, event, supervisor};
+use et_test_recovery::{config, event, plaintext_ws_url, supervisor};
 use et_ws_runner_common::RegisteredSocket;
 use futures_util::{SinkExt as _, StreamExt as _};
 use pretty_assertions::assert_eq;
@@ -24,9 +24,7 @@ async fn peer() -> (RegisteredSocket, WebSocketStream<TcpStream>) {
         .unwrap();
     // Intentionally use plaintext on loopback only to exercise WebSocket frames without unrelated TLS
     // negotiation.
-    // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
-    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
-    let endpoint = format!("ws://{}/ws", listener.local_addr().unwrap());
+    let endpoint = plaintext_ws_url(listener.local_addr().unwrap());
     let client = tokio::spawn(async move { tokio_tungstenite::connect_async(endpoint).await.unwrap().0 });
     let (stream, _) = listener.accept().await.unwrap();
     let server = tokio_tungstenite::accept_async(stream).await.unwrap();
@@ -81,7 +79,7 @@ async fn direct(server: &mut WebSocketStream<TcpStream>, identity: &str, payload
 }
 
 /// Preserve replacement startup and later progress under overload while keeping outbound heartbeats active.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn queue_backpressure_preserves_replacement_identity_and_recovery_progress() {
     let (client, mut server) = peer().await;
     let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
@@ -126,7 +124,7 @@ async fn queue_backpressure_preserves_replacement_identity_and_recovery_progress
 }
 
 /// Acknowledge malformed direct events, answer pings and ignore unrelated frames without losing later valid events.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn malformed_events_and_non_event_frames_do_not_stop_delivery() {
     let (client, mut server) = peer().await;
     let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
@@ -156,7 +154,7 @@ async fn malformed_events_and_non_event_frames_do_not_stop_delivery() {
 }
 
 /// Preserve protocol errors instead of presenting a malformed WebSocket frame as a clean shutdown.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn invalid_websocket_frames_preserve_the_transport_error() {
     let (client, mut server) = peer().await;
     let (sender, _receiver) = tokio::sync::mpsc::channel(4);

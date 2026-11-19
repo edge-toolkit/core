@@ -43,6 +43,10 @@ name = "core_module"
 required-features = ["core-modules", "std"]
 
 [[test]]
+name = "lidar"
+required-features = ["lidar", "std"]
+
+[[test]]
 name = "modules"
 required-features = ["std"]
 
@@ -204,6 +208,7 @@ rstest.workspace = true
 secrecy.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+test-log.workspace = true
 wat.workspace = true
 
 [lints]

@@ -36,7 +36,7 @@ fn borrowed(port: &Resource<Port>) -> Resource<Port> {
     Resource::new_borrow(port.rep())
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_port_the_host_does_not_lend_is_unknown() {
     // serde-env records the prefix `motor` of `SERIAL_PORTS_MOTOR_BOARD` with an empty device, which lends nothing.
     let mut state = host_lending(&[("motor", "")]);
@@ -46,7 +46,7 @@ async fn a_port_the_host_does_not_lend_is_unknown() {
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn an_absent_device_or_a_bridge_nobody_serves_fails_to_open() {
     let closed = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
     let mut state = host_lending(&[("lidar", "/dev/no-such-lidar"), ("bridged", &bridge(closed))]);
@@ -56,7 +56,7 @@ async fn an_absent_device_or_a_bridge_nobody_serves_fails_to_open() {
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn a_bridged_port_writes_reads_waits_and_closes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let mut state = host_lending(&[("lidar", &bridge(listener.local_addr().unwrap()))]);

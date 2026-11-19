@@ -11,7 +11,7 @@ use et_recovery_supervisor::config::Config;
 use et_recovery_supervisor::health::{Session, check, silence_limit};
 use et_recovery_supervisor::kubernetes::Backend;
 use et_recovery_supervisor::policy::Health;
-use et_test_recovery::{config, environment};
+use et_test_recovery::{config, environment, plaintext_ws_url};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
 use pretty_assertions::assert_eq;
@@ -68,7 +68,7 @@ async fn wait_for_health(config: &Config) {
 }
 
 /// Keep startup unhealthy until a completed cycle and ensure probing cannot create or consume a restart budget.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn startup_waits_for_a_completed_cycle_and_a_read_only_probe_cannot_spend_the_budget() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
@@ -88,7 +88,7 @@ async fn startup_waits_for_a_completed_cycle_and_a_read_only_probe_cannot_spend_
 }
 
 /// Prevent a replacement supervisor from inheriting another process's healthy status.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_new_owner_cannot_reuse_a_previous_sessions_fresh_heartbeat() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
@@ -113,7 +113,7 @@ async fn a_new_owner_cannot_reuse_a_previous_sessions_fresh_heartbeat() {
 }
 
 /// Keep ownership exclusive while allowing a separate health-check process to read session metadata on every OS.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn session_identity_remains_readable_without_reading_the_locked_lease() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
@@ -132,7 +132,7 @@ async fn session_identity_remains_readable_without_reading_the_locked_lease() {
 }
 
 /// Release ownership if readable session metadata cannot be published, without advertising old evidence as healthy.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn unavailable_session_storage_releases_the_budget_lease() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
@@ -145,7 +145,7 @@ async fn unavailable_session_storage_releases_the_budget_lease() {
 }
 
 /// Reject corrupted heartbeats and evidence belonging to another job, session or schema.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn malformed_foreign_and_unknown_version_evidence_fails_closed() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
@@ -171,14 +171,17 @@ async fn malformed_foreign_and_unknown_version_evidence_fails_closed() {
 }
 
 /// Reject stale or future-dated evidence while allowing a newly completed cycle to restore health.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn stale_cycles_and_future_timestamps_are_unhealthy_but_progress_restores_health() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
     let session = Session::acquire(&config).unwrap();
     for (timestamp, message) in [
         (SystemTime::UNIX_EPOCH, "stale"),
-        (SystemTime::now() + Duration::from_secs(3600), "future"),
+        (
+            SystemTime::now().checked_add(Duration::from_secs(3600)).unwrap(),
+            "future",
+        ),
     ] {
         session.advance().await.unwrap();
         replace(&config, "completed_at", serde_json::to_value(timestamp).unwrap());
@@ -190,7 +193,7 @@ async fn stale_cycles_and_future_timestamps_are_unhealthy_but_progress_restores_
 }
 
 /// Keep a failed heartbeat write from advertising a healthy supervision cycle.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn unavailable_evidence_storage_does_not_publish_health() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
@@ -254,7 +257,7 @@ impl Backend for PausedBackend {
 }
 
 /// Distinguish a stalled control loop from a completed cycle reporting an unavailable Kubernetes API.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn a_blocked_loop_cannot_refresh_health_and_api_failure_is_not_a_supervisor_stall() {
     let directory = tempfile::tempdir().unwrap();
     let server = et_ws_test_server::start();
@@ -288,7 +291,7 @@ async fn a_blocked_loop_cannot_refresh_health_and_api_failure_is_not_a_superviso
 }
 
 /// Release health ownership on transport loss instead of trusting a recently written heartbeat.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn graceful_and_abrupt_hub_loss_invalidate_health_even_with_a_fresh_heartbeat() {
     for graceful in [false, true] {
         assert_transport_failure(graceful).await;
@@ -326,9 +329,7 @@ async fn fake_hub(identity: &str, graceful: bool) -> (String, Arc<tokio::sync::N
         .await
         .unwrap();
     // Intentionally use plaintext on loopback only to test registration and shutdown, not TLS or production traffic.
-    // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
-    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
-    let url = format!("ws://{}/ws", listener.local_addr().unwrap());
+    let url = plaintext_ws_url(listener.local_addr().unwrap());
     let identity = identity.to_owned();
     let close = Arc::new(tokio::sync::Notify::new());
     let shutdown = Arc::clone(&close);
@@ -366,7 +367,7 @@ async fn fake_hub(identity: &str, graceful: bool) -> (String, Arc<tokio::sync::N
 }
 
 /// Release the lease after failed registration or heartbeat persistence.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn registration_and_heartbeat_persistence_failures_never_leave_a_healthy_owner() {
     for bad_identity in [false, true] {
         let directory = tempfile::tempdir().unwrap();

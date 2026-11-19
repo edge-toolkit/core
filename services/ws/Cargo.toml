@@ -109,6 +109,7 @@ picoserve = { workspace = true, features = ["tokio"] }
 pretty_assertions.workspace = true
 serde-env.workspace = true
 tempfile.workspace = true
+test-log.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 

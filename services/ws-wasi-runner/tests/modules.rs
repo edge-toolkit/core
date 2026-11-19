@@ -2,6 +2,8 @@
 //! via et-ws-wasi-runner. Mirror of `services/ws-worker/tests/modules.rs`'s
 //! removed predecessor -- same shape, but the spawned binary runs WASI
 //! components rather than browser-targeted JS.
+//!
+//! Every test here is skipped on Windows, and only those tests belong in this file.
 
 #![cfg(test)]
 
@@ -64,7 +66,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
 #[rstest]
 #[case::wasi("et-ws-wasi-math1")]
 #[cfg_attr(feature = "core-modules", case::core("et-ws-core-math1"))]
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 #[cfg_attr(
     windows,
     ignore = "pkg/package.json 404 on Windows -- see module_runs_successfully's comment"
@@ -93,32 +95,6 @@ async fn math1_twin_stores_verified_model(#[case] module: &str) {
     let (weight, bias) = outcome.unwrap_or_else(|err| panic!("{module}: {err}"));
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap_or_else(|err| panic!("{module}: {err}"));
     assert!(status.success(), "{module} runner exited {status:?}");
-}
-
-/// Run wasi-lidar1 against a simulated COIN-D6 lent as a port bridged over TCP.
-///
-/// The module asks the lidar to scan, stores each revolution it receives, and ends when the lidar hangs up, which
-/// leaves the last whole revolution in its bucket.
-#[cfg(feature = "lidar")]
-#[test]
-fn lidar1_stores_the_latest_revolution() {
-    if !mise_env_includes(Language::Rust) {
-        return;
-    }
-    let server = et_ws_test_server::start();
-    let lidar = et_ws_test_server::lidar::SimulatedLidar::start();
-    let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");
-    let module = "et-ws-wasi-lidar1";
-    let _: std::process::ExitStatus = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", served(module))
-        .env("WS_SERVER_URL", &server.ws_url)
-        .env("SERIAL_PORTS_LIDAR", lidar.device())
-        .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
-        .status_checked()
-        .unwrap_or_else(|error| panic!("{module} runner failed: {error}"));
-    lidar
-        .verify(server.storage_dir.path(), std::time::Duration::ZERO)
-        .unwrap();
 }
 
 /// Poll the spawned runner until it exits, killing it if it overstays the bound.

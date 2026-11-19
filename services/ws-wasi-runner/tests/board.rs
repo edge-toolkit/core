@@ -333,14 +333,14 @@ async fn failed_closing(module: &str, hub: Hub) -> (EntryError, bool) {
     (error, closed)
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn data1_round_trips_a_value_through_the_boards_memory() {
     let (lines, sent) = ran("wasi-data1").await;
     assert!(lines.iter().any(|line| line.contains("VERIFICATION SUCCESS")));
     assert!(matches!(sent.as_slice(), [ClientMessage::Connect { agent_id: None }]));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn comm1_finds_itself_in_the_roster_and_broadcasts() {
     let (lines, sent) = ran("wasi-comm1").await;
     assert!(lines.iter().any(|line| line.contains("self present in roster")));
@@ -354,7 +354,7 @@ async fn comm1_finds_itself_in_the_roster_and_broadcasts() {
     ));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn math1_sender_broadcasts_its_pointer_once_a_second_of_the_boards_clock() {
     let (outcome, lines, sent, closed) = ran_on(&compiled("wasi-math1-sender"), Hub::default()).await;
     outcome.unwrap();
@@ -373,7 +373,7 @@ async fn math1_sender_broadcasts_its_pointer_once_a_second_of_the_boards_clock()
     )));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn math1_reads_every_message_kind_before_its_pointer_and_finds_no_input_in_a_module_bucket() {
     let frames = [
         ServerMessage::AgentMessage {
@@ -409,7 +409,7 @@ async fn math1_reads_every_message_kind_before_its_pointer_and_finds_no_input_in
 #[rstest]
 #[case::nothing_arrives(Fault::None)]
 #[case::reads_fail(Fault::RecvFailsWhenIdle)]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn math1_gives_up_when_no_pointer_arrives(#[case] fault: Fault) {
     let error = failed("wasi-math1", Hub::new(fault, [])).await;
     assert!(matches!(error, EntryError::Runtime(detail) if detail == "did not receive the math1-input pointer"));
@@ -420,7 +420,7 @@ async fn math1_gives_up_when_no_pointer_arrives(#[case] fault: Fault) {
 #[case::send_fails(Fault::SendFails, "broken pipe", true)]
 #[case::unreadable(Fault::Unreadable, "connection reset", true)]
 #[case::no_ack(Fault::NoAck, "the hub sent no et-connect-ack", true)]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn data1_fails_to_connect_through_a_broken_hub(
     #[case] fault: Fault,
     #[case] expected: &str,
@@ -431,7 +431,7 @@ async fn data1_fails_to_connect_through_a_broken_hub(
     assert_eq!(closed, was_open);
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn data1_fails_to_connect_when_a_frame_claims_a_type_it_does_not_match() {
     let malformed = Frame::Text(r#"{"type":"et-response"}"#.to_owned());
     let (error, closed) = failed_closing("wasi-data1", Hub::new(Fault::None, [malformed])).await;
@@ -439,7 +439,7 @@ async fn data1_fails_to_connect_when_a_frame_claims_a_type_it_does_not_match() {
     assert!(closed);
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn comm1_fails_when_its_roster_request_cannot_be_sent() {
     let error = failed("wasi-comm1", Hub::new(Fault::SendFailsAfterConnect, [])).await;
     assert!(matches!(error, EntryError::Ws(WsError::Transport(reason)) if reason == "broken pipe"));
@@ -467,7 +467,7 @@ fn a_guest_that_needs_a_gpu_or_a_model_imports_what_the_board_does_not_host() {
     assert!(unhosted.iter().any(|import| import.starts_with("wasi:nn/")));
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_guest_runs_within_the_board_s_memory_and_returns_it_when_it_ends() {
     let module = "wasi-data1";
     let starts_with = usize::try_from(Guest::read(&component(module)).unwrap().memory).unwrap();
@@ -503,7 +503,7 @@ where
     outcome
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn bytes_that_were_not_compiled_for_the_board_do_not_load() {
     let (outcome, lines, sent, _) = ran_on(b"not a component", Hub::default()).await;
     assert!(matches!(outcome, Err(BoardError::Wasmtime(_))));
@@ -569,7 +569,7 @@ fn assert_not_rerun(reports: &[String], clock: u64) {
     assert_eq!(clock, 0);
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_component_failing_in_itself_is_run_again_on_a_fresh_transport_until_it_finishes() {
     let (reports, clock) = supervised(
         &compiled("wasi-data1"),
@@ -579,7 +579,7 @@ async fn a_component_failing_in_itself_is_run_again_on_a_fresh_transport_until_i
     assert_reran_once(&reports, clock);
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_component_that_does_not_load_is_not_run_again() {
     let (reports, clock) = supervised(b"not a component", vec![Hub::default()]).await;
     assert_not_rerun(&reports, clock);
@@ -600,7 +600,7 @@ async fn ran_core_module(
 }
 
 #[cfg(feature = "core-modules")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn core_math1_stores_the_model_fitted_to_the_input_its_pointer_names() {
     let pointer = format!(r#"{{"type":"math1-input","bucket":"sender","filename":"{MATH1_INPUT_FILENAME}"}}"#);
     let hub = Hub::new(Fault::None, [Frame::Text(pointer)]);
@@ -618,7 +618,7 @@ async fn core_math1_stores_the_model_fitted_to_the_input_its_pointer_names() {
 }
 
 #[cfg(feature = "core-modules")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_core_module_reaches_the_hub_and_its_storage_through_the_board() {
     let hub = Hub::default();
     let storage = hub.storage.clone();
@@ -634,7 +634,7 @@ async fn a_core_module_reaches_the_hub_and_its_storage_through_the_board() {
 }
 
 #[cfg(feature = "core-modules")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_core_module_that_starts_with_more_memory_than_is_left_does_not_load() {
     let module = component("core-math1");
     let starts_with = usize::try_from(Guest::read(&module).unwrap().memory).unwrap();
@@ -643,7 +643,7 @@ async fn a_core_module_that_starts_with_more_memory_than_is_left_does_not_load()
 }
 
 #[cfg(feature = "core-modules")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_core_module_grows_only_as_far_as_the_board_s_memory_and_returns_it_when_it_ends() {
     let module = wat::parse_str(GROWS_A_PAGE).unwrap();
     let one_page = MemoryBudget::new(PAGE);
@@ -658,7 +658,7 @@ async fn a_core_module_grows_only_as_far_as_the_board_s_memory_and_returns_it_wh
 }
 
 #[cfg(feature = "core-modules")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_core_module_failing_in_itself_is_run_again_on_a_fresh_transport_until_it_finishes() {
     let module = wat::parse_str(CONNECTS).unwrap();
     let (reports, clock) = supervised(&module, vec![Hub::new(Fault::Refused, []), Hub::default()]).await;
@@ -666,7 +666,7 @@ async fn a_core_module_failing_in_itself_is_run_again_on_a_fresh_transport_until
 }
 
 #[cfg(feature = "core-modules")]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_core_module_with_no_run_is_not_run_again() {
     let (reports, clock) = supervised(&wat::parse_str("(module)").unwrap(), vec![Hub::default()]).await;
     assert_not_rerun(&reports, clock);

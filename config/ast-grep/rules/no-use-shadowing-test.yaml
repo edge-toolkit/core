@@ -1,0 +1,14 @@
+id: no-use-shadowing-test
+language: Rust
+severity: error
+message: |
+  This `use` brings a name `test` into scope, which shadows the built-in `#[test]` attribute for the whole file:
+  `use actix_web::test` imports actix's test macro along with its module, and `use test_log::test` swaps in
+  test-log's. Every plain `#[test]` below it then means that macro, which reads as the built-in and is not. Import
+  it under another name (`use actix_web::test as actix_test`) or write the path in full at the attribute
+  (`#[test_log::test(tokio::test)]`). Check-only: renaming the import also renames every `test::` path that uses it.
+rule:
+  kind: use_declaration
+  any:
+    - regex: '(\buse\s+|::|\{\s*|,\s*)test\s*([;,}])'
+    - regex: '\bas\s+test\b'

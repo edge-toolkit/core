@@ -16,7 +16,7 @@ use futures_util::{SinkExt as _, StreamExt as _};
 use pretty_assertions::assert_eq;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn unrecognised_text_is_broadcast_verbatim() {
     let server = et_ws_test_server::start();
 
@@ -46,7 +46,7 @@ async fn unrecognised_text_is_broadcast_verbatim() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn unrecognised_binary_is_broadcast_verbatim() {
     let server = et_ws_test_server::start();
 
@@ -69,7 +69,7 @@ async fn unrecognised_binary_is_broadcast_verbatim() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
     let server = et_ws_test_server::start();
 
@@ -110,7 +110,7 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn direct_message_to_unknown_agent_is_rejected() {
     let server = et_ws_test_server::start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;

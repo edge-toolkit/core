@@ -83,6 +83,7 @@ picoserve = { workspace = true, features = ["tokio"] }
 pretty_assertions.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+test-log.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "time"] }
 
 [lints]

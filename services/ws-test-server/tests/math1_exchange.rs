@@ -37,7 +37,7 @@ fn verify_rejects_a_wrong_bias() {
 }
 
 /// An unreachable server surfaces as the boxed transport variant (covers the `From` impl).
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn unreachable_server_is_a_transport_error() {
     let err = drive_math1_exchange("ws://127.0.0.1:9/ws", std::env::temp_dir().as_path(), EXCHANGE_BUDGET)
         .await
@@ -46,7 +46,7 @@ async fn unreachable_server_is_a_transport_error() {
 }
 
 /// A server that closes the websocket cleanly mid-exchange surfaces as the socket-closed error.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn server_close_is_a_protocol_error() {
     let ws_url = accept_one_connection_then(true).await;
     let err = drive_math1_exchange(&ws_url, std::env::temp_dir().as_path(), EXCHANGE_BUDGET)
@@ -59,7 +59,7 @@ async fn server_close_is_a_protocol_error() {
 }
 
 /// A server that drops the TCP stream without a close handshake surfaces as a transport error.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn abrupt_server_drop_is_a_transport_error() {
     let ws_url = accept_one_connection_then(false).await;
     let err = drive_math1_exchange(&ws_url, std::env::temp_dir().as_path(), EXCHANGE_BUDGET)
@@ -91,7 +91,7 @@ async fn accept_one_connection_then(close_gracefully: bool) -> String {
 }
 
 /// With no module ever answering, the driver keeps re-broadcasting until the budget expires.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn times_out_when_no_module_answers() {
     let server = et_ws_test_server::start();
     let err = drive_math1_exchange(&server.ws_url, server.storage_dir.path(), Duration::from_millis(600))
@@ -107,7 +107,7 @@ async fn times_out_when_no_module_answers() {
 ///
 /// The peer also relays noise (a foreign text frame and a binary frame) mid-exchange, so the
 /// driver's ignore-arms for non-protocol traffic are exercised alongside the success path.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn reads_and_verifies_a_peer_output() {
     let server = et_ws_test_server::start();
     // The peer plays the module: it registers on the hub and its bucket carries a valid output.
@@ -133,7 +133,7 @@ async fn reads_and_verifies_a_peer_output() {
 }
 
 /// A non-JSON output file surfaces as the JSON variant.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn malformed_output_is_a_json_error() {
     let server = et_ws_test_server::start();
     let (_peer, peer_id) = et_ws_test_server::connect_agent(&server.ws_url).await;
@@ -145,7 +145,7 @@ async fn malformed_output_is_a_json_error() {
 }
 
 /// Output JSON without the model fields names the first missing field.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn output_without_weight_is_a_protocol_error() {
     let server = et_ws_test_server::start();
     let (_peer, peer_id) = et_ws_test_server::connect_agent(&server.ws_url).await;
@@ -157,7 +157,7 @@ async fn output_without_weight_is_a_protocol_error() {
 }
 
 /// Output JSON with a weight but no bias trips the second field check.
-#[tokio::test(flavor = "current_thread")]
+#[test_log::test(tokio::test(flavor = "current_thread"))]
 async fn output_without_bias_is_a_protocol_error() {
     let server = et_ws_test_server::start();
     let (_peer, peer_id) = et_ws_test_server::connect_agent(&server.ws_url).await;

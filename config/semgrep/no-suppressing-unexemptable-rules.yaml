@@ -7,6 +7,8 @@ rules:
       exclude:
         # Its own test case, which has to spell out every suppression the rule flags.
         - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml"
+        # The test case of the inline suppression bans, which spells out a blanket marker.
+        - "/config/semgrep-tests/no-inline-suppressions.rs.yaml"
     # Each pattern opens at the newline ending the line above the marker, so the finding is reported on that line.
     # A blanket marker silences findings on its own line, so a pattern starting there would let it hide itself.
     # A marker on a file's first line has no line above, so it is matched from the start of the file instead; a

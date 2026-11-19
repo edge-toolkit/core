@@ -10,7 +10,7 @@ use futures_util::{SinkExt as _, StreamExt as _};
 use pretty_assertions::assert_eq;
 use tokio_tungstenite::tungstenite::Message;
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn ack_notifies_original_sender() {
     let server = et_ws_test_server::start();
     let (mut sender, _sender_id) = connect_agent(&server.ws_url).await;
@@ -38,7 +38,7 @@ async fn ack_notifies_original_sender() {
     recipient.send(Message::text(ack.to_string())).await.unwrap();
 
     // The sender's stream carries a Delivered status first; read on until the Acknowledged one arrives.
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    let deadline = tokio::time::Instant::now().checked_add(Duration::from_secs(5)).unwrap();
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         // Three unwraps mirror `next_payload`: timeout elapsed, stream ended, stream error.

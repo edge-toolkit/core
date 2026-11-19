@@ -1,0 +1,21 @@
+id: no-use-shadowing-test
+valid:
+  - |
+    use actix_web::{App, test as actix_test, web};
+  - |
+    use actix_web::test::TestRequest;
+  - |
+    use crate::test_support::{test_server, tests};
+  - |
+    use std::time::Duration;
+invalid:
+  - |
+    use actix_web::{App, test, web};
+  - |
+    use test_log::test;
+  - |
+    use actix_web::test;
+  - |
+    use rstest::rstest as test;
+  - |
+    use tokio::{test};

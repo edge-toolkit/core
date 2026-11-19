@@ -28,6 +28,7 @@ uuid.workspace = true
 et-test-helpers.workspace = true
 et-test-nats.workspace = true
 pretty_assertions.workspace = true
+test-log.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
 [lints]

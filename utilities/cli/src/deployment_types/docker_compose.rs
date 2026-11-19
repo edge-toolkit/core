@@ -698,7 +698,6 @@ impl Serialize for ComposeBuild {
         };
         if context.is_none() && self.additional_contexts.is_empty() && self.secrets.is_empty() {
             // Compose's own spelling of the directory holding the file, written out for it rather than resolved here.
-            // nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- Required to waive the rule for this value.
             // ast-grep-ignore: no-relative-path-literal
             return serializer.serialize_str(".");
         }

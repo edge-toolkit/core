@@ -32,7 +32,7 @@ async fn relay_to_shared(sender: &mut Stream, recipient: &mut Stream, payload: u
     message
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn the_newest_claim_on_an_id_survives_the_displaced_connection_closing() {
     let server = et_ws_test_server::start();
     let (mut displaced, first_id) = connect_agent_as(&server.ws_url, Some(SHARED_ID)).await;

@@ -7,7 +7,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use actix_web::dev::{Service, ServiceResponse};
 use actix_web::http::{StatusCode, header};
-use actix_web::{App, ResponseError as _, test, web};
+use actix_web::{App, ResponseError as _, test as actix_test, web};
 use edge_toolkit::ws_server::{MessageRetention, RegistryError};
 #[cfg(feature = "nats")]
 use et_ws_service::BackplaneError;
@@ -48,7 +48,7 @@ async fn app(
     registry: WsAgentRegistry,
     config: WsConfig,
 ) -> impl Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error> {
-    test::init_service(
+    actix_test::init_service(
         App::new()
             .app_data(web::Data::new(registry))
             .configure(|cfg| configure(cfg, &config)),
@@ -66,29 +66,32 @@ async fn assert_only_the_agents_address_is_refused(
     app: &impl Service<actix_http::Request, Response = ServiceResponse, Error = actix_web::Error>,
 ) {
     assert!(registry.blocklist.is_blocked(AGENT_IP));
-    let refused = test::call_service(app, upgrade_from(AGENT_IP).to_request()).await;
+    let refused = actix_test::call_service(app, upgrade_from(AGENT_IP).to_request()).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
-    let accepted = test::call_service(app, upgrade_from(OTHER_IP).to_request()).await;
+    let accepted = actix_test::call_service(app, upgrade_from(OTHER_IP).to_request()).await;
     assert_eq!(accepted.status(), StatusCode::SWITCHING_PROTOCOLS);
 }
 
-fn with_credential(request: test::TestRequest, credential: Option<&str>) -> test::TestRequest {
+fn with_credential(request: actix_test::TestRequest, credential: Option<&str>) -> actix_test::TestRequest {
     match credential {
         Some(credential) => request.insert_header((header::AUTHORIZATION, credential)),
         None => request,
     }
 }
 
-fn evict(credential: Option<&str>) -> test::TestRequest {
-    with_credential(test::TestRequest::delete().uri("/agents/agent-1"), credential)
+fn evict(credential: Option<&str>) -> actix_test::TestRequest {
+    with_credential(actix_test::TestRequest::delete().uri("/agents/agent-1"), credential)
 }
 
-fn block(ip: &str, credential: Option<&str>) -> test::TestRequest {
-    with_credential(test::TestRequest::put().uri(&format!("/blocked-ips/{ip}")), credential)
+fn block(ip: &str, credential: Option<&str>) -> actix_test::TestRequest {
+    with_credential(
+        actix_test::TestRequest::put().uri(&format!("/blocked-ips/{ip}")),
+        credential,
+    )
 }
 
-fn upgrade_from(ip: IpAddr) -> test::TestRequest {
-    test::TestRequest::get()
+fn upgrade_from(ip: IpAddr) -> actix_test::TestRequest {
+    actix_test::TestRequest::get()
         .uri("/ws")
         .peer_addr(SocketAddr::new(ip, 40000))
         .insert_header((header::UPGRADE, "websocket"))
@@ -97,7 +100,7 @@ fn upgrade_from(ip: IpAddr) -> test::TestRequest {
         .insert_header((header::SEC_WEBSOCKET_KEY, RFC_6455_SAMPLE_NONCE))
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn the_token_is_disabled_by_default_and_an_empty_one_is_rejected() {
     assert!(matches!(WsConfig::default().admin_token, AdminToken::Disabled));
     assert!(matches!(enabled(), AdminToken::Token(_)));
@@ -106,14 +109,14 @@ async fn the_token_is_disabled_by_default_and_an_empty_one_is_rejected() {
     assert!(!format!("{:?}", enabled()).contains(TOKEN));
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn a_disabled_admin_api_refuses_even_the_right_token() {
     let app = app(registry_with_agent(), WsConfig::default()).await;
-    let response = test::call_service(&app, evict(Some("Bearer s3cret")).to_request()).await;
+    let response = actix_test::call_service(&app, evict(Some("Bearer s3cret")).to_request()).await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn a_missing_malformed_or_wrong_credential_is_challenged() {
     let registry = registry_with_agent();
     let app = app(registry.clone(), config_with(enabled())).await;
@@ -123,53 +126,54 @@ async fn a_missing_malformed_or_wrong_credential_is_challenged() {
         Some("Bearer wrong"),
         Some("Bearer s3cret-and-more"),
     ] {
-        let response = test::call_service(&app, evict(credential).to_request()).await;
+        let response = actix_test::call_service(&app, evict(credential).to_request()).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         assert_eq!(response.headers().get(header::WWW_AUTHENTICATE).unwrap(), "Bearer");
     }
     assert!(!registry.blocklist.is_blocked(AGENT_IP));
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn an_unknown_agent_is_not_found() {
     let app = app(WsAgentRegistry::default(), config_with(enabled())).await;
-    let response = test::call_service(&app, evict(Some("Bearer s3cret")).to_request()).await;
+    let response = actix_test::call_service(&app, evict(Some("Bearer s3cret")).to_request()).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn an_eviction_blocks_the_agents_address_from_reconnecting() {
     let registry = registry_with_agent();
     let app = app(registry.clone(), config_with(enabled())).await;
 
-    let evicted: EvictedAgent = test::call_and_read_body_json(&app, evict(Some("Bearer s3cret")).to_request()).await;
+    let evicted: EvictedAgent =
+        actix_test::call_and_read_body_json(&app, evict(Some("Bearer s3cret")).to_request()).await;
     assert_eq!(evicted.agent_id, "agent-1");
     assert_eq!(evicted.blocked_ip, AGENT_IP);
     assert_only_the_agents_address_is_refused(&registry, &app).await;
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn a_blocked_address_is_refused_and_blocking_it_again_succeeds() {
     let registry = WsAgentRegistry::default();
     let app = app(registry.clone(), config_with(enabled())).await;
 
     for _attempt in 0..2_u8 {
-        let response = test::call_service(&app, block("192.0.2.7", Some("Bearer s3cret")).to_request()).await;
+        let response = actix_test::call_service(&app, block("192.0.2.7", Some("Bearer s3cret")).to_request()).await;
         assert_eq!(response.status(), StatusCode::NO_CONTENT);
     }
     assert_only_the_agents_address_is_refused(&registry, &app).await;
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn a_block_needs_an_address_and_the_admin_token() {
     let registry = WsAgentRegistry::default();
     let hub = app(registry.clone(), config_with(enabled())).await;
 
-    let malformed = test::call_service(&hub, block("not-an-ip", Some("Bearer s3cret")).to_request()).await;
+    let malformed = actix_test::call_service(&hub, block("not-an-ip", Some("Bearer s3cret")).to_request()).await;
     assert_eq!(malformed.status(), StatusCode::NOT_FOUND);
-    let unauthorized = test::call_service(&hub, block("192.0.2.7", None).to_request()).await;
+    let unauthorized = actix_test::call_service(&hub, block("192.0.2.7", None).to_request()).await;
     assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
-    let ipv6 = test::call_service(&hub, block("2001:db8::1", Some("Bearer s3cret")).to_request()).await;
+    let ipv6 = actix_test::call_service(&hub, block("2001:db8::1", Some("Bearer s3cret")).to_request()).await;
     assert_eq!(ipv6.status(), StatusCode::NO_CONTENT);
     assert_eq!(
         registry.blocklist.ips(),
@@ -177,11 +181,11 @@ async fn a_block_needs_an_address_and_the_admin_token() {
     );
 
     let disabled = app(WsAgentRegistry::default(), WsConfig::default()).await;
-    let refused = test::call_service(&disabled, block("192.0.2.7", Some("Bearer s3cret")).to_request()).await;
+    let refused = actix_test::call_service(&disabled, block("192.0.2.7", Some("Bearer s3cret")).to_request()).await;
     assert_eq!(refused.status(), StatusCode::FORBIDDEN);
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn an_eviction_drops_the_messages_the_agent_queued() {
     let registry = registry_with_agent();
     let (session, _outbox) = tokio::sync::mpsc::unbounded_channel();
@@ -196,19 +200,19 @@ async fn an_eviction_drops_the_messages_the_agent_queued() {
     );
     let app = app(registry.clone(), config_with(enabled())).await;
 
-    let response = test::call_service(&app, evict(Some("Bearer s3cret")).to_request()).await;
+    let response = actix_test::call_service(&app, evict(Some("Bearer s3cret")).to_request()).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert!(registry.pending_messages_for("agent-2").is_empty());
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn a_registry_failure_maps_to_its_status() {
     let from_registry = AdminError::from(RegistryError::LockPoisoned);
     assert_eq!(from_registry.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
 }
 
 #[cfg(feature = "nats")]
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn each_backplane_failure_maps_to_its_status() {
     let from_backplane = AdminError::from(BackplaneError::NoPendingMessage("m".to_owned()));
     assert_eq!(from_backplane.status_code(), StatusCode::SERVICE_UNAVAILABLE);

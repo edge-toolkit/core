@@ -150,7 +150,6 @@ fn retry_delay(outcome: &reqwest::Result<Response>, fallback: Duration) -> Delay
 
 #[cfg(test)]
 // The compiler resolves this test module against this source file, independently of runtime working directories.
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- Required compile-time path annotation.
 // ast-grep-ignore: no-relative-path-literal
 #[path = "../tests/unit/retry.rs"]
 mod tests;

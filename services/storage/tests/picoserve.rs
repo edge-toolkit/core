@@ -103,7 +103,7 @@ fn body(response: &str) -> &str {
     response.split_once("\r\n\r\n").unwrap().1
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn an_agent_stores_files_any_client_reads_back() {
     LocalSet::new()
         .run_until(Box::pin(async {
@@ -144,7 +144,7 @@ async fn an_agent_stores_files_any_client_reads_back() {
         .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn a_path_naming_no_stored_file_is_not_found() {
     LocalSet::new()
         .run_until(Box::pin(async {

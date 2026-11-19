@@ -147,7 +147,7 @@ async fn closed_within(ws: &mut WsStream, secs: u64) -> bool {
     .unwrap_or(false)
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_echoes_bytes_both_directions() {
     let port = start_relay(start_echo_target().await).await;
     let mut ws = open_ws(port).await;
@@ -158,7 +158,7 @@ async fn relay_echoes_bytes_both_directions() {
     assert_eq!(echoed, b"hello relay");
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_carries_a_full_http_get() {
     let port = start_relay(start_http_target().await).await;
     let mut ws = open_ws(port).await;
@@ -175,7 +175,7 @@ async fn relay_carries_a_full_http_get() {
     assert!(response.contains("pong"), "response missing body: {response}");
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_handles_a_large_chunked_payload() {
     let port = start_relay(start_echo_target().await).await;
     let mut ws = open_ws(port).await;
@@ -189,7 +189,7 @@ async fn relay_handles_a_large_chunked_payload() {
     assert_eq!(echoed, payload);
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_closes_when_target_closes() {
     let port = start_relay(start_closing_target().await).await;
     let mut ws = open_ws(port).await;
@@ -204,7 +204,7 @@ async fn relay_closes_when_target_closes() {
     );
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_closes_when_target_unreachable() {
     let port = start_relay(unreachable_target().await).await;
     let mut ws = open_ws(port).await;
@@ -219,7 +219,7 @@ async fn relay_closes_when_target_unreachable() {
     );
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_accepts_an_appended_target_path() {
     // Emscripten may append the connect target to the configured URL: ws://host/websockify/<addr>:<port>.
     // The relay must still match and bridge to its own fixed target, ignoring the suffix.
@@ -249,7 +249,7 @@ async fn socks5_connect(port: u16, request: &[u8]) -> (WsStream, Vec<u8>) {
     (ws, reply)
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_socks5_connect_to_loopback_bridges() {
     let port = start_relay(start_echo_target().await).await;
     // CONNECT 127.0.0.1:80 -- loopback, so accepted; the relay bridges to its own (echo) target.
@@ -266,7 +266,7 @@ async fn relay_socks5_connect_to_loopback_bridges() {
     assert_eq!(recv_bytes(&mut ws, b"socks-hi".len()).await, b"socks-hi");
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_socks5_refuses_non_loopback_ipv4() {
     let port = start_relay(start_echo_target().await).await;
     // CONNECT 8.8.8.8:443 -- not loopback, must be refused (REP=2) and never reach the target.
@@ -279,7 +279,7 @@ async fn relay_socks5_refuses_non_loopback_ipv4() {
     );
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_socks5_refuses_external_domain() {
     let port = start_relay(start_echo_target().await).await;
     // CONNECT get-ws-proxy.r-universe.dev:443 -- the exact stray probe webR's curl makes; must be refused.
@@ -295,7 +295,7 @@ async fn relay_socks5_refuses_external_domain() {
     );
 }
 
-#[actix_web::test]
+#[test_log::test(actix_web::test)]
 async fn relay_echoes_the_binary_subprotocol() {
     let port = start_relay(start_echo_target().await).await;
 

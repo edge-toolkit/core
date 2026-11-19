@@ -16,7 +16,7 @@ use std::pin::Pin;
 use actix_web::dev::{Payload as DevPayload, ServiceResponse};
 use actix_web::error::{PayloadError, ResponseError as _};
 use actix_web::http::{Method, StatusCode, header};
-use actix_web::{App, FromRequest as _, test, web};
+use actix_web::{App, FromRequest as _, test as actix_test, web};
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, StorageError, build_store, configure, put_file};
@@ -44,8 +44,8 @@ fn storage_config(tmp: &TempDir) -> StorageConfig {
 }
 
 /// A PUT of `uri` arriving from the address [`registry_with_agent`] registers its agent at.
-fn put_from_agent(uri: &str) -> test::TestRequest {
-    test::TestRequest::put()
+fn put_from_agent(uri: &str) -> actix_test::TestRequest {
+    actix_test::TestRequest::put()
         .uri(uri)
         .peer_addr(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 40123))
 }
@@ -58,10 +58,10 @@ fn put_from_agent(uri: &str) -> test::TestRequest {
 async fn send<const N: usize>(
     registry: AgentRegistry<()>,
     tmp: &TempDir,
-    reqs: [test::TestRequest; N],
+    reqs: [actix_test::TestRequest; N],
 ) -> [ServiceResponse; N] {
     let config = storage_config(tmp);
-    let app = test::init_service(
+    let app = actix_test::init_service(
         App::new()
             .app_data(web::Data::new(registry))
             .app_data(web::Data::new(config.clone()))
@@ -70,20 +70,20 @@ async fn send<const N: usize>(
     .await;
     let mut responses = Vec::with_capacity(N);
     for req in reqs {
-        responses.push(test::call_service(&app, req.to_request()).await);
+        responses.push(actix_test::call_service(&app, req.to_request()).await);
     }
     responses.try_into().unwrap()
 }
 
 /// Send `req` with a small body to a fresh app over `registry`, returning its status and the storage root.
 #[expect(clippy::future_not_send, reason = "awaits `send`, whose future is not Send")]
-async fn put_into(registry: AgentRegistry<()>, req: test::TestRequest) -> (StatusCode, TempDir) {
+async fn put_into(registry: AgentRegistry<()>, req: actix_test::TestRequest) -> (StatusCode, TempDir) {
     let tmp = tempfile::tempdir().unwrap();
     let [resp] = send(registry, &tmp, [req.set_payload(b"hello".as_ref())]).await;
     (resp.status(), tmp)
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn rejects_unknown_agent_with_404() {
     let (status, _tmp) = put_into(
         AgentRegistry::default(),
@@ -94,9 +94,9 @@ async fn rejects_unknown_agent_with_404() {
 }
 
 /// An agent's id is not enough to write to its bucket: the request must come from where the agent is connected.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn rejects_a_peer_other_than_the_agents_address_with_403() {
-    let req = test::TestRequest::put()
+    let req = actix_test::TestRequest::put()
         .uri("/storage/agent-1/payload.txt")
         .peer_addr(SocketAddr::new(Ipv4Addr::new(192, 0, 2, 9).into(), 40123));
     let (status, tmp) = put_into(registry_with_agent("agent-1"), req).await;
@@ -105,7 +105,7 @@ async fn rejects_a_peer_other_than_the_agents_address_with_403() {
     assert!(!tmp.path().join("agent-1").exists());
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn rejects_a_disconnected_agent_with_403() {
     let registry = registry_with_record("agent-1", AgentConnectionState::Disconnected, None);
     let (status, tmp) = put_into(registry, put_from_agent("/storage/agent-1/payload.txt")).await;
@@ -115,7 +115,7 @@ async fn rejects_a_disconnected_agent_with_403() {
 }
 
 /// A record restored from a saved registry says connected but has no socket behind it, so it owns nothing.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn rejects_a_connected_record_without_a_session_with_403() {
     let registry = registry_with_record("agent-1", AgentConnectionState::Connected, None);
     let (status, tmp) = put_into(registry, put_from_agent("/storage/agent-1/payload.txt")).await;
@@ -125,7 +125,7 @@ async fn rejects_a_connected_record_without_a_session_with_403() {
 }
 
 /// Ownership is asked again once the body is in, so an agent that disconnects while its upload streams loses it.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn rejects_an_upload_whose_agent_disconnects_mid_body() {
     let tmp = tempfile::tempdir().unwrap();
     let config = storage_config(&tmp);
@@ -152,10 +152,10 @@ async fn rejects_an_upload_whose_agent_disconnects_mid_body() {
 }
 
 /// A dual-stack listener reports an IPv4 client as `::ffff:a.b.c.d`; it is still the same address.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn accepts_the_agents_address_written_as_ipv4_mapped_ipv6() {
     let mapped = Ipv4Addr::LOCALHOST.to_ipv6_mapped();
-    let req = test::TestRequest::put()
+    let req = actix_test::TestRequest::put()
         .uri("/storage/agent-1/payload.txt")
         .peer_addr(SocketAddr::new(mapped.into(), 40123));
     let (status, tmp) = put_into(registry_with_agent("agent-1"), req).await;
@@ -164,9 +164,9 @@ async fn accepts_the_agents_address_written_as_ipv4_mapped_ipv6() {
     assert!(tmp.path().join("agent-1").join("payload.txt").exists());
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn refuses_a_request_without_a_peer_address_with_500() {
-    let req = test::TestRequest::put().uri("/storage/agent-1/payload.txt");
+    let req = actix_test::TestRequest::put().uri("/storage/agent-1/payload.txt");
     let (status, _tmp) = put_into(registry_with_agent("agent-1"), req).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
 }
@@ -178,13 +178,13 @@ async fn refuses_a_request_without_a_peer_address_with_500() {
 /// the router and invoke the handler directly with the parameters that the filter expects to reject
 /// (`nested/path.txt` -> 2 components). This still exercises the same `StorageError::InvalidFilename` -> 400
 /// path that the `ResponseError` impl wires up.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn rejects_multi_component_filename_with_400() {
     let tmp = tempfile::tempdir().unwrap();
     let config = storage_config(&tmp);
     let registry = registry_with_agent("agent-1");
 
-    let http_req = test::TestRequest::default()
+    let http_req = actix_test::TestRequest::default()
         .param("agent_id", "agent-1")
         .param("filename", "nested/path.txt")
         .to_http_request();
@@ -199,7 +199,7 @@ async fn rejects_multi_component_filename_with_400() {
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn writes_file_for_registered_agent() {
     let req = put_from_agent("/storage/agent-1/payload.txt");
     let (status, tmp) = put_into(registry_with_agent("agent-1"), req).await;
@@ -214,7 +214,7 @@ async fn writes_file_for_registered_agent() {
 /// An image PUT under `cargo test` has no real terminal on stdout, so `tty_image::render`'s decode-and-render
 /// step (triggered by the `.png` extension) is expected to fail internally. The route must still store the
 /// file and return 200 regardless -- tty display is a best-effort side effect, never a reason to fail the upload.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succeed_in_tests() {
     let tmp = tempfile::tempdir().unwrap();
     let body = b"\x89PNG\r\n\x1a\nnot a real png, just image-extension-shaped bytes".as_ref();
@@ -232,13 +232,13 @@ async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succee
 /// (entity tag + `Content-Length`, no body) and reads its `ETag` off `GET`. The GET and HEAD tags are compared
 /// to each other because both come from the stored object's metadata, so they match regardless of how a given
 /// backend derives the tag on write.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn get_and_head_expose_etag_and_head_reports_size() {
     let tmp = tempfile::tempdir().unwrap();
     let body = b"etag round-trip payload".as_ref();
     let put = put_from_agent("/storage/agent-1/payload.txt").set_payload(body);
-    let get = test::TestRequest::get().uri("/storage/agent-1/payload.txt");
-    let head = test::TestRequest::default()
+    let get = actix_test::TestRequest::get().uri("/storage/agent-1/payload.txt");
+    let head = actix_test::TestRequest::default()
         .method(Method::HEAD)
         .uri("/storage/agent-1/payload.txt");
     let [put_resp, get_resp, head_resp] = send(registry_with_agent("agent-1"), &tmp, [put, get, head]).await;
@@ -270,17 +270,17 @@ async fn get_and_head_expose_etag_and_head_reports_size() {
 }
 
 /// HEAD on an object that was never stored is a 404, like GET.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn head_missing_object_returns_404() {
     let tmp = tempfile::tempdir().unwrap();
-    let head = test::TestRequest::default()
+    let head = actix_test::TestRequest::default()
         .method(Method::HEAD)
         .uri("/storage/agent-1/absent.txt");
     let [resp] = send(registry_with_agent("agent-1"), &tmp, [head]).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn surfaces_io_failure_as_500() {
     // Block the *agent's* directory with a regular file, so the store's write fails on an ancestor that is not
     // a directory. That surfaces as `StorageError::Store` and the derived `ResponseError` impl returns 500.

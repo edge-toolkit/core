@@ -22,7 +22,7 @@ use std::os::unix::fs::symlink;
 use std::path::PathBuf;
 
 use actix_web::http::StatusCode;
-use actix_web::{App, test, web};
+use actix_web::{App, test as actix_test, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use et_modules_service::{ModulesConfig, configure, list_modules};
 use fs_err as fs;
@@ -90,7 +90,7 @@ fn mise_layout_fixture() -> (TempDir, TempDir, ModulesConfig) {
 // `actix_rt::test` because the file imports `actix_web::test` at module
 // scope, which shadows the built-in `#[test]` attribute. The body is
 // synchronous; the async wrapper is harmless.
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn list_modules_follows_symlinks_to_package_dirs() {
     let (_store, _scan, config) = mise_layout_fixture();
 
@@ -111,10 +111,10 @@ async fn list_modules_follows_symlinks_to_package_dirs() {
     );
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn lists_symlinked_module_in_modules_api() {
     let (_store, _scan, config) = mise_layout_fixture();
-    let app = test::init_service(
+    let app = actix_test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
             .app_data(web::Data::new(config.clone()))
@@ -122,8 +122,8 @@ async fn lists_symlinked_module_in_modules_api() {
     )
     .await;
 
-    let req = test::TestRequest::get().uri("/modules/").to_request();
-    let names: Vec<String> = test::call_and_read_body_json(&app, req).await;
+    let req = actix_test::TestRequest::get().uri("/modules/").to_request();
+    let names: Vec<String> = actix_test::call_and_read_body_json(&app, req).await;
 
     assert!(
         names.contains(&"onnxruntime-web".to_string()),
@@ -131,10 +131,10 @@ async fn lists_symlinked_module_in_modules_api() {
     );
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn serves_file_under_symlinked_module() {
     let (_store, _scan, config) = mise_layout_fixture();
-    let app = test::init_service(
+    let app = actix_test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
             .app_data(web::Data::new(config.clone()))
@@ -142,10 +142,10 @@ async fn serves_file_under_symlinked_module() {
     )
     .await;
 
-    let req = test::TestRequest::get()
+    let req = actix_test::TestRequest::get()
         .uri("/modules/onnxruntime-web/dist/ort.min.js")
         .to_request();
-    let resp = test::call_service(&app, req).await;
+    let resp = actix_test::call_service(&app, req).await;
 
     assert_eq!(
         resp.status(),
@@ -153,14 +153,14 @@ async fn serves_file_under_symlinked_module() {
         "expected 200 from /modules/onnxruntime-web/dist/ort.min.js, got {}",
         resp.status(),
     );
-    let body = test::read_body(resp).await;
+    let body = actix_test::read_body(resp).await;
     assert_eq!(&body[..], ORT_BUNDLE);
 }
 
-#[actix_rt::test]
+#[test_log::test(actix_rt::test)]
 async fn returns_404_for_missing_file_under_symlinked_module() {
     let (_store, _scan, config) = mise_layout_fixture();
-    let app = test::init_service(
+    let app = actix_test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
             .app_data(web::Data::new(config.clone()))
@@ -168,9 +168,9 @@ async fn returns_404_for_missing_file_under_symlinked_module() {
     )
     .await;
 
-    let req = test::TestRequest::get()
+    let req = actix_test::TestRequest::get()
         .uri("/modules/onnxruntime-web/dist/does-not-exist.js")
         .to_request();
-    let resp = test::call_service(&app, req).await;
+    let resp = actix_test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }

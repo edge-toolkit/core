@@ -253,6 +253,23 @@ ignore = [
   # time.
   { id = "RUSTSEC-2026-0542", reason = "expires 2027-01-01" },
   { id = "RUSTSEC-2026-0543", reason = "expires 2027-01-01" },
+  # heapless 0.8.0 and 0.9.3 -- nine memory-safety flaws, all fixed in 0.9.4 and in no 0.8 release.
+  # The 0.8 copy comes through faster-hex, under deno_runtime, and picoserve, which require it through their newest
+  # releases (faster-hex 1.0.0, picoserve 0.21.0), so no bump reaches it. The 0.9 copy, through embassy-sync and
+  # picoserve, moves to 0.9.4 once that release clears the 7-day publish age; cargo-deny ignores by id only, so
+  # these also mute it until then. None is reached: faster-hex, serde-json-core and picoserve use only heapless's
+  # `String` and `Vec`, and embassy-sync's `Channel` uses `Deque`, whose `clear` the board runner calls, but that
+  # flaw needs an element whose `Drop` panics, and the runner's `Result<Frame, NetError>` has none. Nothing in the
+  # tree uses `IndexMap`, `SortedLinkedList`, `spsc`, the pools, `Deque::make_contiguous` or `Deque::try_from`.
+  { id = "RUSTSEC-2026-0574", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0575", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0576", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0577", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0578", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0579", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0580", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0581", reason = "expires 2027-01-01" },
+  { id = "RUSTSEC-2026-0582", reason = "expires 2027-01-01" },
   # The npm: AsyncAPI generator tools -- the entries below share one setting, so it is described once, here.
   # @asyncapi/generator 3.5.0 and @asyncapi/markdown-template 2.0.0 are the newest releases, and every fix is a major
   # version past a range one of them or their dependencies requires, so no reinstall reaches any of them. They run

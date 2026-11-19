@@ -1,0 +1,51 @@
+id: no-test-ignore
+language: Rust
+severity: error
+message: |
+  `#[ignore]`, and a `#[cfg_attr(..., ignore)]` that applies it on some platforms, turns a test off while it still
+  reads as coverage. A test that cannot pass is a bug to fix, and skipping one needs the operator's explicit
+  approval. Where that approval is given, move the test into a file that holds only tests skipped for that reason,
+  keep the reason and the evidence beside its skip, and list the file in this rule's `ignores:`.
+# Each file holds only tests skipped on some platform, with the operator's approval.
+# The evidence sits beside each skip. A test that runs everywhere goes in another file, so it stays under this rule.
+ignores:
+  - services/storage/tests/s3_backend.rs
+  - services/ws-wasi-runner/tests/modules.rs
+  - services/ws-wasi-runner/tests/otel_propagation.rs
+  - utilities/cli/tests/scenario_runners.rs
+# Names are matched as identifier nodes, never as source text.
+# Neither a comment inside the brackets nor the word in a string argument, such as a `doc`, changes the outcome,
+# wherever the attribute's lines break.
+rule:
+  kind: attribute_item
+  has:
+    kind: attribute
+    any:
+      # The attribute's own name: `#[ignore]` or `#[ignore = "..."]`.
+      - has:
+          kind: identifier
+          regex: "^ignore$"
+      - all:
+          - has:
+              kind: identifier
+              regex: "^cfg_attr$"
+          - has:
+              kind: token_tree
+              has:
+                stopBy: end
+                kind: identifier
+                regex: "^ignore$"
+                # An applied attribute follows the predicate, so it needs a word before it.
+                # That rules out `cfg_attr(ignore, ...)`, where `ignore` is a configuration name.
+                follows:
+                  stopBy: end
+                  kind: identifier
+                # Its list is the `cfg_attr`'s own or a nested `cfg_attr`'s, never a predicate such as `all(...)`.
+                inside:
+                  kind: token_tree
+                  any:
+                    - inside:
+                        kind: attribute
+                    - follows:
+                        kind: identifier
+                        regex: "^cfg_attr$"

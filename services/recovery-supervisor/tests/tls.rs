@@ -7,7 +7,7 @@ use pretty_assertions::assert_eq;
 use tokio::io::AsyncReadExt as _;
 
 /// Require a real TLS `ClientHello` from the supervisor's independently enabled secure transport.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn secure_websocket_sends_a_tls_handshake_instead_of_rejecting_the_scheme() {
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
         .await

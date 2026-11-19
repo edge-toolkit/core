@@ -112,7 +112,7 @@ async fn scripted_server(frames: Vec<Message>) -> String {
     format!("ws://127.0.0.1:{port}")
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 #[should_panic(expected = "et-connect-ack")]
 async fn connect_agent_times_out_when_server_never_acks() {
     // The server accepts the socket but never sends `et-connect-ack`, so connect_agent must give up (panic) once its
@@ -121,7 +121,7 @@ async fn connect_agent_times_out_when_server_never_acks() {
     let _connected = connect_agent(&url).await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[test_log::test(tokio::test(flavor = "multi_thread", worker_threads = 2))]
 async fn next_payload_skips_control_frames_and_protocol_acks() {
     let ack = serde_json::to_string(&ServerMessage::ConnectAck {
         agent_id: "scripted".to_owned(),

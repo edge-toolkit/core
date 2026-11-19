@@ -6,7 +6,6 @@ use et_https_listener::tls::{
     load_tls_certs, uncovered_names,
 };
 use pretty_assertions::assert_eq;
-use pretty_assertions::assert_ne;
 use rustls::pki_types::CertificateDer;
 use tempfile::tempdir;
 
@@ -103,7 +102,8 @@ fn a_certificate_without_its_key_is_replaced() {
     let (first, _key) = load_or_generate_tls_certs(&cert, &key, &[]);
     fs_err::remove_file(&key).unwrap();
     let (second, _key) = load_or_generate_tls_certs(&cert, &key, &[]);
-    assert_ne!(first, second);
+    // Compared without printing either certificate, which a failing `assert_ne!` would write out in full.
+    assert!(first != second);
     assert!(key.exists());
 }
 

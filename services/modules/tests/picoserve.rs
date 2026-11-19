@@ -83,7 +83,7 @@ fn body(response: &str) -> &str {
     response.split_once("\r\n\r\n").unwrap().1
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn it_serves_the_embedded_modules() {
     LocalSet::new()
         .run_until(Box::pin(async {
@@ -134,7 +134,7 @@ async fn it_serves_the_embedded_modules() {
         .await;
 }
 
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn modules_assembled_at_run_time_serve_as_built_in_ones_do() {
     // Read from somewhere only known once running, rather than built in, and so leaked to live as long as the server.
     let file = ModuleFile::new("text/plain", Box::leak(b"run".to_vec().into_boxed_slice()), "run");
