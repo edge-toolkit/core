@@ -43,6 +43,10 @@ name = "core_module"
 required-features = ["core-modules", "std"]
 
 [[test]]
+name = "lidar"
+required-features = ["lidar", "std"]
+
+[[test]]
 name = "modules"
 required-features = ["std"]
 

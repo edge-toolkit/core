@@ -29,7 +29,6 @@ const FLUSH_TIMEOUT: Duration = Duration::from_secs(15);
 //
 // The test installs the global subscriber itself through `et_otlp::init`, so it cannot take `test_log::test`:
 // that installs one first, and `et_otlp::init`'s `set_global_default` then fails.
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The test owns the global tracing subscriber.
 // ast-grep-ignore: async-test-uses-test-log
 #[tokio::test(flavor = "multi_thread")]
 async fn hub_emits_traces_logs_and_metrics() {

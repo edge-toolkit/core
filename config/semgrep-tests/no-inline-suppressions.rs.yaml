@@ -1,0 +1,25 @@
+code: |
+  fn examples() {
+      // ruleid: no-inline-nosemgrep
+      let named = 1;
+      // nosemgrep: config.semgrep.no-todo -- a reason does not make it acceptable
+      // ruleid: no-inline-nosemgrep
+      let blanket = 2;
+      // nosemgrep
+      // ruleid: no-inline-nosemgrep
+      let short_form = 3;
+      /* nosem: no-todo */
+      // ok: no-inline-nosemgrep
+      let prose = "a nosemgrep marker named in text";
+      // ruleid: no-new-ast-grep-ignore, no-ast-grep-ignore-no-test-ignore
+      // ast-grep-ignore: no-test-ignore
+      let test_skip = 4;
+      // ruleid: no-new-ast-grep-ignore
+      // ast-grep-ignore: no-std-env-var
+      let other_rule = 5;
+      // ruleid: no-new-ast-grep-ignore
+      // ast-grep-ignore: no-test-ignore-extra
+      let longer_id = 6;
+      // ok: no-new-ast-grep-ignore
+      let named_prose = "ast-grep-ignore in text";
+  }

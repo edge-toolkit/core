@@ -18,7 +18,7 @@ use crate::sighting::{RowError, Sighting};
     reason = "the text is this crate's own file, which the task that writes it only ever writes as JSON"
 )]
 static REGISTRY: LazyLock<Value> = LazyLock::new(|| {
-    // nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- Required compile-time path annotation.
+    // The registry is compiled in, so its path is resolved at build time rather than from the working directory.
     // ast-grep-ignore: no-cargo-manifest-dir
     let text = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/signatures.json"));
     serde_json::from_str(text).unwrap()

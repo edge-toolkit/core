@@ -11,7 +11,7 @@ use et_recovery_supervisor::config::Config;
 use et_recovery_supervisor::health::{Session, check, silence_limit};
 use et_recovery_supervisor::kubernetes::Backend;
 use et_recovery_supervisor::policy::Health;
-use et_test_recovery::{config, environment};
+use et_test_recovery::{config, environment, plaintext_ws_url};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
 use pretty_assertions::assert_eq;
@@ -329,9 +329,7 @@ async fn fake_hub(identity: &str, graceful: bool) -> (String, Arc<tokio::sync::N
         .await
         .unwrap();
     // Intentionally use plaintext on loopback only to test registration and shutdown, not TLS or production traffic.
-    // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
-    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
-    let url = format!("ws://{}/ws", listener.local_addr().unwrap());
+    let url = plaintext_ws_url(listener.local_addr().unwrap());
     let identity = identity.to_owned();
     let close = Arc::new(tokio::sync::Notify::new());
     let shutdown = Arc::clone(&close);

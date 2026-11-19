@@ -1199,7 +1199,7 @@ run = "ast-grep scan --update-all --no-ignore hidden -c config/ast-grep/sgconfig
 
 [tasks.semgrep-check]
 description = "Run Semgrep code and configuration rules"
-run = "semgrep scan --config config/semgrep --error --metrics=off ."
+run = "semgrep scan --config config/semgrep --error --metrics=off --disable-nosem ."
 
 # Each case file in config/semgrep-tests is `<rule file stem>.<ext>.yaml`, its annotated target under `code:`.
 # The target is wrapped in YAML so the repo carries no loose source file in that language; it is unwrapped into
@@ -1219,7 +1219,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.semgrep-fix]
 description = "Apply autofix for Semgrep rules that define a `fix:` field"
-run = "semgrep scan --config config/semgrep --autofix --metrics=off ."
+run = "semgrep scan --config config/semgrep --autofix --metrics=off --disable-nosem ."
 
 # `--ignore-gitleaks-allow` is deliberate.
 # Codacy runs its own gitleaks and does not read `gitleaks:allow`, so a marker that satisfies a bare local run
@@ -2393,7 +2393,6 @@ done
 
 if [ "$recovery" = true ]; then
   # The supervisor image's own `cat` reads its state file; no mise-managed coreutils exists there.
-  # nosemgrep: config.semgrep.mise-task-coreutils-prefix
   report=$(kubectl exec -n "$ns" deploy/recovery-supervisor -- cat /app/state/recovery.json)
   unknown=$(printf '%s' "$report" | jaq '.unknown_observations')
   if [ "$unknown" != 0 ]; then
@@ -2414,7 +2413,6 @@ stored=""
 # The glob, `$1` and the `cat` are all for the pod's shell, so they must reach it unexpanded.
 # That shell runs in the hub image, where no mise-managed coreutils exists.
 # shellcheck disable=SC2016
-# nosemgrep: config.semgrep.mise-task-coreutils-prefix
 read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
 if [ -n "$other_hubs" ]; then
   # Hubs that share storage keep it in the object store, so the server's hub reads the model back through S3.
@@ -2423,7 +2421,6 @@ if [ -n "$other_hubs" ]; then
   # rustfs refuses a request without `x-amz-content-sha256`, which the image's curl does not send on its own:
   #   <Error><Code>InvalidRequest</Code><Message>missing header: x-amz-content-sha256</Message></Error>
   # shellcheck disable=SC2016
-  # nosemgrep: config.semgrep.mise-task-coreutils-prefix
   read_model='s3() {
     login="$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY"
     unsigned="x-amz-content-sha256: UNSIGNED-PAYLOAD"
@@ -2567,7 +2564,6 @@ stored=""
 # The glob, `$1` and the `cat` are all for the container's shell, so they must reach it unexpanded.
 # That shell runs in the hub image, where no mise-managed coreutils exists.
 # shellcheck disable=SC2016
-# nosemgrep: config.semgrep.mise-task-coreutils-prefix
 read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
 for _ in $(coreutils seq 1 60); do
   stored=$(compose_all exec -T ws-server sh -c "$read_model" 2>/dev/null || true)

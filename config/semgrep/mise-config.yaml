@@ -143,6 +143,6 @@ rules:
       Call POSIX utilities in mise task bodies through the mise-managed uutils multicall, as `coreutils <util>`.
       A bare `mkdir`/`cp`/`rm`/... runs whatever the host ships -- BSD on macOS, GNU on Linux, busybox or Git
       Bash on Windows -- so flags and behaviour differ per machine, and the task depends on a tool mise does not
-      pin. A command that is run by another shell (inside a container or pod) is a genuine exception: suppress it
-      on that line with a `nosemgrep` comment saying where it runs.
+      pin. A command for another shell, inside a container or pod, is passed to it after `exec ... --` or in a
+      variable, and neither is read as a command here.
     severity: ERROR

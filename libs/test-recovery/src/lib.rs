@@ -13,6 +13,9 @@ use et_recovery_supervisor::config::{Config, EnvConfig, Mode};
 use et_recovery_supervisor::policy::{Budget, Supervisor};
 
 pub mod command;
+mod plaintext_ws;
+
+pub use self::plaintext_ws::plaintext_ws_url;
 
 /// Parse a deterministic test environment using the supervisor's production configuration shape.
 #[must_use]
@@ -48,9 +51,7 @@ pub fn environment() -> BTreeMap<String, String> {
         .collect();
     let hub_port = Services::InsecureWebSocketServer.port();
     // Intentionally default to a loopback-only test endpoint; configuration parsing does not open a connection.
-    // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
-    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
-    let ws_url = format!("ws://127.0.0.1:{hub_port}/ws");
+    let ws_url = plaintext_ws_url(format_args!("127.0.0.1:{hub_port}"));
     let _previous = env.insert("RECOVERY_WS_URL".into(), ws_url);
     let workloads = serde_json::json!([{
         "deployment": "example-worker", "agent_id": "example-worker", "source": "/modules/example-worker"

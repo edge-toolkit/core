@@ -173,8 +173,6 @@ fn aws_env(port: u16) -> Vec<(&'static str, Option<String>)> {
 // https://github.com/edge-toolkit/core/actions/runs/30980282749/job/92223040435 (default (windows-latest, 120)).
 // Re-enable by dropping this attribute once the `rustfs` mise tool is bumped to a release that includes #5663.
 #[test_log::test(actix_rt::test)]
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
-// ast-grep-ignore: no-test-ignore
 #[cfg_attr(
     windows,
     ignore = "rustfs beta.12 cannot init storage on Windows (ERROR_SHARING_VIOLATION) -- see above"

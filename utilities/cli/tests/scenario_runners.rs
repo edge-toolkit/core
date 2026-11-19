@@ -266,8 +266,6 @@ fn stored_model(storage_dir: &std::path::Path) -> Option<(f64, f64)> {
 // and a silently absent test is what this comment exists to avoid. Drop the attribute once the Windows lane
 // stops excluding et-ws-web-runner.
 #[test]
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
-// ast-grep-ignore: no-test-ignore
 #[cfg_attr(
     windows,
     ignore = "Windows CI excludes et-ws-web-runner, the crate the generated runner task builds"
@@ -286,8 +284,6 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
 ///
 /// Not run on Windows for the reason the math1 test above gives: it drives the same `et-ws-web-runner` crate.
 #[test]
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
-// ast-grep-ignore: no-test-ignore
 #[cfg_attr(
     windows,
     ignore = "Windows CI excludes et-ws-web-runner, the crate the generated runner task builds"
@@ -345,8 +341,6 @@ fn math1_multi_scenario_machine_tasks_compute_the_model() {
 // `ignore` rather than `cfg` keeps the test listed and compiled everywhere. Drop the attribute once the runner
 // works on that target -- the test body has no platform dependence of its own.
 #[test]
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
-// ast-grep-ignore: no-test-ignore
 #[cfg_attr(
     all(windows, target_env = "gnu", not(target_abi = "llvm")),
     ignore = "et-ws-wasi-runner aborts on x86_64-pc-windows-gnu; gnullvm and msvc pass"
@@ -365,8 +359,6 @@ fn wasi_math1_scenario_generated_runner_tasks_compute_the_model() {
 /// Gated for the trigger's sake only -- the pyo3 runner itself is fine on that target, and is left doing
 /// nothing once the sender that would have broadcast to it has gone.
 #[test]
-// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- The skip below predates the ban on test skips.
-// ast-grep-ignore: no-test-ignore
 #[cfg_attr(
     all(windows, target_env = "gnu", not(target_abi = "llvm")),
     ignore = "trigger et-ws-wasi-runner aborts on x86_64-pc-windows-gnu; gnullvm and msvc pass"

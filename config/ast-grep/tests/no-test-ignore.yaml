@@ -10,6 +10,8 @@ valid:
         allow(dead_code)
     )]
     fn multiline_helper() {}
+  - |
+    #[cfg_attr(windows, doc = "On error, ignore this hint.")] fn documented() {}
 invalid:
   - |
     #[test] #[ignore] fn skipped() {}

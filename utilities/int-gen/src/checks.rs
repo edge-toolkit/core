@@ -757,9 +757,7 @@ fn separate(
     if arm_end {
         let _fallthrough: Option<char> = chars.next_if_eq(&'&');
     }
-    let case_header = words.last().is_some_and(|last| last == "in")
-        && words.iter().rev().nth(2).is_some_and(|keyword| keyword == "case");
-    if arm_end || case_header {
+    if arm_end || is_case_header(words) {
         end_command(commands, words, word);
         skip_case_pattern(chars);
     } else if !matches!(current, ' ' | '\t') {
@@ -769,10 +767,31 @@ fn separate(
     }
 }
 
+/// Whether the words so far are a `case ... in` header, with `case` in command position.
+///
+/// Only reserved words that open a command list may precede `case`; after any other word, such as `echo case x in`,
+/// it is an ordinary argument.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `separate`; kept separate to hold its complexity down"
+)]
+fn is_case_header(words: &[String]) -> bool {
+    let mut reversed = words.iter().rev();
+    reversed.next().is_some_and(|last| last == "in")
+        && reversed.nth(1).is_some_and(|keyword| keyword == "case")
+        && reversed.all(|prefix| {
+            matches!(
+                prefix.as_str(),
+                "!" | "{" | "do" | "elif" | "else" | "if" | "then" | "time" | "until" | "while"
+            )
+        })
+}
+
 /// Consume the pattern of a `case` arm through the `)` that ends it, or the `esac` that closes the `case` instead.
 ///
 /// A pattern names no command, and its `|` alternatives would otherwise split it into commands the tool search reads:
-/// `main | release)` would report a tool called `main`.
+/// `main | release)` would report a tool called `main`. A backslash takes the character after it literally, so `\)`
+/// does not end the pattern. The separator after `esac` is left for the caller, which ends the command at it.
 fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
     let mut pattern = String::default();
     let mut quote = None;
@@ -785,19 +804,23 @@ fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
         }
         match current {
             '\'' | '"' => quote = Some(current),
+            '\\' => pattern.extend(chars.next()),
             ')' => return,
             '#' if pattern.is_empty() => {
                 let _comment_end: Option<char> = chars.find(|skipped| *skipped == '\n');
             }
-            _ if current.is_whitespace() || current == ';' => {
-                if pattern == "esac" {
-                    return;
-                }
-                pattern.clear();
-            }
+            _ if is_word_boundary(current) => pattern.clear(),
             _ => pattern.push(current),
         }
+        if pattern == "esac" && chars.peek().is_none_or(|next| is_word_boundary(*next)) {
+            return;
+        }
     }
+}
+
+/// Whether an unquoted character ends a word: a blank, or a shell operator character.
+fn is_word_boundary(current: char) -> bool {
+    current.is_whitespace() || matches!(current, ';' | '&' | '|')
 }
 
 /// Close the word being built, if any.

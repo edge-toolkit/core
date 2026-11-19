@@ -1,0 +1,54 @@
+rules:
+  # The bracketed letters keep each pattern from matching its own spelling in this file.
+  - id: no-inline-nosemgrep
+    languages: [generic]
+    paths:
+      exclude:
+        # Test cases that have to spell out the comment they test.
+        - "/config/semgrep-tests/no-inline-suppressions.rs.yaml"
+        - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml"
+    # The pattern opens at the newline ending the line above the marker, so the finding is reported on that line.
+    # A blanket marker silences findings on its own line wherever a scan honours markers, so it would hide itself.
+    pattern-regex: '(?:\A|\n)[^\n]*(?:#|//|/\*|--|<!--)[ \t]*nose[m](?:grep)?\b'
+    message: >-
+      A rule's exceptions belong in the rule, not in comments scattered through the code it governs. Fix the
+      finding, or add the exception to the rule: a `paths: exclude:` entry with its reason for a file that may break
+      it, or a `pattern-not` for a shape that is never a defect. Where tests need the exception, gather every test of
+      that kind into one file and exclude that file. A rule this repo does not own, such as an external analyser's,
+      is excluded in that analyser's config, after isolating what it flags into the smallest file that holds it.
+    severity: ERROR
+
+  - id: no-ast-grep-ignore-no-test-ignore
+    languages: [generic]
+    paths:
+      exclude:
+        - "/config/semgrep-tests/no-inline-suppressions.rs.yaml" # Spells out the comment it tests.
+    pattern-regex: '(?:#|//)[ \t]*ast-grep[-]ignore:[^\n]*(?<![\w-])no-test-ignore(?![\w-])'
+    message: >-
+      A test skip is never waived inline. A skip the operator has approved goes in a file that holds only tests
+      skipped for that reason, and that file is listed in the skip rule's `ignores:` with the reason.
+    severity: ERROR
+
+  - id: no-new-ast-grep-ignore
+    languages: [generic]
+    paths:
+      exclude:
+        - "/config/semgrep-tests/no-inline-suppressions.rs.yaml" # Spells out the comment it tests.
+        - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml" # Spells out the comment it tests.
+        # Files that already carried a marker when this rule landed, a list no file may join.
+        # Each is to be fixed or moved into its rule's `ignores:`, and then dropped from this list.
+        - "/generated/rust-rest/src/retry.rs"
+        - "/libs/gpu-probe/src/registry.rs"
+        - "/libs/test-helpers/src/lib.rs"
+        - "/services/recovery-supervisor/src/policy.rs"
+        - "/services/ws-test-server/tests/otel.rs"
+        - "/utilities/cli/src/deployment_types/docker_compose.rs"
+        - "/utilities/cli/tests/scenario_generation.rs"
+        - "/utilities/cli/tests/scenario_runners.rs"
+        - "/utilities/int-gen/src/checks.rs"
+    pattern-regex: '(?:#|//)[ \t]*ast-grep[-]ignore\b'
+    message: >-
+      A rule's exceptions belong in the rule, not in comments scattered through the code it governs. Fix the
+      finding, or add the file to the rule's `ignores:` with its reason, after gathering the code that needs the
+      exception into a file of its own.
+    severity: ERROR

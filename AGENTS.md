@@ -114,13 +114,13 @@ sign-in, so the useful message names that log and the error lines in it, not a q
 
 A command handed to the operator to run must complete on its own: no editor, pager, prompt or confirmation along the
 way. Add the flag or setting that supplies the answer up front -- `git rebase --continue` and `git merge --continue`
-run as `GIT_EDITOR=true git rebase --continue`, a commit gets `-m` or `--no-edit`, a pager is disabled with
-`--no-pager` or `GH_PAGER=cat`, and a confirmation takes the tool's `--yes` / `-y` / `--force`. A command that stops
-in an editor or prompt leaves the operator in a program they did not mean to open, and the obvious ways out of it
--- Ctrl-C in vim, or quitting without saving -- can abort the operation halfway or leave a swap file that reads as a
-failure. The worked example from this repo: a `git rebase --continue` offered bare opened vim on `COMMIT_EDITMSG`
-mid-rebase, and getting out of it looked like a failed rebase. When no flag exists for an answer, say so with the
-command and state exactly what to type at the prompt.
+run as `GIT_EDITOR=true git rebase --continue` and `GIT_EDITOR=true git merge --continue`, a commit gets `-m` or
+`--no-edit`, a pager is disabled with `--no-pager` or `GH_PAGER=cat`, and a confirmation takes the tool's `--yes` /
+`-y` / `--force`. A command that stops in an editor or prompt leaves the operator in a program they did not mean to
+open, and the obvious ways out of it -- Ctrl-C in vim, or quitting without saving -- can abort the operation halfway
+or leave a swap file that reads as a failure. The worked example from this repo: a `git rebase --continue` offered
+bare opened vim on `COMMIT_EDITMSG` mid-rebase, and getting out of it looked like a failed rebase. When no flag
+exists for an answer, say so with the command and state exactly what to type at the prompt.
 
 ## On macOS: use homebrew bash for ad-hoc agent commands
 
@@ -1306,8 +1306,9 @@ preference:
 
 1. **Fix the code** so the finding no longer fires -- the only right answer for anything actionable.
 2. **Inline, per-finding suppression carrying a reason** -- `#[expect(..., reason = "...")]`, `// skipcq: <code>`,
-   `// flawfinder: ignore [why]`, a `nosemgrep: <rule>` note, etc. -- scoped to the single line and single rule,
-   never a bare blanket ignore that also hides future (possibly real) findings on that line.
+   `// flawfinder: ignore [why]`, etc. -- scoped to the single line and single rule, never a bare blanket ignore
+   that also hides future (possibly real) findings on that line. The repo's own semgrep and ast-grep rules are the
+   exception: they take no inline marker, and their exceptions live in the rule itself.
 3. Only if neither works, a tightly-scoped path-or-rule carve-out in the linter config, commented with the exact
    reason -- and this needs operator sign-off (see the rule-deletion note below).
 

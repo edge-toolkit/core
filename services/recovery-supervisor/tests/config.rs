@@ -4,7 +4,7 @@
 use et_recovery_supervisor::config::{Config, Mode, valid_name};
 use et_recovery_supervisor::kubernetes::{Kubernetes, deployment_health};
 use et_recovery_supervisor::policy::{Budget, Health, Supervisor};
-use et_test_recovery::{config, event, supervisor};
+use et_test_recovery::{config, event, plaintext_ws_url, supervisor};
 use fs_err as fs;
 use pretty_assertions::assert_eq;
 
@@ -188,15 +188,13 @@ fn websocket_endpoints_require_a_valid_host_and_no_embedded_credentials() {
         assert!(value.validate().is_err(), "{endpoint}");
     }
     for endpoint in [
-        "wss://hub.example/ws",
+        "wss://hub.example/ws".to_owned(),
         // Intentionally validate plaintext compatibility for internal deployments; this input never opens a
         // connection.
-        // nosemgrep: config.semgrep.no-semgrep-mentions -- external rule annotation
-        // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
-        "ws://ws-server:8080/ws",
+        plaintext_ws_url("ws-server:8080"),
     ] {
         let mut value = config();
-        value.ws_url = endpoint.into();
+        value.ws_url = endpoint;
         value.validate().unwrap();
     }
 }

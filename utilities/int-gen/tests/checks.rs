@@ -104,6 +104,9 @@ fn case_patterns_are_not_commands() {
         "case $x in\n  'a)b' | c) echo;&\n  d) echo;;&\n  *) scanz;;\nesac",
         "scanz",
     );
+    assert_tool("echo case x in\nscanz", "scanz");
+    assert_tool("case \"$x\" in foo\\)bar | baz) echo ok ;; esac\nscanz", "scanz");
+    assert_tool("case x in a) echo ok;; esac&&scanz", "scanz");
 }
 
 #[test]
