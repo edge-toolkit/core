@@ -9,6 +9,9 @@
 
 /// The hub's WebSocket URL at `authority`, a `host:port` pair, over plaintext.
 #[must_use]
-pub fn plaintext_ws_url(authority: impl core::fmt::Display) -> String {
+pub fn plaintext_ws_url<Authority>(authority: Authority) -> String
+where
+    Authority: core::fmt::Display,
+{
     format!("ws://{authority}/ws")
 }

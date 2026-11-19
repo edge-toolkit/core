@@ -795,21 +795,10 @@ fn is_case_header(words: &[String]) -> bool {
 /// does not end the pattern. The separator after `esac` is left for the caller, which ends the command at it.
 fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
     let mut pattern = String::default();
-    let mut quote = None;
     while let Some(current) = chars.next() {
-        if let Some(open) = quote {
-            if current == open {
-                quote = None;
-            }
-            continue;
-        }
         match current {
-            '\'' | '"' => {
-                quote = Some(current);
-                pattern.push(QUOTED);
-            }
-            '\\' => {
-                let _escaped: Option<char> = chars.next();
+            '\'' | '"' | '\\' => {
+                skip_quoted(current, chars);
                 pattern.push(QUOTED);
             }
             ')' => return,
@@ -819,14 +808,36 @@ fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
             _ if is_word_boundary(current) => pattern.clear(),
             _ => pattern.push(current),
         }
-        if pattern == "esac" && chars.peek().is_none_or(|next| is_word_boundary(*next)) {
+        if closes_case(&pattern, chars.peek()) {
             return;
         }
     }
 }
 
+/// Consume what an opening quote or a backslash makes literal: through the matching quote, or the one character.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_case_pattern`; kept separate to hold its complexity down"
+)]
+fn skip_quoted(opener: char, chars: &mut Peekable<Chars<'_>>) {
+    let _literal: Option<char> = if opener == '\\' {
+        chars.next()
+    } else {
+        chars.find(|next| *next == opener)
+    };
+}
+
+/// Whether `pattern` is the `esac` closing a `case`: the whole unquoted word, so the next character ends it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_case_pattern`; kept separate to hold its complexity down"
+)]
+fn closes_case(pattern: &str, next: Option<&char>) -> bool {
+    pattern == "esac" && next.is_none_or(|following| is_word_boundary(*following))
+}
+
 /// Whether an unquoted character ends a word: a blank, or a shell operator character.
-fn is_word_boundary(current: char) -> bool {
+const fn is_word_boundary(current: char) -> bool {
     current.is_whitespace() || matches!(current, ';' | '&' | '|')
 }
 

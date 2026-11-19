@@ -8,11 +8,12 @@ message: |
   `RUST_LOG` overrides the default `info` level. Stacking `#[test_log::test]` under the runtime attribute instead
   registers the test twice, because neither tokio nor actix recognises it as a test attribute.
 rule:
-  kind: attribute_item
-  has:
-    kind: attribute
+  pattern:
+    context: "#[$ATTR] fn f() {}"
+    selector: attribute_item
+constraints:
+  ATTR:
     regex: '^(tokio|actix_rt|actix_web)::test\b'
-    pattern: $ATTR
 fix: "#[test_log::test($ATTR)]"
 files:
   - "services/*/tests/*.rs"
