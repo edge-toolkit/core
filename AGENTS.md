@@ -277,6 +277,13 @@ and no findings, and no check turns red, so the review is lost silently. Keep ev
 files -- `conftest-check-branch-size` fails past that -- and split larger work into several branches. The only
 exceptions are the branch names the check exempts.
 
+**Fix every code quality issue a PR's checks or reviews raise in that PR's branch, straight away, even when it is
+unrelated to the change.** That covers a Codacy or CodeRabbit finding that holds up, an open code-scanning alert, and
+anything else CI reports against the branch; a follow-up branch or a later session is not where it goes. The one
+reason to stop and ask first is the file count: when the fix would take the branch past 100 modified files, ask the
+user whether to include it, and say that doing so fails `conftest-check-branch-size`. Say too that the check exempts
+branches by name, so adding this branch's name to its exemption list lets the fix land here without the failure.
+
 **A failing Codacy check is informational, not a blocker.** The team accepts a red Codacy status: the tool's
 findings are noisy, and its in-repo config can only exclude paths, never tune a rule. Read its annotations when
 checking CI and fix any finding that holds up as a real defect, but do not treat the status itself as something

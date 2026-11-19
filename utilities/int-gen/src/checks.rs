@@ -74,8 +74,14 @@ const PLUMBING: &[&str] = &[
 
 /// Shell words that introduce a command rather than being one, so the search continues past them.
 const PREFIXES: &[&str] = &[
-    "!", "do", "done", "elif", "else", "esac", "fi", "if", "then", "until", "while", "{", "}",
+    "!", "(", ")", "do", "done", "elif", "else", "esac", "fi", "if", "then", "until", "while", "{", "}",
 ];
+
+/// What a quoted or escaped part of a `case` pattern word is recorded as.
+///
+/// It starts the word, so a `#` later in it is not a comment, and it keeps the word from spelling `esac`, which
+/// quoting stops the shell reading as the reserved word.
+const QUOTED: char = '\0';
 
 /// The section of the repo's own multi-check binary, whose rules are its check modules rather than any config.
 const REPO_CHECK: &str = "et-int-repo-check";
@@ -769,8 +775,8 @@ fn separate(
 
 /// Whether the words so far are a `case ... in` header, with `case` in command position.
 ///
-/// Only reserved words that open a command list may precede `case`; after any other word, such as `echo case x in`,
-/// it is an ordinary argument.
+/// Only the shell words that introduce a command, or `time`, may precede `case`; after any other word, such as
+/// `echo case x in`, it is an ordinary argument.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of `separate`; kept separate to hold its complexity down"
@@ -779,12 +785,7 @@ fn is_case_header(words: &[String]) -> bool {
     let mut reversed = words.iter().rev();
     reversed.next().is_some_and(|last| last == "in")
         && reversed.nth(1).is_some_and(|keyword| keyword == "case")
-        && reversed.all(|prefix| {
-            matches!(
-                prefix.as_str(),
-                "!" | "{" | "do" | "elif" | "else" | "if" | "then" | "time" | "until" | "while"
-            )
-        })
+        && reversed.all(|prefix| prefix == "time" || PREFIXES.contains(&prefix.as_str()))
 }
 
 /// Consume the pattern of a `case` arm through the `)` that ends it, or the `esac` that closes the `case` instead.
@@ -803,8 +804,14 @@ fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
             continue;
         }
         match current {
-            '\'' | '"' => quote = Some(current),
-            '\\' => pattern.extend(chars.next()),
+            '\'' | '"' => {
+                quote = Some(current);
+                pattern.push(QUOTED);
+            }
+            '\\' => {
+                let _escaped: Option<char> = chars.next();
+                pattern.push(QUOTED);
+            }
             ')' => return,
             '#' if pattern.is_empty() => {
                 let _comment_end: Option<char> = chars.find(|skipped| *skipped == '\n');

@@ -1012,8 +1012,9 @@ Rules, from `config/semgrep`:
 - `mise-task-coreutils-prefix` -- Call POSIX utilities in mise task bodies through the mise-managed uutils multicall, as
   `coreutils <util>`. A bare `mkdir`/`cp`/`rm`/... runs whatever the host ships -- BSD on macOS, GNU on Linux, busybox
   or Git Bash on Windows -- so flags and behaviour differ per machine, and the task depends on a tool mise does not pin.
-  A command for another shell, inside a container or pod, is passed to it after `exec ... --` or in a variable, and
-  neither is read as a command here.
+  A single command for another shell, inside a container or pod, can follow `exec ... --` directly. A program of several
+  commands for that shell goes in a variable first, since a quoted `sh -c '...; rm ...'` inline is still read for
+  commands here.
 - `module-description-length` -- A ws-module description is the module-dropdown label on the ws-server index page; keep
   it at most 40 characters so the dropdown stays readable.
 - `multiline-literal-string-needs-backslash` -- Write a multi-line string without a backslash as `"""..."""`, not

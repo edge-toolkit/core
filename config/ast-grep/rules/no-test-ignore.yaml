@@ -13,15 +13,25 @@ ignores:
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - utilities/cli/tests/scenario_runners.rs
+# Names are matched as identifier nodes, never as source text.
+# Neither a comment inside the brackets nor the word in a string argument, such as a `doc`, changes the outcome,
+# wherever the attribute's lines break.
 rule:
   kind: attribute_item
-  any:
-    - regex: '^#\[\s*ignore\b'
-    # An `ignore` is matched as an identifier token, so the word inside a string argument cannot trip it.
-    # That holds wherever the attribute's lines break, and for any argument, such as a `doc` string.
-    - all:
-        - regex: '^#\[\s*cfg_attr\b'
-        - has:
-            stopBy: end
-            kind: identifier
-            regex: "^ignore$"
+  has:
+    kind: attribute
+    any:
+      # The attribute's own name: `#[ignore]` or `#[ignore = "..."]`.
+      - has:
+          kind: identifier
+          regex: "^ignore$"
+      - all:
+          - has:
+              kind: identifier
+              regex: "^cfg_attr$"
+          - has:
+              kind: token_tree
+              has:
+                stopBy: end
+                kind: identifier
+                regex: "^ignore$"

@@ -35,8 +35,8 @@
 # - utilities/cli/src/hub_ws_url.rs: the only `ws://` scheme et-cli writes, which Codacy's "Insecure WebSocket
 #   Detected" rule flags and cannot suppress per line. Isolated into that two-function file so this exclude stays
 #   minimal; rationale in its header. Every other line of the generators stays analyzed.
-# - libs/test-recovery/src/plaintext_ws.rs: the only `ws://` scheme the recovery supervisor's tests write, isolated
-#   the same way for the same rule; rationale in its header.
+# - libs/test-recovery/src/plaintext_ws.rs: the only plaintext WebSocket URL the recovery supervisor's tests write,
+#   isolated the same way for the same rule; rationale in its header.
 # - verification/{local,published}/output/*/k3s.yaml: the same finding in the manifests that file's output reaches,
 #   which are generated rather than hand-authored so they can hold no marker of their own. Only these manifests are
 #   excluded, not the scenario trees around them, and the Kubernetes security rules Codacy would otherwise apply to
