@@ -7,6 +7,7 @@ use actix_web::{App, test, web};
 use et_storage_service::StorageConfig;
 use et_ws_server::config::Config;
 use et_ws_server::{WsAgentRegistry, configure_app, no_content};
+use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 #[actix_rt::test]

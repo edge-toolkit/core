@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use et_lidar::coin_d6::{Decoder, FULL_TURN, MAX_DISTANCE_MM, Packet, Sample, Scan, Scanner};
+use pretty_assertions::assert_eq;
 
 /// A sample `distance_mm` away at `angle`, its echo of middling strength.
 fn sample_at(angle: u16, distance_mm: u16) -> Sample {
@@ -204,7 +205,7 @@ fn a_scanner_drops_the_partial_revolution_and_completes_each_when_the_next_start
         panic!("one scan expected, got {scans:?}");
     };
     assert_eq!(scan.frequency_dhz, 100);
-    assert_eq!([scan.frequency_hz()], [10.0_f64]);
+    assert_eq!(scan.frequency_hz().to_bits(), 10.0_f64.to_bits());
     assert_eq!(distances(scan), [10, 11, 12]);
 
     let scans = scanner.push(&ring_start(30));

@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use et_int_gen::asyncapi::build_spec;
+use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
 /// The names of the messages an operation's `messages` list references, in order.

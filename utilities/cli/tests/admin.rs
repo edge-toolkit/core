@@ -6,6 +6,8 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use et_cli::{CliError, block_ip, evict_agent};
 use et_ws_test_server::{ADMIN_TOKEN, connect_agent};
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 use reqwest::StatusCode;
 use tokio::runtime::Runtime;
 

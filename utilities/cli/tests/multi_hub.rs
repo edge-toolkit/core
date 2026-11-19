@@ -16,6 +16,7 @@ use fs_err as fs;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::Container;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use pretty_assertions::assert_eq;
 use serde::Deserialize as _;
 use tempfile::{TempDir, tempdir};
 

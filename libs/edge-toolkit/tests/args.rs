@@ -1,5 +1,7 @@
 #![cfg(test)]
 
+use pretty_assertions::assert_eq;
+
 #[rstest::rstest]
 #[case::normal(vec!["et-ws-server"])]
 #[case::unix_path(vec!["/path/to/et-ws-server"])]

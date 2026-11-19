@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use edge_toolkit::ports::Services;
+use pretty_assertions::assert_eq;
 
 #[rstest::rstest]
 #[case::otlp_collector(Services::OtlpCollector, 5080)]

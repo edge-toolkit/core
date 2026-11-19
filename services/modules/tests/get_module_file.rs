@@ -7,6 +7,7 @@
 
 use actix_web::http::StatusCode;
 use et_modules_service::routes::get_module_file;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn returns_not_implemented() {

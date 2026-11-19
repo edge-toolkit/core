@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use edge_toolkit::config::{deserialize_optional, deserialize_optional_duration, is_disabled_sentinel};
+use pretty_assertions::assert_eq;
 use serde::de::IntoDeserializer as _;
 use serde::de::value::{Error as ValueError, StrDeserializer};
 

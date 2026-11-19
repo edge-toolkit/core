@@ -13,6 +13,7 @@ use et_web::{
 };
 use et_ws_wasm_agent::{WsClient, WsClientConfig, wait_for_connected};
 use js_sys::{Function, Object, Reflect};
+use pretty_assertions::assert_eq;
 use wasm_bindgen::{JsCast as _, JsValue};
 use wasm_bindgen_test::*;
 

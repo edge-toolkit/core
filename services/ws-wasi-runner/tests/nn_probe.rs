@@ -6,6 +6,7 @@
 #![cfg(test)]
 
 use et_gpu_probe::{Answer, INPUTS, PROBE_COUNT, Signature, WASI_NN, shaders};
+use pretty_assertions::assert_eq;
 use wasmtime_wasi_nn::backend::NamedTensor;
 use wasmtime_wasi_nn::wit::{ExecutionTarget, TensorType};
 use wasmtime_wasi_nn::{ExecutionContext, Tensor};

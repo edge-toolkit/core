@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use et_cli::{ClusterInput, OutputType, generate_deployment, hub_ws_url, hub_ws_url_at, regenerate_verification};
 use fs_err as fs;
 use k8s_openapi::api::apps::v1::Deployment;
+use pretty_assertions::assert_eq;
 use serde::Deserialize as _;
 use tempfile::{TempDir, tempdir};
 

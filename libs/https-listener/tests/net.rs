@@ -4,6 +4,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use et_https_listener::net::{NetError, candidate_ipv4s, rank_candidates, select_candidates};
+use pretty_assertions::assert_eq;
 
 fn ifa(name: &str, octets: [u8; 4]) -> (String, IpAddr) {
     (name.to_string(), IpAddr::V4(Ipv4Addr::from(octets)))

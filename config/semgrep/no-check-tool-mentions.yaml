@@ -721,6 +721,7 @@ rules:
         - "/README.md" # Tells a contributor which checks validate the generated manifests.
         - "/.codacy.yaml" # Names the manifest checks Codacy defers to, as its exclusion rationale.
         - "/config/trivyignore.yaml" # Its own ignore file, where each entry states why the finding is an artifact.
+        - "/config/trivyignore-tools.yaml" # Its tools-scan ignore file, which lists the scanner's own binary too.
         - "/config/jscpd.json" # Names the tools-scan ignore file, whose entries repeat by design, to skip it.
         - "/config/conftest/policy/advisories/**" # Reads the tools-scan ignore file to hold its review dates.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.

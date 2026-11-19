@@ -5,6 +5,7 @@ use edge_toolkit::config::get_project_root;
 use et_int_gen::first_difference;
 use et_int_gen::help::{binary_crates, clap_tree, render_env_section};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use serde_json::json;
 
 #[test]

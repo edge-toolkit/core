@@ -9,6 +9,7 @@ use et_recovery_supervisor::persistence::StateStore;
 use et_recovery_supervisor::policy::{Action, Budget, Decision, Health, Status, Supervisor};
 use et_test_recovery::{config, event, report, supervisor};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use serde::{Serialize, Serializer};
 use tokio::sync::Notify;
 

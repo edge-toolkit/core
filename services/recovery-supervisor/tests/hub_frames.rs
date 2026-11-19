@@ -11,6 +11,7 @@ use et_recovery_supervisor::runtime::hub;
 use et_test_recovery::{config, event, supervisor};
 use et_ws_runner_common::RegisteredSocket;
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio::io::AsyncWriteExt as _;
 use tokio::net::TcpStream;
 use tokio_tungstenite::WebSocketStream;

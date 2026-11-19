@@ -48,6 +48,7 @@ web-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+pretty_assertions.workspace = true
 wasm-bindgen-test.workspace = true
 
 [lints]

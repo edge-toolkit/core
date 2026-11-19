@@ -4,6 +4,7 @@
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use et_int_gen::kdl::{dart_variant_name, dart_variant_names, is_dart_identifier};
 use et_int_gen::wit::messages::{are_faithful_wit_cases, is_wit_identifier};
+use pretty_assertions::assert_eq;
 use schemars::schema_for;
 
 #[test]

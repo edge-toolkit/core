@@ -106,6 +106,7 @@ et-test-helpers.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
 picoserve = { workspace = true, features = ["tokio"] }
+pretty_assertions.workspace = true
 serde-env.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }

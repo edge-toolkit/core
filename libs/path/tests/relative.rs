@@ -9,6 +9,7 @@
 use std::path::{Component, Path};
 
 use et_path::relative_path_from;
+use pretty_assertions::assert_eq;
 
 /// What the function must render when there is nothing to join.
 ///

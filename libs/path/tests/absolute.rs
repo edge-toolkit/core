@@ -7,6 +7,7 @@ use std::env;
 use std::path::Path;
 
 use et_path::absolute_from;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn a_relative_path_joins_its_base_as_the_platform_would() {

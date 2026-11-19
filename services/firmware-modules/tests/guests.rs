@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use edge_toolkit::config::get_project_root;
 use et_firmware_modules::{Generated, ModulesError, guests};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::{TempDir, tempdir};
 
 /// The Pulley target a 64-bit host's board engine runs, which the tests compile for.

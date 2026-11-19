@@ -21,6 +21,7 @@ thiserror = { workspace = true, features = ["std"] }
 wasmparser.workspace = true
 
 [dev-dependencies]
+pretty_assertions.workspace = true
 tempfile.workspace = true
 wat.workspace = true
 

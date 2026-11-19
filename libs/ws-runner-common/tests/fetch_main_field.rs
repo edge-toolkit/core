@@ -11,6 +11,7 @@ use std::thread::{self, JoinHandle};
 
 use et_test_helpers::free_listener;
 use et_ws_runner_common::{BootstrapError, fetch_main_field};
+use pretty_assertions::assert_eq;
 
 /// The `package.json` the stub hub serves once it admits to having the module.
 const PACKAGE_JSON: &str = r#"{"main":"index.js"}"#;

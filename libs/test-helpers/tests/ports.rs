@@ -4,6 +4,8 @@
 use std::net::{Ipv4Addr, TcpStream};
 
 use et_test_helpers::{free_listener, wait_for_port};
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 #[test]
 fn a_free_listener_is_on_loopback_and_takes_a_connection_at_once() {

@@ -1698,13 +1698,19 @@ description = "Fail when the branch modifies more files than CodeRabbit reviews 
 # never writes back -- which are no part of what CodeRabbit reviews. A clone with no origin/main has nothing to
 # compare against, and skips as branch-up-to-date-check does.
 # A branch whose name contains `reorg` is exempt: a reorganisation moves files wholesale, and splitting one to fit
-# the limit would leave the tree half-moved between pull requests. CI checks out the pull request's merge commit
-# detached, so the name comes from `GITHUB_HEAD_REF` there and from git everywhere else.
+# the limit would leave the tree half-moved between pull requests. Branches named in full below are exempt as
+# mechanical sweeps: `pretty_assertions` adds one import line to every test file that asserts equality. CI checks
+# out the pull request's merge commit detached, so the name comes from `GITHUB_HEAD_REF` there and from git
+# everywhere else.
 run = """
 branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
 case "$branch" in
   *reorg*)
     echo "conftest-check-branch-size: $branch is a reorganisation branch, which the file limit exempts; skipping"
+    exit 0
+    ;;
+  pretty_assertions)
+    echo "conftest-check-branch-size: $branch is a mechanical sweep, which the file limit exempts; skipping"
     exit 0
     ;;
 esac
@@ -2997,6 +3003,39 @@ run = "cargo run -p et-gpu-probe-server --bin gpu-probe-fold"
 depends = ["gen:gpu-probe-signatures"]
 description = "Fail if libs/gpu-probe/signatures.json is stale (run `mise run gen:gpu-probe-signatures`)"
 run = "git diff --exit-code -- libs/gpu-probe/signatures.json"
+
+[tasks.clean-target]
+description = "Delete target/, which holds every build output and the agents' scratch area"
+run = """
+coreutils rm -rf target
+"""
+shell = "{{ vars.task_shell }}"
+
+# Delete every file outside target/ that git does not track.
+# Those are otherwise build output, caches, installed dependencies and local runtime state. It refuses when
+# anything could be work rather than output: a `*.local.*` file, which is the repo's naming for kept-but-uncommitted
+# notes and settings, or an untracked file that no .gitignore covers. The `*.local.*` search uses rg because
+# `git ls-files --ignored` walks all of target/ even when a pathspec excludes it.
+[tasks.clean-other]
+description = "Delete every untracked file outside target/, refusing if a *.local.* or unignored file exists"
+run = """
+local_files="$(rg --files --hidden --no-ignore -g '*.local.*' -g '!/.git/' -g '!/target/')" || true
+if [ -n "$local_files" ]; then
+  echo "clean-other: refusing to delete these *.local.* files:" >&2
+  echo "$local_files" >&2
+  exit 1
+fi
+
+unignored="$(git ls-files --others --exclude-standard)"
+if [ -n "$unignored" ]; then
+  echo "clean-other: refusing, these untracked files are not covered by .gitignore:" >&2
+  echo "$unignored" >&2
+  exit 1
+fi
+
+git clean -fdx -e /target/
+"""
+shell = "{{ vars.task_shell }}"
 
 # Fail when HEAD does not already contain origin/main, because a stale branch makes every other check untrustworthy.
 # A branch behind main runs its lints against code the rest of the repo has already moved past, so failures land in

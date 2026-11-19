@@ -16,6 +16,7 @@ use et_ws_service::hub::{SessionMessage, Stamps};
 use et_ws_service::picoserve_hub::{Hub, LocalLink, Outbox, config};
 use futures_util::{SinkExt as _, StreamExt as _};
 use picoserve::time::TokioTimer;
+use pretty_assertions::assert_eq;
 use serde_json::json;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::LocalSet;

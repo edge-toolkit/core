@@ -27,6 +27,7 @@ use std::time::Duration;
 use command_error::CommandExt as _;
 use et_test_helpers::{ChildGuard, drain_stderr, reserve_port, wait_for_port};
 use et_test_otlp::{Protocol, ServerHandle};
+use pretty_assertions::assert_eq;
 use tokio::runtime::Runtime;
 
 const SERVICE_NAME: &str = "vector-relay-test";

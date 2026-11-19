@@ -5,6 +5,7 @@ use et_recovery_supervisor::config::{Mode, Workload};
 use et_recovery_supervisor::policy::{Action, Decision, Health, ObservationTime, Status, Supervisor};
 use et_recovery_supervisor::resilience::{Classification, Reason};
 use et_test_recovery::{config, event, report, supervisor};
+use pretty_assertions::assert_eq;
 
 /// Start two detected workloads with one failed restart and a single fleet recovery slot.
 fn policy_after_failed_restart() -> (Supervisor, Workload, Workload) {

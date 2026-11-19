@@ -20,11 +20,14 @@ vulnerabilities:
   # Each tool here is at the newest release the seven-day minimum release age admits, and the fix needs its project to
   # rebuild with a newer Go toolchain or module; nothing in this repository can patch a prebuilt binary. Most of them
   # are linters and formatters that only read this repository's own files (gitleaks, actionlint, regal, kubeconform,
-  # conftest, shfmt, goawk, jqfmt, editorconfig-checker, ls-lint, tsgolint), so an attacker would first need a commit
-  # here. The rest reach only endpoints the operator chooses: kubectl, k3d and docker compose drive local clusters and
-  # containers, crane publishes to GHCR, gh talks to GitHub, osv-scanner queries osv.dev, and otelcol receives the
-  # local hosts' metrics. pyodide's distribution ships a Windows `python.exe` launcher built with Go 1.21, which
-  # nothing runs: its install is kept off PATH, and the modules service only serves the files beside it.
+  # conftest, shfmt, goawk, jqfmt, editorconfig-checker, ls-lint, tsgolint, trivy, yq), so an attacker would first need
+  # a commit here. The rest reach only endpoints the operator chooses: kubectl, k3d and docker compose drive local
+  # clusters and containers, crane publishes to GHCR, gh talks to GitHub, osv-scanner queries osv.dev, rclone fetches
+  # the URLs this repository's config names, otelcol receives the local hosts' metrics, nats-server is the local hub
+  # backplane, and nvidia_gpu_exporter serves a local host's GPU metrics. The Go toolchain itself is `latest`, so the
+  # next release past the seven-day age replaces it; until then it only compiles the go: tools above.
+  # pyodide's distribution ships a Windows `python.exe` launcher built with Go 1.21, which nothing runs: its install
+  # is kept off PATH, and the modules service only serves the files beside it.
   - id: CVE-2024-34156
     paths:
       - "http-pyodide/0.29.3/python.exe"
@@ -593,6 +596,39 @@ vulnerabilities:
       - "osv-scanner/2.7.0/osv-scanner{,.exe}"
     statement: >-
       the Go standard library as compiled into each release binary; fixed in 1.26.9, 1.27.2, which none of these
+      releases is built with yet.
+    expired_at: 2027-01-01
+  - id: CVE-2026-97054
+    paths:
+      - "aqua-aquasecurity-trivy/0.76.2/trivy{,.exe}"
+      - "aqua-docker-compose/5.7.0/docker-cli-plugin-docker-compose{,.exe}"
+      - "aqua-gitleaks-gitleaks/8.30.1/gitleaks{,.exe}"
+      - "aqua-k3d-io-k3d/5.9.0/k3d{,.exe}"
+      - "aqua-kubernetes-kubernetes-kubectl/1.37.2/kubectl{,.exe}"
+      - "aqua-mvdan-sh/3.14.1/shfmt{,.exe}"
+      - "aqua-rhysd-actionlint/1.7.12/actionlint{,.exe}"
+      - "aqua-styra-inc-regal/0.43.0/regal{,.exe}"
+      - "aqua-yannh-kubeconform/0.8.0/kubeconform{,.exe}"
+      - "conftest/0.71.1/conftest{,.exe}"
+      - "crane/0.22.1/crane{,.exe}"
+      - "crane/0.22.1/gcrane{,.exe}"
+      - "crane/0.22.1/krane{,.exe}"
+      - "editorconfig-checker/4.0.2/editorconfig-checker{,.exe}"
+      - "gh/2.103.3/gh_2.103.3_*/bin/gh{,.exe}"
+      - "github-benhoyt-goawk/1.32.0/goawk{,.exe}"
+      - "github-nats-io-nats-server/2.15.2/nats-server{,.exe}"
+      - "github-open-telemetry-opentelemetry-collector-releases/0.164.0/otelcol{,.exe}"
+      - "github-utkuozdemir-nvidia-gpu-exporter/1.17.0/nvidia_gpu_exporter{,.exe}"
+      - "go-github-com-noperator-jqfmt-cmd-jqfmt/0.1.0/bin/jqfmt{,.exe}"
+      - "go/1.27.3/**"
+      - "http-pyodide/0.29.3/python.exe"
+      - "ls-lint/2.3.2/ls-lint{,.exe}"
+      - "npm-oxlint-tsgolint/0.24.0~*/**/tsgolint{,.exe}"
+      - "osv-scanner/2.7.0/osv-scanner{,.exe}"
+      - "rclone/1.76.0/rclone-v1.76.0-*/rclone{,.exe}"
+      - "yq/4.54.2/yq{,.exe}"
+    statement: >-
+      the Go standard library as compiled into each release binary; fixed in 1.26.11, 1.27.4, which none of these
       releases is built with yet.
     expired_at: 2027-01-01
   - id: GHSA-hrxh-6v49-42gf

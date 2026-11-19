@@ -1,0 +1,28 @@
+id: pretty-assert-ne-import
+language: Rust
+severity: error
+message: |
+  This test file calls `assert_ne!` without importing it from `pretty_assertions`. Its failure message names the
+  value both sides share in a readable form. Add `use pretty_assertions::assert_ne;`, as the fix does.
+# The fix puts the import under the file's last inner attribute; the formatter then moves it into its import group.
+rule:
+  pattern: "#![$ATTR]"
+  matches: last-test-inner-attribute
+  inside:
+    kind: source_file
+    not:
+      has:
+        kind: use_declaration
+        regex: "pretty_assertions::(assert_ne|\\{[^}]*\\bassert_ne\\b)"
+    has:
+      kind: macro_invocation
+      stopBy: end
+      has:
+        field: macro
+        regex: "^assert_ne$"
+fix: |-
+  #![$ATTR]
+
+  use pretty_assertions::assert_ne;
+ignores:
+  - generated/**

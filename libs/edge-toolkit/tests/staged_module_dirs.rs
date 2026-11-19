@@ -8,6 +8,7 @@
 
 use edge_toolkit::config::{mise_staged_module_dirs, staged_module_dirs_from_tool_list};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 /// Build an npm install whose package really sits at `<install>/node_modules/<package>`.

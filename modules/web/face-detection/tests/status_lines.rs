@@ -3,6 +3,7 @@
 #![cfg(test)]
 
 use et_ws_face_detection::face_status_lines;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn includes_a_separated_best_box_section_when_a_detection_exists() {

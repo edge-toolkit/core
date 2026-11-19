@@ -1,6 +1,8 @@
 //! Private invariant checks remain fail-closed even when callers supply inconsistent scheduling state.
 #![cfg(test)]
 
+use pretty_assertions::assert_eq;
+
 use super::{Budget, Decision, Health, ObservationTime, Reason, Status, Supervisor, Workload};
 use crate::RecoveryError;
 use crate::config::{EnvConfig, Mode};

@@ -13,6 +13,8 @@ use et_cli::{ClusterInput, Cpus, Limits, Ulimit, generate_deployment, regenerate
 use fs_err as fs;
 use k8s_openapi::api::apps::v1::{DaemonSet, Deployment};
 use k8s_openapi::api::core::v1::{ConfigMap, PodSpec};
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 use serde::Deserialize as _;
 use tempfile::{TempDir, tempdir};
 

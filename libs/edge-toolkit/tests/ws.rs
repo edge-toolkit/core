@@ -14,6 +14,7 @@
 use cloudevents::event::SpecVersion;
 use cloudevents::{AttributesReader as _, Data, Event, EventBuilder as _, EventBuilderV10};
 use edge_toolkit::ws::{ClientMessage, CloudEvent, ServerMessage, client_event_type};
+use pretty_assertions::assert_eq;
 use serde_json::json;
 
 /// Pull the `content` out of `ClientMessage::RelayText`, panicking if the decoder routed the input elsewhere.

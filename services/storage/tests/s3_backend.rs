@@ -33,6 +33,7 @@ use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, configure};
 use et_test_helpers::{ChildGuard, reserve_port, wait_for_port};
+use pretty_assertions::assert_eq;
 
 /// Single bucket holding every agent's objects, keyed `<agent_id>/<filename>`.
 ///

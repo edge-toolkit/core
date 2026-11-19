@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use et_cli::{OutputType, regenerate_verification};
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
 /// Decode the reference scenario as a mutable document for regeneration transitions.

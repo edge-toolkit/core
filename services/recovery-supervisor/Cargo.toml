@@ -60,6 +60,7 @@ et-test-helpers.workspace = true
 et-test-recovery.workspace = true
 et-ws-test-server.workspace = true
 k8s-openapi.workspace = true
+pretty_assertions.workspace = true
 serde_yaml.workspace = true
 
 [lints]

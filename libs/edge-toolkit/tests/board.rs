@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use edge_toolkit::board::{COVERAGE_IMPORTS, Guest, HOSTED_IMPORTS, PREVIEW2, hosts};
+use pretty_assertions::assert_eq;
 
 /// The page size every memory here declares but the one that names its own, 64 KiB.
 const PAGE: u64 = 64 * 1024;

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use edge_toolkit::config::{npm_module, push_module};
 use et_test_otlp::events::capture_events;
+use pretty_assertions::assert_eq;
 use tracing::Level;
 
 #[test]

@@ -10,6 +10,7 @@ use clap::Parser as _;
 use et_recovery_supervisor::RecoveryError;
 use et_recovery_supervisor::command::{capture_stderr, output};
 use et_test_recovery::command::Arguments;
+use pretty_assertions::assert_eq;
 use tokio::io::AsyncWriteExt as _;
 use tokio::process::Command;
 use tracing::subscriber::{NoSubscriber, set_default};

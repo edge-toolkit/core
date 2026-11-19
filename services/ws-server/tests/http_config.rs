@@ -4,6 +4,7 @@
 use std::time::Duration;
 
 use et_ws_server::config::Config;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn http_variables_reach_the_hub_config() {

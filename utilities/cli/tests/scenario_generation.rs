@@ -5,6 +5,7 @@ use et_cli::{
     module_package_json, regenerate_verification, scenario_dockerfile_path, scenario_module_paths,
 };
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use serde::Deserialize as _;
 use tempfile::tempdir;
 

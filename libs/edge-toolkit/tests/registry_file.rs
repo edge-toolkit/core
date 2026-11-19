@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr};
 
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, RegistryError, read_registry_file};
+use pretty_assertions::assert_eq;
 use tempfile::tempdir;
 
 const FIRST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);

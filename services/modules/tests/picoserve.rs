@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use et_modules_service::picoserve::{Module, ModuleFile, ModuleRoutes, Modules};
 use picoserve::{Config, Router, Server};
+use pretty_assertions::assert_eq;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::LocalSet;

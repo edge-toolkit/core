@@ -18,6 +18,7 @@ use std::time::Duration;
 use edge_toolkit::ws::{ConnectStatus, ServerMessage};
 use et_ws_runner_common::{ConnectError, connect_and_register};
 use futures_util::{SinkExt as _, StreamExt as _};
+use pretty_assertions::assert_eq;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 

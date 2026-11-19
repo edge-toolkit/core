@@ -50,6 +50,7 @@ tracing = { workspace = true, features = ["attributes", "std"] }
 et-rest-client.workspace = true
 et-test-helpers.workspace = true
 et-ws-runner-common = { workspace = true, features = ["lidar"] }
+pretty_assertions.workspace = true
 serde-env.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt", "test-util"] }
 tokio-tungstenite = { workspace = true, features = ["handshake"] }

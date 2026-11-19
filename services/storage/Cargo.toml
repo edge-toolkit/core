@@ -105,6 +105,7 @@ command-error.workspace = true
 et-test-helpers.workspace = true
 object_store.workspace = true
 picoserve = { workspace = true, features = ["tokio"] }
+pretty_assertions.workspace = true
 reqwest.workspace = true
 temp-env = { workspace = true, features = ["async_closure"] }
 tempfile.workspace = true

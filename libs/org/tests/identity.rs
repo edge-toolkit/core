@@ -6,6 +6,7 @@
 #![cfg(test)]
 
 use et_org::{CRATE_PREFIX, IMAGE_REGISTRY, NPM_SCOPE, ORG, REPOSITORY_URL};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn the_identity_strings_are_what_registries_are_matched_against() {

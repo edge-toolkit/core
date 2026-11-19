@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use et_ws_test_server::imu::{FUNCTION_IMU, frame};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn a_frame_carries_the_crc_hiwonders_table_gives() {

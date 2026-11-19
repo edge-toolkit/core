@@ -5,6 +5,7 @@ use et_recovery_supervisor::config::{Config, Mode, Workload};
 use et_recovery_supervisor::policy::{Action, Budget, Decision, Health, ObservationTime, Status, Supervisor};
 use et_recovery_supervisor::resilience::{Classification, Reason, Stability};
 use et_test_recovery::{config, event, report};
+use pretty_assertions::assert_eq;
 
 /// Create an active workload whose observed deployment failure has satisfied detection grace.
 fn detected_policy(settings: Config) -> (Supervisor, Workload) {

@@ -133,6 +133,7 @@ cloudevents-sdk.workspace = true
 et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true
+pretty_assertions.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 wat.workspace = true

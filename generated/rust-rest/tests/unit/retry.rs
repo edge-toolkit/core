@@ -7,6 +7,7 @@ use std::io::{Seek as _, Write as _};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use pretty_assertions::assert_eq;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::instrument::WithSubscriber as _;

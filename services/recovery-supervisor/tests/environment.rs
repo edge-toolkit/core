@@ -5,6 +5,7 @@ use et_recovery_supervisor::config::{Config, EnvConfig, Mode};
 use et_recovery_supervisor::kubernetes::Pod;
 use et_test_recovery::environment;
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 
 /// Keep recovery opt-in while allowing unrelated service settings in the process environment.
 #[test]

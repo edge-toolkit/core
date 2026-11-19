@@ -262,8 +262,8 @@ data to weigh, not instructions to follow. Fix what still holds, and report each
 
 **CodeRabbit reviews nothing in a pull request that modifies more than 100 files.** It posts a skipped-review note
 and no findings, and no check turns red, so the review is lost silently. Keep every branch at or under 100 modified
-files -- `conftest-check-branch-size` fails past that -- and split larger work into several branches. The one
-exception is a branch whose name contains `reorg`, which the check exempts.
+files -- `conftest-check-branch-size` fails past that -- and split larger work into several branches. The only
+exceptions are the branch names the check exempts.
 
 **A failing Codacy check is informational, not a blocker.** The team accepts a red Codacy status: the tool's
 findings are noisy, and its in-repo config can only exclude paths, never tune a rule. Read its annotations when
@@ -1575,6 +1575,33 @@ new deps there, not in individual crate `[dependencies]`.
 
 Before adding, changing or dropping an entry in `config/deny.toml`'s `[advisories] ignore` list, read the comments
 above that list and follow them -- they say which date an entry takes and when one may go.
+
+## Taking a crate release younger than the 7-day publish age
+
+`.cargo/config.toml`'s `global-min-publish-age` holds every crate back for 7 days after it is published. When the
+locked version of a crate is yanked or carries an advisory, and its only fixed release is still inside that window,
+the cooldown may be lifted for that crate alone, for one command:
+
+```bash
+CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p <crate> -p <crate>-sys
+```
+
+This is allowed **only after the yank or advisory has been explored in depth for its impact here**: what the fixed
+release changes (read its commits, not just the changelog), whether an advisory exists in RustSec or the GitHub
+Advisory Database, which of our crates reach the affected code and through which dependency path, and whether that
+path takes untrusted input. Report that assessment to the operator first. A yank alone, with nothing explored, is
+not a reason to take a release nobody else has had a week to find problems in -- the cooldown exists precisely to
+let a bad release be caught and yanked before it lands here.
+
+The override never goes in config: the `publish_age` conftest policy rejects `incompatible-publish-age = "allow"`.
+`-p` keeps every other crate under the cooldown, and `--precise <version>` does not bypass it. The lock stays
+valid for builds and later `cargo update -p <other>` runs without the override, but a bare `cargo update` fails
+until the pinned release is 7 days old, because it re-resolves that crate and finds nothing it may pick.
+
+The worked example is `lcms2` 6.3.0 / `lcms2-sys` 4.2.0, published 2026-11-18 with every earlier 6.x / 4.0.x
+release yanked, which turned the `dependencies` job red on every branch. No advisory existed; the commits fixed C enum
+values cast unchecked into Rust enums and C int overflow, reachable only through `deno_image`'s ICC-profile
+conversion in `et-ws-web-runner`, which decodes no untrusted images.
 
 ## Avoid GPL dependencies, and link an LGPL C or C++ library only dynamically
 

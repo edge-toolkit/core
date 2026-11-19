@@ -36,6 +36,7 @@ serde_with.workspace = true
 
 [dev-dependencies]
 actix-rt.workspace = true
+pretty_assertions.workspace = true
 serde-env.workspace = true
 
 [lints]

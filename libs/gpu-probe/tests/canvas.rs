@@ -5,6 +5,8 @@
 use et_gpu_probe::{
     CANVAS, CANVAS_BROWSERLEAKS, KNOWN_BLOCK, KNOWN_SIZE, alteration, known_colour, known_scene, pixel_hash,
 };
+use pretty_assertions::assert_eq;
+use pretty_assertions::assert_ne;
 
 #[test]
 fn known_colours_wrap_at_a_byte() {

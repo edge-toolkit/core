@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use edge_toolkit::config::default_modules_folders;
 use et_test_otlp::events::capture_events;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn returns_only_workspace_paths_when_mise_missing() {

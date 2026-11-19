@@ -6,6 +6,7 @@ use et_gpu_probe::{
     Answer, Backend, Browser, GpuVendor, HOST, Named, OS, RowError, Sighting, Signature, WEBGPU, Window,
     every_sighting, reference,
 };
+use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
 /// The fields a row names from fixed sets, in the order a row has them.

@@ -126,15 +126,41 @@ jobs:
 
       # Windows builds the modules uninstrumented, because nothing on that lane reads their coverage.
       # Every consumer of the guests' profiles is Linux-only: the wasm merges and wasm-cov-branch-check below.
-      # The instrumented browser builds also look for their coverage wrapper under target/debug, which
-      # CARGO_BUILD_TARGET moves to target/<triple>/debug on Windows. The `"false"` is read at render time by
-      # the module build vars, which instrument only on `"true"`; the coverage run below keeps the job's value.
+      # The `"false"` is read at render time by the module build vars, which instrument only on `"true"`; the
+      # coverage run below keeps the job's value.
       - name: Build WASM modules
         timeout-minutes: 25
         env:
           ET_TEST_COVERAGE: ${{ runner.os == 'Windows' && 'false' || 'true' }}
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
+
+      # Moves the coverage build's build dir to the drive root on Windows, where rustc's command line hits the limit.
+      # Every one of the ~300 dependency paths on that line starts with the build dir, and D:/cov is 15 characters
+      # shorter than D:\a\core\core\target. Under the checkout, et-ws-runner-common's tests reached 32917 characters,
+      # over Windows' 32767, and the build stopped with
+      #   error: could not execute process `...\rustc.exe --crate-name module_file_missing ... -C instrument-coverage
+      #   --cfg=coverage --cfg=coverage_nightly -C link-arg=-Wl,--no-gc-sections -Zcoverage-options=branch` (never
+      #   executed): The filename or extension is too long. (os error 206)
+      # on commit https://github.com/edge-toolkit/core/commit/478d230e1971bd599b9024f785ea37555105126b at
+      # https://github.com/edge-toolkit/core/actions/runs/44377946944/job/135062026762. It is set here, not in the
+      # task, so a Windows workstation keeps its build dir inside the checkout; no later step on this lane runs cargo.
+      # Drop it once cargo-llvm-cov's rustc wrapper falls back to an argfile.
+      - name: Shorten the coverage build dir on Windows
+        if: runner.os == 'Windows'
+        run: echo "CARGO_BUILD_BUILD_DIR=D:/cov" >> "$GITHUB_ENV"
+
+      # Puts the coverage build back on cargo's classic build-dir layout on Windows, for the same command-line limit.
+      # The new layout passes rustc one `-L dependency=<build-dir>\build\<pkg>\<hash>\out` per indirect dependency,
+      # about 290 of them and 25000 characters for et-storage-service's tests; the classic layout passes the one
+      # shared `deps` dir instead. The env var is cargo's own opt-out, added as temporary in
+      # https://github.com/rust-lang/cargo/commit/725634b6a1a4d66bd239510143eb3682d26d43d4 and honoured by the
+      # pinned nightly's cargo,
+      # https://github.com/rust-lang/cargo/commit/7c83d4cc0953b81d823e47d640c64da9b8bd4fac. Drop it once
+      # cargo-llvm-cov's rustc wrapper falls back to an argfile, or sooner if cargo stops honouring it.
+      - name: Use the classic build-dir layout on Windows
+        if: runner.os == 'Windows'
+        run: echo "__CARGO_TEMPORARY_BUILD_DIR_NEW_LAYOUT_OPT_OUT=1" >> "$GITHUB_ENV"
 
       - name: Collect Rust coverage + test results
         timeout-minutes: 75

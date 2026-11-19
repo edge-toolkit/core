@@ -60,6 +60,7 @@ web-sys = { workspace = true, features = ["Location", "Window"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 et-rest-client = { workspace = true, features = ["mock"] }
+pretty_assertions.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "test-util"] }
 tracing-subscriber.workspace = true
