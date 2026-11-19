@@ -35,3 +35,17 @@ rule:
                 stopBy: end
                 kind: identifier
                 regex: "^ignore$"
+                # An applied attribute follows the predicate, so it needs a word before it.
+                # That rules out `cfg_attr(ignore, ...)`, where `ignore` is a configuration name.
+                follows:
+                  stopBy: end
+                  kind: identifier
+                # Its list is the `cfg_attr`'s own or a nested `cfg_attr`'s, never a predicate such as `all(...)`.
+                inside:
+                  kind: token_tree
+                  any:
+                    - inside:
+                        kind: attribute
+                    - follows:
+                        kind: identifier
+                        regex: "^cfg_attr$"

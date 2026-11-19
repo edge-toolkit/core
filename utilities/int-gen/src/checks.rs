@@ -727,10 +727,6 @@ fn commands(body: &str) -> Vec<Vec<String>> {
 /// Track one character of a `$(...)` substitution: the quotes it opens and closes, and the `)` that closes it.
 ///
 /// Quotes inside the substitution shield a `)` they contain from closing it.
-#[expect(
-    clippy::single_call_fn,
-    reason = "distinct step of `commands`; kept separate to hold its complexity down"
-)]
 fn in_substitution(current: char, depth: &mut usize, inner_quote: &mut Option<char>) {
     if *inner_quote == Some(current) {
         *inner_quote = None;
@@ -797,7 +793,7 @@ fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
     let mut pattern = String::default();
     while let Some(current) = chars.next() {
         match current {
-            '\'' | '"' | '\\' => {
+            '\'' | '"' | '\\' | '$' => {
                 skip_quoted(current, chars);
                 pattern.push(QUOTED);
             }
@@ -814,17 +810,65 @@ fn skip_case_pattern(chars: &mut Peekable<Chars<'_>>) {
     }
 }
 
-/// Consume what an opening quote or a backslash makes literal: through the matching quote, or the one character.
+/// Consume what an opening quote, a backslash or a `$` takes out of a pattern's literal text.
+///
+/// A quote runs through its matching quote, a backslash takes the one character after it, and a `$(` runs through the
+/// `)` closing the substitution, so none of the `)` inside ends the arm's pattern.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of `skip_case_pattern`; kept separate to hold its complexity down"
 )]
 fn skip_quoted(opener: char, chars: &mut Peekable<Chars<'_>>) {
-    let _literal: Option<char> = if opener == '\\' {
-        chars.next()
-    } else {
-        chars.find(|next| *next == opener)
-    };
+    match opener {
+        '\\' => {
+            let _literal: Option<char> = chars.next();
+        }
+        '"' => skip_double_quoted(chars),
+        '$' => {
+            if chars.next_if_eq(&'(').is_some() {
+                skip_substitution(chars);
+            }
+        }
+        _ => {
+            let _closing: Option<char> = chars.find(|next| *next == opener);
+        }
+    }
+}
+
+/// Consume a double-quoted string through its closing quote, where a backslash keeps the next `"` from closing it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_quoted`; kept separate to hold its complexity down"
+)]
+fn skip_double_quoted(chars: &mut Peekable<Chars<'_>>) {
+    while let Some(current) = chars.next() {
+        if current == '"' {
+            return;
+        }
+        if current == '\\' {
+            let _escaped: Option<char> = chars.next();
+        }
+    }
+}
+
+/// Consume a `$(...)` substitution after its opening `(`, through the `)` closing it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of `skip_quoted`; kept separate to hold its complexity down"
+)]
+fn skip_substitution(chars: &mut Peekable<Chars<'_>>) {
+    let mut depth = 1_usize;
+    let mut inner_quote = None;
+    while depth > 0 {
+        let Some(current) = chars.next() else {
+            return;
+        };
+        if current == '$' && inner_quote.is_none() && chars.peek() == Some(&'(') {
+            depth = depth.saturating_add(1);
+        } else {
+            in_substitution(current, &mut depth, &mut inner_quote);
+        }
+    }
 }
 
 /// Whether `pattern` is the `esac` closing a `case`: the whole unquoted word, so the next character ends it.

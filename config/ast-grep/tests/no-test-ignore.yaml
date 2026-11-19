@@ -12,6 +12,10 @@ valid:
     fn multiline_helper() {}
   - |
     #[cfg_attr(windows, doc = "On error, ignore this hint.")] fn documented() {}
+  - |
+    #[cfg_attr(ignore, doc = "Optional documentation")] fn helper() {}
+  - |
+    #[cfg_attr(all(unix, ignore), doc = "Optional documentation")] fn nested_helper() {}
 invalid:
   - |
     #[test] #[ignore] fn skipped() {}
@@ -25,6 +29,8 @@ invalid:
     #[cfg_attr(windows, ignore = "flaky")] #[test] fn skipped_on_windows() {}
   - |
     #[cfg_attr(target_os = "macos", ignore)] #[test] fn skipped_on_macos() {}
+  - |
+    #[cfg_attr(unix, cfg_attr(target_os = "linux", ignore))] #[test] fn skipped_on_linux() {}
   - |
     #[cfg_attr(
         windows,

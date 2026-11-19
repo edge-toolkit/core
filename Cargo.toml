@@ -381,13 +381,13 @@ wasm-bindgen-test = "0.3"
 # Held to the release wasmtime parses with, so a guest it reads as importable is one wasmtime loads the same way.
 wasmparser = { version = "0.258", default-features = false, features = ["component-model", "std"] }
 # Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
-# 49.0.5 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3,
-# RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, and RUSTSEC-2026-0420 and RUSTSEC-2026-0422 through
-# RUSTSEC-2026-0424 only from 49.0.5, on the 49 line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4
-# line requires wasmtime ^49.
+# 49.0.6 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3,
+# RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, RUSTSEC-2026-0420 and RUSTSEC-2026-0422 through
+# RUSTSEC-2026-0424 only from 49.0.5, and RUSTSEC-2026-0566 through RUSTSEC-2026-0573 only from 49.0.6, on the 49
+# line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4 line requires wasmtime ^49.
 # Without its default features, which need std, so a board's runner can depend on it; a host build turns them on.
 # Pulley likewise, which only a board's runner and the compiler for it need, so ws-wasi-runner's features turn it on.
-wasmtime = { version = "49.0.5", default-features = false, features = [
+wasmtime = { version = "49.0.6", default-features = false, features = [
   "async",
   "component-model",
   "component-model-async",
@@ -398,8 +398,8 @@ wasmtime = { version = "49.0.5", default-features = false, features = [
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
 # to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
 # wasmtime version above; the drift check catches any change in what it emits.
-wasmtime-internal-wit-bindgen = { version = "49.0.5", features = ["async", "component-model-async"] }
-wasmtime-wasi = "49.0.5"
+wasmtime-internal-wit-bindgen = { version = "49.0.6", features = ["async", "component-model-async"] }
+wasmtime-wasi = "49.0.6"
 wasmtime-wasi-nn = { version = "49", default-features = false, features = ["onnx"] }
 # Writes the components the tests read from WebAssembly text.
 wat = "1"

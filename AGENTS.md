@@ -281,8 +281,10 @@ exceptions are the branch names the check exempts.
 unrelated to the change.** That covers a Codacy or CodeRabbit finding that holds up, an open code-scanning alert, and
 anything else CI reports against the branch; a follow-up branch or a later session is not where it goes. The one
 reason to stop and ask first is the file count: when the fix would take the branch past 100 modified files, ask the
-user whether to include it, and say that doing so fails `conftest-check-branch-size`. Say too that the check exempts
-branches by name, so adding this branch's name to its exemption list lets the fix land here without the failure.
+user whether to include it. Read the exemptions in `conftest-check-branch-size` first: for a branch they do not name,
+say that including the fix fails that check, and that adding this branch's name to its exemption list lets the fix
+land here without the failure. For a branch they already name, say the check still passes, and that CodeRabbit will
+review nothing in the pull request.
 
 **A failing Codacy check is informational, not a blocker.** The team accepts a red Codacy status: the tool's
 findings are noisy, and its in-repo config can only exclude paths, never tune a rule. Read its annotations when
@@ -1315,7 +1317,7 @@ preference:
 2. **Inline, per-finding suppression carrying a reason** -- `#[expect(..., reason = "...")]`, `// skipcq: <code>`,
    `// flawfinder: ignore [why]`, etc. -- scoped to the single line and single rule, never a bare blanket ignore
    that also hides future (possibly real) findings on that line. The repo's own semgrep and ast-grep rules are the
-   exception: they take no inline marker, and their exceptions live in the rule itself.
+   exception: both tools accept inline markers, but this repo bans new ones, and a rule's exceptions live in the rule.
 3. Only if neither works, a tightly-scoped path-or-rule carve-out in the linter config, commented with the exact
    reason -- and this needs operator sign-off (see the rule-deletion note below).
 

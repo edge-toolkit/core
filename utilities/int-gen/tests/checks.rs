@@ -113,6 +113,11 @@ fn case_patterns_are_not_commands() {
         "scanz",
     );
     assert_tool("case \"$x\" in \"foo\"#bar) echo ok ;; esac\nscanz", "scanz");
+    assert_tool(
+        "case x in $(printf a) | main | release) echo ok ;; esac\nscanz",
+        "scanz",
+    );
+    assert_tool("case x in \"a\\\"b\" | c) echo ok ;; esac\nscanz", "scanz");
 }
 
 #[test]
