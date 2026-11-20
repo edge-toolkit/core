@@ -2792,7 +2792,7 @@ blob='^https://github\\.com/edge-toolkit/core/blob/main/(.*)$ '"file:///${PWD#/}
 # https://github.com/edge-toolkit/core/commit/52a65e4960a9936a0f795e0c63ddc9762af6294a. A hash naming no commit
 # still fails, since github.com answers it with 404. Drop the 503 once a lychee release carries
 # https://github.com/lycheeverse/lychee/pull/2324, which retries every transient status.
-commit='^https://github\\.com/[^/]+/[^/]+/commit/'
+commit='^https://github\\.com/[^/]+/[^/]+/commit/[0-9a-f]{7}'
 # Runs lychee on its arguments plus the prose and Rust globs, which lychee expands itself.
 with_globs() {
   lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'modules/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
@@ -2815,7 +2815,7 @@ gha=".github/workflows/*.yaml .github/actions/*/*.yaml"
 # The flag patterns stay quoted while the glob lists are deliberately split and expanded by the shell.
 # `--exclude .*` unquoted is a glob the shell resolves against the working directory, which hands lychee every
 # dotfile as an input -- including its own `.lycheecache`, whose every line then reads as a broken URL.
-set -- --scheme https --accept '200..=299,429,503' --exclude '.*' --include "${commit}[0-9a-f]{7}"
+set -- --scheme https --accept '200..=299,429,503' --exclude '.*' --include "$commit"
 # shellcheck disable=SC2086
 with_globs "$@" $src $conf $gha Dockerfile*
 """

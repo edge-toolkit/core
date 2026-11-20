@@ -59,5 +59,14 @@ exclude = [
   '^https://cdn\.jsdelivr\.net/npm/?$',
   # Kubernetes API address; reachable only from inside the cluster.
   '^https://kubernetes\.default\.svc/?$',
+  # The README's OSS Insight activity panel, which sometimes answers 500.
+  # It is drawn on each request and serves the image on the next one, but no lychee release yet retries a 5xx, so the
+  # check reported
+  #   [500] https://next.ossinsight.io/widgets/official/compose-last-28-days-stats/thumbnail.png?repo_id=1197863845
+  #   (at 13:2) | Rejected status code: 500 Internal Server Error
+  # at https://github.com/edge-toolkit/core/actions/runs/44671195982/job/136072314116 on
+  # https://github.com/edge-toolkit/core/commit/ce8af067b0e27a45745402bdf71584b29c8bd634. The analysis page the panel
+  # links to is still checked. Drop this once a lychee release carries https://github.com/lycheeverse/lychee/pull/2324.
+  '^https://next\.ossinsight\.io/widgets/official/compose-last-28-days-stats/thumbnail\.png\?',
   '^https?://host[:/]',
 ]
