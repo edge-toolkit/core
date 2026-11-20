@@ -298,6 +298,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/README.md" # The pragma letting the flakiness.io badge URL, which cannot be wrapped, pass the line length.
         - "/utilities/int-gen/src/checks.rs" # Names the root config the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)editorconfig-check"
@@ -445,6 +446,7 @@ rules:
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
         - "/.gitignore" # Ignores its on-disk cache.
         - "/.dockerignore" # The same ignore, generated from it.
+        - "/config/gitleaks.toml" # Keeps that cache out of the secret scan, in step with .gitignore.
         - "/verification/**" # Generator-owned output, carrying whatever the generator wrote.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.

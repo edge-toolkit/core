@@ -2,6 +2,13 @@
 
 [![Tests][tests-badge]][tests] [![Coverage][coverage-badge]][coverage] [![et-ws-server][crate-badge]][crate]
 [![Checks][checks-badge]][checks] [![License][license-badge]][license] [![DOI][doi-badge]][doi]
+[![Open Hub][openhub-badge]][openhub] <!-- Cloudflare blocks GitHub's image proxy from Open Hub's own badges. -->
+
+<!-- The Tests badge is flakiness.io's. The coverage workflow still publishes our own test count, so if that badge
+stops working, point tests-badge at
+https://img.shields.io/endpoint?url=https%3A%2F%2Fedge-toolkit.github.io%2Fcore%2Ftests.json
+and tests at
+https://github.com/edge-toolkit/core/actions/workflows/coverage.yaml?query=branch%3Amain -->
 
 [![Code lines][sloc-code-badge]][scc] [![Blank lines][sloc-blanks-badge]][scc]
 [![Total lines][sloc-lines-badge]][scc] [![Comment lines][sloc-comments-badge]][scc]
@@ -12,8 +19,14 @@
 
 [![Last 28 days of activity, from OSS Insight][oss-panel]][oss]
 
-[tests-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fedge-toolkit.github.io%2Fcore%2Ftests.json
-[tests]: https://github.com/edge-toolkit/core/actions/workflows/coverage.yaml?query=branch%3Amain
+<!-- The next URL carries flakiness.io's badge token as JSON encoded twice over, so it can be neither wrapped nor
+shortened: editorconfig-checker-disable -->
+
+[tests-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fflakiness.io%2Fapi%2Fbadge%3Finput%3D%257B%2522badgeToken%2522%253A%2522badge-22z6x4o6BP7eLjKblv8njg%2522%257D
+
+<!-- editorconfig-checker-enable -->
+
+[tests]: https://flakiness.io/edge-toolkit/core
 [coverage-badge]: https://codecov.io/gh/edge-toolkit/core/graph/badge.svg?branch=main
 [coverage]: https://codecov.io/gh/edge-toolkit/core
 [crate-badge]: https://img.shields.io/crates/v/et-ws-server
@@ -24,6 +37,8 @@
 [license]: #licence
 [doi-badge]: https://zenodo.org/badge/DOI/10.5281/zenodo.24356452.svg
 [doi]: https://doi.org/10.5281/zenodo.24356452
+[openhub-badge]: https://img.shields.io/badge/Open%20Hub-edge--toolkit-0082c6?labelColor=5a2a82
+[openhub]: https://openhub.net/p/edge-toolkit
 [sloc-code-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=code
 [sloc-blanks-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=blanks
 [sloc-lines-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=lines
