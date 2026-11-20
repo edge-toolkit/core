@@ -1006,8 +1006,8 @@ depends = [
   "j2lint-check",
   "jscpd-check",
   "kubeconform-check",
-  "link-check",
   "ls-lint-check",
+  "lychee-check",
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
@@ -1060,8 +1060,8 @@ depends = [
   "hadolint-check",
   "j2lint-check",
   "kubeconform-check",
-  "link-check",
   "ls-lint-check",
+  "lychee-check",
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
@@ -2067,9 +2067,6 @@ run = "typos --config config/typos.toml"
 description = "Auto-correct typos detected by the typos linter"
 run = "typos --config config/typos.toml --write-changes"
 
-# lychee makes live network requests, so config/lychee.toml is tuned to keep it from being flaky.
-# Retries, 429-tolerance and a disk cache. It checks every URL in the repo's Markdown + Rust sources; lychee
-# extracts URLs from .rs comments and string literals too.
 # Validates the generated Kubernetes manifests against the real API schemas.
 # `verification-check` only proves the manifests are stable across regenerations, not that a cluster would
 # accept them, so a generator that emitted a malformed object would drift-check clean forever. `-strict` also
@@ -2757,7 +2754,8 @@ shell = "{{ vars.task_shell }}"
 description = "Repository-wide checks no file-at-a-time linter can do (commit hashes, typos ignores, ...)"
 run = "cargo run -q -p et-int-repo-check"
 
-[tasks.link-check]
+[tasks.lychee-check]
+alias = "link-check"
 description = "Check that URLs in prose, source and config files are reachable (network)"
 # The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.
 # A recursive `**/*.rs` walks target/'s churning rustc temp files, and lychee expands globs before applying

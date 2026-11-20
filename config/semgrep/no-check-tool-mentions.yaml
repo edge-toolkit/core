@@ -439,7 +439,7 @@ rules:
     languages: [generic]
     paths:
       exclude:
-        - "/.mise/**" # Tool pin, lockfile entry, and the link-check task.
+        - "/.mise/**" # Tool pin, lockfile entry, and the lychee-check task.
         - "/AGENTS.md" # Documents which checks an agent runs, and keeping its ignores in sync with .gitignore.
         - "/config/lychee.toml" # Its own config.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.

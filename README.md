@@ -1,9 +1,16 @@
 # edge-toolkit core
 
 [![Tests][tests-badge]][tests] [![Coverage][coverage-badge]][coverage] [![et-ws-server][crate-badge]][crate]
-[![Checks][checks-badge]][checks] [![License][license-badge]][license] [![Open Hub][openhub-badge]][openhub]
+[![Checks][checks-badge]][checks] [![License][license-badge]][license] [![DOI][doi-badge]][doi]
 
-[![Open Hub project statistics][openhub-stats]][openhub]
+[![Code lines][sloc-code-badge]][scc] [![Blank lines][sloc-blanks-badge]][scc]
+[![Total lines][sloc-lines-badge]][scc] [![Comment lines][sloc-comments-badge]][scc]
+[![COCOMO cost][sloc-cocomo-badge]][scc] [![USD][usd-badge]][scc] [![COCOMO effort][sloc-effort-badge]][scc]
+
+<!-- The COCOMO cost uses scc's defaults: an average wage of US$56,286 a year, from a 2000 US salary survey, and a
+2.4x overhead. -->
+
+[![Last 28 days of activity, from OSS Insight][oss-panel]][oss]
 
 [tests-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fedge-toolkit.github.io%2Fcore%2Ftests.json
 [tests]: https://github.com/edge-toolkit/core/actions/workflows/coverage.yaml?query=branch%3Amain
@@ -15,9 +22,18 @@
 [checks]: CHECKS.md
 [license-badge]: https://img.shields.io/badge/license-MIT%2BApache--2.0-blue
 [license]: #licence
-[openhub-badge]: https://openhub.net/p/edge-toolkit/widgets/project_thin_badge.gif
-[openhub]: https://openhub.net/p/edge-toolkit
-[openhub-stats]: https://openhub.net/p/edge-toolkit/widgets/project_partner_badge.gif
+[doi-badge]: https://zenodo.org/badge/DOI/10.5281/zenodo.24356452.svg
+[doi]: https://doi.org/10.5281/zenodo.24356452
+[sloc-code-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=code
+[sloc-blanks-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=blanks
+[sloc-lines-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=lines
+[sloc-comments-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=comments
+[sloc-cocomo-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=cocomo
+[usd-badge]: https://img.shields.io/badge/USD-4c1
+[sloc-effort-badge]: https://sloc.xyz/github/edge-toolkit/core/?category=effort
+[scc]: https://github.com/boyter/scc
+[oss-panel]: https://next.ossinsight.io/widgets/official/compose-last-28-days-stats/thumbnail.png?repo_id=1197863845
+[oss]: https://ossinsight.io/analyze/edge-toolkit/core
 
 edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control, so nothing has to leave
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,

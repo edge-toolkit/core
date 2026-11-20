@@ -14,6 +14,7 @@
 
 use core::iter::Peekable;
 use core::str::Chars;
+use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -129,6 +130,18 @@ struct Task {
     depends: Vec<String>,
 }
 
+/// One check, merged from the definitions every env's config gives it.
+struct Check<'tasks> {
+    /// The section the check is filed under: the tool `primary` invokes, or the shell-script section.
+    section: String,
+    /// The definition the entry describes: the first, in config-file order, that invokes a tool.
+    primary: &'tasks Task,
+    /// Every definition filed under `section`, `primary` first.
+    running: Vec<&'tasks Task>,
+    /// The envs whose definition overrides a check that invokes a tool with one that invokes none.
+    idle: Vec<&'tasks str>,
+}
+
 /// One rule this repo writes, with the description its rule file gives it.
 struct Rule {
     name: String,
@@ -214,25 +227,63 @@ struct Counts {
     tools: usize,
 }
 
-/// File every check under the tool its `run` body invokes.
+/// File every check once under the tool its `run` body invokes, in name order within each section.
 ///
 /// A check is a task the `check` aggregates reach, or one named as a check that nothing reaches. The aggregates
-/// themselves, wrappers that only `mise run` other tasks, and tasks with no body of their own are left out.
+/// themselves, wrappers that only `mise run` other tasks, and tasks with no body of their own are left out. The
+/// definitions several envs give one check become a single entry.
 fn group_checks<'tasks>(
     tasks: &'tasks [Task],
     reached: &BTreeSet<String>,
-) -> Result<BTreeMap<String, Vec<&'tasks Task>>, Error> {
+) -> Result<BTreeMap<String, Vec<Check<'tasks>>>, Error> {
     let check_name = Regex::new("(?:^|[-:])check(?:$|[-:])|crosscheck")?;
-    let mut sections: BTreeMap<String, Vec<&Task>> = BTreeMap::new();
+    let mut checks: BTreeMap<&str, Check<'tasks>> = BTreeMap::new();
     for task in tasks {
         let aggregate = task.name == "check" || task.name.starts_with("check:");
         let wrapper = task.body.contains("mise run ");
         let listed = reached.contains(&task.name) || check_name.is_match(&task.name);
-        if listed && !aggregate && !wrapper && !task.body.trim().is_empty() {
-            sections.entry(runner_label(&task.body)?).or_default().push(task);
+        if !listed || aggregate || wrapper || task.body.trim().is_empty() {
+            continue;
+        }
+        let section = runner_label(&task.body)?;
+        match checks.entry(&task.name) {
+            Entry::Vacant(slot) => {
+                let _filed: &mut Check<'tasks> = slot.insert(Check {
+                    section,
+                    primary: task,
+                    running: vec![task],
+                    idle: Vec::new(),
+                });
+            }
+            Entry::Occupied(mut slot) => merge(slot.get_mut(), task, section),
         }
     }
+    let mut sections: BTreeMap<String, Vec<Check<'tasks>>> = BTreeMap::new();
+    for check in checks.into_values() {
+        sections.entry(check.section.clone()).or_default().push(check);
+    }
     Ok(sections)
+}
+
+/// Merge a later env's definition of a check into it, `section` being where that definition alone would be filed.
+///
+/// A check is filed under the tool of its first definition that invokes one. A later definition invoking no tool then
+/// names its env as idle, one the check runs nothing in, rather than being filed as a second, shell-script check. A
+/// definition invoking a tool while every earlier one invoked none takes the check over, leaving those earlier envs
+/// idle. Any other is one more env the check runs in.
+fn merge<'tasks>(check: &mut Check<'tasks>, task: &'tasks Task, section: String) {
+    let invokes_tool = section != SHELL_SECTION;
+    let filed_under_tool = check.section != SHELL_SECTION;
+    match (invokes_tool, filed_under_tool) {
+        (false, true) => check.idle.push(&task.env),
+        (true, false) => {
+            check.idle = check.running.iter().map(|earlier| earlier.env.as_str()).collect();
+            check.running = vec![task];
+            check.primary = task;
+            check.section = section;
+        }
+        (true, true) | (false, false) => check.running.push(task),
+    }
 }
 
 /// Write one tool's checks and the rules they are configured with, returning how many rules and meta rules that is.
@@ -240,7 +291,7 @@ fn render_section(
     out: &mut String,
     root: &Path,
     label: &str,
-    entries: &[&Task],
+    entries: &[Check<'_>],
     parents: &Parents,
     repairs: &Repairs,
 ) -> Result<(usize, usize), Error> {
@@ -290,11 +341,11 @@ fn header(counts: &Counts, generated: jiff::civil::Date, links: &[String]) -> Re
     out.push_str(&wrap("", "", &format!("**Jump to:** {}", links.join(", "))));
     out.push('\n');
     let intro = [
-        "Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env",
-        "whose config declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass",
-        "that repairs what it reports, where one does, and the config files it reads. `mise run fix` runs every",
-        "such pass. The file is not held to its sources on every change: `mise run checks-md-check` fails only",
-        "once the generation date above is more than 7 days old.",
+        "Every check is listed once across every `MISE_ENV`, filed under the tool it runs. Each entry names the envs",
+        "whose configs declare it, any env that overrides it to run no tool, the aggregate that runs it as part of",
+        "`mise run check`, the `fix` or `fmt` pass that repairs what it reports, where one does, and the config files",
+        "it reads. `mise run fix` runs every such pass. The file is not held to its sources on every change: `mise run",
+        "checks-md-check` fails only once the generation date above is more than 7 days old.",
     ];
     out.push_str(&wrap("", "", &intro.join(" ")));
     let meta = [
@@ -999,17 +1050,16 @@ fn cargo_label(args: &[String]) -> String {
     format!("cargo {subcommand}")
 }
 
-/// Write one section's checks, each with its env, the aggregate that runs it, its description and its configs.
+/// Write one section's checks, each with its envs, the aggregate that runs it, its description and its configs.
 fn render_entries(
     out: &mut String,
     label: &str,
-    entries: &[&Task],
+    entries: &[Check<'_>],
     parents: &Parents,
     repairs: &Repairs,
 ) -> Result<(), Error> {
-    let mut sorted = entries.to_vec();
-    sorted.sort_by(|left, right| (&left.name, &left.env).cmp(&(&right.name, &right.env)));
-    for task in sorted {
+    for check in entries {
+        let task = check.primary;
         let run_by = parents.get(&task.name).map_or_else(
             || "not run by `mise run check`".to_owned(),
             |names| {
@@ -1023,9 +1073,17 @@ fn render_entries(
                 )
             },
         );
-        let mut configs = config_paths(&task.body)?;
+        let mut configs = BTreeSet::new();
+        for definition in &check.running {
+            configs.extend(config_paths(&definition.body)?);
+        }
         configs.extend(implicit_configs(label).iter().map(|path| (*path).to_owned()));
-        let mut text = format!("`{}` (`{}` env; {run_by})", task.name, task.env);
+        let running: Vec<&str> = check.running.iter().map(|definition| definition.env.as_str()).collect();
+        let mut text = format!("`{}` ({}", task.name, envs(&running));
+        if !check.idle.is_empty() {
+            write!(text, "; runs no tool in the {}", envs(&check.idle))?;
+        }
+        write!(text, "; {run_by})")?;
         if !task.description.is_empty() {
             write!(text, " -- {}", task.description.trim_end_matches('.'))?;
         }
@@ -1051,6 +1109,17 @@ fn render_entries(
     Ok(())
 }
 
+/// Name a list of envs as an entry does: "`default` env", or "`default`, `windows` envs".
+fn envs(names: &[&str]) -> String {
+    let listed = names
+        .iter()
+        .map(|name| format!("`{name}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let noun = if names.len() == 1 { "env" } else { "envs" };
+    format!("{listed} {noun}")
+}
+
 /// The paths a `run` body passes as a tool's configuration: those following a config-style flag.
 ///
 /// A path handed over as an input to check rather than as configuration -- a rule directory a policy validates the
@@ -1073,10 +1142,10 @@ pub fn rule_sources(body: &str) -> Result<BTreeSet<String>, Error> {
 /// at directories of them (`ruleDirs:`), and a TOML manifest's `[workspace.lints]` tables. Sources are the paths
 /// the checks pass as configuration plus the configs the section's tool finds by itself. A directory is searched
 /// recursively. A section with none renders nothing.
-fn section_rules(root: &Path, label: &str, entries: &[&Task]) -> Result<SectionRules, Error> {
+fn section_rules(root: &Path, label: &str, entries: &[Check<'_>]) -> Result<SectionRules, Error> {
     let mut sources = BTreeSet::new();
-    for task in entries {
-        sources.extend(rule_sources(&task.body)?);
+    for definition in entries.iter().flat_map(|check| &check.running) {
+        sources.extend(rule_sources(&definition.body)?);
     }
     sources.extend(implicit_configs(label).iter().map(|path| (*path).to_owned()));
     let mut files = BTreeSet::new();

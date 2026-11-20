@@ -1,5 +1,5 @@
-//! Covers the pieces `CHECKS.md` is assembled from: tool detection, config paths, Rego summaries, meta policies and
-//! wrapping.
+//! Covers the pieces `CHECKS.md` is assembled from: tool detection, config paths, Rego summaries, meta policies,
+//! wrapping, and the merging of a check that several envs define.
 //!
 //! The `run` bodies here use made-up tool names, since what is under test is the shell parsing around them.
 #![cfg(test)]
@@ -8,10 +8,39 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use et_int_gen::Error;
 use et_int_gen::checks::{
-    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_is_meta, rego_summaries, repo_checks,
-    rule_sources, runner_label, rust_check_summary, wrap,
+    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_is_meta, rego_summaries, render,
+    repo_checks, rule_sources, runner_label, rust_check_summary, wrap,
 };
+use fs_err as fs;
 use pretty_assertions::assert_eq;
+use tempfile::TempDir;
+
+/// The default config of a repo whose checks the `mingw` and `windows` envs define again.
+const DEFAULT_CONFIG: &str = r#"
+[tasks.check]
+depends = ["lintx-check", "plain-check", "scanz-check"]
+
+[tasks.lintx-check]
+run = "lintx ."
+
+[tasks.plain-check]
+run = "git diff --exit-code"
+
+[tasks.scanz-check]
+run = "scanz ."
+"#;
+
+/// The `windows` env's overrides: one runs no tool, one runs the same tool, and one is shell like the default.
+const WINDOWS_CONFIG: &str = r#"
+[tasks.lintx-check]
+run = "true"
+
+[tasks.plain-check]
+run = "git diff --exit-code --ignore-cr-at-eol"
+
+[tasks.scanz-check]
+run = "scanz --windows ."
+"#;
 
 /// The set of paths a path-collecting function is expected to return.
 fn paths(expected: &[&str]) -> BTreeSet<String> {
@@ -334,6 +363,38 @@ fn a_pass_no_check_pairs_with_is_named() {
     assert_eq!(
         message,
         format!("{passes_named}, which no check pairs with by name: add the check, or take the pass out")
+    );
+}
+
+#[test]
+fn a_check_several_envs_define_is_listed_once_naming_the_envs_it_runs_no_tool_in() {
+    let root = TempDir::new().unwrap();
+    let mise = root.path().join(".mise");
+    fs::create_dir(&mise).unwrap();
+    fs::write(mise.join("config.toml"), DEFAULT_CONFIG).unwrap();
+    // `config.mingw.toml` sorts before `config.toml`, so its no-tool definition is the first the check gets.
+    fs::write(mise.join("config.mingw.toml"), "[tasks.lintx-check]\nrun = \"true\"\n").unwrap();
+    fs::write(mise.join("config.windows.toml"), WINDOWS_CONFIG).unwrap();
+
+    let rendered = render(root.path()).unwrap();
+
+    let totals: Vec<&str> = rendered
+        .lines()
+        .filter(|line| line.starts_with("- **"))
+        .take(3)
+        .collect();
+    assert_eq!(
+        totals,
+        ["- **Checks:** 3", "- **Tools:** 2", "- **Shell-script checks:** 1"]
+    );
+    let entries: Vec<&str> = rendered.lines().filter(|line| line.starts_with("- `")).collect();
+    assert_eq!(
+        entries,
+        [
+            "- `lintx-check` (`default` env; runs no tool in the `mingw`, `windows` envs; run by `check`).",
+            "- `scanz-check` (`default`, `windows` envs; run by `check`).",
+            "- `plain-check` (`default`, `windows` envs; run by `check`).",
+        ]
     );
 }
 

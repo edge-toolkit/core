@@ -237,7 +237,7 @@ rules:
       |clang-tidy-(check|fix)|conftest-check|conftest-check-(dockerfile|generated-trees|jscpd|policy-pairs)
       |conftest-check-(policy-tests|toml|yaml)|cpplint-check|dart-(check|fmt|fmt-check)|dotnet-(check|fmt)
       |dprint-(check|fmt)|fix:[a-z]+|flawfinder-check|fmt-all|fmt:[a-z]+|gitleaks-check|hadolint-check|jq-fmt
-      |jscpd-(check|report|baseline-update)|kubeconform-check|link-check|ls-lint-check|macos-sdk-check
+      |jscpd-(check|report|baseline-update)|kubeconform-check|link-check|ls-lint-check|lychee-check|macos-sdk-check
       |mise-lock-check|osv-scanner-(check|npm)|oxfmt-(check|fmt)|oxlint-(check|fix)|parfit-fmt
       |readme-mise-version-check|regal-(check|fix)|roslynator-(check|fix)|ryl-check|semgrep-(check|fix)
       |shellcheck-mise-check|shfmt-mise-(check|fmt)|sloc-crosscheck|taplo-(check|fmt|fmt-check)|trivy-check
