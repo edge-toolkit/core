@@ -1062,24 +1062,9 @@ fn render_entries(out: &mut String, entries: &[Check<'_>], parents: &Parents, re
         let task = check.primary;
         let run_by = parents.get(&task.name).map_or_else(
             || "not run by `mise run check`".to_owned(),
-            |names| {
-                format!(
-                    "run by {}",
-                    names
-                        .iter()
-                        .map(|name| format!("`{name}`"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            },
+            |names| format!("run by {}", code_list(names)),
         );
-        let mut configs = BTreeSet::new();
-        for definition in &check.running {
-            configs.extend(config_paths(&definition.body)?);
-        }
-        for tool in &check.tools {
-            configs.extend(implicit_configs(tool).iter().map(|path| (*path).to_owned()));
-        }
+        let configs = check_paths(check, config_paths)?;
         let running: Vec<&str> = check.running.iter().map(|definition| definition.env.as_str()).collect();
         let mut text = format!("`{}` ({}", task.name, envs(&running));
         if !check.idle.is_empty() {
@@ -1091,35 +1076,48 @@ fn render_entries(out: &mut String, entries: &[Check<'_>], parents: &Parents, re
         }
         text.push('.');
         if let Some(found) = repairs.get(&task.name) {
-            let listed = found
-                .iter()
-                .map(|pass| format!("`{pass}`"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(text, " Repaired by {listed}.")?;
+            write!(text, " Repaired by {}.", code_list(found))?;
         }
         if !configs.is_empty() {
-            let listed = configs
-                .iter()
-                .map(|path| format!("`{path}`"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(text, " Config: {listed}.")?;
+            write!(text, " Config: {}.", code_list(&configs))?;
         }
         out.push_str(&wrap("- ", "  ", &text));
     }
     Ok(())
 }
 
+/// The paths `found` reads from each running definition of `check`, with the configs each of its tools finds by itself.
+fn check_paths(
+    check: &Check<'_>,
+    found: fn(&str) -> Result<BTreeSet<String>, Error>,
+) -> Result<BTreeSet<String>, Error> {
+    let mut paths = BTreeSet::new();
+    for definition in &check.running {
+        paths.extend(found(&definition.body)?);
+    }
+    for tool in &check.tools {
+        paths.extend(implicit_configs(tool).iter().map(|path| (*path).to_owned()));
+    }
+    Ok(paths)
+}
+
+/// Each item in backticks, joined by commas, as an entry lists names and paths.
+fn code_list<I>(items: I) -> String
+where
+    I: IntoIterator,
+    I::Item: core::fmt::Display,
+{
+    items
+        .into_iter()
+        .map(|item| format!("`{item}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Name a list of envs as an entry does: "`default` env", or "`default`, `windows` envs".
 fn envs(names: &[&str]) -> String {
-    let listed = names
-        .iter()
-        .map(|name| format!("`{name}`"))
-        .collect::<Vec<_>>()
-        .join(", ");
     let noun = if names.len() == 1 { "env" } else { "envs" };
-    format!("{listed} {noun}")
+    format!("{} {noun}", code_list(names))
 }
 
 /// The paths a `run` body passes as a tool's configuration: those following a config-style flag.
@@ -1137,21 +1135,37 @@ pub fn rule_sources(body: &str) -> Result<BTreeSet<String>, Error> {
         .collect())
 }
 
-/// Where a section's checks find their rules.
+/// Every rule file a section's checks read.
 ///
-/// Those are the paths each running definition passes as configuration, and the configs each tool those definitions
-/// invoke finds by itself.
-fn section_sources(entries: &[Check<'_>]) -> Result<BTreeSet<String>, Error> {
-    let mut sources = BTreeSet::new();
+/// Those are found under the paths each running definition passes as configuration and the configs each tool those
+/// definitions invoke finds by itself, plus the repo-check modules when one of the tools is that binary.
+fn section_rule_files(root: &Path, entries: &[Check<'_>]) -> Result<BTreeSet<PathBuf>, Error> {
+    let mut files = BTreeSet::new();
     for check in entries {
-        for definition in &check.running {
-            sources.extend(rule_sources(&definition.body)?);
-        }
-        for tool in &check.tools {
-            sources.extend(implicit_configs(tool).iter().map(|path| (*path).to_owned()));
+        for source in check_paths(check, rule_sources)? {
+            collect_rule_files(&root.join(source), &mut files)?;
         }
     }
-    Ok(sources)
+    if entries.iter().any(|check| check.tools.contains(REPO_CHECK)) {
+        let src = root.join(REPO_CHECK_SRC);
+        for module in repo_checks(&fs::read_to_string(src.join("main.rs"))?)? {
+            let _new_file: bool = files.insert(src.join(format!("{module}.rs")));
+        }
+    }
+    Ok(files)
+}
+
+/// Render one Rego policy, returning the rendering, how many rules it holds, and how many of those are meta rules.
+fn policy(root: &Path, file: &Path, stem: &str) -> Result<(String, usize, usize), Error> {
+    let source = fs::read_to_string(file)?;
+    let summaries = rego_summaries(&relative_path(root, file), &source)?;
+    let meta = rego_is_meta(&source)?;
+    let meta_rules = if meta { summaries.len() } else { 0 };
+    Ok((
+        render_policy(root, file, stem, &summaries, meta),
+        summaries.len(),
+        meta_rules,
+    ))
 }
 
 /// The rules a section's checks are configured with, and the deepest directory every rule file shares.
@@ -1161,16 +1175,7 @@ fn section_sources(entries: &[Check<'_>]) -> Result<BTreeSet<String>, Error> {
 /// at directories of them (`ruleDirs:`), and a TOML manifest's `[workspace.lints]` tables. A directory is searched
 /// recursively. A section with none renders nothing.
 fn section_rules(root: &Path, entries: &[Check<'_>]) -> Result<SectionRules, Error> {
-    let mut files = BTreeSet::new();
-    for source in section_sources(entries)? {
-        collect_rule_files(&root.join(source), &mut files)?;
-    }
-    if entries.iter().any(|check| check.tools.contains(REPO_CHECK)) {
-        let src = root.join(REPO_CHECK_SRC);
-        for module in repo_checks(&fs::read_to_string(src.join("main.rs"))?)? {
-            let _new_file: bool = files.insert(src.join(format!("{module}.rs")));
-        }
-    }
+    let files = section_rule_files(root, entries)?;
     let mut listed = Vec::new();
     let mut policies = String::default();
     let mut policy_rules = 0_usize;
@@ -1178,14 +1183,10 @@ fn section_rules(root: &Path, entries: &[Check<'_>]) -> Result<SectionRules, Err
     for file in &files {
         let name = file.file_name().and_then(|found| found.to_str()).unwrap_or_default();
         if let Some(stem) = name.strip_suffix(".rego") {
-            let source = fs::read_to_string(file)?;
-            let summaries = rego_summaries(&relative_path(root, file), &source)?;
-            let meta = rego_is_meta(&source)?;
-            policy_rules = policy_rules.saturating_add(summaries.len());
-            if meta {
-                meta_policy_rules = meta_policy_rules.saturating_add(summaries.len());
-            }
-            policies.push_str(&render_policy(root, file, stem, &summaries, meta));
+            let (rendered_policy, rules, meta_rules) = policy(root, file, stem)?;
+            policies.push_str(&rendered_policy);
+            policy_rules = policy_rules.saturating_add(rules);
+            meta_policy_rules = meta_policy_rules.saturating_add(meta_rules);
         } else if let Some(stem) = name.strip_suffix(".schema.json") {
             listed.push(schema_rule(file, stem)?);
         } else if has_extension(file, "toml") {
