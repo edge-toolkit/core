@@ -1,4 +1,4 @@
-# Config for the `link-check` task, part of the `check` aggregate.
+# Config for the `lychee-check` task, part of the `check` aggregate.
 # lychee makes live network requests, so this is tuned to tolerate transient failures (retries,
 # 429-tolerance, disk cache) and to skip reserved hosts + non-prose trees.
 
@@ -51,10 +51,6 @@ exclude_path = [
 # value; it names a path inside the ws-server image, so it is never resolvable from the host doing the check.
 # Scoped to that exact URL rather than the whole `file:` scheme, because relative links in markdown resolve to
 # `file:` URIs too and those are real links worth checking.
-#
-# The README's Open Hub badge and project page are skipped because openhub.net puts every request behind a
-# Cloudflare bot check, answering anything but an interactive browser with `HTTP 403 Forbidden` -- the page
-# exists, but no non-browser client can ever see it. Scoped to this project's pages, not the whole host.
 exclude = [
   '\{|%7B',
   '^file:///app/storage$',
@@ -63,6 +59,14 @@ exclude = [
   '^https://cdn\.jsdelivr\.net/npm/?$',
   # Kubernetes API address; reachable only from inside the cluster.
   '^https://kubernetes\.default\.svc/?$',
-  '^https://openhub\.net/p/edge-toolkit(/|$)',
+  # The README's OSS Insight activity panel, which sometimes answers 500.
+  # It is drawn on each request and serves the image on the next one, but no lychee release yet retries a 5xx, so the
+  # check reported
+  #   [500] https://next.ossinsight.io/widgets/official/compose-last-28-days-stats/thumbnail.png?repo_id=1197863845
+  #   (at 13:2) | Rejected status code: 500 Internal Server Error
+  # at https://github.com/edge-toolkit/core/actions/runs/44671195982/job/136072314116 on
+  # https://github.com/edge-toolkit/core/commit/ce8af067b0e27a45745402bdf71584b29c8bd634. The analysis page the panel
+  # links to is still checked. Drop this once a lychee release carries https://github.com/lycheeverse/lychee/pull/2324.
+  '^https://next\.ossinsight\.io/widgets/official/compose-last-28-days-stats/thumbnail\.png\?',
   '^https?://host[:/]',
 ]

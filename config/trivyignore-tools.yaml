@@ -707,6 +707,20 @@ vulnerabilities:
       cryptography 48.0.1; fixed in 49.0.0, which has no macOS x86_64 wheel.
     expired_at: 2027-01-01
 
+  # mcp, the Model Context Protocol SDK that semgrep installs for its `semgrep mcp` server.
+  # The advisory is in the SDK's OAuth support for MCP clients over HTTP, `mcp.client.auth`, and it names servers built
+  # with the SDK as not affected. Semgrep imports only the SDK's server, shared and type modules, never `mcp.client`,
+  # and the tasks here only run it as a scanner over this repository's own files. Every semgrep release, 1.186.0
+  # included, pins mcp==1.29.0 exactly, so no bump clears it until https://github.com/semgrep/semgrep/pull/12057 or a
+  # successor ships.
+  - id: CVE-2026-115563
+    paths:
+      - "pipx-semgrep/1.182.0~*/**/mcp-1.29.0.dist-info/METADATA"
+      - "pipx-semgrep/1.184.0~*/**/mcp-1.29.0.dist-info/METADATA"
+    statement: >-
+      mcp 1.29.0; fixed in 1.30.0, 2.2.0.
+    expired_at: 2027-01-01
+
   # Guava on the classpath of the Gradle and Maven distributions.
   # A memory-exhaustion denial of service, reachable only through the build files and dependency metadata the two tools
   # read: this repository's own pom.xml and Gradle scripts, and artifacts from Maven Central and the Gradle Plugin

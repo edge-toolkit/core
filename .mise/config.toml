@@ -1006,8 +1006,8 @@ depends = [
   "j2lint-check",
   "jscpd-check",
   "kubeconform-check",
-  "link-check",
   "ls-lint-check",
+  "lychee-check",
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
@@ -1060,8 +1060,8 @@ depends = [
   "hadolint-check",
   "j2lint-check",
   "kubeconform-check",
-  "link-check",
   "ls-lint-check",
+  "lychee-check",
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
@@ -2067,9 +2067,6 @@ run = "typos --config config/typos.toml"
 description = "Auto-correct typos detected by the typos linter"
 run = "typos --config config/typos.toml --write-changes"
 
-# lychee makes live network requests, so config/lychee.toml is tuned to keep it from being flaky.
-# Retries, 429-tolerance and a disk cache. It checks every URL in the repo's Markdown + Rust sources; lychee
-# extracts URLs from .rs comments and string literals too.
 # Validates the generated Kubernetes manifests against the real API schemas.
 # `verification-check` only proves the manifests are stable across regenerations, not that a cluster would
 # accept them, so a generator that emitted a malformed object would drift-check clean forever. `-strict` also
@@ -2757,7 +2754,8 @@ shell = "{{ vars.task_shell }}"
 description = "Repository-wide checks no file-at-a-time linter can do (commit hashes, typos ignores, ...)"
 run = "cargo run -q -p et-int-repo-check"
 
-[tasks.link-check]
+[tasks.lychee-check]
+alias = "link-check"
 description = "Check that URLs in prose, source and config files are reachable (network)"
 # The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.
 # A recursive `**/*.rs` walks target/'s churning rustc temp files, and lychee expands globs before applying
@@ -2783,26 +2781,43 @@ dashboard='^https://codecov\\.io/gh/edge-toolkit/core$'
 # A file the branch adds 404s there until it merges, and one the branch deletes still resolves there, so the live
 # check reports the first and misses the second. The file URL takes the same cross-platform form as taplo-check's.
 blob='^https://github\\.com/edge-toolkit/core/blob/main/(.*)$ '"file:///${PWD#/}/\\$1"
-set -- --exclude "$dashboard" --remap "$blob"
-lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'modules/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+# Commit URLs are left to the last pass, the only one that accepts a 503.
+# github.com sometimes answers an anonymous request for a commit page with a 503 whose whole body is "The server is
+# unavailable at this time. Please wait a few minutes before you try again.", then serves the page seconds later.
+# No lychee release yet retries a rejected status other than 429, so `max_retries` never reaches the 503 and each one
+# failed the run, as
+#   [503] https://github.com/edge-toolkit/core/commit/1e323acb7fc433b66efed904b3b30ab3216dbf90 (at 794:26) |
+#   Rejected status code: 503 Service Unavailable
+# did for 17 URLs at https://github.com/edge-toolkit/core/actions/runs/44655339345/job/136020043372 on
+# https://github.com/edge-toolkit/core/commit/52a65e4960a9936a0f795e0c63ddc9762af6294a. A hash naming no commit
+# still fails, since github.com answers it with 404. Drop the 503 once a lychee release carries
+# https://github.com/lycheeverse/lychee/pull/2324, which retries every transient status.
+commit='^https://github\\.com/[^/]+/[^/]+/commit/[0-9a-f]{7}'
+# Runs lychee on its arguments plus the prose and Rust globs, which lychee expands itself.
+with_globs() {
+  lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'modules/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+}
+set -- --exclude "$dashboard" --exclude "$commit" --remap "$blob"
+with_globs "$@"
 # The other languages' sources are named by git rather than globbed, which keeps their build output out as well.
 src=$(git ls-files -- libs services utilities | rg '\\.(py|js|mjs|ts|dart|kt|cs|java|zig|c|cpp|h)$')
 # $src is a newline-separated path list, split into one argument per path by design.
 # shellcheck disable=SC2086
 lychee --config "$cfg" "$@" $src
-# Everything except the commit URLs is excluded on the second pass, by `--exclude .*` with `--include` winning.
-# Those files hold links this repo does not otherwise own -- release-asset bases joined to a filename at run
-# time, doc placeholders, a regex quoted inside a comment -- and none of them is a URL a reader could follow.
-# Checking the whole set reports 21 such fragments as broken. `--scheme https` drops the `file:` and
-# `docker-image:` values for the same reason, and every commit URL is https.
+# Everything except the commit URLs is excluded on the last pass, by `--exclude .*` with `--include` winning.
+# The config, workflow and Dockerfile inputs hold links this repo does not otherwise own -- release-asset bases
+# joined to a filename at run time, doc placeholders, a regex quoted inside a comment -- and none of them is a URL a
+# reader could follow. Checking the whole set reports 21 such fragments as broken. `--scheme https` drops the
+# `file:` and `docker-image:` values for the same reason, and every commit URL is https.
 conf=".mise/config*.toml .mise/*.sh config/*.toml Cargo.toml .deepsource.toml"
 conf="$conf $(git ls-files 'config/*.yaml' 'config/*.rego' | coreutils tr '\\n' ' ')"
 gha=".github/workflows/*.yaml .github/actions/*/*.yaml"
 # The flag patterns stay quoted while the glob lists are deliberately split and expanded by the shell.
 # `--exclude .*` unquoted is a glob the shell resolves against the working directory, which hands lychee every
 # dotfile as an input -- including its own `.lycheecache`, whose every line then reads as a broken URL.
+set -- --scheme https --accept '200..=299,429,503' --exclude '.*' --include "$commit"
 # shellcheck disable=SC2086
-lychee --config "$cfg" --scheme https --exclude '.*' --include '/commit/[0-9a-f]{40}' $conf $gha Dockerfile*
+with_globs "$@" $src $conf $gha Dockerfile*
 """
 shell = "{{ vars.task_shell }}"
 
