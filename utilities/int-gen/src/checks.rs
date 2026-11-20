@@ -138,6 +138,8 @@ struct Check<'tasks> {
     primary: &'tasks Task,
     /// Every definition filed under `section`, `primary` first.
     running: Vec<&'tasks Task>,
+    /// What each definition in `running` invokes, which is where the configs its tool finds by itself come from.
+    tools: BTreeSet<String>,
     /// The envs whose definition overrides a check that invokes a tool with one that invokes none.
     idle: Vec<&'tasks str>,
 }
@@ -181,13 +183,13 @@ pub fn render(root: &Path) -> Result<String, Error> {
     let mut meta = 0_usize;
     for (label, entries) in &sections {
         writeln!(body, "\n## `{label}`\n")?;
-        let (count, section_meta) = render_section(&mut body, root, label, entries, &parents, &repairs)?;
+        let (count, section_meta) = render_section(&mut body, root, entries, &parents, &repairs)?;
         rules = rules.saturating_add(count);
         meta = meta.saturating_add(section_meta);
     }
     if let Some(entries) = &shell {
         writeln!(body, "\n## {SHELL_SECTION}\n")?;
-        render_entries(&mut body, SHELL_SECTION, entries, &parents, &repairs)?;
+        render_entries(&mut body, entries, &parents, &repairs)?;
     }
 
     let counts = Counts {
@@ -249,6 +251,7 @@ fn group_checks<'tasks>(
         match checks.entry(&task.name) {
             Entry::Vacant(slot) => {
                 let _filed: &mut Check<'tasks> = slot.insert(Check {
+                    tools: BTreeSet::from([section.clone()]),
                     section,
                     primary: task,
                     running: vec![task],
@@ -280,9 +283,13 @@ fn merge<'tasks>(check: &mut Check<'tasks>, task: &'tasks Task, section: String)
             check.idle = check.running.iter().map(|earlier| earlier.env.as_str()).collect();
             check.running = vec![task];
             check.primary = task;
+            check.tools = BTreeSet::from([section.clone()]);
             check.section = section;
         }
-        (true, true) | (false, false) => check.running.push(task),
+        (true, true) | (false, false) => {
+            check.running.push(task);
+            let _new_tool: bool = check.tools.insert(section);
+        }
     }
 }
 
@@ -290,13 +297,12 @@ fn merge<'tasks>(check: &mut Check<'tasks>, task: &'tasks Task, section: String)
 fn render_section(
     out: &mut String,
     root: &Path,
-    label: &str,
     entries: &[Check<'_>],
     parents: &Parents,
     repairs: &Repairs,
 ) -> Result<(usize, usize), Error> {
-    render_entries(out, label, entries, parents, repairs)?;
-    let rules = section_rules(root, label, entries)?;
+    render_entries(out, entries, parents, repairs)?;
+    let rules = section_rules(root, entries)?;
     if !rules.rendered.is_empty() {
         writeln!(out, "\nRules, from `{}`:\n", rules.location)?;
         out.push_str(&rules.rendered);
@@ -1051,13 +1057,7 @@ fn cargo_label(args: &[String]) -> String {
 }
 
 /// Write one section's checks, each with its envs, the aggregate that runs it, its description and its configs.
-fn render_entries(
-    out: &mut String,
-    label: &str,
-    entries: &[Check<'_>],
-    parents: &Parents,
-    repairs: &Repairs,
-) -> Result<(), Error> {
+fn render_entries(out: &mut String, entries: &[Check<'_>], parents: &Parents, repairs: &Repairs) -> Result<(), Error> {
     for check in entries {
         let task = check.primary;
         let run_by = parents.get(&task.name).map_or_else(
@@ -1077,7 +1077,9 @@ fn render_entries(
         for definition in &check.running {
             configs.extend(config_paths(&definition.body)?);
         }
-        configs.extend(implicit_configs(label).iter().map(|path| (*path).to_owned()));
+        for tool in &check.tools {
+            configs.extend(implicit_configs(tool).iter().map(|path| (*path).to_owned()));
+        }
         let running: Vec<&str> = check.running.iter().map(|definition| definition.env.as_str()).collect();
         let mut text = format!("`{}` ({}", task.name, envs(&running));
         if !check.idle.is_empty() {
@@ -1135,24 +1137,35 @@ pub fn rule_sources(body: &str) -> Result<BTreeSet<String>, Error> {
         .collect())
 }
 
+/// Where a section's checks find their rules.
+///
+/// Those are the paths each running definition passes as configuration, and the configs each tool those definitions
+/// invoke finds by itself.
+fn section_sources(entries: &[Check<'_>]) -> Result<BTreeSet<String>, Error> {
+    let mut sources = BTreeSet::new();
+    for check in entries {
+        for definition in &check.running {
+            sources.extend(rule_sources(&definition.body)?);
+        }
+        for tool in &check.tools {
+            sources.extend(implicit_configs(tool).iter().map(|path| (*path).to_owned()));
+        }
+    }
+    Ok(sources)
+}
+
 /// The rules a section's checks are configured with, and the deepest directory every rule file shares.
 ///
 /// Rule files are recognised by format rather than by tool: a `.rego` policy (not a `_test.rego`), a `.schema.json`
 /// schema, and a YAML document that is a rule (`id` + `message`), lists rules (`rules:` as a sequence), or points
-/// at directories of them (`ruleDirs:`), and a TOML manifest's `[workspace.lints]` tables. Sources are the paths
-/// the checks pass as configuration plus the configs the section's tool finds by itself. A directory is searched
+/// at directories of them (`ruleDirs:`), and a TOML manifest's `[workspace.lints]` tables. A directory is searched
 /// recursively. A section with none renders nothing.
-fn section_rules(root: &Path, label: &str, entries: &[Check<'_>]) -> Result<SectionRules, Error> {
-    let mut sources = BTreeSet::new();
-    for definition in entries.iter().flat_map(|check| &check.running) {
-        sources.extend(rule_sources(&definition.body)?);
-    }
-    sources.extend(implicit_configs(label).iter().map(|path| (*path).to_owned()));
+fn section_rules(root: &Path, entries: &[Check<'_>]) -> Result<SectionRules, Error> {
     let mut files = BTreeSet::new();
-    for source in sources {
+    for source in section_sources(entries)? {
         collect_rule_files(&root.join(source), &mut files)?;
     }
-    if label == REPO_CHECK {
+    if entries.iter().any(|check| check.tools.contains(REPO_CHECK)) {
         let src = root.join(REPO_CHECK_SRC);
         for module in repo_checks(&fs::read_to_string(src.join("main.rs"))?)? {
             let _new_file: bool = files.insert(src.join(format!("{module}.rs")));
@@ -1236,11 +1249,11 @@ fn collect_rule_files(path: &Path, files: &mut BTreeSet<PathBuf>) -> Result<(), 
     Ok(())
 }
 
-/// The configs a section's tool finds by itself, or none.
-fn implicit_configs(label: &str) -> &'static [&'static str] {
+/// The configs a tool finds by itself, or none.
+fn implicit_configs(tool: &str) -> &'static [&'static str] {
     IMPLICIT_CONFIGS
         .iter()
-        .find(|(tool, _)| *tool == label)
+        .find(|(known, _)| *known == tool)
         .map_or(&[], |(_, paths)| paths)
 }
 

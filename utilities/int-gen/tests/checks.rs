@@ -18,7 +18,7 @@ use tempfile::TempDir;
 /// The default config of a repo whose checks the `mingw` and `windows` envs define again.
 const DEFAULT_CONFIG: &str = r#"
 [tasks.check]
-depends = ["lintx-check", "plain-check", "scanz-check"]
+depends = ["lintx-check", "plain-check", "scanz-check", "toolz-check"]
 
 [tasks.lintx-check]
 run = "lintx ."
@@ -28,9 +28,12 @@ run = "git diff --exit-code"
 
 [tasks.scanz-check]
 run = "scanz ."
+
+[tasks.toolz-check]
+run = "toolz ."
 "#;
 
-/// The `windows` env's overrides: one runs no tool, one runs the same tool, and one is shell like the default.
+/// The `windows` env's overrides: no tool, the same tool, shell like the default, and a tool with implicit configs.
 const WINDOWS_CONFIG: &str = r#"
 [tasks.lintx-check]
 run = "true"
@@ -40,6 +43,9 @@ run = "git diff --exit-code --ignore-cr-at-eol"
 
 [tasks.scanz-check]
 run = "scanz --windows ."
+
+[tasks.toolz-check]
+run = "cargo clippy"
 "#;
 
 /// The set of paths a path-collecting function is expected to return.
@@ -385,7 +391,7 @@ fn a_check_several_envs_define_is_listed_once_naming_the_envs_it_runs_no_tool_in
         .collect();
     assert_eq!(
         totals,
-        ["- **Checks:** 3", "- **Tools:** 2", "- **Shell-script checks:** 1"]
+        ["- **Checks:** 4", "- **Tools:** 3", "- **Shell-script checks:** 1"]
     );
     let entries: Vec<&str> = rendered.lines().filter(|line| line.starts_with("- `")).collect();
     assert_eq!(
@@ -393,6 +399,7 @@ fn a_check_several_envs_define_is_listed_once_naming_the_envs_it_runs_no_tool_in
         [
             "- `lintx-check` (`default` env; runs no tool in the `mingw`, `windows` envs; run by `check`).",
             "- `scanz-check` (`default`, `windows` envs; run by `check`).",
+            "- `toolz-check` (`default`, `windows` envs; run by `check`). Config: `Cargo.toml`, `config/clippy.toml`.",
             "- `plain-check` (`default`, `windows` envs; run by `check`).",
         ]
     );
