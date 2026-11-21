@@ -68,5 +68,11 @@ exclude = [
   # https://github.com/edge-toolkit/core/commit/ce8af067b0e27a45745402bdf71584b29c8bd634. The analysis page the panel
   # links to is still checked. Drop this once a lychee release carries https://github.com/lycheeverse/lychee/pull/2324.
   '^https://next\.ossinsight\.io/widgets/official/compose-last-28-days-stats/thumbnail\.png\?',
+  # The README's Open Hub project page, which only an interactive browser can open.
+  # Cloudflare answers every other client with a bot challenge (`cf-mitigated: challenge`), so the check reported
+  #   [403] https://openhub.net/p/edge-toolkit (at 15:1) | Rejected status code: 403 Forbidden
+  # locally, with the link added on top of
+  # https://github.com/edge-toolkit/core/commit/6f2d2a51dbbde82f8a4a9a2c62bc82689dd5f424.
+  '^https://openhub\.net/p/edge-toolkit$',
   '^https?://host[:/]',
 ]

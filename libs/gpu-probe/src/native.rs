@@ -19,6 +19,8 @@
     )
 )]
 
+use std::time::Duration;
+
 #[cfg(target_vendor = "apple")]
 use objc2_metal::MTLDevice as _;
 #[cfg(windows)]
@@ -34,6 +36,12 @@ use crate::{
 ///
 /// Rendering to `rg11b10ufloat` is one clear's target, and `shader-f16` is what the `f16` probe set compiles with.
 const OPTIONAL_FEATURES: wgpu::Features = wgpu::Features::RG11B10UFLOAT_RENDERABLE.union(wgpu::Features::SHADER_F16);
+
+/// How long the probe waits for the GPU to finish a submission before reporting it unfinished.
+///
+/// Every probe set the bench runners record is answered within tens of milliseconds, so a device still busy after this
+/// long has stopped answering, and [`NativeError::Poll`] says so where an unbounded wait hangs the caller for good.
+const SUBMISSION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How many bytes the storage buffer every probe shader reads [`INPUTS`] from holds.
 #[expect(
@@ -102,7 +110,7 @@ pub enum NativeError {
     /// The adapter would not open a device.
     #[error("the GPU adapter would not open a device: {0}")]
     Device(#[from] wgpu::RequestDeviceError),
-    /// Waiting for the device to finish the probes failed.
+    /// Waiting for the device to finish the probes failed, or ran out of time.
     #[error("the GPU did not finish the probes: {0}")]
     Poll(#[from] wgpu::PollError),
     /// The buffer the answers were copied to could not be read.
@@ -551,13 +559,30 @@ impl Gpu {
         encoder: wgpu::CommandEncoder,
         readback: &wgpu::Buffer,
     ) -> Result<Vec<u8>, NativeError> {
-        let _submission: wgpu::SubmissionIndex = self.queue.submit([encoder.finish()]);
+        let submission: wgpu::SubmissionIndex = self.queue.submit([encoder.finish()]);
         let (mapped, outcome) = futures_channel::oneshot::channel::<Result<(), wgpu::BufferAsyncError>>();
         readback.map_async(wgpu::MapMode::Read, .., move |result| {
             // The receiver is awaited below, so it is still there to take this unless the whole read was abandoned.
             let _sent: Result<(), Result<(), wgpu::BufferAsyncError>> = mapped.send(result);
         });
-        let _status: wgpu::PollStatus = self.device.poll(wgpu::PollType::wait_indefinitely())?;
+        // Unbounded, this wait never returned on the bench workflow's macos-26-intel lane, where the probe got no
+        // answer from the Apple Paravirtual device:
+        //
+        //     Benchmarking gpus/signature/Apple Paravirtual device (metal): Warming up for 3.0000 s
+        //     ##[error]The action 'Benchmark' has timed out after 40 minutes.
+        //
+        // on commit https://github.com/edge-toolkit/core/commit/ad5e3284e616f20b91f7cc2f1d4cc3d26039a89c at
+        // https://github.com/edge-toolkit/core/actions/runs/44185724160/job/134401605307. The same step on that lane
+        // later ran past its own timeout and left no log, the job ending in
+        //
+        //     The hosted runner lost communication with the server.
+        //
+        // on commit https://github.com/edge-toolkit/core/commit/9b0c23ecc64c3de8a0215a557749260975bf3dda at
+        // https://github.com/edge-toolkit/core/actions/runs/44840432688/job/136647262861.
+        let _status: wgpu::PollStatus = self.device.poll(wgpu::PollType::Wait {
+            submission_index: Some(submission),
+            timeout: Some(SUBMISSION_TIMEOUT),
+        })?;
         outcome.await??;
         Ok(readback.get_mapped_range(..).to_vec())
     }

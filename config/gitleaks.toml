@@ -60,6 +60,7 @@ paths = [
 [[allowlists]]
 description = "Untracked artifacts matched by extension rather than location, per .gitignore's file patterns."
 paths = [
+  '''(^|/)\.lycheecache$''',
   '''(^|/)registry\.yaml$''',
   '''\.coverage$''',
   '''\.local\.[^/]+$''',
@@ -76,3 +77,14 @@ paths = [
 [[allowlists]]
 description = "Per-scenario credential file that et-cli generates and .gitignore keeps out of the repo."
 paths = ['''(^|/)secrets\.env$''']
+
+# The README's flakiness.io badge token, which is public by design.
+# flakiness.io issues it for embedding in a README, and all it unlocks is the project's test pass count, which the
+# public dashboard already shows. The badge URL carries it as JSON encoded twice over, so a trailing marker cannot
+# sit on its line, and this matches only a token of that shape, only for the rule that fires, and only in the README.
+[[allowlists]]
+condition = "AND"
+description = "flakiness.io badge token in the README's Tests badge URL"
+paths = ['''^README\.md$''']
+regexes = ['''^badge-[0-9A-Za-z]{22}$''']
+targetRules = ["generic-api-key"]

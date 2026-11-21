@@ -1,0 +1,44 @@
+id: no-mixed-doc-line-comments
+valid:
+  - |
+    /// The bound on one wait.
+    ///
+    /// Why it is this long.
+    const TIMEOUT: u32 = 10;
+  - |
+    //! What this module does.
+    /// The bound on one wait.
+    const TIMEOUT: u32 = 10;
+  - |
+    /// The bound on one wait.
+    //// A banner line is not a regular comment.
+    const TIMEOUT: u32 = 10;
+  - |
+    /// The bound on one wait.
+    const TIMEOUT: u32 = 10;
+    // A regular comment on the next item.
+    const OTHER: u32 = 1;
+  - |
+    fn wait() {
+        // A regular comment where the bound is applied.
+        poll(TIMEOUT);
+    }
+invalid:
+  - |
+    // Evidence for the bound.
+    /// The bound on one wait.
+    const TIMEOUT: u32 = 10;
+  - |
+    // Evidence for the bound.
+
+    /// The bound on one wait.
+    const TIMEOUT: u32 = 10;
+  - |
+    /// The bound on one wait.
+    // Evidence for the bound.
+    const TIMEOUT: u32 = 10;
+  - |
+    /// The bound on one wait.
+    //
+    /// Why it is this long.
+    const TIMEOUT: u32 = 10;
