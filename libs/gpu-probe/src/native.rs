@@ -40,20 +40,7 @@ const OPTIONAL_FEATURES: wgpu::Features = wgpu::Features::RG11B10UFLOAT_RENDERAB
 /// How long the probe waits for the GPU to finish a submission before reporting it unfinished.
 ///
 /// Every probe set the bench runners record is answered within tens of milliseconds, so a device still busy after this
-/// long has stopped answering, and [`NativeError::Poll`] says so where an unbounded wait hangs the caller for good. One
-/// did, on the bench workflow's macos-26-intel lane, where the probe never came back from the Apple Paravirtual device:
-///
-/// ```text
-/// Benchmarking gpus/signature/Apple Paravirtual device (metal): Warming up for 3.0000 s
-/// ##[error]The action 'Benchmark' has timed out after 40 minutes.
-/// ```
-///
-/// on <https://github.com/edge-toolkit/core/commit/ad5e3284e616f20b91f7cc2f1d4cc3d26039a89c> at
-/// <https://github.com/edge-toolkit/core/actions/runs/44185724160/job/134401605307>. The same step on that lane
-/// later ran past its own timeout and left no log, the job ending in
-/// `The hosted runner lost communication with the server.` on
-/// <https://github.com/edge-toolkit/core/commit/9b0c23ecc64c3de8a0215a557749260975bf3dda> at
-/// <https://github.com/edge-toolkit/core/actions/runs/44840432688/job/136647262861>.
+/// long has stopped answering, and [`NativeError::Poll`] says so where an unbounded wait hangs the caller for good.
 const SUBMISSION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How many bytes the storage buffer every probe shader reads [`INPUTS`] from holds.
@@ -578,6 +565,20 @@ impl Gpu {
             // The receiver is awaited below, so it is still there to take this unless the whole read was abandoned.
             let _sent: Result<(), Result<(), wgpu::BufferAsyncError>> = mapped.send(result);
         });
+        // Unbounded, this wait never returned on the bench workflow's macos-26-intel lane, where the probe got no
+        // answer from the Apple Paravirtual device:
+        //
+        //     Benchmarking gpus/signature/Apple Paravirtual device (metal): Warming up for 3.0000 s
+        //     ##[error]The action 'Benchmark' has timed out after 40 minutes.
+        //
+        // on commit https://github.com/edge-toolkit/core/commit/ad5e3284e616f20b91f7cc2f1d4cc3d26039a89c at
+        // https://github.com/edge-toolkit/core/actions/runs/44185724160/job/134401605307. The same step on that lane
+        // later ran past its own timeout and left no log, the job ending in
+        //
+        //     The hosted runner lost communication with the server.
+        //
+        // on commit https://github.com/edge-toolkit/core/commit/9b0c23ecc64c3de8a0215a557749260975bf3dda at
+        // https://github.com/edge-toolkit/core/actions/runs/44840432688/job/136647262861.
         let _status: wgpu::PollStatus = self.device.poll(wgpu::PollType::Wait {
             submission_index: Some(submission),
             timeout: Some(SUBMISSION_TIMEOUT),
