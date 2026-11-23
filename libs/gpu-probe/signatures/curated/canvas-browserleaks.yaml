@@ -460,3 +460,42 @@ signatures:
         window: private
     blocked: true
     reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Safari 27.2 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.2"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      md5: "86cb2c5db30cbd4d702294bddce40a95"
+  - interface: canvas-browserleaks
+    label: "Safari 26.4 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "26.4"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      md5: "d8177db844ec77518d7af2afb3925de1"
+  - interface: canvas-browserleaks
+    label: "Safari 26.0 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "26.0"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      md5: "526f301a3eac8be689db0cb74f49a8a5"

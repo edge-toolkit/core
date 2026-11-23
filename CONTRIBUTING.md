@@ -132,6 +132,19 @@ mise install-all
 
 The `preinstall` task reports any required dependency that is missing, such as the Xcode Command Line Tools on macOS.
 
+### Curtin-managed Macs
+
+A Mac that Curtin manages may not let you sign in to the App Store. Install Xcode from the Self Service app instead; it
+also carries Arduino and the Arduino IDE. Xcode is needed only for the iOS Simulator. Once it is installed, select it,
+accept its licence, and fetch the iOS platform the Simulator runs:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+sudo xcodebuild -runFirstLaunch
+xcodebuild -downloadPlatform iOS
+```
+
 ### Optionally pre-populating tools from the OCI stores
 
 Most of the tool tree can be restored from this project's per-platform OCI packages on ghcr.io instead of

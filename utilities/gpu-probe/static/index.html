@@ -94,6 +94,12 @@
         GitHub makes a copy of the repository for you, and opens a pull request
         with the file when you press "Propose changes".
       </p>
+      <p>
+        Without a GitHub account, download each file instead and email it to
+        <a
+          href="mailto:john.vandenberg@curtin.edu.au?subject=GPU%20Probe%20results"
+        >john.vandenberg@curtin.edu.au</a>.
+      </p>
       <p id="judged"></p>
       <ol id="proposals"></ol>
       <p id="more" hidden>
@@ -494,6 +500,14 @@
           `${sets}${part} make a file too long for GitHub to take from a link: add it to the repository by hand.`;
         item.append(tooLong);
       }
+      // The file to download, for emailing in place of a pull request. A data URL rather than a blob one, as the list
+      // is made again on every edit and a blob URL would hold its file until the page closed.
+      const download = document.createElement("a");
+      const encoded = encodeURIComponent(proposal.text);
+      download.href = `data:text/plain;charset=utf-8,${encoded}`;
+      download.download = proposal.name;
+      download.textContent = `Download ${proposal.name} to email`;
+      item.append(" ", download);
       const file = document.createElement("details");
       const summary = document.createElement("summary");
       summary.textContent = `The file: ${proposal.name}`;

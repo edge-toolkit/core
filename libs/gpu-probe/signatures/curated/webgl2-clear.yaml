@@ -125,7 +125,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007c00"
   - interface: webgl2-clear
-    label: "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 27.2"
+    label: "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160
+      and Safari 26.4 and 27.2"
     seen:
       - browser: chrome
         browser_version: "157.0.8103.79"
@@ -226,6 +227,24 @@ signatures:
         gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
         backend: metal
         device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "26.4"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
         window: normal
     results:
       unorm8_quarter: "0000000a"

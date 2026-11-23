@@ -826,7 +826,18 @@ fn append_entry(text: &str, submission: &Submission, row: &str) -> String {
         updated.push('\n');
     }
     let label = folded("    label: ", &quoted(&submission.label), CONTINUED);
-    updated.push_str(&[ENTRY_START, " ", &submission.interface, "\n", &label, "    seen:\n", row].concat());
+    updated.push_str(
+        &[
+            ENTRY_START,
+            " ",
+            &submission.interface,
+            "\n",
+            &label,
+            "    seen:\n",
+            row,
+        ]
+        .concat(),
+    );
     if submission.blocked {
         updated.push_str("    blocked: true\n");
         updated.push_str(&folded("    reason: ", &quoted(&submission.reason), CONTINUED));

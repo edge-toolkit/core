@@ -156,7 +156,8 @@ signatures:
       tanh: "3dcc1eb6"
       dot: "3f800000"
   - interface: webgl2-split
-    label: "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox"
+    label: "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Safari,
+      Brave 1.100 and Firefox"
     seen:
       - browser: chromium
         os: macos
@@ -279,6 +280,24 @@ signatures:
         gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
         backend: metal
         device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "26.4"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
         window: normal
     results:
       multiply_add: "33800000"

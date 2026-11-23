@@ -585,3 +585,51 @@ signatures:
         window: private
     blocked: true
     reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Safari 27.2 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.2"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      lane0: "68ab50e7"
+      lane1: "278c0a69"
+      lane2: "84bb7f19"
+      lane3: "1831b9ec"
+  - interface: canvas
+    label: "Safari 26.4 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "26.4"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      lane0: "cb6c7f51"
+      lane1: "7f6148a7"
+      lane2: "7553dfc5"
+      lane3: "c9b2b6e7"
+  - interface: canvas
+    label: "Safari 26.0 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "26.0"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      lane0: "75b2513e"
+      lane1: "56ed8fb8"
+      lane2: "895ddffa"
+      lane3: "8683d69c"

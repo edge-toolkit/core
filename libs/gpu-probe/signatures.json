@@ -645,6 +645,63 @@
       "reason": "randomised: two reads of the same canvas differed (per-read noise)"
     },
     {
+      "interface": "canvas-browserleaks",
+      "label": "Safari 27.2 on the iOS Simulator -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "86cb2c5db30cbd4d702294bddce40a95"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Safari 26.4 on the iOS Simulator -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "d8177db844ec77518d7af2afb3925de1"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Safari 26.0 on the iOS Simulator -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "26.0",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "526f301a3eac8be689db0cb74f49a8a5"
+      }
+    },
+    {
       "interface": "canvas",
       "label": "Apple M5 Pro, macOS -- canvas 2D on Chromium",
       "seen": [
@@ -1434,6 +1491,72 @@
       "reason": "randomised: two reads of the same scene differed (per-read noise)"
     },
     {
+      "interface": "canvas",
+      "label": "Safari 27.2 on the iOS Simulator -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "68ab50e7",
+        "lane1": "278c0a69",
+        "lane2": "84bb7f19",
+        "lane3": "1831b9ec"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "Safari 26.4 on the iOS Simulator -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "cb6c7f51",
+        "lane1": "7f6148a7",
+        "lane2": "7553dfc5",
+        "lane3": "c9b2b6e7"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "Safari 26.0 on the iOS Simulator -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "26.0",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "75b2513e",
+        "lane1": "56ed8fb8",
+        "lane2": "895ddffa",
+        "lane3": "8683d69c"
+      }
+    },
+    {
       "interface": "host",
       "label": "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64",
       "seen": [
@@ -1994,7 +2117,7 @@
     },
     {
       "interface": "webgl1-combined",
-      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2)",
+      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2)",
       "seen": [
         {
           "browser": "chrome",
@@ -2138,6 +2261,28 @@
           "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -2460,7 +2605,7 @@
     },
     {
       "interface": "webgl1-split",
-      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2)",
+      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2)",
       "seen": [
         {
           "browser": "chrome",
@@ -2604,6 +2749,28 @@
           "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -3146,7 +3313,7 @@
     },
     {
       "interface": "webgl2-clear",
-      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 27.2",
+      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 26.4 and 27.2",
       "seen": [
         {
           "browser": "chrome",
@@ -3266,6 +3433,28 @@
           "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -3580,7 +3769,7 @@
     },
     {
       "interface": "webgl2-combined",
-      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari",
+      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari",
       "seen": [
         {
           "browser": "chromium",
@@ -3710,6 +3899,28 @@
           "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -4147,7 +4358,7 @@
     },
     {
       "interface": "webgl2-fixed-function",
-      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 27.2",
+      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 26.4 and 27.2",
       "seen": [
         {
           "browser": "chrome",
@@ -4267,6 +4478,28 @@
           "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -4503,7 +4736,7 @@
     },
     {
       "interface": "webgl2-split",
-      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox",
+      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox",
       "seen": [
         {
           "browser": "chromium",
@@ -4651,6 +4884,28 @@
           "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "26.4",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
