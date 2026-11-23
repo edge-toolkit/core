@@ -12,6 +12,42 @@ signatures:
         window: none
         date: "2026-11-12"
         source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) 6975P-C"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu24 20261116.133.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 7763 64-Core Processor"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu22 20261116.365.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu26 20261116.202.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -73,6 +109,78 @@ signatures:
         runtime: "ONNX Runtime 1.22"
         window: none
         date: "2026-11-17"
+      - browser: none
+        os: macos
+        os_version: "15.8.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos15 20261118.0550.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu22-arm64 20261116.196.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu26-arm64 20261116.190.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "27.0.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos27 20261104.0337.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos26 20261117.0516.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu24-arm64 20261116.188.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
     results:
       multiply_add: "00000000"
       fma: "33800000"

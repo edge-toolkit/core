@@ -207,7 +207,11 @@ jobs:
       contents: read
     runs-on: ${{ matrix.image }}
     timeout-minutes: ${{ contains(matrix.image, 'intel') && 140 || 100 }}
+    # Neither probe uses these cargo: tools. On the Intel macOS images vector and rustfs build from source and ran the
+    # install past its 30 minutes, and cargo:open does not build on Windows.
     env:
+      MISE_DISABLE_TOOLS: >-
+        cargo:cargo-expand,cargo:cargo-rail,cargo:open,cargo:ryl,cargo:rustfs/rustfs,cargo:vectordotdev/vector
       MISE_ENV: rust
     strategy:
       fail-fast: false
@@ -228,7 +232,15 @@ jobs:
           - windows-2025
           - windows-2022
           - windows-11-arm
+        # The wasm-bindgen release for arm64 Linux is built against a newer glibc than Ubuntu 22.04's 2.35:
+        #
+        #     wasm-bindgen: /lib/aarch64-linux-gnu/libc.so.6: version `GLIBC_2.38' not found
+        #
+        # observed on commit https://github.com/edge-toolkit/core/commit/59e0f7c7d548b577159cf79bba06021f1adbbfff
+        # at https://github.com/edge-toolkit/core/actions/runs/45225204449/job/137869711651.
         exclude:
+          - probe: deno
+            image: ubuntu-22.04-arm
           - probe: deno
             image: windows-2025
           - probe: deno
@@ -250,14 +262,19 @@ jobs:
       - name: Install mise
         uses: $/.github/actions/install-mise
 
-      # The Windows arm64 runner takes the toolchain alone, as in bench.yaml.
-      # The full install cannot complete there, and it builds for msvc, whose ONNX Runtime ort downloads by itself.
+      # The Windows arm64 runner takes the toolchain and ONNX Runtime alone, as the full install cannot complete there.
+      # ORT_DYLIB_PATH names the ONNX Runtime install on every OS, so ort finds no library of its own without it.
       - name: Install the toolchain
         timeout-minutes: 30
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          TOOLS: ${{ matrix.image == 'windows-11-arm' && 'rust' || '' }}
-        run: mise install ${TOOLS:+"$TOOLS"}
+          ARM_WINDOWS: ${{ matrix.image == 'windows-11-arm' }}
+        run: |
+          if [ "$ARM_WINDOWS" = true ]; then
+            mise install rust http:onnxruntime
+          else
+            mise install
+          fi
 
       - name: Remove mise shim
         uses: $/.github/actions/remove-mise-shim
