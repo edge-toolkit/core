@@ -3516,7 +3516,10 @@ else
   version=""
 fi
 query="device=$(device="${usage_device:-}" yq -n 'strenv(device) | @uri')&browser=$browser&window=$window"
-if [ -n "$version" ]; then
+if [ "$browser" = brave ]; then
+  # Brave's own version is only for the labels: the row records the Chromium version, which the page reads itself.
+  query="$query&brand_version=$version"
+elif [ -n "$version" ]; then
   query="$query&browser_version=$version"
 fi
 case "$browser" in

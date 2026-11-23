@@ -87,6 +87,27 @@ fn this_gpu_answers_every_fixed_function_probe_the_same_way_twice() {
 }
 
 #[test]
+fn every_set_is_each_set_beside_the_interface_it_is_filed_under() {
+    let sets = block_on(GPU.every_set());
+    let interfaces: Vec<&str> = sets.iter().map(|(interface, _)| *interface).collect();
+    assert_eq!(
+        interfaces,
+        [
+            "webgpu-split",
+            "webgpu-combined",
+            "webgpu-clear",
+            "webgpu-fixed-function",
+            "webgpu-f16-split",
+            "webgpu-f16-combined"
+        ]
+    );
+    let split = sets[0].1.as_ref().unwrap();
+    assert_eq!(split.fingerprint(), block_on(GPU.signature()).unwrap().fingerprint());
+    let fixed = sets[3].1.as_ref().unwrap();
+    assert_eq!(fixed.completed(), BLENDS.len() + FILTERS.len() + RASTERS.len());
+}
+
+#[test]
 fn this_gpu_answers_every_probe_legally_and_the_same_way_twice() {
     let signature = measured_twice("wgpu", || GPU.signature());
     println!("wgpu vendor id: {:#06x}", GPU.info().vendor);

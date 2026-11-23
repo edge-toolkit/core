@@ -113,15 +113,21 @@ already, so nothing is added for it.
 
 ## Recording this machine
 
-`gpu-probe` takes no arguments. It puts every probe set to each GPU adapter wgpu finds on this machine -- every GPU,
-and any software renderer such as llvmpipe -- and to its CPU, and adds each sighting the repository's registry does
-not yet hold, in a row built from what the device reports: its
-vendor, name and backend, and the driver and API versions the graphics API beneath wgpu gives. Running it again adds
-nothing.
+`gpu-probe` puts every probe set to each GPU adapter wgpu finds on this machine -- every GPU, and any software renderer
+such as llvmpipe -- and to its CPU, and adds each sighting the repository's registry does not yet hold. The row is built
+from what the device reports -- its vendor, name and backend, and the driver and API versions the graphics API beneath
+wgpu gives -- and from the machine: the system's release and the CPU's model, the device `--device` names, the day, and
+the wgpu and build target that measured it. Running it again adds nothing.
 
 ```bash
-cargo run -p et-gpu-probe-server --bin gpu-probe
+cargo run -p et-gpu-probe-server --bin gpu-probe -- --device "Dell Precision 5570"
 ```
+
+On a GitHub Actions runner the device is the runner image and its build, and the row links the run. `--into <dir>`
+writes the sightings as a file of submissions in that directory instead, for a registry that cannot be written to;
+the `gpu-probe` workflow does that on every free runner image, and gathers what `nn_probe` in `et-ws-wasi-runner` and
+the graphics-info case of `et-ws-web-runner`'s module tests propose the same way where `GPU_PROBE_INTO` names a
+directory. Its `gpu-probe-submitted` artifact's files go in `submitted/`, for `mise run gpu-probe-fold`.
 
 After collecting, regenerate the JSON the crate embeds:
 

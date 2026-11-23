@@ -23,7 +23,7 @@ signatures:
         device: "Samsung Galaxy S10"
         window: normal
       - browser: brave
-        browser_version: "1.99"
+        browser_version: "157.0.0.0"
         os: android
         os_version: "12"
         cpu_arch: aarch64
@@ -31,6 +31,16 @@ signatures:
         gpu_version: "Mali-G76"
         backend: vulkan
         device: "Samsung Galaxy S10"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
         window: normal
     results:
       multiply_add: "33800000"
@@ -144,7 +154,7 @@ signatures:
       tanh: "3dcc1eba"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave"
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave 1.100"
     seen:
       - browser: chromium
         os: macos
@@ -184,6 +194,37 @@ signatures:
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
         reported: "metal-3"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       multiply_add: "33800000"
@@ -233,6 +274,23 @@ signatures:
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
         reported: "apple"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       multiply_add: "33800000"

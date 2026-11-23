@@ -71,6 +71,10 @@ pub fn env_schemas() -> Result<BTreeMap<&'static str, Value>, Error> {
     use schemars::schema_for;
     Ok(BTreeMap::from([
         (
+            "et-gpu-probe-server",
+            serde_json::to_value(schema_for!(et_gpu_probe_server::config::Config))?,
+        ),
+        (
             "et-recovery-supervisor",
             serde_json::to_value(schema_for!(et_recovery_supervisor::config::EnvConfig))?,
         ),

@@ -30,6 +30,25 @@
     </style>
   </head>
   <body>
+    <a
+      class="github-corner"
+      href="https://github.com/edge-toolkit/core"
+      aria-label="edge-toolkit/core on GitHub"
+    >
+      <svg viewBox="0 0 16 16" width="28" height="28" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="
+          M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2
+          0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0
+          0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16
+          1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51
+          1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68
+          1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z
+          "
+        />
+      </svg>
+    </a>
     <h1>GPU Probe</h1>
     <p id="status">Loading the probes...</p>
     <form id="seen">
@@ -294,8 +313,10 @@
     // what the browser says of either, `defence` the privacy setting the browser has in force, and `submit` submits
     // every probe set once probed. `browser`, `browser_version` and `window` say what a
     // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
-    // and Mullvad Browser always browses privately.
+    // and Mullvad Browser always browses privately. `brand_version` is the browser's own version where it is not the
+    // engine's: Brave reports only its Chromium version, which the row records, so its own goes in the labels alone.
     const query = new URLSearchParams(location.search);
+    const brandVersion = query.get("brand_version") ?? "";
 
     const fillShared = async () => {
       const system = await systemHintsOf();
@@ -486,8 +507,11 @@
     // A GPU's part of the row, and the label an entry first seen on it would take.
     const gpuValues = (vendor, model, backend, api) => {
       const os = field("os").value;
-      // The version is the row's to record; the label names only the browser, which keeps it to one line.
-      const browser = field("browser").value;
+      // The version is the row's to record; the label names only the browser, which keeps it to one line, and the
+      // browser's own version where that is not the one the row records.
+      const browser = [field("browser").value, brandVersion]
+        .filter(Boolean)
+        .join(" ");
       // WebKit reports every GPU as an Apple one, so off Apple's systems that is what it said, not what the GPU is.
       const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
       const name = masked ? "unknown GPU" : model || "unknown GPU";
@@ -638,7 +662,7 @@
         return spelled[value] ??
           value.charAt(0).toUpperCase() + value.slice(1);
       };
-      const version = field("browser_version").value;
+      const version = brandVersion || field("browser_version").value;
       const canvasValues = {
         label: `${named("browser")} ${version} on ${
           named("os")

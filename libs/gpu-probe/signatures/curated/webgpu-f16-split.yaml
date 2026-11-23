@@ -171,6 +171,23 @@ signatures:
         backend: metal
         reported: "apple"
         window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       multiply_add: "00001000"
       fma: "00001000"
@@ -189,7 +206,7 @@ signatures:
       tanh: "00002e61"
       dot: "00000000"
   - interface: webgpu-f16-split
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chrome 157, Edge 157 and Brave"
+    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chrome 157, Edge 157 and Brave 1.100"
     seen:
       - browser: chrome
         browser_version: "157.0.8103.79"
@@ -221,6 +238,37 @@ signatures:
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
         reported: "metal-3"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       multiply_add: "00001000"
@@ -322,3 +370,33 @@ signatures:
       atan2: "00002843"
       tanh: "00002e64"
       dot: "00004000"
+  - interface: webgpu-f16-split
+    label: "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389f"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002844"
+      tanh: "00002e64"
+      dot: "00003c00"

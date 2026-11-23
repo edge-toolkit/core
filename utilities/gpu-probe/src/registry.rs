@@ -19,7 +19,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use et_gpu_probe::{RowError, Sighting};
+use et_gpu_probe::{RowError, Sighting, Signature};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -85,6 +85,9 @@ pub(crate) const ROW_ORDER: [&str; 18] = [
     "date",
     "source",
 ];
+
+/// The field of a row holding the browser's version, which a sighting is matched by its major version alone.
+const BROWSER_VERSION: &str = "browser_version";
 
 /// The fields of a row whose values come from fixed sets, which the registry writes unquoted.
 const ENUMERATED: [&str; 6] = ["browser", "os", "cpu_arch", "gpu", "backend", "window"];
@@ -209,6 +212,26 @@ impl Submission {
             seen,
         }
     }
+
+    /// What `signature` answered through `interface`, filed as `label` if it is new, seen at `seen`.
+    #[must_use]
+    pub fn measured(interface: &str, signature: &Signature, label: &str, seen: BTreeMap<String, String>) -> Self {
+        let results = signature
+            .results()
+            .into_iter()
+            .map(|(name, word)| (name.to_owned(), word))
+            .collect();
+        Self::signature(interface, label, results, seen)
+    }
+}
+
+/// A registry row from its `fields`, each name beside its value.
+#[must_use]
+pub fn row(fields: &[(&str, &str)]) -> BTreeMap<String, String> {
+    fields
+        .iter()
+        .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
+        .collect()
 }
 
 /// A signature's results, each name beside its value, kept in the order they were given.
@@ -618,9 +641,22 @@ fn reads_back(updated: &str, before: &File, index: usize) -> Result<(), Register
 /// Whether `row`, already in the registry, records `seen`: it gives every field `seen` gives, with the same value.
 ///
 /// A row written by hand often carries more than a submission can know -- the machine's name, the OS release -- and a
-/// submission that tells it nothing new is a sighting already on record, not one to add beside it.
+/// submission that tells it nothing new is a sighting already on record, not one to add beside it. Only the entry
+/// holding the same signature is asked, so a browser's version is compared by its major version alone: a point
+/// release that answers the same is the sighting already on record, and one that answers differently is another entry.
 fn covers(row: &BTreeMap<String, String>, seen: &BTreeMap<String, String>) -> bool {
-    seen.iter().all(|(field, value)| row.get(field) == Some(value))
+    seen.iter().all(|(field, value)| {
+        row.get(field)
+            .is_some_and(|held| comparable(field, held) == comparable(field, value))
+    })
+}
+
+/// The part of `value`, the value of `field`, that two rows are compared by: a browser's major version, or all of it.
+fn comparable<'value>(field: &str, value: &'value str) -> &'value str {
+    if field == BROWSER_VERSION {
+        return value.split_once('.').map_or(value, |(major, _rest)| major);
+    }
+    value
 }
 
 /// Check every field of `submission` is one the registry can hold, as the layout the text is written in needs.

@@ -122,9 +122,8 @@ fn a_known_signature_seen_somewhere_new_gains_a_row_before_its_results() {
     assert!(updated.starts_with("# The header, kept as it is.\n"));
 }
 
-#[test]
-fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
-    let (_dir, registry) = registry(REGISTRY);
+/// The known `webgpu-split` signature of [`REGISTRY`], seen at its entry's row with `extra` fields added.
+fn known_seen_with(extra: &[(&str, &str)]) -> Submission {
     let seen = [
         ("browser", "chrome"),
         ("os", "macos"),
@@ -137,32 +136,57 @@ fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
         ("multiply_add".to_owned(), "33800000".to_owned()),
         ("fma".to_owned(), "33800000".to_owned()),
     ];
-    let row = |extra: &[(&str, &str)]| {
-        seen.iter()
-            .chain(extra)
-            .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
-            .collect()
-    };
+    let row = seen
+        .iter()
+        .chain(extra)
+        .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
+        .collect();
+    Submission::signature("webgpu-split", "ignored", results, row)
+}
 
+#[test]
+fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
+    let (_dir, registry) = registry(REGISTRY);
     // Fields the registry's row does not give make a sighting of its own.
-    let richer = row(&[("device", "a laptop"), ("browser_version", "157")]);
-    let outcome = registry.register(&Submission::signature(
-        "webgpu-split",
-        "ignored",
-        results.clone(),
-        richer,
-    ));
-    assert_eq!(outcome.unwrap(), Outcome::Sighted("Known GPU".to_owned()));
+    let richer = known_seen_with(&[("device", "a laptop"), ("browser_version", "157")]);
+    assert_eq!(
+        registry.register(&richer).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
     let after = text(&registry);
     assert!(after.contains("        device: \"a laptop\"\n"));
 
     // A submission giving only some of that row's fields, all the same, is already on record.
-    let partial = Submission::signature("webgpu-split", "ignored", results, row(&[("device", "a laptop")]));
+    let partial = known_seen_with(&[("device", "a laptop")]);
     assert_eq!(
         registry.register(&partial).unwrap(),
         Outcome::Present("Known GPU".to_owned())
     );
     assert_eq!(text(&registry), after);
+}
+
+#[test]
+fn a_browser_version_is_matched_by_its_major_version() {
+    let (_dir, registry) = registry(REGISTRY);
+    let at_version = |version: &str| known_seen_with(&[("browser_version", version)]);
+    assert_eq!(
+        registry.register(&at_version("157.0.8103.79")).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
+    let recorded = text(&registry);
+    // A point release of the same major version is the sighting on record already, whichever way it is written.
+    for point in ["157.0.8103.80", "157", "157.1"] {
+        assert_eq!(
+            registry.register(&at_version(point)).unwrap(),
+            Outcome::Present("Known GPU".to_owned())
+        );
+    }
+    assert_eq!(text(&registry), recorded);
+    // The next major version is a sighting of its own.
+    assert_eq!(
+        registry.register(&at_version("158.0.8127.37")).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
 }
 
 #[test]

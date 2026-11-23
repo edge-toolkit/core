@@ -315,6 +315,22 @@ impl Gpu {
         Ok(Signature::new(WEBGPU_FIXED_FUNCTION, self.pass_answers(&passes).await?))
     }
 
+    /// What every probe set answers on this GPU, each beside the interface the registry files a measurement under.
+    ///
+    /// The sets are the shader probes, each in a shader of its own and all in one, the clears, the fixed-function
+    /// probes, and the `f16` shader probes both ways. Each is measured on its own, so one that fails -- the device lost
+    /// at its readback, say -- leaves the sets before it answered.
+    pub async fn every_set(&self) -> [(&'static str, Result<Signature, NativeError>); 6] {
+        [
+            ("webgpu-split", self.signature().await),
+            ("webgpu-combined", self.combined_signature().await),
+            ("webgpu-clear", self.clear_signature().await),
+            ("webgpu-fixed-function", self.fixed_function_signature().await),
+            ("webgpu-f16-split", self.f16_signature().await),
+            ("webgpu-f16-combined", self.f16_combined_signature().await),
+        ]
+    }
+
     /// What the adapter and device say the GPU is.
     ///
     /// The first lines are what wgpu reports for every backend. The rest are read from the API the device was opened

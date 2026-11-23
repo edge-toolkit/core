@@ -338,11 +338,13 @@ fn coverage_sets_a_bit_for_each_texel_with_red() {
 
 #[cfg(feature = "registry")]
 #[test]
-fn the_registry_holds_no_signature_of_the_new_sets_yet() {
-    assert_eq!(answered(WEBGPU_CLEAR, &CLEAR_CODES).identify(), Vec::<&str>::new());
-    assert_eq!(
-        answered(WEBGPU_FIXED_FUNCTION, &FIXED_FUNCTION_ANSWERS).identify(),
-        Vec::<&str>::new()
-    );
-    assert_eq!(answered(WEBGL2_CLEAR, &CLEAR_CODES).identify(), Vec::<&str>::new());
+fn a_signature_of_the_sets_the_registry_has_not_seen_names_nothing() {
+    // No device answers a probe with every bit set, so no entry holds a signature with that answer in it.
+    let mut clears = CLEAR_CODES;
+    clears[0] = u32::MAX;
+    let mut fixed = FIXED_FUNCTION_ANSWERS;
+    fixed[0] = u32::MAX;
+    assert_eq!(answered(WEBGPU_CLEAR, &clears).identify(), Vec::<&str>::new());
+    assert_eq!(answered(WEBGPU_FIXED_FUNCTION, &fixed).identify(), Vec::<&str>::new());
+    assert_eq!(answered(WEBGL2_CLEAR, &clears).identify(), Vec::<&str>::new());
 }

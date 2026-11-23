@@ -99,7 +99,7 @@ signatures:
       lane2: "99fa99fb"
       lane3: "459a0e48"
   - interface: canvas
-    label: "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise, not reproducible across sessions)"
+    label: "Brave (Chromium 157) on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise)"
     seen:
       - browser: brave
         browser_version: "157.0.0"
@@ -153,6 +153,15 @@ signatures:
         backend: unknown
         device: "Samsung Galaxy S10"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-G973F"
+        window: normal
     results:
       lane0: "c1161ae6"
       lane1: "4f61a1f8"
@@ -180,7 +189,7 @@ signatures:
     label: "Samsung Galaxy S10, Android 12 -- canvas 2D on Brave 1.99 (farbled; differs from Chrome's on this phone)"
     seen:
       - browser: brave
-        browser_version: "1.99"
+        browser_version: "157.0.0.0"
         os: android
         os_version: "12"
         cpu_arch: aarch64
@@ -322,7 +331,7 @@ signatures:
     label: "Brave 1.99.57 on Linux -- canvas 2D"
     seen:
       - browser: brave
-        browser_version: "1.99.57"
+        browser_version: "157.0.0.0"
         os: linux
         cpu_arch: x86_64
         gpu: unknown
@@ -425,13 +434,31 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       lane0: "95560b85"
       lane1: "d14328eb"
       lane2: "f5f9a4fa"
       lane3: "d814a28a"
   - interface: canvas
-    label: "Brave 157.0.0.0 on macOS -- canvas 2D"
+    label: "Brave (Chromium 157) on macOS -- canvas 2D"
     seen:
       - browser: brave
         browser_version: "157.0.0.0"
@@ -452,6 +479,14 @@ signatures:
         cpu_arch: unknown
         gpu: unknown
         backend: unknown
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       lane0: "10852f2b"
@@ -481,6 +516,14 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       lane0: "ac5df78e"
       lane1: "ff8de7f0"
@@ -496,6 +539,49 @@ signatures:
         gpu: unknown
         backend: unknown
         defence: "privacy.resistFingerprinting, on as Tor Browser ships"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "LibreWolf 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Brave 1.100.58 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: getImageData altered a scene whose every value is known (noise added to reads)"
+  - interface: canvas
+    label: "Tor Browser 16.0.1 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
         window: private
     blocked: true
     reason: "randomised: two reads of the same scene differed (per-read noise)"

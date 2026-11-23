@@ -2,14 +2,21 @@
 //!
 //! The probes are spelled as an ONNX graph, one operator per operation, and ONNX Runtime's own kernels answer them: no
 //! GPU and no browser is involved, so the signature is that of the runtime's arithmetic on this machine. It is checked
-//! against the one recorded for the machine, and printed, which is how a machine's signature comes to be recorded.
+//! against the one recorded for the machine, printed, and proposed as a file of submissions where `GPU_PROBE_INTO`
+//! names a directory, which is how a machine's signature comes to be recorded.
 #![cfg(test)]
 
 use et_gpu_probe::{Answer, INPUTS, PROBE_COUNT, Signature, WASI_NN, shaders};
+use et_gpu_probe_server::machine::Machine;
+use et_gpu_probe_server::registry::{Submission, row};
+use et_gpu_probe_server::submitted::propose_where_asked;
 use pretty_assertions::assert_eq;
 use wasmtime_wasi_nn::backend::NamedTensor;
 use wasmtime_wasi_nn::wit::{ExecutionTarget, TensorType};
 use wasmtime_wasi_nn::{ExecutionContext, Tensor};
+
+/// The runtime that answers the probes: the ONNX Runtime the workspace's exact `ort` pin downloads, through that pin.
+const RUNTIME: &str = "ONNX Runtime 1.22, through ort 2.0.0-rc.10";
 
 /// The name each of [`INPUTS`] has in the graph, in order, which is the name the probe shaders give it.
 const INPUT_NAMES: [&str; 8] = [
@@ -184,6 +191,27 @@ fn nn_signature(context: &mut ExecutionContext) -> Signature {
     )
 }
 
+/// `signature` as a submission, seen at a row of this machine and [`RUNTIME`], with no GPU and no browser.
+#[expect(
+    clippy::single_call_fn,
+    reason = "a named step of the test, kept apart from the measurement it records"
+)]
+fn submission(signature: &Signature) -> Submission {
+    let (system, arch) = (std::env::consts::OS, std::env::consts::ARCH);
+    let machine = Machine::here("").unwrap();
+    let seen = row(&[
+        ("browser", "none"),
+        ("os", system),
+        ("cpu_arch", arch),
+        ("gpu", "none"),
+        ("backend", "none"),
+        ("runtime", RUNTIME),
+        ("window", "none"),
+    ]);
+    let label = format!("{RUNTIME} on the CPU behind wasi:nn: {}", machine.named(system, arch));
+    Submission::measured(WASI_NN, signature, &label, machine.row(seen))
+}
+
 #[test]
 fn onnx_runtime_answers_every_probe_and_the_same_way_twice() {
     let model = probe_model();
@@ -206,6 +234,10 @@ fn onnx_runtime_answers_every_probe_and_the_same_way_twice() {
     assert_eq!(signature.completed(), PROBE_COUNT);
     assert!(!signature.traits().contains("=other"));
     assert_eq!(signature.fingerprint(), nn_signature(&mut context).fingerprint());
+    let proposed = propose_where_asked(&[submission(&signature)]).unwrap();
+    for path in proposed {
+        println!("{WASI_NN} proposed in {}", path.display());
+    }
     // The platforms whose answers through ONNX Runtime are on record in the registry.
     #[cfg(any(
         all(target_os = "macos", target_arch = "aarch64"),

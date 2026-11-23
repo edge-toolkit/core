@@ -40,7 +40,7 @@
     },
     {
       "interface": "canvas-browserleaks",
-      "label": "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D, BrowserLeaks test (noise added to reads)",
+      "label": "Brave (Chromium 157) on macOS 26.7.1 -- canvas 2D, BrowserLeaks test (noise added to reads)",
       "seen": [
         {
           "browser": "brave",
@@ -242,7 +242,7 @@
       "seen": [
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "unknown",
@@ -419,6 +419,28 @@
           "gpu": "unknown",
           "backend": "unknown",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -427,7 +449,7 @@
     },
     {
       "interface": "canvas-browserleaks",
-      "label": "Brave 157.0.0.0 on macOS -- canvas 2D",
+      "label": "Brave (Chromium 157) on macOS -- canvas 2D",
       "seen": [
         {
           "browser": "brave",
@@ -491,6 +513,16 @@
           "gpu": "unknown",
           "backend": "unknown",
           "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -509,6 +541,103 @@
           "gpu": "unknown",
           "backend": "unknown",
           "defence": "privacy.resistFingerprinting, on as Tor Browser ships",
+          "window": "private"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same canvas differed (per-read noise)"
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 157.0.8103.80 on Android, SM-G973F -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "4c81aa73c8242612fb06a19569ae875a"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "LibreWolf 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "librewolf",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "privacy.resistFingerprinting, on as LibreWolf ships",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same canvas differed (per-read noise)"
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "7005a4fe8256c796440e9fde392f6809"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Brave 1.100.58 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: toDataURL differed from getImageData of the same canvas (noise keyed to the session)"
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Tor Browser 16.0.1 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "tor-browser",
+          "browser_version": "16.0.1",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out",
           "window": "private"
         }
       ],
@@ -652,7 +781,7 @@
     },
     {
       "interface": "canvas",
-      "label": "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise, not reproducible across sessions)",
+      "label": "Brave (Chromium 157) on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise)",
       "seen": [
         {
           "browser": "brave",
@@ -720,6 +849,17 @@
           "backend": "unknown",
           "device": "Samsung Galaxy S10",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -759,7 +899,7 @@
       "seen": [
         {
           "browser": "brave",
-          "browser_version": "1.99",
+          "browser_version": "157.0.0.0",
           "os": "android",
           "os_version": "12",
           "cpu_arch": "aarch64",
@@ -952,7 +1092,7 @@
       "seen": [
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "unknown",
@@ -1088,6 +1228,28 @@
           "gpu": "unknown",
           "backend": "unknown",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -1099,7 +1261,7 @@
     },
     {
       "interface": "canvas",
-      "label": "Brave 157.0.0.0 on macOS -- canvas 2D",
+      "label": "Brave (Chromium 157) on macOS -- canvas 2D",
       "seen": [
         {
           "browser": "brave",
@@ -1126,6 +1288,16 @@
           "cpu_arch": "unknown",
           "gpu": "unknown",
           "backend": "unknown",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -1166,6 +1338,16 @@
           "gpu": "unknown",
           "backend": "unknown",
           "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -1187,6 +1369,64 @@
           "gpu": "unknown",
           "backend": "unknown",
           "defence": "privacy.resistFingerprinting, on as Tor Browser ships",
+          "window": "private"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same scene differed (per-read noise)"
+    },
+    {
+      "interface": "canvas",
+      "label": "LibreWolf 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "librewolf",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "privacy.resistFingerprinting, on as LibreWolf ships",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same scene differed (per-read noise)"
+    },
+    {
+      "interface": "canvas",
+      "label": "Brave 1.100.58 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: getImageData altered a scene whose every value is known (noise added to reads)"
+    },
+    {
+      "interface": "canvas",
+      "label": "Tor Browser 16.0.1 on macOS, M5 Pro MacBook Pro -- canvas 2D",
+      "seen": [
+        {
+          "browser": "tor-browser",
+          "browser_version": "16.0.1",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out",
           "window": "private"
         }
       ],
@@ -1433,7 +1673,7 @@
     },
     {
       "interface": "webgl1-combined",
-      "label": "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157, Edge 157, Brave, Firefox 160, Safari 27.0 and 27.2)",
+      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2)",
       "seen": [
         {
           "browser": "chrome",
@@ -1518,6 +1758,65 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "Apple GPU",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -1645,7 +1944,7 @@
     },
     {
       "interface": "webgl1-combined",
-      "label": "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 1 on GNOME Web, Brave and Chromium",
+      "label": "Intel Iris Xe (Alder Lake GT2), Flatpak Mesa, Linux -- WebGL 1 on GNOME Web, Brave 1.99 and Chromium",
       "seen": [
         {
           "browser": "chromium",
@@ -1659,7 +1958,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -1680,7 +1979,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -1803,8 +2102,44 @@
       }
     },
     {
+      "interface": "webgl1-combined",
+      "label": "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "33800000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00400000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7576",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c43",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgl1-split",
-      "label": "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157, Edge 157, Brave, Firefox 160, Safari 27.0 and 27.2)",
+      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2)",
       "seen": [
         {
           "browser": "chrome",
@@ -1889,6 +2224,65 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "Apple GPU",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -2016,7 +2410,7 @@
     },
     {
       "interface": "webgl1-split",
-      "label": "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 1 on GNOME Web, Brave and Chromium",
+      "label": "Intel Iris Xe (Alder Lake GT2), Flatpak Mesa, Linux -- WebGL 1 on GNOME Web, Brave 1.99 and Chromium",
       "seen": [
         {
           "browser": "chromium",
@@ -2030,7 +2424,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -2051,7 +2445,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -2165,6 +2559,42 @@
         "sin": "3dcc6e85",
         "cos": "3f7eadd1",
         "tan": "3dcd7dfb",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "33800000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00400000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7576",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c43",
         "exp": "3f8d763e",
         "log": "3f8c9f54",
         "pow": "3f8edd20",
@@ -2269,7 +2699,7 @@
     },
     {
       "interface": "webgl2-clear",
-      "label": "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2",
+      "label": "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2, Brave 1.99",
       "seen": [
         {
           "browser": "chromium",
@@ -2329,7 +2759,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -2395,7 +2825,7 @@
     },
     {
       "interface": "webgl2-clear",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chrome, Edge, Brave, Firefox 160 and Safari 27.2",
+      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 27.2",
       "seen": [
         {
           "browser": "chrome",
@@ -2457,6 +2887,65 @@
           "backend": "metal",
           "reported": "Apple GPU",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -2467,6 +2956,36 @@
         "srgb8_mid": "000000bc",
         "srgb8_dark": "00000006",
         "ufloat11_rounding": "000003c0",
+        "half_rounding": "00003c01",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007c00"
+      }
+    },
+    {
+      "interface": "webgl2-clear",
+      "label": "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000a",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c1",
         "half_rounding": "00003c01",
         "half_subnormal": "00000010",
         "half_overflow": "00007c00"
@@ -2502,7 +3021,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99",
+          "browser_version": "157.0.0.0",
           "os": "android",
           "os_version": "12",
           "cpu_arch": "aarch64",
@@ -2522,6 +3041,18 @@
           "gpu_version": "Mali-G76",
           "backend": "opengl-es",
           "device": "Samsung Galaxy S10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
           "window": "normal"
         }
       ],
@@ -2728,7 +3259,7 @@
     },
     {
       "interface": "webgl2-combined",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Chrome, Edge, Brave, Firefox and Safari",
+      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari",
       "seen": [
         {
           "browser": "chromium",
@@ -2799,6 +3330,65 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "Apple GPU",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -2925,7 +3515,7 @@
     },
     {
       "interface": "webgl2-combined",
-      "label": "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 2 on GNOME Web, Brave and Chromium",
+      "label": "Intel Iris Xe (Alder Lake GT2), Flatpak Mesa, Linux -- WebGL 2 on GNOME Web, Brave 1.99 and Chromium",
       "seen": [
         {
           "browser": "chromium",
@@ -2939,7 +3529,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -2960,7 +3550,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -3112,7 +3702,7 @@
     },
     {
       "interface": "webgl2-fixed-function",
-      "label": "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2",
+      "label": "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2, Brave 1.99",
       "seen": [
         {
           "browser": "chromium",
@@ -3172,7 +3762,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -3236,7 +3826,7 @@
     },
     {
       "interface": "webgl2-fixed-function",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chrome, Edge, Brave, Firefox 160 and Safari 27.2",
+      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 27.2",
       "seen": [
         {
           "browser": "chrome",
@@ -3298,6 +3888,65 @@
           "backend": "metal",
           "reported": "Apple GPU",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -3305,6 +3954,35 @@
         "blend_half_float": "00003c00",
         "blend_srgb": "000000e1",
         "filter_third": "3eaa0a0a",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0dd1",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
+      "interface": "webgl2-fixed-function",
+      "label": "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000032",
+        "blend_half_float": "00003c01",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0000",
         "filter_fine": "00000000",
         "filter_srgb": "3ddd0dd1",
         "raster_right_edge_fine": "00000007",
@@ -3504,7 +4182,7 @@
     },
     {
       "interface": "webgl2-split",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave and Firefox",
+      "label": "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox",
       "seen": [
         {
           "browser": "chromium",
@@ -3593,6 +4271,65 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "Apple GPU",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "ANGLE Metal Renderer: Apple M5 Pro",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -3822,6 +4559,18 @@
           "backend": "opengl-es",
           "device": "Samsung Galaxy S10",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -3915,7 +4664,7 @@
     },
     {
       "interface": "webgl2-split",
-      "label": "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 2 on GNOME Web, Brave and Chromium",
+      "label": "Intel Iris Xe (Alder Lake GT2), Flatpak Mesa, Linux -- WebGL 2 on GNOME Web, Brave 1.99 and Chromium",
       "seen": [
         {
           "browser": "gnome-web",
@@ -3930,7 +4679,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99.57",
+          "browser_version": "157.0.0.0",
           "os": "linux",
           "cpu_arch": "x86_64",
           "gpu": "intel",
@@ -4192,7 +4941,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave, Firefox and Safari",
+      "label": "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari",
       "seen": [
         {
           "browser": "none",
@@ -4262,6 +5011,64 @@
           "backend": "metal",
           "reported": "apple",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4305,6 +5112,36 @@
       }
     },
     {
+      "interface": "webgpu-clear",
+      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000a",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c1",
+        "half_rounding": "00003c01",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007c00"
+      }
+    },
+    {
       "interface": "webgpu-combined",
       "label": "ARM Mali-G76, Vulkan, Galaxy S10 -- WebGPU on Chrome 157, Samsung Internet 31, Brave 1.99",
       "seen": [
@@ -4334,7 +5171,7 @@
         },
         {
           "browser": "brave",
-          "browser_version": "1.99",
+          "browser_version": "157.0.0.0",
           "os": "android",
           "os_version": "12",
           "cpu_arch": "aarch64",
@@ -4342,6 +5179,18 @@
           "gpu_version": "Mali-G76",
           "backend": "vulkan",
           "device": "Samsung Galaxy S10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
           "window": "normal"
         }
       ],
@@ -4480,7 +5329,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave",
+      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave 1.100",
       "seen": [
         {
           "browser": "chromium",
@@ -4527,6 +5376,43 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "metal-3",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -4586,6 +5472,27 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "apple",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -5232,6 +6139,27 @@
           "backend": "metal",
           "reported": "apple",
           "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5255,7 +6183,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chrome 157, Edge 157 and Brave",
+      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chrome 157, Edge 157 and Brave 1.100",
       "seen": [
         {
           "browser": "chrome",
@@ -5292,6 +6220,43 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "metal-3",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -5413,6 +6378,42 @@
         "atan2": "00002843",
         "tanh": "00002e64",
         "dot": "00004000"
+      }
+    },
+    {
+      "interface": "webgpu-f16-combined",
+      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00001000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389f",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002844",
+        "tanh": "00002e64",
+        "dot": "00003c00"
       }
     },
     {
@@ -5623,6 +6624,27 @@
           "backend": "metal",
           "reported": "apple",
           "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5646,7 +6668,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chrome 157, Edge 157 and Brave",
+      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chrome 157, Edge 157 and Brave 1.100",
       "seen": [
         {
           "browser": "chrome",
@@ -5683,6 +6705,43 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "metal-3",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -5804,6 +6863,42 @@
         "atan2": "00002843",
         "tanh": "00002e64",
         "dot": "00004000"
+      }
+    },
+    {
+      "interface": "webgpu-f16-split",
+      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00001000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389f",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002844",
+        "tanh": "00002e64",
+        "dot": "00003c00"
       }
     },
     {
@@ -5962,7 +7057,7 @@
     },
     {
       "interface": "webgpu-fixed-function",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave, Firefox and Safari",
+      "label": "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari",
       "seen": [
         {
           "browser": "none",
@@ -6031,6 +7126,64 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "apple",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -6101,8 +7254,37 @@
       }
     },
     {
+      "interface": "webgpu-fixed-function",
+      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000032",
+        "blend_half_float": "00003c01",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0000",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0dd1",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
       "interface": "webgpu-split",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave",
+      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave 1.100",
       "seen": [
         {
           "browser": "chromium",
@@ -6159,6 +7341,43 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "metal-3",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "brave",
+          "browser_version": "158.0.0.0",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "gpu": "apple",
+          "gpu_version": "metal-3",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -6264,6 +7483,27 @@
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
           "reported": "apple",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "M5 Pro MacBook Pro",
           "window": "normal"
         }
       ],
@@ -6548,6 +7788,18 @@
           "gpu_version": "Mali-G76",
           "backend": "vulkan",
           "device": "Samsung Galaxy S10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
           "window": "normal"
         }
       ],

@@ -56,7 +56,20 @@
 use edge_toolkit::config::{Language, mise_env_includes};
 #[cfg(feature = "coverage")]
 use fs_err as fs;
+use pretty_assertions::assert_eq;
 use rstest::rstest;
+
+/// The file of an agent's storage `et-ws-graphics-info` writes the six WebGPU probe sets' answers to.
+const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
+
+/// The graphics backend Deno's WebGPU, which is wgpu, puts a device's work through on this operating system.
+const DENO_BACKEND: &str = if cfg!(target_os = "macos") {
+    "metal"
+} else if cfg!(target_os = "windows") {
+    "d3d12"
+} else {
+    "vulkan"
+};
 
 /// The name the hub serves one of this project's modules under, which is the name it publishes under.
 ///
@@ -104,8 +117,122 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
+    if module == "et-ws-graphics-info" {
+        propose_probe_sets(server.storage_dir.path());
+    }
     #[cfg(feature = "coverage")]
     collect_module_coverage(&server);
+}
+
+/// Propose what the graphics-info module stored of the six WebGPU probe sets, found under the hub's `storage` root.
+///
+/// Each set that answered becomes a submission seen at a row of this machine, running Deno through this runner, and
+/// is written where `GPU_PROBE_INTO` names a directory, as every GPU probe measurement in CI is. The file must have
+/// been stored, whether or not any set answered: a runtime with no WebGPU stores its problems instead.
+#[expect(
+    clippy::single_call_fn,
+    reason = "a named step of the graphics-info case, kept apart from the run it records"
+)]
+fn propose_probe_sets(storage: &std::path::Path) {
+    let stored: Vec<std::path::PathBuf> = fs_err::read_dir(storage)
+        .unwrap()
+        .map(|entry| entry.unwrap().path().join(PROBE_SETS_FILENAME))
+        .filter(|path| path.exists())
+        .collect();
+    assert_eq!(stored.len(), 1);
+    let sets: serde_json::Value = serde_json::from_slice(&fs_err::read(&stored[0]).unwrap()).unwrap();
+    println!("graphics-info probe sets: {sets}");
+    let submissions = probe_set_submissions(&sets);
+    for path in et_gpu_probe_server::submitted::propose_where_asked(&submissions).unwrap() {
+        println!("graphics-info probe sets proposed in {}", path.display());
+    }
+}
+
+/// The Deno this runner embeds, as the registry names it: the `deno_runtime` and `deno_webgpu` crates it is built with.
+///
+/// The runner gives a module no `Deno.version`, so the versions are read from the workspace's `Cargo.lock`, which is
+/// what the runner under test was built from.
+#[expect(clippy::single_call_fn, reason = "a named source of one field of the row")]
+fn deno_crates() -> String {
+    let lock = fs_err::read_to_string(edge_toolkit::config::get_project_root().join("Cargo.lock")).unwrap();
+    let version_of = |crate_name: &str| {
+        let header = format!("name = \"{crate_name}\"\n");
+        let after = lock.split_once(&header).map_or("", |(_, rest)| rest);
+        after
+            .lines()
+            .next()
+            .and_then(|line| line.strip_prefix("version = \""))
+            .and_then(|version| version.strip_suffix('"'))
+            .unwrap_or_default()
+            .to_owned()
+    };
+    format!(
+        "deno_runtime {}, deno_webgpu {}",
+        version_of("deno_runtime"),
+        version_of("deno_webgpu")
+    )
+}
+
+/// Each probe set in the `sets` the graphics-info module stored as a submission seen at this machine's row.
+#[expect(
+    clippy::single_call_fn,
+    reason = "a named step of the graphics-info case, kept apart from the run it records"
+)]
+fn probe_set_submissions(sets: &serde_json::Value) -> Vec<et_gpu_probe_server::registry::Submission> {
+    let (system, arch) = (std::env::consts::OS, std::env::consts::ARCH);
+    let machine = et_gpu_probe_server::machine::Machine::here("").unwrap();
+    let text = |value: &serde_json::Value| value.as_str().unwrap_or_default().to_owned();
+    let adapter = &sets["adapter"];
+    let name = text(&adapter["name"]);
+    let vendor_id = adapter["vendor"]
+        .as_u64()
+        .and_then(|id| u32::try_from(id).ok())
+        .unwrap_or_default();
+    let by_id = et_gpu_probe::GpuVendor::from_id(vendor_id);
+    let vendor = if by_id == et_gpu_probe::GpuVendor::Unknown {
+        et_gpu_probe::GpuVendor::from_device_name(&name)
+    } else {
+        by_id
+    };
+    let deno = deno_crates();
+    let runtime = format!("et-ws-web-runner {}", env!("CARGO_PKG_VERSION"));
+    let mut row: std::collections::BTreeMap<String, String> = [
+        ("browser", "deno"),
+        ("browser_version", deno.as_str()),
+        ("os", system),
+        ("cpu_arch", arch),
+        ("gpu", vendor.name()),
+        ("gpu_version", name.as_str()),
+        ("backend", DENO_BACKEND),
+        ("runtime", runtime.as_str()),
+        ("window", "none"),
+    ]
+    .into_iter()
+    .filter(|(_, value)| !value.is_empty())
+    .map(|(field, value)| (field.to_owned(), value.to_owned()))
+    .collect();
+    for pair in sets["versions"].as_array().into_iter().flatten() {
+        let _previous: Option<String> = row.insert(text(&pair[0]), text(&pair[1]));
+    }
+    let row = machine.row(row);
+    let label = format!(
+        "{name} through {DENO_BACKEND} on {} -- WebGPU on Deno, {deno}",
+        machine.named(system, arch)
+    );
+    sets["signatures"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|set| {
+            let results = set["results"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|pair| (text(&pair[0]), text(&pair[1])))
+                .collect();
+            et_gpu_probe_server::registry::Submission::signature(&text(&set["interface"]), &label, results, row.clone())
+        })
+        .collect()
 }
 
 /// Run each math1 module through the storage-driven exchange and verify its stored model.

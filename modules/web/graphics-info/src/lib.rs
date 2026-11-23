@@ -22,6 +22,9 @@ const STORAGE: u32 = 0x0080;
 /// Bytes for a 4x4 f32 matrix.
 const MATRIX_BYTES: f64 = 64.0;
 
+/// The file of the agent's storage the six WebGPU probe sets' answers are written to, for a run's record.
+const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
+
 /// WGSL compute shader: 4x4 matrix multiply.
 const MATMUL_WGSL: &str = "
 @group(0) @binding(0) var<storage, read>       matA : array<f32, 16>;
@@ -210,6 +213,32 @@ pub struct GpuComputeResult {
     elapsed_ms: f64,
     /// First element of the output matrix (`C[0][0]`) for spot-check.
     result_c00: f32,
+}
+
+/// What each of the six WebGPU probe sets answers through this runtime's WebGPU, as the JSON stored for the run.
+///
+/// The sets are measured through `et-gpu-probe` on wgpu, as the probe page measures them, beside the adapter's own
+/// description and the versions the API gives. A set that does not answer is given as a problem beside the others.
+async fn probe_sets() -> serde_json::Value {
+    let gpu = match et_gpu_probe::native::Gpu::open().await {
+        Ok(gpu) => gpu,
+        Err(problem) => return json!({ "signatures": [], "problems": [format!("WebGPU: {problem}")] }),
+    };
+    let info = gpu.info();
+    let mut signatures = Vec::new();
+    let mut problems = Vec::new();
+    for (interface, outcome) in gpu.every_set().await {
+        match outcome {
+            Ok(signature) => signatures.push(json!({ "interface": interface, "results": signature.results() })),
+            Err(problem) => problems.push(format!("{interface}: {problem}")),
+        }
+    }
+    json!({
+        "adapter": { "name": info.name, "vendor": info.vendor, "driver": info.driver },
+        "versions": gpu.report().versions,
+        "signatures": signatures,
+        "problems": problems,
+    })
 }
 
 /// Call `target[name]` with `args`, returning what it returns.
@@ -1059,6 +1088,18 @@ pub async fn run() -> Result<(), JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let environment = browser_environment(&window)?;
         log(&format!("environment: {environment}"));
+
+        log("measuring the six WebGPU probe sets");
+        let sets = probe_sets().await;
+        log(&format!("WebGPU probe sets: {sets}"));
+        let agent_id = client.get_agent_id();
+        let stored = et_rest_client::Client::new("")
+            .put_file(&agent_id, PROBE_SETS_FILENAME, sets.to_string())
+            .await;
+        match stored {
+            Ok(_stored) => log(&format!("stored them to /storage/{agent_id}/{PROBE_SETS_FILENAME}")),
+            Err(problem) => log(&format!("could not store them: {problem}")),
+        }
 
         client.send_client_event(
             et_org::served_npm_module_path!(),

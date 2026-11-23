@@ -1,6 +1,6 @@
 signatures:
   - interface: webgl1-split
-    label: "Apple M5 Pro through Metal on macOS 26.7.1 (Chrome 157, Edge 157, Brave, Firefox 160, Safari 27.0 and 27.2)"
+    label: "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2)"
     seen:
       - browser: chrome
         browser_version: "157.0.0"
@@ -72,6 +72,55 @@ signatures:
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
         reported: "Apple GPU"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar"
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       multiply_add: "33800000"
@@ -176,7 +225,7 @@ signatures:
       tanh: "????????"
       dot: "3f800000"
   - interface: webgl1-split
-    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 1 on GNOME Web, Brave and Chromium"
+    label: "Intel Iris Xe (Alder Lake GT2), Flatpak Mesa, Linux -- WebGL 1 on GNOME Web, Brave 1.99 and Chromium"
     seen:
       - browser: chromium
         browser_version: "157.0.8103.78"
@@ -187,7 +236,7 @@ signatures:
         backend: opengl-es
         window: normal
       - browser: brave
-        browser_version: "1.99.57"
+        browser_version: "157.0.0.0"
         os: linux
         cpu_arch: x86_64
         gpu: intel
@@ -204,7 +253,7 @@ signatures:
         reported: "Apple GPU"
         window: normal
       - browser: brave
-        browser_version: "1.99.57"
+        browser_version: "157.0.0.0"
         os: linux
         cpu_arch: x86_64
         gpu: intel
@@ -300,6 +349,36 @@ signatures:
       sin: "3dcc6e85"
       cos: "3f7eadd1"
       tan: "3dcd7dfb"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "????????"
+      dot: "00000000"
+  - interface: webgl1-split
+    label: "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 1 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb898"
+      tan: "3dcd7c43"
       exp: "3f8d763e"
       log: "3f8c9f54"
       pow: "3f8edd20"

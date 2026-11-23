@@ -23,7 +23,7 @@ signatures:
         device: "Samsung Galaxy S10"
         window: normal
       - browser: brave
-        browser_version: "1.99"
+        browser_version: "157.0.0.0"
         os: android
         os_version: "12"
         cpu_arch: aarch64
@@ -41,6 +41,16 @@ signatures:
         gpu_version: "Mali-G76"
         backend: opengl-es
         device: "Samsung Galaxy S10"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
         window: normal
     results:
       multiply_add: "33800000"
@@ -210,7 +220,7 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "3f800000"
   - interface: webgl2-combined
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chromium, Chrome, Edge, Brave, Firefox and Safari"
+    label: "Apple M5 Pro GPU, Metal, macOS -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari"
     seen:
       - browser: chromium
         os: macos
@@ -270,6 +280,55 @@ signatures:
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
         reported: "Apple GPU"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar"
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       multiply_add: "33800000"
@@ -373,7 +432,7 @@ signatures:
       tanh: "3dcc1eb6"
       dot: "00000000"
   - interface: webgl2-combined
-    label: "Intel Iris Xe (Alder Lake GT2), a Flatpak runtime's Mesa, Linux -- WebGL 2 on GNOME Web, Brave and Chromium"
+    label: "Intel Iris Xe (Alder Lake GT2), Flatpak Mesa, Linux -- WebGL 2 on GNOME Web, Brave 1.99 and Chromium"
     seen:
       - browser: chromium
         browser_version: "157.0.8103.78"
@@ -384,7 +443,7 @@ signatures:
         backend: opengl-es
         window: normal
       - browser: brave
-        browser_version: "1.99.57"
+        browser_version: "157.0.0.0"
         os: linux
         cpu_arch: x86_64
         gpu: intel
@@ -401,7 +460,7 @@ signatures:
         reported: "Apple GPU"
         window: normal
       - browser: brave
-        browser_version: "1.99.57"
+        browser_version: "157.0.0.0"
         os: linux
         cpu_arch: x86_64
         gpu: intel

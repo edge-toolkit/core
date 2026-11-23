@@ -196,6 +196,7 @@ libc = { workspace = true, optional = true }
 command-error.workspace = true
 critical-section = { workspace = true, features = ["std"] }
 et-gpu-probe = { workspace = true, features = ["registry"] }
+et-gpu-probe-server.workspace = true
 et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true

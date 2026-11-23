@@ -61,6 +61,12 @@ ignore = [
   # post-quantum confidentiality on the affected connections, not a key compromise or an authentication bypass,
   # and it needs a network attacker who can answer one connection attempt to the same server name.
   { id = "RUSTSEC-2026-0349", reason = "expires 2027-01-01" },
+  # cookie 0.16.2 private-cookie nonces can repeat in a process that forks, fixed only in the 0.18 line.
+  # Needs cookie's `private` feature, which our resolution does not enable -- `cargo tree -i cookie -e features`
+  # reports default,percent-encode,percent-encoding -- so the private jar is never compiled in, and nothing here
+  # forks either. Pulled by actix-web's default `cookies` feature, which actix-web-thiserror turns on for
+  # et-storage-service; actix-web requires cookie ^0.16 through 4.20.0, its newest release.
+  { id = "RUSTSEC-2026-0594", reason = "expires 2027-01-01" },
   # smartstring 1.0.1 (unmaintained; repo archived 2026-05-03).
   # Pulled only by the swc stack (swc_ecma_lexer/parser 26/27) under deno_ast -> deno_runtime. Maintenance
   # notice, not a vulnerability. Upstream swc migrated to compact_str at swc_ecma_lexer 41.0.0 and

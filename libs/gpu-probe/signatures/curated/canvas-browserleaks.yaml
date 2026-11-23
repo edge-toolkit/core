@@ -26,7 +26,7 @@ signatures:
     blocked: true
     reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
   - interface: canvas-browserleaks
-    label: "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D, BrowserLeaks test (noise added to reads)"
+    label: "Brave (Chromium 157) on macOS 26.7.1 -- canvas 2D, BrowserLeaks test (noise added to reads)"
     seen:
       - browser: brave
         browser_version: "157.0.0"
@@ -169,7 +169,7 @@ signatures:
     label: "Brave 1.99.57 on Linux -- canvas 2D"
     seen:
       - browser: brave
-        browser_version: "1.99.57"
+        browser_version: "157.0.0.0"
         os: linux
         cpu_arch: x86_64
         gpu: unknown
@@ -299,10 +299,28 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       md5: "5b56667d605255332ae8c23f24989dd5"
   - interface: canvas-browserleaks
-    label: "Brave 157.0.0.0 on macOS -- canvas 2D"
+    label: "Brave (Chromium 157) on macOS -- canvas 2D"
     seen:
       - browser: brave
         browser_version: "157.0.0.0"
@@ -349,6 +367,14 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       md5: "f7696c533f8c043a6bbdb2eebb1ddad1"
   - interface: canvas-browserleaks
@@ -361,6 +387,76 @@ signatures:
         gpu: unknown
         backend: unknown
         defence: "privacy.resistFingerprinting, on as Tor Browser ships"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.8103.80 on Android, SM-G973F -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-G973F"
+        window: normal
+    results:
+      md5: "4c81aa73c8242612fb06a19569ae875a"
+  - interface: canvas-browserleaks
+    label: "LibreWolf 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+    results:
+      md5: "7005a4fe8256c796440e9fde392f6809"
+  - interface: canvas-browserleaks
+    label: "Brave 1.100.58 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: toDataURL differed from getImageData of the same canvas (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Tor Browser 16.0.1 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
         window: private
     blocked: true
     reason: "randomised: two reads of the same canvas differed (per-read noise)"

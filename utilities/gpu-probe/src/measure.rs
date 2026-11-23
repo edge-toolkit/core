@@ -1,29 +1,31 @@
-//! Put the probe sets to GPU adapters and to this machine's CPU, and add to a registry each sighting it does not yet
-//! hold.
+//! Put the probe sets to GPU adapters and to this machine's CPU, and record each sighting: in a registry, which adds
+//! each it does not yet hold, or as a file of submissions for a registry elsewhere.
 //!
 //! Each signature is filed under the interface the registry gives a probe set run with no browser, and seen at a row
-//! built from what the device says it is: its vendor, name and backend from wgpu, and its driver and API versions from
-//! the API beneath. A row the registry already records, with every field the same, is left alone, so measuring twice
-//! adds nothing the second time.
+//! built from what the device says it is -- its vendor, name and backend from wgpu, and its driver and API versions
+//! from the API beneath -- from what the [`Machine`] says of the machine it ran on, and from the runtime that measured
+//! it.
+//! A row the registry already records, with every field the same, is left alone, so measuring twice adds nothing the
+//! second time.
 #![expect(
     clippy::single_call_fn,
     reason = "each step of a measurement is named, and called once"
 )]
 
-use std::collections::BTreeMap;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe::{Answer, GpuVendor, HOST, Signature, host};
 use futures_executor::block_on;
 
-use crate::registry::{Outcome, RegisterError, RegistryTree, Submission};
+use crate::built_info;
+use crate::machine::Machine;
+use crate::registry::{Outcome, RegisterError, RegistryTree, Submission, row};
+use crate::submitted::{ProposeError, propose};
 
 /// The operating system and CPU architecture this runs on, as a registry row names them.
 const HERE: (&str, &str) = (std::env::consts::OS, std::env::consts::ARCH);
-
-/// A signature measured through one interface, beside the label it is filed under if new and the row it was seen at.
-type Measured = (&'static str, Signature, String, BTreeMap<String, String>);
 
 /// What stopped a measurement being recorded in full.
 #[derive(Debug, thiserror::Error)]
@@ -32,6 +34,9 @@ pub enum MeasureError {
     /// The registry refused a signature.
     #[error(transparent)]
     Register(#[from] RegisterError),
+    /// The file of submissions could not be written.
+    #[error(transparent)]
+    Propose(#[from] ProposeError),
     /// What became of a signature could not be written out.
     #[error("the output could not be written: {0}")]
     Write(#[from] std::io::Error),
@@ -40,35 +45,30 @@ pub enum MeasureError {
     Skipped(usize),
 }
 
-/// Measure every adapter in `opened` and this machine's CPU, and add what they answer to `registry`.
+/// Measure every adapter in `opened` and this machine's CPU, `machine`, and add what they answer to `registry`.
 ///
 /// What became of each signature is written to `out`. An adapter that did not open, or would not answer, is said so
 /// and passed over: the others are measured all the same, and the count of those passed over is the error returned once
 /// every other one is recorded.
 pub fn measure<Out>(
     registry: &RegistryTree,
+    machine: &Machine,
     opened: Vec<Result<Gpu, NativeError>>,
     out: &mut Out,
 ) -> Result<(), MeasureError>
 where
     Out: Write,
 {
-    let mut measured = Vec::new();
-    let mut skipped = 0_usize;
-    for gpu in opened {
-        match gpu.and_then(|gpu| gpu_signatures(&gpu)) {
-            Ok(signatures) => measured.extend(signatures),
-            Err(error) => {
-                writeln!(out, "an adapter was not measured: {error}")?;
-                skipped = skipped.saturating_add(1);
-            }
-        }
-    }
-    measured.push(cpu_signature());
+    let (submissions, skipped) = measured(machine, opened, out)?;
     let mut added = false;
-    for (interface, signature, label, seen) in measured {
-        let outcome = record(registry, interface, &signature, &label, seen)?;
-        writeln!(out, "{interface} on {}: {outcome}", signature_label(&label))?;
+    for submission in &submissions {
+        let outcome = registry.register(submission)?;
+        writeln!(
+            out,
+            "{} on {}: {outcome}",
+            submission.interface,
+            signature_label(&submission.label)
+        )?;
         added |= !matches!(outcome, Outcome::Present(_));
     }
     if added {
@@ -77,16 +77,74 @@ where
             "run `mise run gen:gpu-probe-signatures` to refresh the JSON the et-gpu-probe crate embeds"
         )?;
     }
+    passed_over(skipped)
+}
+
+/// Measure as [`measure`] does, but write what is measured as a file of submissions in the directory `dir`.
+///
+/// That is for a registry this cannot write to, such as on a CI runner. The file's path is written to `out`. An
+/// adapter passed over is said so, and counted in the error, as there.
+pub fn propose_measured<Out>(
+    dir: &Path,
+    machine: &Machine,
+    opened: Vec<Result<Gpu, NativeError>>,
+    out: &mut Out,
+) -> Result<PathBuf, MeasureError>
+where
+    Out: Write,
+{
+    let (submissions, skipped) = measured(machine, opened, out)?;
+    let path = propose(dir, &submissions)?;
+    writeln!(out, "{} signature(s) proposed in {}", submissions.len(), path.display())?;
+    passed_over(skipped)?;
+    Ok(path)
+}
+
+/// Every signature the adapters in `opened` and this machine's CPU answer, beside how many adapters were passed over.
+fn measured<Out>(
+    machine: &Machine,
+    opened: Vec<Result<Gpu, NativeError>>,
+    out: &mut Out,
+) -> Result<(Vec<Submission>, usize), MeasureError>
+where
+    Out: Write,
+{
+    let mut submissions = Vec::new();
+    let mut skipped = 0_usize;
+    for gpu in opened {
+        match gpu.and_then(|gpu| gpu_signatures(&gpu, machine)) {
+            Ok(signatures) => submissions.extend(signatures),
+            Err(error) => {
+                writeln!(out, "an adapter was not measured: {error}")?;
+                skipped = skipped.saturating_add(1);
+            }
+        }
+    }
+    submissions.push(cpu_signature(machine));
+    Ok((submissions, skipped))
+}
+
+/// Nothing wrong where `skipped` is none, and otherwise the error counting the adapters passed over.
+const fn passed_over(skipped: usize) -> Result<(), MeasureError> {
     if skipped > 0 {
         return Err(MeasureError::Skipped(skipped));
     }
     Ok(())
 }
 
-/// Every probe set `gpu` answers, each beside the label and row a sighting of it is recorded with.
-fn gpu_signatures(gpu: &Gpu) -> Result<[Measured; 6], NativeError> {
+/// The version of `package` this crate was built with, as `Cargo.lock` recorded it; empty if it was not one.
+fn built_with(package: &str) -> &'static str {
+    built_info::DEPENDENCIES
+        .iter()
+        .find(|(name, _)| *name == package)
+        .map_or("", |(_, version)| version)
+}
+
+/// Every probe set `gpu` answers, each as a submission at the row `machine` and the adapter make.
+fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Result<Vec<Submission>, NativeError> {
     let info = gpu.info();
     let (system, arch) = HERE;
+    let runtime = format!("wgpu {}, built for {}", built_with("wgpu"), built_info::TARGET);
     let mut seen = row(&[
         ("browser", "none"),
         ("os", system),
@@ -94,25 +152,23 @@ fn gpu_signatures(gpu: &Gpu) -> Result<[Measured; 6], NativeError> {
         ("gpu", vendor_of(info.vendor, &info.name).name()),
         ("gpu_version", &info.name),
         ("backend", gpu.backend()),
+        ("runtime", &runtime),
         ("window", "none"),
     ]);
     for (field, value) in gpu.report().versions {
         let _previous: Option<String> = seen.insert(field.to_owned(), value);
     }
+    let seen = machine.row(seen);
     let label = format!(
-        "{} through {} on {system} {arch} -- wgpu, no browser",
+        "{} through {} on {} -- wgpu, no browser",
         info.name,
-        gpu.backend()
+        gpu.backend(),
+        machine.named(system, arch)
     );
-    let signatures = [
-        ("webgpu-split", block_on(gpu.signature())?),
-        ("webgpu-combined", block_on(gpu.combined_signature())?),
-        ("webgpu-clear", block_on(gpu.clear_signature())?),
-        ("webgpu-fixed-function", block_on(gpu.fixed_function_signature())?),
-        ("webgpu-f16-split", block_on(gpu.f16_signature())?),
-        ("webgpu-f16-combined", block_on(gpu.f16_combined_signature())?),
-    ];
-    Ok(signatures.map(|(interface, signature)| (interface, signature, label.clone(), seen.clone())))
+    block_on(gpu.every_set())
+        .into_iter()
+        .map(|(interface, outcome)| Ok(Submission::measured(interface, &outcome?, &label, seen.clone())))
+        .collect()
 }
 
 /// Whose GPU an adapter is: by the vendor `id` it reports, or by its `name` where the backend, like Metal, gives none.
@@ -125,46 +181,26 @@ fn vendor_of(id: u32, name: &str) -> GpuVendor {
     }
 }
 
-/// What this machine's CPU answers, beside the label and row a sighting of it is recorded with.
-fn cpu_signature() -> Measured {
+/// What this machine's CPU answers, as a submission at the row `machine` makes.
+fn cpu_signature(machine: &Machine) -> Submission {
     let (system, arch) = HERE;
-    let seen = row(&[
+    let runtime = format!("Rust f32, built for {}", built_info::TARGET);
+    let seen = machine.row(row(&[
         ("browser", "none"),
         ("os", system),
         ("cpu_arch", arch),
         ("gpu", "none"),
         ("backend", "none"),
+        ("runtime", &runtime),
         ("window", "none"),
-    ]);
+    ]));
     let signature = Signature::new(HOST, host().into_iter().map(Answer::Bits).collect());
-    (HOST, signature, format!("Rust f32 on the CPU: {system} {arch}"), seen)
-}
-
-/// Add `signature`, measured through `interface` and seen at `seen`, to `registry`.
-fn record(
-    registry: &RegistryTree,
-    interface: &str,
-    signature: &Signature,
-    label: &str,
-    seen: BTreeMap<String, String>,
-) -> Result<Outcome, RegisterError> {
-    let results = signature
-        .results()
-        .into_iter()
-        .map(|(name, word)| (name.to_owned(), word))
-        .collect();
-    registry.register(&Submission::signature(interface, label, results, seen))
+    let cpu = machine.fields().get("cpu_version").map_or(arch, String::as_str);
+    let label = format!("Rust f32 on the CPU: {cpu}, {}", machine.named(system, arch));
+    Submission::measured(HOST, &signature, &label, seen)
 }
 
 /// The GPU or CPU part of `label`, which is what tells one device's lines of output from another's.
 fn signature_label(label: &str) -> &str {
     label.split(" through ").next().unwrap_or(label)
-}
-
-/// A registry row from its `fields`.
-fn row(fields: &[(&str, &str)]) -> BTreeMap<String, String> {
-    fields
-        .iter()
-        .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
-        .collect()
 }

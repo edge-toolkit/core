@@ -7,6 +7,14 @@ Changelog 1.1.0.
 
 ### Added
 
+- The `gpu-probe` workflow measures the GPU probe sets on every free GitHub-hosted runner image: wgpu and the CPU
+  through `gpu-probe`, the probes behind `wasi:nn`, and the six WebGPU sets through Deno, as the graphics-info module
+  now measures them. Its `gpu-probe-submitted` artifact holds a file of submissions per runner for the registry.
+- `gpu-probe` records the system's release, the CPU's model, the day, and the wgpu and build target in each row, names
+  a GitHub Actions runner by its image and links its run, takes `--device`, and with `--into <dir>` writes a file of
+  submissions instead of adding to the registry. `et-gpu-probe-server` gains `machine::Machine`, `submitted::write`
+  and `submitted::propose_where_asked`, which writes where `GPU_PROBE_INTO` names a directory, and `et-gpu-probe`
+  gains `native::Gpu::every_set`.
 - `et-ws-server` answers `GET /info` with how it was built: crate name, version, `rustc` version, target triple,
   cargo profile and enabled features, so an operator can tell which release and service set a hub is running. The
   REST spec and the generated Rust and Python clients gain the route and its `BuildInfo` schema.

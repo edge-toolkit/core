@@ -6,6 +6,9 @@ use std::path::PathBuf;
 use edge_toolkit::ports::Services;
 
 pub mod app;
+mod built_info;
+pub mod config;
+pub mod machine;
 pub mod measure;
 pub mod registry;
 pub mod submitted;

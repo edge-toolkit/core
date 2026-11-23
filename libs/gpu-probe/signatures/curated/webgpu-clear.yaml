@@ -135,7 +135,7 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007c46"
   - interface: webgpu-clear
-    label: "Apple M5 Pro GPU through Metal on macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave, Firefox and Safari"
+    label: "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari"
     seen:
       - browser: none
         os: macos
@@ -194,6 +194,54 @@ signatures:
         backend: metal
         reported: "apple"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000b"
@@ -226,3 +274,27 @@ signatures:
       half_rounding: "00003c00"
       half_subnormal: "00000010"
       half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"

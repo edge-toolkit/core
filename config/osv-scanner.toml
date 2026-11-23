@@ -72,4 +72,5 @@ IgnoredVulns = [
   { id = "RUSTSEC-2026-0580", ignoreUntil = 2027-01-01 },
   { id = "RUSTSEC-2026-0581", ignoreUntil = 2027-01-01 },
   { id = "RUSTSEC-2026-0582", ignoreUntil = 2027-01-01 },
+  { id = "RUSTSEC-2026-0594", ignoreUntil = 2027-01-01 },
 ]

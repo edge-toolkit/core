@@ -344,6 +344,8 @@ strum = { version = "0.28", features = ["derive"] }
 subtle = "2.6"
 syn = "3"
 sys_traits = { version = "0.1", features = ["libc", "real"] }
+# Reads the CPU's model and the operating system's release, for the rows a GPU probe measurement is recorded at.
+sysinfo = { version = "0.40", default-features = false }
 temp-env = "0.3"
 # Names CPU architectures the way a target triple spells them.
 target-lexicon = "0.13"
