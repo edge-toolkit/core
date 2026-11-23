@@ -10,7 +10,9 @@ loopback one as insecure over plain HTTP; `--http` serves plain HTTP on a loopba
 clear and fixed-function sets through WebGL 2, and all four WebGPU sets on each adapter WebGPU gives -- the
 high-performance one, the low-power one and the software fallback. It shows each signature with a button that submits
 it to the registry, under the GPU it ran on. The row it is seen at is filled in from what the browser reports, and can
-be corrected before submitting; `?device=<machine>` fills in the device, and `?submit` submits every set once probed.
+be corrected before submitting. A Chromium browser on Android gives the phone's model code, such as `SM-G973F`, as the
+device, and every Chromium browser gives the system's version; `?device=<machine>` and `?os_version=<version>` give
+them instead, and `?submit` submits every set once probed.
 Serve it on this machine, which builds the WASM first:
 
 ```bash
@@ -39,6 +41,14 @@ Then open one of the addresses it prints, and accept the self-signed certificate
 certificate covers localhost, each LAN address, and each address's `nip.io` name, which is a real domain for trying a
 browser defence that treats a bare IP differently. `mise run build-gpu-probe-page` builds the WASM alone, into
 `static/pkg`.
+
+A phone's model code names it exactly, but not as it is sold. Google Play's
+[supported devices list](https://storage.googleapis.com/play_public/supported_devices.html), also a
+[CSV](https://storage.googleapis.com/play_public/supported_devices.csv), gives each code's brand and marketing name.
+Two projects republish it as JSON: [bsthen/device-models](https://github.com/bsthen/device-models), keyed by model
+code and rebuilt daily, and [pbakondy/android-device-list](https://github.com/pbakondy/android-device-list). Their
+Apache-2.0 and MIT licences cover their own code; the data is Google's, which states no licence for it, so a name is
+looked up there when curating a row rather than the list being copied into this repository.
 
 ## On a static host
 

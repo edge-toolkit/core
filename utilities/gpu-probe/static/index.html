@@ -50,6 +50,7 @@
           <option>android</option>
           <option>ios</option>
         </datalist>
+        <label for="os_version">os_version</label><input id="os_version">
         <label for="cpu_arch">cpu_arch</label><input id="cpu_arch">
         <label for="window">window</label><input
           id="window"
@@ -261,18 +262,45 @@
       return { x86: "x86_64", arm: "aarch64" }[hints.architecture] ?? "unknown";
     };
 
+    // The device's model and the system's version, which only Chromium says, and on Android alone the model: a code
+    // such as SM-G973F, which a person can name the phone from. Windows gives its version as one Windows 11 counts from
+    // 13 and Windows 10 from 1, so it is given as the name of the release instead.
+    const systemHintsOf = async () => {
+      const hints = await navigator.userAgentData?.getHighEntropyValues?.([
+        "model",
+        "platformVersion",
+      ]);
+      const model = hints?.model ?? "";
+      const version = hints?.platformVersion ?? "";
+      if (!navigator.userAgentData?.platform?.startsWith("Windows")) {
+        return { model, version };
+      }
+      const major = Number.parseInt(version, 10);
+      const windows = major >= 13 ? "11" : major >= 1 ? "10" : "";
+      return { model, version: windows };
+    };
+
+    // The device the row names, as a label puts it after the system, or nothing when the row names none.
+    const onDevice = () => {
+      const device = field("device").value.trim();
+      return device ? `, ${device}` : "";
+    };
+
     // The registry takes a vendor it has no name for as the name the browser gives, so only a vendor the browser
     // does not name at all is unknown.
     const vendorOf = (name) => name.trim().toLowerCase() || "unknown";
 
-    // What the page was opened with: `device` names the machine, `defence` the privacy setting the browser has in
-    // force, and `submit` submits every probe set once probed. `browser`, `browser_version` and `window` say what a
+    // What the page was opened with: `device` names the machine and `os_version` the system's version, in place of
+    // what the browser says of either, `defence` the privacy setting the browser has in force, and `submit` submits
+    // every probe set once probed. `browser`, `browser_version` and `window` say what a
     // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
     // and Mullvad Browser always browses privately.
     const query = new URLSearchParams(location.search);
 
     const fillShared = async () => {
-      field("device").value = query.get("device") ?? "";
+      const system = await systemHintsOf();
+      field("device").value = query.get("device") ?? system.model;
+      field("os_version").value = query.get("os_version") ?? system.version;
       field("defence").value = query.get("defence") ?? "";
       const [browser, version] = await browserOf(navigator.userAgent);
       field("browser").value = query.get("browser") ?? browser;
@@ -285,7 +313,15 @@
     // The shared part of the row as the form holds it, leaving out free text left empty.
     const sharedRow = () => {
       const row = {};
-      for (const id of ["browser", "browser_version", "os", "cpu_arch"]) {
+      for (
+        const id of [
+          "browser",
+          "browser_version",
+          "os",
+          "os_version",
+          "cpu_arch",
+        ]
+      ) {
         if (field(id).value.trim()) row[id] = field(id).value.trim();
       }
       return row;
@@ -456,7 +492,8 @@
       const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
       const name = masked ? "unknown GPU" : model || "unknown GPU";
       return {
-        label: `${name} through ${backend} on ${os} -- ${api} on ${browser}`,
+        label:
+          `${name} through ${backend} on ${os}${onDevice()} -- ${api} on ${browser}`,
         gpu: masked ? "unknown" : vendorOf(vendor),
         gpu_version: masked ? "" : model,
         backend,
@@ -603,7 +640,9 @@
       };
       const version = field("browser_version").value;
       const canvasValues = {
-        label: `${named("browser")} ${version} on ${named("os")} -- canvas 2D`,
+        label: `${named("browser")} ${version} on ${
+          named("os")
+        }${onDevice()} -- canvas 2D`,
         gpu: "unknown",
         gpu_version: "",
         backend: "unknown",
