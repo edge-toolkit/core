@@ -138,12 +138,18 @@ const byGpu = (submissions) => {
   return [...groups.values()];
 };
 
+// How many hex digits of its SHA-256 a file is named with. typos reads a shorter run of hex digits as words: three of
+// the 16 a name once had spelled a word it reports as one that "should be `safe`", failing the pull request the file
+// was proposed in (https://github.com/edge-toolkit/core/actions/runs/45112698960/job/137488424464). From 32 digits on
+// it is a hash, which typos passes over.
+const nameDigits = 32;
+
 // The name a file holding `text` takes: the start of its SHA-256, so a visit proposed twice names the same file, which
 // GitHub will not make a second time.
 const nameOf = async (text) => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 16)}.txt`;
+  return `${hex.slice(0, nameDigits)}.txt`;
 };
 
 // Where a proposal's file is made: the registry's own repository and branch, which opens a pull request.
@@ -156,7 +162,7 @@ const linkTo = (target, name, text) => {
 };
 
 // A name as long as every file's, for measuring a link before its file's name is known.
-const anyName = `${"0".repeat(16)}.txt`;
+const anyName = `${"0".repeat(nameDigits)}.txt`;
 
 // The longest place a link can make a file in: a fork owned by a 39-character login, the longest GitHub allows, on
 // the branch GitHub names for that login's hundredth proposal. A file is measured with it, so its link opens whoever
