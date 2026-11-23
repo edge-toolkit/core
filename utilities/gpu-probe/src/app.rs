@@ -26,6 +26,12 @@ const REGISTER_SCRIPT: &str = include_str!("register.mjs");
 /// The module the probe page proposes its submissions on GitHub with where no server serves it, at `/propose.js`.
 const PROPOSE_SCRIPT: &str = include_str!("propose.mjs");
 
+/// The longest body `/register` or `/status` reads, past the largest submission the registry can hold.
+///
+/// A submission holds at most 256 results, each a name of at most 64 characters beside a value of at most 128, which
+/// with its row and label is about 50 KB as JSON.
+const MAX_BODY: usize = 64 * 1024;
+
 /// Add the server's routes to `config`, adding to `registry` and serving the files under `root`, if given, at `/`.
 ///
 /// Nothing is cached: the registry changes while signatures are being collected, and a probe page being worked on
@@ -77,9 +83,10 @@ async fn signatures(registry: web::Data<RegistryTree>) -> HttpResponse {
 /// A body that is not a submission answers 400, a submission the registry cannot hold 409, and a registry that could
 /// not be read or written 500. Each submission is logged with what became of it, the access log showing only the URL.
 ///
-/// A body not sent as `application/json` answers 415 before it is read. A browser sends that type from another
-/// origin's page only after a CORS preflight, which this server never grants, so a page elsewhere cannot write to the
-/// registry by posting it a form or `text/plain`, the kinds of request a browser sends with no preflight.
+/// A body not sent as `application/json` answers 415 before it is read. A browser sends that type from another origin's
+/// page only after a CORS preflight, which this server never grants, so a page elsewhere cannot write to the registry
+/// by posting it a form or `text/plain`, the kinds of request a browser sends with no preflight. A body longer than
+/// [`MAX_BODY`] answers 413 unread.
 #[expect(
     clippy::future_not_send,
     reason = "actix runs each handler on its worker's own thread, and the request it takes is not Send"
@@ -88,6 +95,10 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
     if request.content_type() != "application/json" {
         let message = "a submission must be sent as application/json";
         return reply(HttpResponse::UnsupportedMediaType(), false, message);
+    }
+    if body.len() > MAX_BODY {
+        let message = "a submission must be at most 64 KiB";
+        return reply(HttpResponse::PayloadTooLarge(), false, message);
     }
     let submission: Submission = match serde_json::from_slice(&body) {
         Ok(submission) => submission,
@@ -109,9 +120,9 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
 
 /// Log the status lines a probe page posts in `body` once its run is over, answering 204.
 ///
-/// A driver that cannot read the browser itself reads these from the server's log instead. The body is
-/// `{"status": [line, ...]}`; one that is not answers 400, and one not sent as `application/json` answers 415 unread,
-/// for the reason [`register`] gives.
+/// A driver that cannot read the browser itself reads these from the server's log instead. The body is `{"status":
+/// [line, ...]}`; one that is not answers 400, one not sent as `application/json` answers 415 unread, for the reason
+/// [`register`] gives, and one longer than [`MAX_BODY`] 413 unread.
 #[expect(
     clippy::future_not_send,
     reason = "actix runs each handler on its worker's own thread, and the request it takes is not Send"
@@ -119,6 +130,9 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
 async fn status(request: HttpRequest, body: web::Bytes) -> HttpResponse {
     if request.content_type() != "application/json" {
         return HttpResponse::UnsupportedMediaType().finish();
+    }
+    if body.len() > MAX_BODY {
+        return HttpResponse::PayloadTooLarge().finish();
     }
     let Ok(report) = serde_json::from_slice::<StatusReport>(&body) else {
         return HttpResponse::BadRequest().finish();

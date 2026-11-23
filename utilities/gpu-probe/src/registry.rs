@@ -1,7 +1,8 @@
 //! The registry a submission is added to: `libs/gpu-probe/signatures`, or a directory of the same shape.
 //!
 //! The directory holds `header.yaml`, the header; `curated/`, one file of entries per interface, named for it; and
-//! `submitted/`, files of submissions proposed from the hosted probe page, waiting to be filed under `curated/`.
+//! `submitted/`, plain-text files of submissions proposed from the hosted probe page, waiting to be filed under
+//! `curated/`.
 //!
 //! A submission is one signature, or one interface a browser withheld, and the one place it was seen. When the file
 //! of its interface already holds that signature, the place is added to the entry's `seen` rows, unless an identical
@@ -49,6 +50,12 @@ const CURATED: &str = "curated";
 /// The directory of submissions proposed from the hosted probe page, waiting to be filed under [`CURATED`].
 const SUBMITTED: &str = "submitted";
 
+/// The extension of each file of entries under [`CURATED`].
+const ENTRIES_EXTENSION: &str = "yaml";
+
+/// The extension of each file of submissions under [`SUBMITTED`].
+const SUBMITTED_EXTENSION: &str = "txt";
+
 /// The directory of the lock file and staged copy of each file of entries.
 ///
 /// They are kept apart so that [`CURATED`] holds the entries alone.
@@ -58,7 +65,7 @@ const WRITING: &str = "writing";
 const REPOSITORY_REGISTRY: &str = "libs/gpu-probe/signatures";
 
 /// Every field a row may carry, in the order the registry writes them.
-const ROW_ORDER: [&str; 18] = [
+pub(crate) const ROW_ORDER: [&str; 18] = [
     "browser",
     "browser_version",
     "os",
@@ -122,6 +129,14 @@ pub enum RegisterError {
     /// An entry is filed under another interface than its own, in the file of the one named.
     #[error("an entry measured through {0} is filed under another interface")]
     Misfiled(String),
+    /// A file of submissions is not laid out as the hosted probe page writes one.
+    #[error("line {line}: {problem}")]
+    Submitted {
+        /// The line at fault, counting from 1.
+        line: usize,
+        /// What is wrong with it.
+        problem: &'static str,
+    },
 }
 
 impl RegisterError {
@@ -181,6 +196,19 @@ impl Submission {
             seen,
         }
     }
+
+    /// `interface` withheld for `reason`, filed as `label` if it is new, seen at `seen`.
+    #[must_use]
+    pub fn withheld(interface: &str, label: &str, reason: &str, seen: BTreeMap<String, String>) -> Self {
+        Self {
+            interface: interface.to_owned(),
+            label: label.to_owned(),
+            results: Results::default(),
+            blocked: true,
+            reason: reason.to_owned(),
+            seen,
+        }
+    }
 }
 
 /// A signature's results, each name beside its value, kept in the order they were given.
@@ -191,6 +219,12 @@ impl Submission {
 pub struct Results(Vec<(String, String)>);
 
 impl Results {
+    /// Each name beside its value, in the order they were given.
+    #[must_use]
+    pub fn pairs(&self) -> &[(String, String)] {
+        &self.0
+    }
+
     /// The results keyed by name, which is how two signatures are compared: order does not make them different.
     fn by_name(&self) -> BTreeMap<String, String> {
         self.0.iter().cloned().collect()
@@ -381,14 +415,6 @@ impl Registry {
     }
 }
 
-/// A file of submissions waiting in a registry's `submitted/` directory.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Waiting {
-    /// Each submission, in the order it is filed.
-    submissions: Vec<Submission>,
-}
-
 /// What is wrong with one file of a registry directory, or what stopped it being read or filed.
 #[derive(Debug, thiserror::Error)]
 #[error("{}: {problem}", path.display())]
@@ -466,7 +492,7 @@ impl RegistryTree {
             text.push('\n');
         }
         text.push_str(ENTRIES_START);
-        for path in self.files(CURATED)? {
+        for path in self.files(CURATED, ENTRIES_EXTENSION)? {
             let entries = read(&path)?;
             let body = in_file(
                 &path,
@@ -482,7 +508,7 @@ impl RegistryTree {
     /// Each entry must be filed under its own interface, and each waiting submission must be one the registry would
     /// take. That is what keeps a submission proposed from the hosted page from being merged unless it can be filed.
     pub fn check(&self) -> Result<usize, FileError> {
-        for path in self.files(CURATED)? {
+        for path in self.files(CURATED, ENTRIES_EXTENSION)? {
             let file: File = parse(&path)?;
             let own = path.file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
             if let Some(stray) = file.signatures.iter().find(|entry| entry.interface != own) {
@@ -490,12 +516,12 @@ impl RegistryTree {
             }
         }
         let mut waiting = 0_usize;
-        for path in self.files(SUBMITTED)? {
-            let submitted: Waiting = parse(&path)?;
-            for submission in &submitted.submissions {
+        for path in self.files(SUBMITTED, SUBMITTED_EXTENSION)? {
+            let submissions = waiting_in(&path)?;
+            for submission in &submissions {
                 let _others: Vec<&str> = in_file(&path, validate(submission))?;
             }
-            waiting = waiting.saturating_add(submitted.submissions.len());
+            waiting = waiting.saturating_add(submissions.len());
         }
         Ok(waiting)
     }
@@ -507,10 +533,8 @@ impl RegistryTree {
     /// filed again.
     pub fn fold(&self) -> Result<Vec<(PathBuf, Vec<Outcome>)>, FileError> {
         let mut folded = Vec::new();
-        for path in self.files(SUBMITTED)? {
-            let submitted: Waiting = parse(&path)?;
-            let filed: Result<Vec<_>, _> = submitted
-                .submissions
+        for path in self.files(SUBMITTED, SUBMITTED_EXTENSION)? {
+            let filed: Result<Vec<_>, _> = waiting_in(&path)?
                 .iter()
                 .map(|submission| self.register(submission))
                 .collect();
@@ -521,8 +545,10 @@ impl RegistryTree {
         Ok(folded)
     }
 
-    /// Every YAML file in the directory `part` of the registry, in name order; none if there is no such directory.
-    fn files(&self, part: &str) -> Result<Vec<PathBuf>, FileError> {
+    /// Every file named `*.<extension>` in the directory `part` of the registry, in name order.
+    ///
+    /// There are none if there is no such directory.
+    fn files(&self, part: &str, extension: &str) -> Result<Vec<PathBuf>, FileError> {
         let dir = self.dir.join(part);
         let listed = match fs_err::read_dir(&dir) {
             Ok(listed) => listed,
@@ -532,7 +558,7 @@ impl RegistryTree {
         let mut files = Vec::new();
         for item in listed {
             let path = in_file(&dir, item)?.path();
-            if path.extension().is_some_and(|extension| extension == "yaml") {
+            if path.extension().is_some_and(|named| named == extension) {
                 files.push(path);
             }
         }
@@ -544,6 +570,11 @@ impl RegistryTree {
 /// The text of the file at `path`.
 fn read(path: &Path) -> Result<String, FileError> {
     in_file(path, fs_err::read_to_string(path))
+}
+
+/// Every submission the file of submissions at `path` holds.
+fn waiting_in(path: &Path) -> Result<Vec<Submission>, FileError> {
+    in_file(path, crate::submitted::parse(&read(path)?))
 }
 
 /// The file at `path`, read as YAML.

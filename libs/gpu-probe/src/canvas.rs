@@ -12,6 +12,12 @@ pub const CANVAS: &str = "canvas";
 /// The interface the canvas fingerprint browserleaks.com takes is filed under, read with `toDataURL` in a frame.
 pub const CANVAS_BROWSERLEAKS: &str = "canvas-browserleaks";
 
+/// The names of a [`CANVAS`] signature's results, the hash's four words in order.
+pub const CANVAS_RESULTS: [&str; 4] = ["lane0", "lane1", "lane2", "lane3"];
+
+/// The name of a [`CANVAS_BROWSERLEAKS`] signature's one result, the MD5 of the PNG.
+pub const CANVAS_BROWSERLEAKS_RESULTS: [&str; 1] = ["md5"];
+
 /// The offset each of the hash's four lanes starts from.
 const LANE_SEEDS: [u32; 4] = [0x811c_9dc5, 0x1b87_3593, 0x9e37_79b1, 0x85eb_ca77];
 

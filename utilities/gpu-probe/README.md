@@ -10,7 +10,9 @@ loopback one as insecure over plain HTTP; `--http` serves plain HTTP on a loopba
 clear and fixed-function sets through WebGL 2, and all four WebGPU sets on each adapter WebGPU gives -- the
 high-performance one, the low-power one and the software fallback. It shows each signature with a button that submits
 it to the registry, under the GPU it ran on. The row it is seen at is filled in from what the browser reports, and can
-be corrected before submitting; `?device=<machine>` fills in the device, and `?submit` submits every set once probed.
+be corrected before submitting. A Chromium browser on Android gives the phone's model code, such as `SM-G973F`, as the
+device, and every Chromium browser gives the system's version; `?device=<machine>` and `?os_version=<version>` give
+them instead, and `?submit` submits every set once probed.
 Serve it on this machine, which builds the WASM first:
 
 ```bash
@@ -40,6 +42,14 @@ certificate covers localhost, each LAN address, and each address's `nip.io` name
 browser defence that treats a bare IP differently. `mise run build-gpu-probe-page` builds the WASM alone, into
 `static/pkg`.
 
+A phone's model code names it exactly, but not as it is sold. Google Play's
+[supported devices list](https://storage.googleapis.com/play_public/supported_devices.html), also a
+[CSV](https://storage.googleapis.com/play_public/supported_devices.csv), gives each code's brand and marketing name.
+Two projects republish it as JSON: [bsthen/device-models](https://github.com/bsthen/device-models), keyed by model
+code and rebuilt daily, and [pbakondy/android-device-list](https://github.com/pbakondy/android-device-list). Their
+Apache-2.0 and MIT licences cover their own code; the data is Google's, which states no licence for it, so a name is
+looked up there when curating a row rather than the list being copied into this repository.
+
 ## On a static host
 
 A browser that cannot reach this machine -- Tor Browser, which sends everything through Tor -- can be probed from
@@ -53,13 +63,13 @@ mise run build-gpu-probe-site
 With no server behind it, the page has no registry to add to, so instead of submit buttons it proposes what it found
 as a pull request. It first holds each probe set against the JSON it was deployed with, as the server would, and
 leaves out what the registry already records, saying how many sets were new signatures and which were known ones seen
-somewhere new, such as on a new browser version. The rest go in files of submissions for the registry's `submitted/`
-directory. The first file's link opens GitHub's page for adding a file, filled in with it; GitHub forks the repository
-for a visitor who cannot write to it, and opens the pull request when they press "Propose changes". A visit takes as
-many files as keep each link short enough for GitHub to open, so once the pull request is open, the visitor gives the
-page its link: the page asks GitHub's API for the branch it came from, and each later file's link adds that file to
-the same branch, so the whole visit is one pull request. Each file is named for its content, so proposing the same
-visit twice names a file the first proposal already made.
+somewhere new, such as on a new browser version. The rest go in plain-text files of submissions for the registry's
+`submitted/` directory, which name each GPU's row once and give each probe set's values without their names. A file's
+link opens GitHub's page for adding a file, filled in with it; GitHub forks the repository for a visitor who cannot
+write to it, and opens a pull request when they press "Propose changes". A visit with two GPUs fits in one link; one
+with more is split between GPUs across as many files as keep each link short enough for GitHub to open, each its own
+pull request. Each file is named for its content, so proposing the same visit twice names a file the first proposal
+already made.
 
 A pull request of a submitted file leaves `libs/gpu-probe/signatures.json` alone, since the JSON is generated from the
 curated entries only, and the tests check every submitted file is one the registry would take. Once such pull

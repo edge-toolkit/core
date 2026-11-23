@@ -23,7 +23,22 @@ const SPLIT: &str = r#"signatures:
         backend: metal
         window: normal
     results:
+      multiply_add: "33800000"
       fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7576"
+      cos: "3f7eb899"
+      tan: "3dcd7c43"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "00000000"
 "#;
 
 /// The `canvas` interface's file, holding one known signature.
@@ -45,41 +60,27 @@ const CANVAS: &str = r#"signatures:
 ///
 /// It holds a new sighting of the known signature, the same sighting again, and a signature through an interface the
 /// registry has no file for yet.
-const SUBMITTED: &str = r#"submissions:
-  - interface: "webgpu-split"
-    label: "Known GPU on Firefox"
-    seen:
-      browser: "firefox"
-      os: "macos"
-      cpu_arch: "aarch64"
-      gpu: "apple"
-      backend: "metal"
-      window: "normal"
-    results:
-      fma: "33800000"
-  - interface: "webgpu-split"
-    label: "Known GPU on Firefox"
-    seen:
-      browser: "firefox"
-      os: "macos"
-      cpu_arch: "aarch64"
-      gpu: "apple"
-      backend: "metal"
-      window: "normal"
-    results:
-      fma: "33800000"
-  - interface: "webgl2-clear"
-    label: "Withheld"
-    seen:
-      browser: "tor-browser"
-      os: "linux"
-      cpu_arch: "x86_64"
-      gpu: "unknown"
-      backend: "unknown"
-      window: "private"
-    blocked: true
-    reason: "WebGL is disabled"
-"#;
+const SUBMITTED: &str = "label Known GPU on Firefox
+browser firefox
+os macos
+cpu_arch aarch64
+gpu apple
+backend metal
+window normal
+webgpu-split 33800000 33800000 40800000 3eaaaaab 00000000 3fddb3d7 3f13cd3a 3dcc7576 3f7eb899 3dcd7c43 3f8d763e
+  3f8c9f54 3f8edd1f 3d087b99 3dcc1ebd 00000000
+webgpu-split 33800000 33800000 40800000 3eaaaaab 00000000 3fddb3d7 3f13cd3a 3dcc7576 3f7eb899 3dcd7c43 3f8d763e
+  3f8c9f54 3f8edd1f 3d087b99 3dcc1ebd 00000000
+
+label Withheld
+browser tor-browser
+os linux
+cpu_arch x86_64
+gpu unknown
+backend unknown
+window private
+webgl2-clear blocked: WebGL is disabled
+";
 
 /// A registry directory holding [`HEADER`], [`SPLIT`] and [`CANVAS`], removed when the returned guard drops.
 fn tree() -> (TempDir, RegistryTree) {
@@ -199,8 +200,8 @@ fn a_part_of_the_registry_that_is_not_a_directory_does_not_read() {
 #[test]
 fn a_check_counts_the_waiting_submissions_and_passes_over_other_files() {
     let (dir, registry) = tree();
-    submit(dir.path(), "0123456789abcdef.yaml", SUBMITTED);
-    submit(dir.path(), "notes.txt", "not a submission");
+    submit(dir.path(), "0123456789abcdef.txt", SUBMITTED);
+    submit(dir.path(), "notes.md", "not a submission");
     assert_eq!(registry.check().unwrap(), 3);
 }
 
@@ -216,26 +217,26 @@ fn a_check_finds_an_entry_filed_under_another_interface() {
 #[test]
 fn a_check_finds_a_submission_the_registry_would_refuse_or_cannot_read() {
     let (dir, registry) = tree();
-    submit(dir.path(), "bad.yaml", &SUBMITTED.replace("\"Withheld\"", "\"\""));
+    submit(dir.path(), "bad.txt", &SUBMITTED.replace("label Withheld\n", ""));
     let refused = registry.check().unwrap_err();
     assert!(matches!(&*refused.problem, RegisterError::Text(field) if field == "label"));
-    assert!(refused.path.ends_with("bad.yaml"));
+    assert!(refused.path.ends_with("bad.txt"));
 
-    submit(dir.path(), "bad.yaml", "submissions: [\n");
+    submit(dir.path(), "bad.txt", "submissions: [\n");
     assert!(matches!(
         *registry.check().unwrap_err().problem,
-        RegisterError::Parse(_)
+        RegisterError::Submitted { line: 1, .. }
     ));
 }
 
 #[test]
 fn folding_files_each_waiting_submission_and_removes_its_file() {
     let (dir, registry) = tree();
-    submit(dir.path(), "0123456789abcdef.yaml", SUBMITTED);
+    submit(dir.path(), "0123456789abcdef.txt", SUBMITTED);
     let folded = registry.fold().unwrap();
     assert_eq!(folded.len(), 1);
     let (path, outcomes) = folded.first().unwrap();
-    assert!(path.ends_with("0123456789abcdef.yaml"));
+    assert!(path.ends_with("0123456789abcdef.txt"));
     assert_eq!(
         outcomes,
         &[
@@ -254,11 +255,11 @@ fn folding_files_each_waiting_submission_and_removes_its_file() {
 #[test]
 fn a_refused_submission_stops_folding_and_leaves_its_file_waiting() {
     let (dir, registry) = tree();
-    let refused_last = SUBMITTED.replace("\"WebGL is disabled\"", "\"\"");
-    submit(dir.path(), "0123456789abcdef.yaml", &refused_last);
+    let refused_last = SUBMITTED.replace("WebGL is disabled", "");
+    submit(dir.path(), "0123456789abcdef.txt", &refused_last);
     let refused = registry.fold().unwrap_err();
     assert!(matches!(&*refused.problem, RegisterError::Text(field) if field == "reason"));
-    assert!(dir.path().join("submitted/0123456789abcdef.yaml").exists());
+    assert!(dir.path().join("submitted/0123456789abcdef.txt").exists());
     // The sighting before it was filed all the same, and is found present when the file is folded again.
     let filed = fs_err::read_to_string(dir.path().join("curated/webgpu-split.yaml")).unwrap();
     assert!(filed.contains("      - browser: firefox\n"));

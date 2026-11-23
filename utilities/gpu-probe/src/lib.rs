@@ -8,6 +8,7 @@ use edge_toolkit::ports::Services;
 pub mod app;
 pub mod measure;
 pub mod registry;
+pub mod submitted;
 
 /// Collect GPU probe signatures into a registry over HTTPS.
 #[derive(Debug, clap::Parser)]

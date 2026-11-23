@@ -50,6 +50,7 @@
           <option>android</option>
           <option>ios</option>
         </datalist>
+        <label for="os_version">os_version</label><input id="os_version">
         <label for="cpu_arch">cpu_arch</label><input id="cpu_arch">
         <label for="window">window</label><input
           id="window"
@@ -76,27 +77,14 @@
       </p>
       <p id="judged"></p>
       <ol id="proposals"></ol>
-      <div id="more" hidden>
-        <p>
-          GitHub takes one file from a link, so the rest are added to that same
-          pull request. Once it is open, give its link here, and the links below
-          add each file to it.
-        </p>
-        <p>
-          <label for="pull">Pull request</label>
-          <input
-            id="pull"
-            size="60"
-            placeholder="https://github.com/edge-toolkit/core/pull/..."
-          >
-        </p>
-        <p id="pull-status"></p>
-        <ol id="more-proposals"></ol>
-      </div>
+      <p id="more" hidden>
+        GitHub takes one file from a link, and a link only so long, so the GPUs
+        are split across files: each link opens a pull request of its own.
+      </p>
     </div>
     <div id="gpus"></div>
     <script type="module">
-    import { judged, linkInto, proposals, pullOf } from "/propose.js";
+    import { judged, proposals } from "/propose.js";
     import { register } from "/register.js";
     import init, {
       probe_canvas,
@@ -274,18 +262,45 @@
       return { x86: "x86_64", arm: "aarch64" }[hints.architecture] ?? "unknown";
     };
 
+    // The device's model and the system's version, which only Chromium says, and on Android alone the model: a code
+    // such as SM-G973F, which a person can name the phone from. Windows gives its version as one Windows 11 counts from
+    // 13 and Windows 10 from 1, so it is given as the name of the release instead.
+    const systemHintsOf = async () => {
+      const hints = await navigator.userAgentData?.getHighEntropyValues?.([
+        "model",
+        "platformVersion",
+      ]);
+      const model = hints?.model ?? "";
+      const version = hints?.platformVersion ?? "";
+      if (!navigator.userAgentData?.platform?.startsWith("Windows")) {
+        return { model, version };
+      }
+      const major = Number.parseInt(version, 10);
+      const windows = major >= 13 ? "11" : major >= 1 ? "10" : "";
+      return { model, version: windows };
+    };
+
+    // The device the row names, as a label puts it after the system, or nothing when the row names none.
+    const onDevice = () => {
+      const device = field("device").value.trim();
+      return device ? `, ${device}` : "";
+    };
+
     // The registry takes a vendor it has no name for as the name the browser gives, so only a vendor the browser
     // does not name at all is unknown.
     const vendorOf = (name) => name.trim().toLowerCase() || "unknown";
 
-    // What the page was opened with: `device` names the machine, `defence` the privacy setting the browser has in
-    // force, and `submit` submits every probe set once probed. `browser`, `browser_version` and `window` say what a
+    // What the page was opened with: `device` names the machine and `os_version` the system's version, in place of
+    // what the browser says of either, `defence` the privacy setting the browser has in force, and `submit` submits
+    // every probe set once probed. `browser`, `browser_version` and `window` say what a
     // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
     // and Mullvad Browser always browses privately.
     const query = new URLSearchParams(location.search);
 
     const fillShared = async () => {
-      field("device").value = query.get("device") ?? "";
+      const system = await systemHintsOf();
+      field("device").value = query.get("device") ?? system.model;
+      field("os_version").value = query.get("os_version") ?? system.version;
       field("defence").value = query.get("defence") ?? "";
       const [browser, version] = await browserOf(navigator.userAgent);
       field("browser").value = query.get("browser") ?? browser;
@@ -298,7 +313,15 @@
     // The shared part of the row as the form holds it, leaving out free text left empty.
     const sharedRow = () => {
       const row = {};
-      for (const id of ["browser", "browser_version", "os", "cpu_arch"]) {
+      for (
+        const id of [
+          "browser",
+          "browser_version",
+          "os",
+          "os_version",
+          "cpu_arch",
+        ]
+      ) {
         if (field(id).value.trim()) row[id] = field(id).value.trim();
       }
       return row;
@@ -427,34 +450,22 @@
       return submitters;
     };
 
-    // A proposal as an item of the list, one of `parts`: its link, then the file it makes, to read before following
-    // it. The first file's link opens the pull request; each later one's adds its file to the pull request `pull`,
-    // and waits for it to be given. A file too long for GitHub to take from a link is given to add by hand instead.
-    const showProposal = (parts, pull) => (proposal, index) => {
+    // A proposal as an item of the list, one of `parts`: its link, which opens a pull request of its own, then the
+    // file it makes, to read before following it. A file too long for GitHub to take from a link is given to add by
+    // hand instead.
+    const showProposal = (parts) => (proposal, index) => {
       const item = document.createElement("li");
       const part = parts > 1 ? `, part ${index + 1} of ${parts}` : "";
       const sets = `${proposal.count} probe set${
         proposal.count > 1 ? "s" : ""
       }`;
-      if (proposal.opens && index === 0) {
+      if (proposal.opens) {
         const link = document.createElement("a");
         link.href = proposal.link;
         link.target = "_blank";
         link.rel = "noopener";
         link.textContent = `Propose ${sets} on GitHub${part}`;
         item.append(link);
-      } else if (proposal.opens && pull) {
-        const link = document.createElement("a");
-        link.href = linkInto(pull, proposal);
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.textContent = `Add ${sets} to the pull request${part}`;
-        item.append(link);
-      } else if (proposal.opens) {
-        const waiting = document.createElement("p");
-        waiting.textContent =
-          `${sets}${part}: give the pull request's link above to add them to it.`;
-        item.append(waiting);
       } else {
         const tooLong = document.createElement("p");
         tooLong.className = "bad";
@@ -481,7 +492,8 @@
       const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
       const name = masked ? "unknown GPU" : model || "unknown GPU";
       return {
-        label: `${name} through ${backend} on ${os} -- ${api} on ${browser}`,
+        label:
+          `${name} through ${backend} on ${os}${onDevice()} -- ${api} on ${browser}`,
         gpu: masked ? "unknown" : vendorOf(vendor),
         gpu_version: masked ? "" : model,
         backend,
@@ -526,6 +538,7 @@
         return;
       }
       const seen = new Set();
+      const answered = new Set();
       for (const { power, fallback } of adapterChoices) {
         const choice = fallback ? "fallback" : power;
         const { answer, adapter } = await measured(
@@ -559,6 +572,21 @@
           webgpuBackendOf(field("os").value),
           "WebGPU",
         );
+        // An adapter that gives no identifier is measured however many choices give it, and one that answers every
+        // probe set as an earlier one did, with the same row, would only submit that adapter's results again.
+        const sameAnswers = JSON.stringify([
+          values,
+          answer.signatures.map(({ interface: name, results }) => [
+            name,
+            results,
+          ]),
+          (answer.withheld ?? []).map(({ interface: name, reason }) => [
+            name,
+            reason,
+          ]),
+        ]);
+        if (answered.has(sameAnswers)) continue;
+        answered.add(sameAnswers);
         submitters.push(
           ...showGpu(`WebGPU ${choice}: ${model}`, values, answer),
         );
@@ -612,7 +640,9 @@
       };
       const version = field("browser_version").value;
       const canvasValues = {
-        label: `${named("browser")} ${version} on ${named("os")} -- canvas 2D`,
+        label: `${named("browser")} ${version} on ${
+          named("os")
+        }${onDevice()} -- canvas 2D`,
         gpu: "unknown",
         gpu_version: "",
         backend: "unknown",
@@ -645,11 +675,9 @@
           () => null,
         );
         // The proposals follow every edit to a row, so what is proposed is what the rows say. Making them is
-        // asynchronous, so only the latest edit's are shown. The pull request the later files go into outlives an
-        // edit.
+        // asynchronous, so only the latest edit's are shown.
         field("submit-all").hidden = true;
         field("propose").hidden = false;
-        let pull = null;
         let edits = 0;
         const fill = async () => {
           edits += 1;
@@ -685,36 +713,13 @@
             ]
               .join(" ")
             : "The registry could not be read, so every probe set is proposed.";
-          const show = showProposal(made.length, pull);
-          field("proposals").replaceChildren(...made.slice(0, 1).map(show));
-          field("more").hidden = made.length < 2;
-          field("more-proposals").replaceChildren(
-            ...made.slice(1).map((proposal, index) =>
-              show(proposal, index + 1)
-            ),
+          field("proposals").replaceChildren(
+            ...made.map(showProposal(made.length)),
           );
+          field("more").hidden = made.length < 2;
         };
-        field("pull").addEventListener("change", async () => {
-          const address = field("pull").value;
-          pull = null;
-          field("pull-status").className = "";
-          field("pull-status").textContent = address ? "Asking GitHub..." : "";
-          if (address) {
-            try {
-              pull = await pullOf(address);
-              field("pull-status").textContent =
-                `The files are added to ${pull.repository}, branch ${pull.branch}.`;
-            } catch (error) {
-              field("pull-status").className = "bad";
-              field("pull-status").textContent = error.message;
-            }
-          }
-          await fill();
-        });
         await fill();
-        document.addEventListener("input", (event) => {
-          if (event.target !== field("pull")) fill();
-        });
+        document.addEventListener("input", fill);
         status.textContent =
           `Probed. Check each row, then propose the results on GitHub.${missing}`;
         await tell(status.textContent);

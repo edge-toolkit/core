@@ -35,9 +35,11 @@ Changelog 1.1.0.
   `f16_combined_signature` and `computes_f16`, and a device without the feature refuses every probe of the set. The
   probe page and `gpu-probe` measure it beside the `f32` set.
 - The probe page deployed to a static host proposes what it found as a GitHub pull request: links to GitHub's
-  new-file page, filled in with files for the registry's `submitted/` directory, which the tests check and
-  `mise run gpu-probe-fold` files into the registry. The registry is now a directory, `libs/gpu-probe/signatures`: a
-  header and one file of entries per interface, from which `signatures.json` is generated as before.
+  new-file page, filled in with plain-text files for the registry's `submitted/` directory, which the tests check and
+  `mise run gpu-probe-fold` files into the registry. A visit with two GPUs fits in one file; more are split between
+  GPUs into one pull request each. `et-gpu-probe`'s new `result_names` names the values such a file gives. The
+  registry is now a directory, `libs/gpu-probe/signatures`: a header and one file of entries per interface, from which
+  `signatures.json` is generated as before.
 - `et-gpu-probe-server` collects GPU probe signatures over HTTPS into `libs/gpu-probe/signatures`: a paste form
   at `/submit`, JSON submissions at `POST /register`, each added as a new entry or as another place a known one was
   seen. `mise run gpu-probe-server` serves this machine and `mise run gpu-probe-server-lan` the LAN. Its TLS and
