@@ -111,10 +111,7 @@ fn parse_block(block: &[Line]) -> Result<Vec<Submission>, RegisterError> {
                 "a label or row field after the block's first interface",
             ));
         } else if name == LABEL {
-            if !label.is_empty() {
-                return Err(fault(line.number, "a second label"));
-            }
-            label = unescape(rest, line.number)?;
+            label = label_line(&label, rest, line.number)?;
         } else {
             row_field(&mut seen, name, rest, line.number)?;
         }
@@ -124,6 +121,14 @@ fn parse_block(block: &[Line]) -> Result<Vec<Submission>, RegisterError> {
         return Err(fault(number, "a block with no interface line"));
     }
     Ok(submissions)
+}
+
+/// The label `rest` gives on the line numbered `number`, the block's first, where `label` is the one read so far.
+fn label_line(label: &str, rest: &str, number: usize) -> Result<String, RegisterError> {
+    if !label.is_empty() {
+        return Err(fault(number, "a second label"));
+    }
+    unescape(rest, number)
 }
 
 /// Add the field `name`, of the row, with the value `rest` on the line numbered `number`, to `seen`.
