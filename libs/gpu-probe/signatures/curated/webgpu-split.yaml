@@ -1079,7 +1079,8 @@ signatures:
       tanh: "3dcc1ebc"
       dot: "40000000"
   - interface: webgpu-split
-    label: "Microsoft Basic Render Driver through d3d12 on windows 10 (20348) x86_64, GitHub Actions runner image win22 20261116.370.1 -- wgpu, no browser"
+    label: "Microsoft Basic Render Driver through d3d12 on windows 10 (20348) x86_64, GitHub Actions runner image win22
+      20261116.370.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: windows
@@ -1113,7 +1114,8 @@ signatures:
       tanh: "3dcc1ec2"
       dot: "00000000"
   - interface: webgpu-split
-    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image
+      ubuntu22 20261116.365.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: linux

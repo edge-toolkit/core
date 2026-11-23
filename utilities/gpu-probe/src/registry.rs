@@ -35,6 +35,15 @@ const MAX_VALUE: usize = 128;
 /// The longest free text may be: a label, a reason, or a row's free-text field.
 const MAX_TEXT: usize = 200;
 
+/// The widest a line of the registry's files may be.
+const LINE_WIDTH: usize = 120;
+
+/// What a line carrying on an entry's label or reason starts with: deeper than the entry's fields.
+const CONTINUED: &str = "      ";
+
+/// What a line carrying on a field of a `seen` row starts with: deeper than the row's fields.
+const ROW_CONTINUED: &str = "          ";
+
 /// The line each entry of the registry starts with, before the interface it was measured through.
 const ENTRY_START: &str = "  - interface:";
 
@@ -739,6 +748,34 @@ fn quoted(text: &str) -> String {
     format!("\"{body}\"")
 }
 
+/// `lead` then the double-quoted scalar `quoted`, on lines no wider than [`LINE_WIDTH`] that carry on after `indent`.
+///
+/// A line break inside a double-quoted scalar reads back as one space, and the indentation after it is dropped, so the
+/// scalar is broken only at a space with no space beside it: a break in a run of spaces would read back without the
+/// rest of the run. A word too long to fit, or text with no such space, runs past the width instead.
+fn folded(lead: &str, quoted: &str, indent: &str) -> String {
+    let mut words = quoted.split(' ');
+    let mut previous = words.next().unwrap_or_default();
+    let mut text = [lead, previous].concat();
+    let mut width = text.len();
+    for word in words {
+        let breakable = !previous.is_empty() && !word.is_empty();
+        if breakable && width.saturating_add(1).saturating_add(word.len()) > LINE_WIDTH {
+            text.push('\n');
+            text.push_str(indent);
+            width = indent.len();
+        } else {
+            text.push(' ');
+            width = width.saturating_add(1);
+        }
+        text.push_str(word);
+        width = width.saturating_add(word.len());
+        previous = word;
+    }
+    text.push('\n');
+    text
+}
+
 /// The lines of `row` as an item of an entry's `seen` list, its fields in the registry's order.
 ///
 /// A value from a field's fixed set is written bare, and every other value quoted, `others` among them: a value the
@@ -748,12 +785,12 @@ fn row_text(row: &BTreeMap<String, String>, others: &[&str]) -> String {
     for field in ROW_ORDER {
         if let Some(value) = row.get(field) {
             let lead = if lines.is_empty() { "      - " } else { "        " };
-            let value = if ENUMERATED.contains(&field) && !others.contains(&field) {
-                value.clone()
+            let start = [lead, field, ": "].concat();
+            if ENUMERATED.contains(&field) && !others.contains(&field) {
+                lines.push_str(&[&start, value.as_str(), "\n"].concat());
             } else {
-                quoted(value)
-            };
-            lines.push_str(&[lead, field, ": ", &value, "\n"].concat());
+                lines.push_str(&folded(&start, &quoted(value), ROW_CONTINUED));
+            }
         }
     }
     lines
@@ -788,21 +825,11 @@ fn append_entry(text: &str, submission: &Submission, row: &str) -> String {
     if !updated.is_empty() && !updated.ends_with('\n') {
         updated.push('\n');
     }
-    let label = quoted(&submission.label);
-    updated.push_str(
-        &[
-            ENTRY_START,
-            " ",
-            &submission.interface,
-            "\n    label: ",
-            &label,
-            "\n    seen:\n",
-            row,
-        ]
-        .concat(),
-    );
+    let label = folded("    label: ", &quoted(&submission.label), CONTINUED);
+    updated.push_str(&[ENTRY_START, " ", &submission.interface, "\n", &label, "    seen:\n", row].concat());
     if submission.blocked {
-        updated.push_str(&["    blocked: true\n    reason: ", &quoted(&submission.reason), "\n"].concat());
+        updated.push_str("    blocked: true\n");
+        updated.push_str(&folded("    reason: ", &quoted(&submission.reason), CONTINUED));
     } else {
         updated.push_str("    results:\n");
         for (name, value) in &submission.results.0 {

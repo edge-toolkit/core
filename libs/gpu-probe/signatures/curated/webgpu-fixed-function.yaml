@@ -573,7 +573,8 @@ signatures:
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
   - interface: webgpu-fixed-function
-    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image win25-vs2026 20261116.315.1 -- wgpu, no browser"
+    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image
+      win25-vs2026 20261116.315.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: windows

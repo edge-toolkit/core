@@ -597,6 +597,10 @@ ignore = [
   "command-error",
   # Archived upstream at matklad/countme.
   "countme",
+  # No commit upstream at rusticata/der-parser for over a year.
+  # 8.2.0 still requires nom ^7.0 and rusticata-macros ^4.0. Pulled only by x509-parser 0.15.1, which deno_net
+  # pins, so it moves when Deno does.
+  "der-parser",
   # Unmaintained upstream at denoland/deno_native_certs.
   # Pulled by deno_node + deno_tls.
   "deno_native_certs",

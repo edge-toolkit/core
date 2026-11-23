@@ -425,6 +425,31 @@ fn text_past_ascii_is_written_escaped_and_reads_back_the_same() {
 }
 
 #[test]
+fn long_text_is_folded_within_the_line_width_and_reads_back_the_same() {
+    let (_dir, registry) = registry(REGISTRY);
+    let label = format!("{}  two spaces stay together", "word ".repeat(34).trim_end());
+    let reason = format!("{} unbroken", "y".repeat(125));
+    let mut seen = row("firefox");
+    seen["device"] = json!("phone ".repeat(30).trim_end());
+    let new = submission(json!({
+        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": seen
+    }));
+    assert_eq!(registry.register(&new).unwrap(), Outcome::Added(3));
+    let written = text(&registry);
+    let added = written.strip_prefix(REGISTRY).unwrap();
+    // Only the reason's first word, too long to fit after its key, runs past the width, on a line of its own.
+    let wide: Vec<&str> = added.lines().filter(|line| line.len() > 120).collect();
+    assert_eq!(wide, [format!("    reason: \"{}", "y".repeat(125))]);
+    // The label, the device and the reason each take two lines.
+    assert_eq!(added.lines().count(), 16);
+    assert!(added.contains("word  two spaces"));
+    let resubmitted = submission(json!({
+        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": row("chrome")
+    }));
+    assert_eq!(registry.register(&resubmitted).unwrap(), Outcome::Sighted(label));
+}
+
+#[test]
 fn writers_that_share_no_registry_value_lose_none_of_each_others_rows() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("signatures.yaml");

@@ -1,4 +1,7 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::net::IpAddr;
 use std::path::PathBuf;

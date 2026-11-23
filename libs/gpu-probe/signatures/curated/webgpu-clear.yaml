@@ -499,7 +499,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007c00"
   - interface: webgpu-clear
-    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26 20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
+    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26
+      20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
     seen:
       - browser: deno
         browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
@@ -581,7 +582,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007c00"
   - interface: webgpu-clear
-    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image win25-vs2026 20261116.315.1 -- wgpu, no browser"
+    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image
+      win25-vs2026 20261116.315.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: windows

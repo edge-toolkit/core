@@ -621,6 +621,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/ryl.toml" # Its own config.
+        - "/.github/workflows/gpu-probe.yaml" # Disables the tool for probe jobs, which would build it from source.
         - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
         - "/config/taplo/mise-cargo-backend-allowlist.schema.json" # The same allowlist, as a TOML schema enum.

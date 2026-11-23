@@ -752,7 +752,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "40000000"
   - interface: webgpu-combined
-    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26 20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
+    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26
+      20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
     seen:
       - browser: deno
         browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
@@ -840,7 +841,8 @@ signatures:
       tanh: "3dcc1eb5"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image win25-vs2026 20261116.315.1 -- wgpu, no browser"
+    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image
+      win25-vs2026 20261116.315.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: windows
@@ -888,7 +890,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "llvmpipe (LLVM 21.1.8, 128 bits) through vulkan on linux Ubuntu 26.04 aarch64, GitHub Actions runner image ubuntu26-arm64 20261116.190.1 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 21.1.8, 128 bits) through vulkan on linux Ubuntu 26.04 aarch64, GitHub Actions runner image
+      ubuntu26-arm64 20261116.190.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: linux
@@ -966,7 +969,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "40000000"
   - interface: webgpu-combined
-    label: "Microsoft Basic Render Driver through d3d12 on windows 10 (20348) x86_64, GitHub Actions runner image win22 20261116.370.1 -- wgpu, no browser"
+    label: "Microsoft Basic Render Driver through d3d12 on windows 10 (20348) x86_64, GitHub Actions runner image win22
+      20261116.370.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: windows
@@ -1000,7 +1004,8 @@ signatures:
       tanh: "3dcc1ec2"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image
+      ubuntu22 20261116.365.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: linux

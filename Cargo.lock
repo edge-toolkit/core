@@ -6005,6 +6005,7 @@ dependencies = [
  "actix-web",
  "built",
  "clap",
+ "document-features",
  "edge-toolkit",
  "et-gpu-probe",
  "et-https-listener",

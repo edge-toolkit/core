@@ -599,7 +599,8 @@ signatures:
       tanh: "00002e64"
       dot: "00003c00"
   - interface: webgpu-f16-split
-    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26 20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
+    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26
+      20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
     seen:
       - browser: deno
         browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
@@ -687,7 +688,8 @@ signatures:
       tanh: "00002e61"
       dot: "00000000"
   - interface: webgpu-f16-split
-    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image
+      ubuntu22 20261116.365.1 -- wgpu, no browser"
     seen:
       - browser: none
         os: linux

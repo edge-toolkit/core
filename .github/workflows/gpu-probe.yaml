@@ -207,11 +207,7 @@ jobs:
       contents: read
     runs-on: ${{ matrix.image }}
     timeout-minutes: ${{ contains(matrix.image, 'intel') && 140 || 100 }}
-    # Neither probe uses these cargo: tools. On the Intel macOS images vector and rustfs build from source and ran the
-    # install past its 30 minutes, and cargo:open does not build on Windows.
     env:
-      MISE_DISABLE_TOOLS: >-
-        cargo:cargo-expand,cargo:cargo-rail,cargo:open,cargo:ryl,cargo:rustfs/rustfs,cargo:vectordotdev/vector
       MISE_ENV: rust
     strategy:
       fail-fast: false
@@ -232,7 +228,7 @@ jobs:
           - windows-2025
           - windows-2022
           - windows-11-arm
-        # The wasm-bindgen release for arm64 Linux is built against a newer glibc than Ubuntu 22.04's 2.35:
+        # Deno is not measured on ubuntu-22.04-arm, whose glibc 2.35 is older than wasm-bindgen's arm64 build needs.
         #
         #     wasm-bindgen: /lib/aarch64-linux-gnu/libc.so.6: version `GLIBC_2.38' not found
         #
@@ -258,6 +254,15 @@ jobs:
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux' && matrix.probe == 'deno'
         uses: $/.github/actions/install-lavapipe
+
+      # Neither probe uses these cargo: tools, which every later mise call leaves out.
+      # On the Intel macOS images vector and rustfs build from source and ran the install past its 30 minutes, and
+      # cargo:open does not build on Windows.
+      - name: Leave out unused tools
+        run: |
+          tools=cargo:cargo-expand,cargo:cargo-rail,cargo:open,cargo:ryl
+          tools=$tools,cargo:rustfs/rustfs,cargo:vectordotdev/vector
+          echo "MISE_DISABLE_TOOLS=$tools" >> "$GITHUB_ENV"
 
       - name: Install mise
         uses: $/.github/actions/install-mise
