@@ -96,8 +96,8 @@ mod sighting;
 
 pub use self::batch::{Batch, Glsl, NO_GLSL_BUILTIN, TRIANGLE, WEBGL1, WEBGL1_COMBINED, WEBGL2_COMBINED, batched};
 pub use self::canvas::{
-    Alteration, CANVAS, CANVAS_BROWSERLEAKS, KNOWN_BLOCK, KNOWN_SIZE, ReadLength, alteration, known_colour,
-    known_scene, pixel_hash,
+    Alteration, CANVAS, CANVAS_BROWSERLEAKS, CANVAS_BROWSERLEAKS_RESULTS, CANVAS_RESULTS, KNOWN_BLOCK, KNOWN_SIZE,
+    ReadLength, alteration, known_colour, known_scene, pixel_hash,
 };
 pub use self::clear::{CLEAR_COUNT, CLEARS, Clear, clear_reference};
 pub use self::fixed::{
@@ -384,6 +384,19 @@ impl ProbeSet {
                 choices: &CHOICES,
             },
         }
+    }
+}
+
+/// The name of each result a signature measured through `interface` gives, in output order.
+///
+/// A file of submissions lists a signature's values alone, in this order, so this is what names them. An interface with
+/// no probe set of its own answers the shader probes, as [`Signature`] reads it.
+#[must_use]
+pub fn result_names(interface: &str) -> Vec<&'static str> {
+    match interface {
+        CANVAS => CANVAS_RESULTS.to_vec(),
+        CANVAS_BROWSERLEAKS => CANVAS_BROWSERLEAKS_RESULTS.to_vec(),
+        _ => ProbeSet::measured_through(interface).names,
     }
 }
 

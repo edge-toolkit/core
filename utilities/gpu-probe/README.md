@@ -53,13 +53,13 @@ mise run build-gpu-probe-site
 With no server behind it, the page has no registry to add to, so instead of submit buttons it proposes what it found
 as a pull request. It first holds each probe set against the JSON it was deployed with, as the server would, and
 leaves out what the registry already records, saying how many sets were new signatures and which were known ones seen
-somewhere new, such as on a new browser version. The rest go in files of submissions for the registry's `submitted/`
-directory. The first file's link opens GitHub's page for adding a file, filled in with it; GitHub forks the repository
-for a visitor who cannot write to it, and opens the pull request when they press "Propose changes". A visit takes as
-many files as keep each link short enough for GitHub to open, so once the pull request is open, the visitor gives the
-page its link: the page asks GitHub's API for the branch it came from, and each later file's link adds that file to
-the same branch, so the whole visit is one pull request. Each file is named for its content, so proposing the same
-visit twice names a file the first proposal already made.
+somewhere new, such as on a new browser version. The rest go in plain-text files of submissions for the registry's
+`submitted/` directory, which name each GPU's row once and give each probe set's values without their names. A file's
+link opens GitHub's page for adding a file, filled in with it; GitHub forks the repository for a visitor who cannot
+write to it, and opens a pull request when they press "Propose changes". A visit with two GPUs fits in one link; one
+with more is split between GPUs across as many files as keep each link short enough for GitHub to open, each its own
+pull request. Each file is named for its content, so proposing the same visit twice names a file the first proposal
+already made.
 
 A pull request of a submitted file leaves `libs/gpu-probe/signatures.json` alone, since the JSON is generated from the
 curated entries only, and the tests check every submitted file is one the registry would take. Once such pull

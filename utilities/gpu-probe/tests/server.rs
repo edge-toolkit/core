@@ -186,6 +186,17 @@ async fn a_submission_not_sent_as_json_is_refused_unread() {
     assert!(!path.join("curated/webgpu-clear.yaml").exists());
 }
 
+#[actix_rt::test]
+async fn a_submission_past_64_kib_is_refused_unread() {
+    let dir = workspace();
+    let path = dir.path().join("registry");
+    let padded = NEW.replacen('{', &format!("{{{}", " ".repeat(64 * 1024)), 1);
+    let (status, accepted, message) = register(path.clone(), &padded).await;
+    assert_eq!((status, accepted), (StatusCode::PAYLOAD_TOO_LARGE, false));
+    assert!(message.contains("64 KiB"));
+    assert!(!path.join("curated/webgpu-clear.yaml").exists());
+}
+
 /// What `/status` answers `body`, sent as `content_type`.
 #[expect(
     clippy::future_not_send,
@@ -221,6 +232,15 @@ async fn a_page_status_not_sent_as_json_is_refused_unread() {
     assert_eq!(
         status_as("Submitted.", "text/plain").await,
         StatusCode::UNSUPPORTED_MEDIA_TYPE
+    );
+}
+
+#[actix_rt::test]
+async fn a_page_status_past_64_kib_is_refused_unread() {
+    let lines = format!(r#"{{"status": ["{}"]}}"#, "x".repeat(64 * 1024));
+    assert_eq!(
+        status_as(&lines, "application/json").await,
+        StatusCode::PAYLOAD_TOO_LARGE
     );
 }
 

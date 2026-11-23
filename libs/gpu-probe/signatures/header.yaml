@@ -12,8 +12,8 @@
 # from the blend unit, texture unit or rasterizer; webgl2-clear and webgl2-fixed-function are the same sets on WebGL
 # 2, a clearBufferfv taking the place of a render pass's clear. A new mechanism brings its own interface name.
 # The entries are kept beside this file, one file per interface under curated/, named for the interface, each a
-# "signatures" list. submitted/ holds sightings proposed from the hosted probe page, a "submissions" list per file in
-# the shape the server's /register takes, until gpu-probe-fold files them under curated/.
+# "signatures" list. submitted/ holds sightings proposed from the hosted probe page, in plain-text files, until
+# gpu-probe-fold files them under curated/.
 # A signature can be shared by several devices, so each entry lists every place it has been seen, one row each, under
 # "seen"; when a new sighting matches an existing entry, add a row rather than a duplicate entry. The label is only a
 # summary of the rows. A row names, from fixed sets of values:

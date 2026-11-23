@@ -12,7 +12,8 @@ use core::f64::consts::TAU;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use et_gpu_probe::{
-    Alteration, CANVAS, CANVAS_BROWSERLEAKS, KNOWN_BLOCK, KNOWN_SIZE, alteration, known_colour, known_scene, pixel_hash,
+    Alteration, CANVAS, CANVAS_BROWSERLEAKS, CANVAS_BROWSERLEAKS_RESULTS, CANVAS_RESULTS, KNOWN_BLOCK, KNOWN_SIZE,
+    alteration, known_colour, known_scene, pixel_hash,
 };
 use md5::{Digest as _, Md5};
 use serde_json::{Value, json};
@@ -325,11 +326,7 @@ pub fn scene(paths: &ReadPaths) -> Result<Value, CanvasError> {
         let reason = "randomised: getImageData altered a scene whose every value is known (noise added to reads)";
         return Ok(withheld(CANVAS, reason, &describe));
     }
-    let results: Vec<_> = first
-        .into_iter()
-        .enumerate()
-        .map(|(lane, word)| (format!("lane{lane}"), word))
-        .collect();
+    let results: Vec<_> = CANVAS_RESULTS.into_iter().map(str::to_owned).zip(first).collect();
     Ok(signature(CANVAS, &results, &describe))
 }
 
@@ -362,10 +359,9 @@ fn draw_scene(context: &CanvasRenderingContext2d, width: f64, height: f64) -> Re
 
 /// The canvas fingerprint browserleaks.com takes, in two sandboxed frames and on a canvas the page made.
 ///
-/// The two frames stand for two loads of that site.
-/// Its signature is the first frame's; a read in either frame that disagrees with it withholds the signature. The
-/// page's own canvas is only shown, to say whether the frame changes the answer. It is withheld too when the same read
-/// of the known scene in `paths` was altered.
+/// The two frames stand for two loads of that site. Its signature is the first frame's; a read in either frame that
+/// disagrees with it withholds the signature. The page's own canvas is only shown, to say whether the frame changes the
+/// answer. It is withheld too when the same read of the known scene in `paths` was altered.
 pub fn browserleaks(paths: &ReadPaths) -> Result<Value, CanvasError> {
     let document = document()?;
     let first = in_frame(&document, browserleaks_reads)?;
@@ -397,7 +393,7 @@ pub fn browserleaks(paths: &ReadPaths) -> Result<Value, CanvasError> {
     }
     Ok(signature(
         CANVAS_BROWSERLEAKS,
-        &[("md5".to_owned(), first.hash)],
+        &[(CANVAS_BROWSERLEAKS_RESULTS[0].to_owned(), first.hash)],
         &describe,
     ))
 }
