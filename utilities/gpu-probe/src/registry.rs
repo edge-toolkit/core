@@ -98,6 +98,10 @@ pub(crate) const ROW_ORDER: [&str; 18] = [
 /// The field of a row holding the browser's version, which a sighting is matched by its major version alone.
 const BROWSER_VERSION: &str = "browser_version";
 
+/// The fields of a row saying when and by which run it was first seen, which no sighting is matched by: a rerun on a
+/// later day, or another CI run, is the sighting already on record, and the row keeps its first day and run.
+const FIRST_SEEN: [&str; 2] = ["date", "source"];
+
 /// The fields of a row whose values come from fixed sets, which the registry writes unquoted.
 const ENUMERATED: [&str; 6] = ["browser", "os", "cpu_arch", "gpu", "backend", "window"];
 
@@ -649,15 +653,17 @@ fn reads_back(updated: &str, before: &File, index: usize) -> Result<(), Register
 
 /// Whether `row`, already in the registry, records `seen`: it gives every field `seen` gives, with the same value.
 ///
-/// A row written by hand often carries more than a submission can know -- the machine's name, the OS release -- and a
-/// submission that tells it nothing new is a sighting already on record, not one to add beside it. Only the entry
-/// holding the same signature is asked, so a browser's version is compared by its major version alone: a point
-/// release that answers the same is the sighting already on record, and one that answers differently is another entry.
+/// A row written by hand often carries more than a submission can know -- the machine's name, the OS release -- and
+/// a submission that tells it nothing new is a sighting already on record, not one to add beside it. Only the entry
+/// holding the same signature is asked, so a browser's version is compared by its major version alone: a point release
+/// that answers the same is the sighting already on record, and one that answers differently is another entry.
 fn covers(row: &BTreeMap<String, String>, seen: &BTreeMap<String, String>) -> bool {
-    seen.iter().all(|(field, value)| {
-        row.get(field)
-            .is_some_and(|held| comparable(field, held) == comparable(field, value))
-    })
+    seen.iter()
+        .filter(|(field, _)| !FIRST_SEEN.contains(&field.as_str()))
+        .all(|(field, value)| {
+            row.get(field)
+                .is_some_and(|held| comparable(field, held) == comparable(field, value))
+        })
 }
 
 /// The part of `value`, the value of `field`, that two rows are compared by: a browser's major version, or all of it.

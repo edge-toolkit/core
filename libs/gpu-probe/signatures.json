@@ -702,6 +702,146 @@
       }
     },
     {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.37 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "df283dc2c46e0d7aa1254eac103adb78"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.37 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "42957ddb133a3b94863cefd5925196bf"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Safari 27.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "e67911c4c3acce5588fa9cd89f7d49cb"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "LibreWolf 160.0.1 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "librewolf",
+          "browser_version": "160.0.1",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "defence": "privacy.resistFingerprinting, on as LibreWolf ships",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same canvas differed (per-read noise)"
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "f25bff745fb2f9ef6713219c6ab5b566"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "ddf3279e75073be201a38aa9f79c54cc"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Mullvad Browser 16.0.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "mullvad-browser",
+          "browser_version": "16.0.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "defence": "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out",
+          "window": "private"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same canvas differed (per-read noise)"
+    },
+    {
       "interface": "canvas",
       "label": "Apple M5 Pro, macOS -- canvas 2D on Chromium",
       "seen": [
@@ -1033,6 +1173,17 @@
           "gpu": "unknown",
           "backend": "unknown",
           "device": "Intel MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
           "window": "normal"
         }
       ],
@@ -1557,6 +1708,92 @@
       }
     },
     {
+      "interface": "canvas",
+      "label": "Safari 27.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "36a7ff71",
+        "lane1": "7eb02a2f",
+        "lane2": "ce9eb375",
+        "lane3": "41b414cd"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "LibreWolf 160.0.1 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "librewolf",
+          "browser_version": "160.0.1",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "defence": "privacy.resistFingerprinting, on as LibreWolf ships",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same scene differed (per-read noise)"
+    },
+    {
+      "interface": "canvas",
+      "label": "Firefox 160.0 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "b8653572",
+        "lane1": "50f5117c",
+        "lane2": "46992d81",
+        "lane3": "91bf6b07"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "Mullvad Browser 16.0.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "mullvad-browser",
+          "browser_version": "16.0.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "defence": "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out",
+          "window": "private"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same scene differed (per-read noise)"
+    },
+    {
       "interface": "host",
       "label": "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64",
       "seen": [
@@ -1859,6 +2096,19 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "none",
+          "backend": "none",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "Rust f32, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -1882,7 +2132,7 @@
     },
     {
       "interface": "wasi-nn",
-      "label": "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux x86_64, where its multiply-add is not fused",
+      "label": "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux and macOS x86_64, where its multiply-add is not fused",
       "seen": [
         {
           "browser": "none",
@@ -1937,6 +2187,45 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "none",
+          "backend": "none",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "none",
+          "backend": "none",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "none",
+          "backend": "none",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -2604,6 +2893,102 @@
       }
     },
     {
+      "interface": "webgl1-combined",
+      "label": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "33800000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc75ec",
+        "cos": "3f7eb8a9",
+        "tan": "3dcd7cac",
+        "exp": "3f8d763d",
+        "log": "3f8c9f54",
+        "pow": "3f8edd1f",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "ANGLE Metal Renderer: AMD Radeon Pro 5300M through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "ANGLE Metal Renderer: AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b98",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgl1-split",
       "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2)",
       "seen": [
@@ -3092,6 +3477,102 @@
       }
     },
     {
+      "interface": "webgl1-split",
+      "label": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "33800000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc75ec",
+        "cos": "3f7eb8a9",
+        "tan": "3dcd7cac",
+        "exp": "3f8d763d",
+        "log": "3f8c9f54",
+        "pow": "3f8edd1f",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "ANGLE Metal Renderer: AMD Radeon Pro 5300M through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "ANGLE Metal Renderer: AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b98",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgl1",
       "label": "Firefox 160.0.0 on macOS",
       "seen": [
@@ -3169,6 +3650,30 @@
           "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
           "backend": "vulkan",
           "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "ANGLE Metal Renderer: AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
           "window": "normal"
         }
       ],
@@ -3499,6 +4004,48 @@
         "half_rounding": "00003c01",
         "half_subnormal": "00000010",
         "half_overflow": "00007c00"
+      }
+    },
+    {
+      "interface": "webgl2-clear",
+      "label": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000a",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bb",
+        "srgb8_dark": "00000006",
+        "ufloat11_rounding": "000003c0",
+        "half_rounding": "00003c00",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007bff"
       }
     },
     {
@@ -3991,6 +4538,30 @@
           "gpu_version": "UHD Graphics 630",
           "backend": "metal",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4205,6 +4776,54 @@
       }
     },
     {
+      "interface": "webgl2-combined",
+      "label": "ANGLE Metal Renderer: AMD Radeon Pro 5300M through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "ANGLE Metal Renderer: AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b98",
+        "tanh": "3dcc1ebc",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgl2-fixed-function",
       "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78",
       "seen": [
@@ -4313,6 +4932,30 @@
           "gpu_version": "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)",
           "backend": "opengl-es",
           "device": "Dell Precision 5570",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
           "window": "normal"
         }
       ],
@@ -4545,6 +5188,47 @@
       }
     },
     {
+      "interface": "webgl2-fixed-function",
+      "label": "ANGLE Metal Renderer: AMD Radeon Pro 5300M through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "ANGLE Metal Renderer: AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c00",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0000",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0000",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
       "interface": "webgl2-split",
       "label": "AMD Radeon Graphics (0x15E7) through Direct3D 11 on Windows, HP EliteBook -- WebGL 2 on Chrome",
       "seen": [
@@ -4633,6 +5317,30 @@
           "gpu": "intel",
           "gpu_version": "UHD Graphics 630",
           "backend": "metal",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "ANGLE Metal Renderer: Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
           "window": "normal"
         }
       ],
@@ -5297,6 +6005,54 @@
       }
     },
     {
+      "interface": "webgl2-split",
+      "label": "ANGLE Metal Renderer: AMD Radeon Pro 5300M through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "ANGLE Metal Renderer: AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "gpu_version": "Apple GPU",
+          "backend": "unknown",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b98",
+        "tanh": "3dcc1ebc",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgl2",
       "label": "Tor Browser on macOS, Apple M5 Pro: reporting itself as Firefox 153.0.0, and 16.0.1 in a private window",
       "seen": [
@@ -5481,6 +6237,59 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-1",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "amd",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5900,6 +6709,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "gen-9",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -6503,6 +7353,47 @@
           "gpu_version": "AMD Radeon Pro 5300M",
           "backend": "metal",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-1",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -6836,6 +7727,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "gen-9",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -7372,6 +8304,42 @@
       }
     },
     {
+      "interface": "webgpu-combined",
+      "label": "amd through metal on macos, MacBook Pro (16-inch, 2019) -- WebGPU on safari",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "amd",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "33800000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebd",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgpu-f16-combined",
       "label": "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser",
       "seen": [
@@ -7845,6 +8813,47 @@
           "gpu_version": "AMD Radeon Pro 5300M",
           "backend": "metal",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "amd",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -7908,6 +8917,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "gen-9",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -8256,6 +9306,42 @@
         "atan2": "00002844",
         "tanh": "00002e64",
         "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgpu-f16-combined",
+      "label": "rdna-1 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-1",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00001000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002844",
+        "tanh": "00002e61",
+        "dot": "00003c00"
       }
     },
     {
@@ -8732,6 +9818,47 @@
           "gpu_version": "AMD Radeon Pro 5300M",
           "backend": "metal",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "amd",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -8795,6 +9922,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "gen-9",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -9146,6 +10314,42 @@
       }
     },
     {
+      "interface": "webgpu-f16-split",
+      "label": "rdna-1 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-1",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00001000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002844",
+        "tanh": "00002e61",
+        "dot": "00003c00"
+      }
+    },
+    {
       "interface": "webgpu-fixed-function",
       "label": "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser",
       "seen": [
@@ -9209,6 +10413,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "gen-9",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -9711,6 +10956,59 @@
           "gpu_version": "AMD Radeon Pro 5300M",
           "backend": "metal",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-1",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "amd",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -10369,6 +11667,47 @@
           "gpu_version": "AMD Radeon Pro 5300M",
           "backend": "metal",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon Pro 5300M",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-1",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
         }
       ],
       "results": {
@@ -11161,6 +12500,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "wgpu 29.0.4, built for x86_64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "gpu": "intel",
+          "gpu_version": "gen-9",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -11293,6 +12673,42 @@
         "pow": "3f8edd20",
         "atan2": "3d087ae7",
         "tanh": "3dcc1ebe",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgpu-split",
+      "label": "amd through metal on macos, MacBook Pro (16-inch, 2019) -- WebGPU on safari",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "27.2",
+          "os": "macos",
+          "os_version": "26.7.3",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "amd",
+          "backend": "metal",
+          "device": "MacBook Pro (16-inch, 2019)",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "33800000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebd",
         "dot": "00000000"
       }
     },

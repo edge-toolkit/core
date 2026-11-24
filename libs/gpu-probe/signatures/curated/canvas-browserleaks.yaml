@@ -499,3 +499,103 @@ signatures:
         window: normal
     results:
       md5: "526f301a3eac8be689db0cb74f49a8a5"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.37 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      md5: "df283dc2c46e0d7aa1254eac103adb78"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.37 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      md5: "42957ddb133a3b94863cefd5925196bf"
+  - interface: canvas-browserleaks
+    label: "Safari 27.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      md5: "e67911c4c3acce5588fa9cd89f7d49cb"
+  - interface: canvas-browserleaks
+    label: "LibreWolf 160.0.1 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0.1"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      md5: "f25bff745fb2f9ef6713219c6ab5b566"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      md5: "ddf3279e75073be201a38aa9f79c54cc"
+  - interface: canvas-browserleaks
+    label: "Mullvad Browser 16.0.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"

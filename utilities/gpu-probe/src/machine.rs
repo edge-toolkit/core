@@ -34,8 +34,8 @@ pub struct Machine {
 impl Machine {
     /// This machine, named `device` unless it is a GitHub Actions runner, which is named by its image instead.
     ///
-    /// A field whose value the system does not give is left out, as is `device` when `device` is empty and this is no
-    /// runner.
+    /// An empty `device` names the machine `GPU_PROBE_DEVICE` gives. A field whose value the system does not give is
+    /// left out, as is `device` when neither names one and this is no runner.
     pub fn here(device: &str) -> Result<Self, MachineError> {
         let env = config::load()?;
         let date = jiff::Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).date();
@@ -54,13 +54,18 @@ impl Machine {
         Self { fields: row(fields) }
     }
 
-    /// The machine a runner's `env` describes, or `device` off a runner.
+    /// The machine a runner's `env` describes, or `device` off a runner, else the device `env` names.
     ///
     /// It gives the system's `release`, its `cpu`, and the `date` beside the device.
     fn from_parts(env: &Config, device: &str, release: &str, cpu: &str, date: &str) -> Self {
         let runner = (!env.imageos.is_empty())
             .then(|| format!("GitHub Actions runner image {} {}", env.imageos, env.imageversion));
-        let device = runner.unwrap_or_else(|| device.to_owned());
+        let named = if device.trim().is_empty() {
+            &env.gpu.probe_device
+        } else {
+            device
+        };
+        let device = runner.unwrap_or_else(|| named.to_owned());
         let github = &env.github;
         let source = if github.run_id.is_empty() {
             String::default()

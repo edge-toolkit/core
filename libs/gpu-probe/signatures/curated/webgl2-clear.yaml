@@ -11,6 +11,26 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "ANGLE Metal Renderer: AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -281,3 +301,38 @@ signatures:
       half_rounding: "00003c01"
       half_subnormal: "00000010"
       half_overflow: "00007c00"
+  - interface: webgl2-clear
+    label: "ANGLE Metal Renderer: Intel(R) UHD Graphics 630 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL
+      2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "ANGLE Metal Renderer: Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar"
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"

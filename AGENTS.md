@@ -1278,6 +1278,12 @@ have resolved just as well as the uppercase one -- so a variadic arg may not be 
 Settle it on Windows before touching the convention again: dump the environment inside two task bodies, one with a
 variadic arg and one with a plain arg, on the mise version the CI lanes install.
 
+## Next PR: reach a GPU other than NVIDIA's through `wasi:nn`
+
+The next pull request after the one adding the execution targets to `nn_probe` is to build wasmtime-wasi-nn's
+`openvino` backend, and `winml` on Windows, with the OpenVINO runtime as a mise tool, so the `gpu` target reaches an
+Intel GPU and, on Windows, any GPU, and `nn_probe` measures one.
+
 ## Linting
 
 Lint checks must be expressed through one of the repo's linters -- **never** as a bespoke shell script, whether a

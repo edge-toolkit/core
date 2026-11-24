@@ -215,15 +215,49 @@ pub struct GpuComputeResult {
     result_c00: f32,
 }
 
-/// What each of the six WebGPU probe sets answers through this runtime's WebGPU, as the JSON stored for the run.
+/// What each of the six WebGPU probe sets answers on each GPU this runtime's WebGPU offers, as the JSON stored for
+/// the run.
+///
+/// A runtime offers its GPUs only one for each power preference, as a browser does, so an adapter is asked for with
+/// each; one that gives an adapter already measured, as a machine with a single GPU does, adds nothing. A preference
+/// that gives no adapter is a problem of the run beside those of each adapter's sets.
+async fn probe_sets() -> serde_json::Value {
+    let preferences = [
+        (wgpu::PowerPreference::HighPerformance, "high-performance"),
+        (wgpu::PowerPreference::LowPower, "low-power"),
+    ];
+    let mut measured: Vec<(String, u32, u32, String)> = Vec::new();
+    let mut adapters = Vec::new();
+    let mut problems = Vec::new();
+    for (power_preference, power) in preferences {
+        let options = wgpu::RequestAdapterOptions {
+            power_preference,
+            ..wgpu::RequestAdapterOptions::default()
+        };
+        match et_gpu_probe::native::Gpu::open_with(&options).await {
+            Ok(gpu) => {
+                let info = gpu.info();
+                let identity = (info.name, info.vendor, info.device, info.driver);
+                if !measured.contains(&identity) {
+                    measured.push(identity);
+                    adapters.push(adapter_sets(&gpu, power).await);
+                }
+            }
+            Err(problem) => problems.push(format!("WebGPU {power}: {problem}")),
+        }
+    }
+    json!({ "adapters": adapters, "problems": problems })
+}
+
+/// What each of the six WebGPU probe sets answers on `gpu`, reached by asking for the `power` preference.
 ///
 /// The sets are measured through `et-gpu-probe` on wgpu, as the probe page measures them, beside the adapter's own
 /// description and the versions the API gives. A set that does not answer is given as a problem beside the others.
-async fn probe_sets() -> serde_json::Value {
-    let gpu = match et_gpu_probe::native::Gpu::open().await {
-        Ok(gpu) => gpu,
-        Err(problem) => return json!({ "signatures": [], "problems": [format!("WebGPU: {problem}")] }),
-    };
+#[expect(
+    clippy::single_call_fn,
+    reason = "measures one adapter, apart from the loop asking for each"
+)]
+async fn adapter_sets(gpu: &et_gpu_probe::native::Gpu, power: &str) -> serde_json::Value {
     let info = gpu.info();
     let mut signatures = Vec::new();
     let mut problems = Vec::new();
@@ -234,7 +268,8 @@ async fn probe_sets() -> serde_json::Value {
         }
     }
     json!({
-        "adapter": { "name": info.name, "vendor": info.vendor, "driver": info.driver },
+        "power": power,
+        "adapter": { "name": info.name, "vendor": info.vendor, "device": info.device, "driver": info.driver },
         "versions": gpu.report().versions,
         "signatures": signatures,
         "problems": problems,
@@ -537,8 +572,8 @@ fn create_canvas(window: &web_sys::Window) -> Result<HtmlCanvasElement, JsValue>
 
 /// A WebGL 2 context on a one-pixel canvas, `null` where the browser has none to give.
 ///
-/// The drawing buffer keeps its alpha unpremultiplied and is not antialiased, so the one pixel a probe draws
-/// reads back as exactly the four bytes the shader wrote.
+/// The drawing buffer keeps its alpha unpremultiplied and is not antialiased, so the one pixel a probe draws reads back
+/// as exactly the four bytes the shader wrote.
 fn create_probe_context(window: &web_sys::Window) -> Result<JsValue, JsValue> {
     let canvas = create_canvas(window)?;
     canvas.set_width(1);
@@ -643,9 +678,9 @@ pub struct GpuNumericProbe {
 impl GpuNumericProbe {
     /// Put each numeric probe to the WebGPU device as a compute shader of its own.
     ///
-    /// Nothing a device does to a probe fails this call. A shader it will not compile, a validation error or a
-    /// failed `mapAsync` is recorded as that probe's answer and the rest still run, because the probes exist to
-    /// run on every GPU and a signature with gaps identifies a device better than none.
+    /// Nothing a device does to a probe fails this call. A shader it will not compile, a validation error or a failed
+    /// `mapAsync` is recorded as that probe's answer and the rest still run, because the probes exist to run on every
+    /// GPU and a signature with gaps identifies a device better than none.
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
@@ -675,8 +710,8 @@ impl GpuNumericProbe {
 
     /// Put each numeric probe to the GPU through WebGL 2, as a fragment shader drawn over one pixel.
     ///
-    /// This reaches a GPU that WebGPU does not: a browser without WebGPU, or a page on an origin the browser
-    /// will not give WebGPU to. As with [`Self::run`], nothing a device does to a probe fails this call.
+    /// This reaches a GPU that WebGPU does not: a browser without WebGPU, or a page on an origin the browser will not
+    /// give WebGPU to. As with [`Self::run`], nothing a device does to a probe fails this call.
     #[wasm_bindgen(js_name = runWebgl)]
     pub fn run_webgl() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
@@ -820,8 +855,8 @@ pub struct GpuInfo {
 impl GpuInfo {
     #[wasm_bindgen(js_name = detect)]
     pub async fn detect() -> Result<Self, JsValue> {
-        // A browser may blank the WebGPU adapter's device and description, which leaves no renderer to name.
-        // WebGL's debug renderer string usually still names the GPU, so it fills that gap where it can.
+        // A browser may blank the WebGPU adapter's device and description, which leaves no renderer to name. WebGL's
+        // debug renderer string usually still names the GPU, so it fills that gap where it can.
         if let Some(info) = detect_webgpu_info().await? {
             if info.renderer != "unknown" {
                 return Ok(info);
@@ -1089,7 +1124,7 @@ pub async fn run() -> Result<(), JsValue> {
         let environment = browser_environment(&window)?;
         log(&format!("environment: {environment}"));
 
-        log("measuring the six WebGPU probe sets");
+        log("measuring the six WebGPU probe sets on each GPU");
         let sets = probe_sets().await;
         log(&format!("WebGPU probe sets: {sets}"));
         let agent_id = client.get_agent_id();

@@ -89,6 +89,26 @@ signatures:
         backend: opengl-es
         device: "Dell Precision 5570"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "ANGLE Metal Renderer: Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar"
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -273,6 +293,40 @@ signatures:
       filter_third: "3eaa0000"
       filter_fine: "00000000"
       filter_srgb: "3ddd0dd1"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgl2-fixed-function
+    label: "ANGLE Metal Renderer: AMD Radeon Pro 5300M through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL 2 on
+      chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "ANGLE Metal Renderer: AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0000"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0000"
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"

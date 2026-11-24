@@ -8,22 +8,31 @@ use et_gpu_probe_server::machine::Machine;
 use pretty_assertions::assert_eq;
 use temp_env::with_vars;
 
-/// The variables a GitHub Actions runner sets that the machine reads, all unset.
-const UNSET: [(&str, Option<&str>); 5] = [
+/// The variables the machine reads, all unset.
+const UNSET: [(&str, Option<&str>); 6] = [
     ("ImageOS", None),
     ("ImageVersion", None),
     ("GITHUB_SERVER_URL", None),
     ("GITHUB_REPOSITORY", None),
     ("GITHUB_RUN_ID", None),
+    ("GPU_PROBE_DEVICE", None),
 ];
 
-/// The variables a run on a `macos-latest` runner sets that the machine reads.
-const RUNNER: [(&str, Option<&str>); 5] = [
+/// The variables the machine reads off a runner, `GPU_PROBE_DEVICE` naming `device` and the rest unset.
+fn named(device: &'static str) -> [(&'static str, Option<&'static str>); 6] {
+    let mut vars = UNSET;
+    vars[5].1 = Some(device);
+    vars
+}
+
+/// The variables a run on a `macos-latest` runner sets that the machine reads, a device named beside them.
+const RUNNER: [(&str, Option<&str>); 6] = [
     ("ImageOS", Some("macos15")),
     ("ImageVersion", Some("20261110.1")),
     ("GITHUB_SERVER_URL", Some("https://github.com")),
     ("GITHUB_REPOSITORY", Some("edge-toolkit/core")),
     ("GITHUB_RUN_ID", Some("45112698960")),
+    ("GPU_PROBE_DEVICE", Some("ignored on a runner")),
 ];
 
 #[test]
@@ -48,8 +57,26 @@ fn a_machine_off_a_runner_named_nothing_gives_no_device() {
 }
 
 #[test]
+fn a_machine_named_nothing_is_named_by_the_environment() {
+    let machine = with_vars(named("MacBook Pro (16-inch, 2019)"), || Machine::here("")).unwrap();
+    assert_eq!(
+        machine.fields().get("device").map(String::as_str),
+        Some("MacBook Pro (16-inch, 2019)")
+    );
+}
+
+#[test]
+fn a_device_given_outranks_the_environments() {
+    let machine = with_vars(named("a desktop"), || Machine::here("M5 Pro MacBook Pro")).unwrap();
+    assert_eq!(
+        machine.fields().get("device").map(String::as_str),
+        Some("M5 Pro MacBook Pro")
+    );
+}
+
+#[test]
 fn a_runner_is_named_by_its_image_and_the_run_it_is_part_of() {
-    let machine = with_vars(RUNNER, || Machine::here("ignored on a runner")).unwrap();
+    let machine = with_vars(RUNNER, || Machine::here("")).unwrap();
     let fields = machine.fields();
     assert_eq!(
         fields.get("device").map(String::as_str),

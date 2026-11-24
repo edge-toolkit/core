@@ -397,6 +397,41 @@ signatures:
         gpu_version: "AMD Radeon Pro 5300M"
         backend: metal
         window: none
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "wgpu 29.0.4, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "amd"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
     results:
       multiply_add: "00001000"
       fma: "00001000"
@@ -450,6 +485,41 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "wgpu 29.0.4, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-9"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00001000"
       fma: "00001000"
@@ -752,3 +822,33 @@ signatures:
       atan2: "00002844"
       tanh: "00002e64"
       dot: "00000000"
+  - interface: webgpu-f16-split
+    label: "rdna-1 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-1"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002844"
+      tanh: "00002e61"
+      dot: "00003c00"

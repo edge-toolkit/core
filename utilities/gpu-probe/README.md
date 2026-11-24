@@ -109,7 +109,7 @@ line pasted into it, as JSON submissions one per line. `/signatures.yaml` serves
 and every curated entry as one document, and `--root` serves a probe page's files at `/`.
 
 A row the registry already holds with every field the same, perhaps among more written by hand, records the sighting
-already, so nothing is added for it.
+already, so nothing is added for it. The day and the run's URL are not compared: the row keeps the first ones.
 
 ## Recording this machine
 

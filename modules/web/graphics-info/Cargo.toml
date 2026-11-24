@@ -36,6 +36,7 @@ web-sys = { workspace = true, features = [
   "Window",
   "console",
 ] }
+wgpu.workspace = true
 
 [lints]
 workspace = true

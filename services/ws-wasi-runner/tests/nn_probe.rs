@@ -1,9 +1,9 @@
-//! Puts the GPU probe set to the `wasi:nn` backend the runner hosts, which evaluates it on the CPU.
+//! Puts the GPU probe set to the `wasi:nn` backend the runner hosts, under each execution target a guest can ask for.
 //!
-//! The probes are spelled as an ONNX graph, one operator per operation, and ONNX Runtime's own kernels answer them: no
-//! GPU and no browser is involved, so the signature is that of the runtime's arithmetic on this machine. It is checked
-//! against the one recorded for the machine, printed, and proposed as a file of submissions where `GPU_PROBE_INTO`
-//! names a directory, which is how a machine's signature comes to be recorded.
+//! The probes are spelled as an ONNX graph, one operator per operation, and ONNX Runtime's own kernels answer them,
+//! on whichever device the backend picks for the target. Each signature is checked against the one recorded for the
+//! machine, printed, and proposed as a file of submissions where `GPU_PROBE_INTO` names a directory, which is how a
+//! machine's signature comes to be recorded.
 #![cfg(test)]
 
 use et_gpu_probe::{Answer, INPUTS, PROBE_COUNT, Signature, WASI_NN, shaders};
@@ -191,24 +191,50 @@ fn nn_signature(context: &mut ExecutionContext) -> Signature {
     )
 }
 
-/// `signature` as a submission, seen at a row of this machine and [`RUNTIME`], with no GPU and no browser.
+/// Each execution target a guest can name, beside how the target is written in WIT.
+const TARGETS: [(ExecutionTarget, &str); 3] = [
+    (ExecutionTarget::Cpu, "cpu"),
+    (ExecutionTarget::Gpu, "gpu"),
+    (ExecutionTarget::Tpu, "tpu"),
+];
+
+/// The GPU the backend runs a graph loaded for `target` on, as a row names it, beside how a label says so.
+///
+/// Only `gpu` in a build with the `cuda` feature can reach one, and even then ONNX Runtime runs the session on the CPU
+/// when the CUDA provider does not register, without wasmtime-wasi-nn saying which it chose; so that one is `unknown`.
+/// The backend runs every other request on the CPU.
+#[expect(
+    clippy::single_call_fn,
+    reason = "names what the backend makes of each target, apart from the loop over them"
+)]
+fn device(target: ExecutionTarget) -> (&'static str, &'static str) {
+    if cfg!(feature = "cuda") && matches!(target, ExecutionTarget::Gpu) {
+        return ("unknown", "CUDA, or the CPU it falls back to,");
+    }
+    ("none", "the CPU")
+}
+
+/// `signature`, measured on a graph loaded for the target `name`, as a submission seen at this machine's row.
+///
+/// The row names the `gpu` the graph ran on, and the label what it `ran_on`.
 #[expect(
     clippy::single_call_fn,
     reason = "a named step of the test, kept apart from the measurement it records"
 )]
-fn submission(signature: &Signature) -> Submission {
+fn submission(signature: &Signature, (gpu, ran_on): (&str, &str), name: &str) -> Submission {
     let (system, arch) = (std::env::consts::OS, std::env::consts::ARCH);
     let machine = Machine::here("").unwrap();
+    let runtime = format!("{RUNTIME}, asked for the {name} execution target");
     let seen = row(&[
         ("browser", "none"),
         ("os", system),
         ("cpu_arch", arch),
-        ("gpu", "none"),
+        ("gpu", gpu),
         ("backend", "none"),
-        ("runtime", RUNTIME),
+        ("runtime", &runtime),
         ("window", "none"),
     ]);
-    let label = format!("{RUNTIME} on the CPU behind wasi:nn: {}", machine.named(system, arch));
+    let label = format!("{RUNTIME} on {ran_on} behind wasi:nn: {}", machine.named(system, arch));
     Submission::measured(WASI_NN, signature, &label, machine.row(seen))
 }
 
@@ -216,44 +242,46 @@ fn submission(signature: &Signature) -> Submission {
 fn onnx_runtime_answers_every_probe_and_the_same_way_twice() {
     let model = probe_model();
     let mut backends = wasmtime_wasi_nn::backend::list();
-    let graph = backends
-        .first_mut()
-        .unwrap()
-        .load(&[&model], ExecutionTarget::Cpu)
-        .unwrap();
-    let mut context = graph.init_execution_context().unwrap();
-
-    let signature = nn_signature(&mut context);
+    let backend = backends.first_mut().unwrap();
     let hardware = format!("{} {}", std::env::consts::OS, std::env::consts::ARCH);
     println!("{WASI_NN} hardware: {hardware}");
-    println!("{WASI_NN} fingerprint: {}", signature.fingerprint());
-    println!("{WASI_NN} registry: {}", signature.identify().join(" | "));
-    println!("{WASI_NN} traits: {}", signature.traits());
-    println!("{WASI_NN} {}", signature.describe().join("\n"));
+    let mut submissions = Vec::new();
+    for (target, name) in TARGETS {
+        let graph = backend.load(&[&model], target).unwrap();
+        let mut context = graph.init_execution_context().unwrap();
+        let signature = nn_signature(&mut context);
+        println!("{WASI_NN} {name} fingerprint: {}", signature.fingerprint());
+        println!("{WASI_NN} {name} registry: {}", signature.identify().join(" | "));
+        println!("{WASI_NN} {name} traits: {}", signature.traits());
+        println!("{WASI_NN} {name} {}", signature.describe().join("\n"));
 
-    assert_eq!(signature.completed(), PROBE_COUNT);
-    assert!(!signature.traits().contains("=other"));
-    assert_eq!(signature.fingerprint(), nn_signature(&mut context).fingerprint());
-    let proposed = propose_where_asked(&[submission(&signature)]).unwrap();
-    for path in proposed {
+        assert_eq!(signature.completed(), PROBE_COUNT);
+        assert!(!signature.traits().contains("=other"));
+        assert_eq!(signature.fingerprint(), nn_signature(&mut context).fingerprint());
+        let ran_on = device(target);
+        // The platforms whose answers through ONNX Runtime on the CPU are on record in the registry.
+        #[cfg(any(
+            all(target_os = "macos", target_arch = "aarch64"),
+            all(target_os = "macos", target_arch = "x86_64"),
+            all(target_os = "linux", target_arch = "aarch64"),
+            all(target_os = "linux", target_arch = "x86_64"),
+        ))]
+        if ran_on.0 == "none" {
+            assert!(signature.seen().unwrap().iter().any(et_gpu_probe::Sighting::is_here));
+        }
+        submissions.push(submission(&signature, ran_on, name));
+    }
+    for path in propose_where_asked(&submissions).unwrap() {
         println!("{WASI_NN} proposed in {}", path.display());
     }
-    // The platforms whose answers through ONNX Runtime are on record in the registry.
-    #[cfg(any(
-        all(target_os = "macos", target_arch = "aarch64"),
-        all(target_os = "linux", target_arch = "aarch64"),
-        all(target_os = "linux", target_arch = "x86_64"),
-    ))]
-    assert!(signature.seen().unwrap().iter().any(et_gpu_probe::Sighting::is_here));
 
     // On macOS a process that has run an ONNX Runtime 1.22 session aborts as it exits, after the test has passed:
     //
-    //   libc++abi: terminating due to uncaught exception of type
-    //   std::__1::system_error: mutex lock failed: Invalid argument
-    //   (test aborted with signal 6: SIGABRT)
+    // libc++abi: terminating due to uncaught exception of type std::__1::system_error: mutex lock failed: Invalid
+    // argument (test aborted with signal 6: SIGABRT)
     //
-    // Seen on every run of this test on an Apple M5 Pro, at the commit below. The runner's `main` leaves by `_exit`
-    // for the same abort, which skips the exit handlers it happens in, and so does this.
+    // Seen on every run of this test on an Apple M5 Pro, at the commit below. The runner's `main` leaves by `_exit` for
+    // the same abort, which skips the exit handlers it happens in, and so does this.
     //
     // https://github.com/edge-toolkit/core/commit/aba5d88c170c70fae30511f2ef6b44ad9a27fa1d
     #[cfg(target_os = "macos")]

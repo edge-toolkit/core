@@ -53,6 +53,12 @@ Type: string. Default: empty.
 
 The server, such as `https://github.com`.
 
+### `GPU_PROBE_DEVICE`
+
+Type: string. Default: empty.
+
+The machine a measurement names as its device, such as `Dell Precision 5570`, where it is given none itself.
+
 ### `GPU_PROBE_INTO`
 
 Type: string. Default: empty.

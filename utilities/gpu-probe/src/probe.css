@@ -23,8 +23,8 @@ button {
   color: #b23;
 }
 
-/* A triangle in the page's top right corner, holding the GitHub mark, that links to the repository. */
-/* The system colours for text and its background make it the page's text colour in light and dark alike. */
+/* A triangle in the page's top right corner, holding the GitHub mark, that links to the repository. The system
+  colours for text and its background make it the page's text colour in light and dark alike. */
 .github-corner {
   position: absolute;
   top: 0;

@@ -126,9 +126,9 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
 
 /// Propose what the graphics-info module stored of the six WebGPU probe sets, found under the hub's `storage` root.
 ///
-/// Each set that answered becomes a submission seen at a row of this machine, running Deno through this runner, and
-/// is written where `GPU_PROBE_INTO` names a directory, as every GPU probe measurement in CI is. The file must have
-/// been stored, whether or not any set answered: a runtime with no WebGPU stores its problems instead.
+/// Each set that answered becomes a submission seen at a row of this machine, running Deno through this runner, and is
+/// written where `GPU_PROBE_INTO` names a directory, as every GPU probe measurement in CI is. The file must have been
+/// stored, whether or not any set answered: a runtime with no WebGPU stores its problems instead.
 #[expect(
     clippy::single_call_fn,
     reason = "a named step of the graphics-info case, kept apart from the run it records"
@@ -173,27 +173,58 @@ fn deno_crates() -> String {
     )
 }
 
-/// Each probe set in the `sets` the graphics-info module stored as a submission seen at this machine's row.
+/// The vendor of the WebGPU `adapter` named `name`: by the PCI id it gives, else by its name.
 #[expect(
     clippy::single_call_fn,
-    reason = "a named step of the graphics-info case, kept apart from the run it records"
+    reason = "a named step of reading the adapter the graphics-info module stored"
 )]
-fn probe_set_submissions(sets: &serde_json::Value) -> Vec<et_gpu_probe_server::registry::Submission> {
-    let (system, arch) = (std::env::consts::OS, std::env::consts::ARCH);
-    let machine = et_gpu_probe_server::machine::Machine::here("").unwrap();
-    let text = |value: &serde_json::Value| value.as_str().unwrap_or_default().to_owned();
-    let adapter = &sets["adapter"];
-    let name = text(&adapter["name"]);
+fn adapter_vendor(adapter: &serde_json::Value, name: &str) -> et_gpu_probe::GpuVendor {
     let vendor_id = adapter["vendor"]
         .as_u64()
         .and_then(|id| u32::try_from(id).ok())
         .unwrap_or_default();
     let by_id = et_gpu_probe::GpuVendor::from_id(vendor_id);
-    let vendor = if by_id == et_gpu_probe::GpuVendor::Unknown {
-        et_gpu_probe::GpuVendor::from_device_name(&name)
+    if by_id == et_gpu_probe::GpuVendor::Unknown {
+        et_gpu_probe::GpuVendor::from_device_name(name)
     } else {
         by_id
-    };
+    }
+}
+
+/// Each probe set in the `sets` the graphics-info module stored, on every GPU it reached, as a submission seen at a row
+/// of this machine and that GPU.
+///
+/// Every adapter the module measured gives its sets, so a machine with a high-performance and a low-power GPU proposes
+/// both. One adapter at least must have been reached, unless the runtime gave none at all.
+#[expect(
+    clippy::single_call_fn,
+    reason = "a named step of the graphics-info case, kept apart from the run it records"
+)]
+fn probe_set_submissions(sets: &serde_json::Value) -> Vec<et_gpu_probe_server::registry::Submission> {
+    let machine = et_gpu_probe_server::machine::Machine::here("").unwrap();
+    let adapters = sets["adapters"].as_array().unwrap();
+    println!("graphics-info measured {} GPU(s)", adapters.len());
+    assert!(!adapters.is_empty() || !sets["problems"].as_array().unwrap().is_empty());
+    adapters
+        .iter()
+        .flat_map(|adapter_sets| adapter_submissions(&machine, adapter_sets))
+        .collect()
+}
+
+/// Each probe set the graphics-info module measured on one GPU, `sets`, as a submission seen at `machine`'s row.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the submissions of one adapter, apart from the loop over every adapter"
+)]
+fn adapter_submissions(
+    machine: &et_gpu_probe_server::machine::Machine,
+    sets: &serde_json::Value,
+) -> Vec<et_gpu_probe_server::registry::Submission> {
+    let (system, arch) = (std::env::consts::OS, std::env::consts::ARCH);
+    let text = |value: &serde_json::Value| value.as_str().unwrap_or_default().to_owned();
+    let adapter = &sets["adapter"];
+    let name = text(&adapter["name"]);
+    let vendor = adapter_vendor(adapter, &name);
     let deno = deno_crates();
     let runtime = format!("et-ws-web-runner {}", env!("CARGO_PKG_VERSION"));
     let mut row: std::collections::BTreeMap<String, String> = [

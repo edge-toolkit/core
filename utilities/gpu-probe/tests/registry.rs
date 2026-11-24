@@ -166,6 +166,36 @@ fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
 }
 
 #[test]
+fn a_later_day_or_run_is_the_sighting_already_on_record() {
+    let (_dir, registry) = registry(REGISTRY);
+    let seen_on =
+        |date: &str, source: &str| known_seen_with(&[("device", "a laptop"), ("date", date), ("source", source)]);
+    assert_eq!(
+        registry
+            .register(&seen_on("2026-11-12", "https://example.test/runs/1"))
+            .unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
+    let recorded = text(&registry);
+    for (date, source) in [
+        ("2026-11-24", "https://example.test/runs/1"),
+        ("2026-11-12", "https://example.test/runs/2"),
+    ] {
+        assert_eq!(
+            registry.register(&seen_on(date, source)).unwrap(),
+            Outcome::Present("Known GPU".to_owned())
+        );
+    }
+    assert_eq!(text(&registry), recorded);
+    // Any other field still tells one sighting from another.
+    let elsewhere = known_seen_with(&[("device", "a desktop"), ("date", "2026-11-24")]);
+    assert_eq!(
+        registry.register(&elsewhere).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
+}
+
+#[test]
 fn a_browser_version_is_matched_by_its_major_version() {
     let (_dir, registry) = registry(REGISTRY);
     let at_version = |version: &str| known_seen_with(&[("browser_version", version)]);

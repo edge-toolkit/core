@@ -1,6 +1,6 @@
 signatures:
   - interface: wasi-nn
-    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux x86_64, where its multiply-add is not fused"
+    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux and macOS x86_64, where its multiply-add is not fused"
     seen:
       - browser: none
         os: linux
@@ -48,6 +48,39 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"

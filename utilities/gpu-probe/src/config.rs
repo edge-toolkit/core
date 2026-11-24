@@ -46,6 +46,9 @@ pub struct Gpu {
     /// A directory a measurement writes what it measured into as a file of submissions; none is written when empty.
     #[serde(default)]
     pub probe_into: String,
+    /// The machine a measurement names as its device, such as `Dell Precision 5570`, where it is given none itself.
+    #[serde(default)]
+    pub probe_device: String,
 }
 
 /// The environment, read.
