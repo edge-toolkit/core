@@ -1637,7 +1637,10 @@ slug='ascii_downcase | gsub("[(](r|tm)[)]"; "") | gsub("[^a-z0-9]+"; "-") | ltri
 named="gpu: (\\$gpu[0] + { id: (\\$gpu[0].name | $slug) })"
 # shellcheck disable=SC2016
 its_own="select(keys[0] | $per_gpu and endswith(\\"/\\" + \\$gpu[0].name))"
-gpu_record="{ machine: $machine_record, $named, benchmarks: ([ .[] | $its_own ] | add) }"
+# Each is keyed by the benchmark alone, since the file's `gpu` already names the adapter every one of them ran on.
+# shellcheck disable=SC2016
+unnamed="with_entries(.key |= rtrimstr(\\"/\\" + \\$gpu[0].name))"
+gpu_record="{ machine: $machine_record, $named, benchmarks: ([ .[] | $its_own ] | add | $unnamed) }"
 jaq -c '.[] | select(.name)' "$adapters" | while read -r adapter; do
   printf '%s\\n' "$adapter" >"$home/adapter.json"
   gpu=$(jaq -r ".name | $slug" "$home/adapter.json")

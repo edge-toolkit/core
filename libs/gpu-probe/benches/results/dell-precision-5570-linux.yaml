@@ -4,6 +4,19 @@ machine:
   host: x86_64-unknown-linux-gnu
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
   recorded: "2026-11-17"
+  adapters:
+    - backend: vulkan
+      computes: true
+      gpu_version: Intel(R) Iris(R) Xe Graphics (ADL GT2)
+      name: Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan)
+    - backend: vulkan
+      computes: true
+      gpu_version: llvmpipe (LLVM 20.1.2, 256 bits)
+      name: llvmpipe (LLVM 20.1.2, 256 bits) (vulkan)
+    - backend: vulkan
+      computes: true
+      gpu_version: NVIDIA RTX A1000 Laptop GPU
+      name: NVIDIA RTX A1000 Laptop GPU (vulkan)
 benchmarks:
   formats/decode/rg11b10ufloat:
     latency:
@@ -105,81 +118,6 @@ benchmarks:
       value: 17.75
       lower_value: 17.68
       upper_value: 17.82
-  gpus/clear_signature/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 645734.05
-      lower_value: 611054.78
-      upper_value: 684217.26
-  gpus/clear_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 1.23573382e+06
-      lower_value: 1.22055912e+06
-      upper_value: 1.24925939e+06
-  gpus/clear_signature/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 265916.26
-      lower_value: 251199.84
-      upper_value: 280355.56
-  gpus/combined_signature/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 235429.24
-      lower_value: 216017.43
-      upper_value: 254712.02
-  gpus/combined_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 128370.77
-      lower_value: 126373.27
-      upper_value: 130166.95
-  gpus/combined_signature/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 63888.25
-      lower_value: 63219.99
-      upper_value: 64556.52
-  gpus/f16_combined_signature/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 195126.53
-      lower_value: 177249.5
-      upper_value: 210668.91
-  gpus/f16_combined_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 131010.79
-      lower_value: 128821.31
-      upper_value: 133386.57
-  gpus/f16_combined_signature/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 64954.37
-      lower_value: 62761.64
-      upper_value: 67521.62
-  gpus/f16_signature/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 964414.43
-      lower_value: 946329.98
-      upper_value: 981841.25
-  gpus/f16_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 1.87842406e+06
-      lower_value: 1.57176655e+06
-      upper_value: 2.2241464e+06
-  gpus/f16_signature/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 1.09662728e+06
-      lower_value: 1.03311789e+06
-      upper_value: 1.15533586e+06
-  gpus/fixed_function_signature/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 2.24718574e+06
-      lower_value: 2.19755926e+06
-      upper_value: 2.30526143e+06
-  gpus/fixed_function_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 8.61444784e+06
-      lower_value: 8.51927423e+06
-      upper_value: 8.70137182e+06
-  gpus/fixed_function_signature/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 2.13303055e+06
-      lower_value: 2.11112486e+06
-      upper_value: 2.15520025e+06
   gpus/open_all:
     latency:
       value: 3.323630249e+08
@@ -190,36 +128,6 @@ benchmarks:
       value: 1.125353726e+08
       lower_value: 1.0865664812e+08
       upper_value: 1.1600462019e+08
-  gpus/report/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 6108.18
-      lower_value: 6097.58
-      upper_value: 6119.32
-  gpus/report/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 6102.78
-      lower_value: 6046.89
-      upper_value: 6174.62
-  gpus/report/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 6128.12
-      lower_value: 6121.36
-      upper_value: 6134.99
-  gpus/signature/Intel(R) Iris(R) Xe Graphics (ADL GT2) (vulkan):
-    latency:
-      value: 1.12711275e+06
-      lower_value: 1.05592799e+06
-      upper_value: 1.20035695e+06
-  gpus/signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
-    latency:
-      value: 1.44462919e+06
-      lower_value: 1.4267231e+06
-      upper_value: 1.46244291e+06
-  gpus/signature/NVIDIA RTX A1000 Laptop GPU (vulkan):
-    latency:
-      value: 1.04414694e+06
-      lower_value: 994053.01
-      upper_value: 1.10021189e+06
   probe_sets/clear_reference:
     latency:
       value: 93.16

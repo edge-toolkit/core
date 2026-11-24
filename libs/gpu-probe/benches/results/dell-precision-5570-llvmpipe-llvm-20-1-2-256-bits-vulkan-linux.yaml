@@ -1,0 +1,48 @@
+machine:
+  id: dell-precision-5570
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+gpu:
+  backend: vulkan
+  computes: true
+  gpu_version: llvmpipe (LLVM 20.1.2, 256 bits)
+  name: llvmpipe (LLVM 20.1.2, 256 bits) (vulkan)
+  id: llvmpipe-llvm-20-1-2-256-bits-vulkan
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 1.23573382e+06
+      lower_value: 1.22055912e+06
+      upper_value: 1.24925939e+06
+  gpus/combined_signature:
+    latency:
+      value: 128370.77
+      lower_value: 126373.27
+      upper_value: 130166.95
+  gpus/f16_combined_signature:
+    latency:
+      value: 131010.79
+      lower_value: 128821.31
+      upper_value: 133386.57
+  gpus/f16_signature:
+    latency:
+      value: 1.87842406e+06
+      lower_value: 1.57176655e+06
+      upper_value: 2.2241464e+06
+  gpus/fixed_function_signature:
+    latency:
+      value: 8.61444784e+06
+      lower_value: 8.51927423e+06
+      upper_value: 8.70137182e+06
+  gpus/report:
+    latency:
+      value: 6102.78
+      lower_value: 6046.89
+      upper_value: 6174.62
+  gpus/signature:
+    latency:
+      value: 1.44462919e+06
+      lower_value: 1.4267231e+06
+      upper_value: 1.46244291e+06

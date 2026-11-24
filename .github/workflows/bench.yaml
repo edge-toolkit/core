@@ -2,10 +2,10 @@
 name: bench
 
 # The et-gpu-probe benchmarks on every platform test.yaml runs on, and the hub benchmarks on its Linux runners.
-# Each job uploads its results file as an artifact, ready to download into the crate's benches/results/. The job
-# then fails unless the repository holds that runner's file and this run's latencies match it within the factor
-# `bench-compare` allows. Every runner is named by its label, since a hosted runner reports no maker or model that
-# stays the same from one run to the next.
+# Each job uploads its results files as an artifact, ready to download into the crate's benches/results/. The job
+# then fails unless the repository holds each of that runner's files and this run's latencies match them within the
+# factor `bench-compare` allows. Every runner is named by its label, since a hosted runner reports no maker or model
+# that stays the same from one run to the next.
 #
 # Not path-gated: a benchmark is slowed as readily by a dependency or a toolchain bump as by the probe's own code.
 "on":
@@ -73,8 +73,12 @@ jobs:
             linker: ""
             timeout: 60
     # Only rust, as in test.yaml's `minimal` job: the bench needs the toolchain and the tools its tasks call.
+    # `RESULTS` is the runner's own file, and each GPU it opens has a file of its own beside it, named between the two.
     env:
       MISE_ENV: rust
+      MACHINE: ${{ matrix.machine }}
+      SYSTEM: ${{ matrix.system }}
+      RESULTS_DIR: libs/gpu-probe/benches/results
       RESULTS: libs/gpu-probe/benches/results/${{ matrix.machine }}-${{ matrix.system }}.yaml
     steps:
       - name: Checkout
@@ -112,39 +116,70 @@ jobs:
       - name: Remove mise shim
         uses: $/.github/actions/remove-mise-shim
 
-      # The bench writes over the repository's file, so the recorded one is set aside first.
+      # The bench writes over the repository's files, so the recorded ones are moved aside first.
+      # Moved rather than copied, so a GPU's recorded file this run does not write again is not uploaded as its own.
       - name: Set aside the recorded results
         run: |
-          if [ -f "$RESULTS" ]; then
-            mkdir -p target
-            cp "$RESULTS" target/recorded-results.yaml
-          fi
+          mkdir -p target/recorded-results
+          for recorded in "$RESULTS" "$RESULTS_DIR/$MACHINE"-*-"$SYSTEM.yaml"; do
+            if [ -f "$recorded" ]; then
+              mv "$recorded" target/recorded-results/
+            fi
+          done
 
       - name: Benchmark
         timeout-minutes: 40
-        env:
-          MACHINE: ${{ matrix.machine }}
         run: mise run bench libs/gpu-probe "$MACHINE"
 
       - name: Upload the results
         uses: actions/upload-artifact@v7
         with:
           name: gpu-probe-bench-${{ matrix.machine }}-${{ matrix.system }}
-          path: ${{ env.RESULTS }}
+          path: |
+            ${{ env.RESULTS }}
+            ${{ env.RESULTS_DIR }}/${{ matrix.machine }}-*-${{ matrix.system }}.yaml
           if-no-files-found: error
 
-      # A runner the repository holds no results for fails too, so a platform is never left unmeasured unnoticed.
-      # Its artifact is already uploaded by now, ready to download into the repository.
+      # A run that opened no GPU adapter measured none of the probe sets on a GPU, which is what the bench is for.
+      # A hosted runner's GPU is a virtual one (lavapipe, WARP, Apple's paravirtual device), so this is how a driver
+      # that failed to install, or an adapter wgpu stopped finding, shows up.
+      - name: Require a GPU
+        run: |
+          opened=$(yq '[.machine.adapters[] | select(.name)] | length' "$RESULTS")
+          if [ "$opened" -eq 0 ]; then
+            echo "::error file=$RESULTS::the bench opened no GPU adapter, so no GPU was benchmarked"
+            yq '.machine.adapters' "$RESULTS"
+            exit 1
+          fi
+
+      # A file the repository does not hold fails, and so does one it holds that this run did not write.
+      # So a platform or one of its GPUs is never left unmeasured unnoticed. The artifact is already uploaded by now,
+      # ready to download into the repository.
       # The factor is 8 because a hosted runner label is a pool of machines. Between two runs of one tree,
       # ubuntu-latest's slowest benchmark moved 5.09 times and macos-26-intel's 2.94, while ubuntu-24.04-arm stayed
       # within 1.11, so a factor of 8 still fails a regression of an order of magnitude without failing on the pool.
       - name: Compare with the recorded results
         run: |
-          if [ ! -f target/recorded-results.yaml ]; then
-            echo "::error file=$RESULTS::$RESULTS is not in the repository; add this run's artifact there"
-            exit 1
-          fi
-          mise run bench-compare target/recorded-results.yaml "$RESULTS" --factor 8
+          status=0
+          for measured in "$RESULTS" "$RESULTS_DIR/$MACHINE"-*-"$SYSTEM.yaml"; do
+            if [ ! -f "$measured" ]; then
+              continue
+            fi
+            recorded="target/recorded-results/${measured##*/}"
+            if [ ! -f "$recorded" ]; then
+              echo "::error file=$measured::$measured is not in the repository; add this run's artifact there"
+              status=1
+            elif ! mise run bench-compare "$recorded" "$measured" --factor 8; then
+              status=1
+            fi
+          done
+          for recorded in target/recorded-results/*.yaml; do
+            if [ -f "$recorded" ] && [ ! -f "$RESULTS_DIR/${recorded##*/}" ]; then
+              echo "::error file=$RESULTS_DIR/${recorded##*/}::recorded, but this run did not write it"
+              status=1
+            fi
+          done
+          exit "$status"
 
   # One hub held to one core, serving 25,000 agents, on the Linux runners only.
   # On macOS and Windows a client reaches one loopback address through about 16,000 ephemeral ports, and the hub

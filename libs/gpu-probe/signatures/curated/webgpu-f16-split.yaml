@@ -1624,7 +1624,8 @@ signatures:
       tanh: "00002e61"
       dot: "00003c00"
   - interface: webgpu-f16-split
-    label: "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)"
+    label: "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter
+      info blanked)"
     seen:
       - browser: firefox
         browser_version: "160.0"

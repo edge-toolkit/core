@@ -4,6 +4,11 @@ machine:
   host: aarch64-apple-darwin
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
   recorded: "2026-11-16"
+  adapters:
+    - backend: metal
+      computes: true
+      gpu_version: Apple Paravirtual device
+      name: Apple Paravirtual device (metal)
 benchmarks:
   formats/decode/rg11b10ufloat:
     latency:
@@ -105,31 +110,6 @@ benchmarks:
       value: 13.5
       lower_value: 13.39
       upper_value: 13.62
-  gpus/clear_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.147540832e+07
-      lower_value: 1.029214884e+07
-      upper_value: 1.242252443e+07
-  gpus/combined_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 8.46425728e+06
-      lower_value: 6.1532169e+06
-      upper_value: 1.071435655e+07
-  gpus/f16_combined_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.197891843e+07
-      lower_value: 1.167073718e+07
-      upper_value: 1.226658277e+07
-  gpus/f16_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.168991965e+07
-      lower_value: 1.112578644e+07
-      upper_value: 1.221497565e+07
-  gpus/fixed_function_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 2.684143341e+07
-      lower_value: 2.487170195e+07
-      upper_value: 2.884116019e+07
   gpus/open_all:
     latency:
       value: 9.484205148e+07
@@ -140,16 +120,6 @@ benchmarks:
       value: 1.0831018711e+08
       lower_value: 1.0358153994e+08
       upper_value: 1.1249513093e+08
-  gpus/report/Apple Paravirtual device (metal):
-    latency:
-      value: 6172.09
-      lower_value: 5977.36
-      upper_value: 6366.33
-  gpus/signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.107290818e+07
-      lower_value: 1.020666141e+07
-      upper_value: 1.184664521e+07
   probe_sets/clear_reference:
     latency:
       value: 49.84

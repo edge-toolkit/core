@@ -15,37 +15,37 @@ gpu:
     driver_version: 580.178.4.0
   id: quadro-m2000-vulkan
 benchmarks:
-  gpus/clear_signature/Quadro M2000 (vulkan):
+  gpus/clear_signature:
     latency:
       value: 1.75700226e+06
       lower_value: 1.75146785e+06
       upper_value: 1.76258021e+06
-  gpus/combined_signature/Quadro M2000 (vulkan):
+  gpus/combined_signature:
     latency:
       value: 104343.68
       lower_value: 102697.94
       upper_value: 106076.88
-  gpus/f16_combined_signature/Quadro M2000 (vulkan):
+  gpus/f16_combined_signature:
     latency:
       value: 54746.46
       lower_value: 54146.41
       upper_value: 55866.41
-  gpus/f16_signature/Quadro M2000 (vulkan):
+  gpus/f16_signature:
     latency:
       value: 54192.34
       lower_value: 54078.29
       upper_value: 54301.15
-  gpus/fixed_function_signature/Quadro M2000 (vulkan):
+  gpus/fixed_function_signature:
     latency:
       value: 4.47696579e+06
       lower_value: 4.47242674e+06
       upper_value: 4.48214467e+06
-  gpus/report/Quadro M2000 (vulkan):
+  gpus/report:
     latency:
       value: 7984
       lower_value: 7978.67
       upper_value: 7990.54
-  gpus/signature/Quadro M2000 (vulkan):
+  gpus/signature:
     latency:
       value: 1.04945646e+06
       lower_value: 975293.81

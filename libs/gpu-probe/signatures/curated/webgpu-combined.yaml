@@ -1641,7 +1641,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "40000000"
   - interface: webgpu-combined
-    label: "AMD Radeon (TM) Graphics through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)"
+    label: "AMD Radeon (TM) Graphics through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info
+      blanked)"
     seen:
       - browser: firefox
         browser_version: "160.0"
@@ -1683,7 +1684,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "40000000"
   - interface: webgpu-combined
-    label: "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)"
+    label: "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter
+      info blanked)"
     seen:
       - browser: firefox
         browser_version: "160.0"

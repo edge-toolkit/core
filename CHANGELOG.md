@@ -28,7 +28,9 @@ Changelog 1.1.0.
   when one set fails, and says which it could not.
 - **Breaking:** `mise run bench` records every GPU it can open. `<machine>-<os>.yaml` keeps the benchmarks no GPU
   runs and lists the adapters opened, and each GPU's benchmarks go to `<machine>-<gpu>-<os>.yaml`, whose `gpu` names
-  the adapter and its backend. A results file holding one GPU's benchmarks under the machine's name alone no longer
+  the adapter and its backend, keyed by the benchmark alone, such as `gpus/signature`. The results already recorded
+  are split the same way, and the bench workflow compares every one of a runner's files and fails a run that opened
+  no GPU adapter. A results file holding one GPU's benchmarks under the machine's name alone no longer
   passes the bench results policy.
 - `et-ws-server` answers `GET /info` with how it was built: crate name, version, `rustc` version, target triple,
   cargo profile and enabled features, so an operator can tell which release and service set a hub is running. The

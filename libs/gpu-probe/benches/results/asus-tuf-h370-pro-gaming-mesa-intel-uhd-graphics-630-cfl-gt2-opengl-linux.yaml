@@ -15,37 +15,37 @@ gpu:
     driver_version: (Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea
   id: mesa-intel-uhd-graphics-630-cfl-gt2-opengl
 benchmarks:
-  gpus/clear_signature/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/clear_signature:
     latency:
       value: 1.19482676e+06
       lower_value: 1.11858758e+06
       upper_value: 1.25900805e+06
-  gpus/combined_signature/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/combined_signature:
     latency:
       value: 458928.44
       lower_value: 454559.85
       upper_value: 463522.79
-  gpus/f16_combined_signature/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/f16_combined_signature:
     latency:
       value: 153228.14
       lower_value: 152831.21
       upper_value: 153574.6
-  gpus/f16_signature/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/f16_signature:
     latency:
       value: 153316.78
       lower_value: 152979.72
       upper_value: 153655.64
-  gpus/fixed_function_signature/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/fixed_function_signature:
     latency:
       value: 3.97779543e+06
       lower_value: 3.97446372e+06
       upper_value: 3.98087523e+06
-  gpus/report/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/report:
     latency:
       value: 7949.34
       lower_value: 7941.62
       upper_value: 7957.14
-  gpus/signature/Mesa Intel(R) UHD Graphics 630 (CFL GT2) (opengl):
+  gpus/signature:
     latency:
       value: 1.52377105e+06
       lower_value: 1.5203973e+06

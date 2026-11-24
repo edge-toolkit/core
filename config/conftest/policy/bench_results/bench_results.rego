@@ -81,6 +81,21 @@ deny contains msg if {
 	msg := sprintf("%s: benchmarks must map each benchmark's name to its measures, not be %v", [file.path, benchmarks])
 }
 
+# Where a benchmark named for its adapter belongs, as the denial for one names it.
+split_gpu_home := "it belongs, as its benchmark alone, in that GPU's own file"
+
+# A benchmark's name holds no adapter's name: one GPU's benchmarks go in that GPU's own file, which names it once.
+# A `gpus/<benchmark>/<adapter>` name is the shape every GPU's benchmarks had in the machine's one file, so a file
+# recorded before they were split apart, or a GPU's benchmarks put back by hand, would otherwise pass unnoticed.
+deny contains msg if {
+	some file in paths.files
+	benchmarks := object.get(file.contents, "benchmarks", {})
+	is_object(benchmarks)
+	some name, _ in benchmarks
+	regex.match(`^gpus/[^/]+/`, name)
+	msg := sprintf("%s: %q names its adapter; %s", [file.path, name, split_gpu_home])
+}
+
 # A results file records at least one benchmark.
 deny contains msg if {
 	some file in paths.files

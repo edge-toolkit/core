@@ -1,0 +1,48 @@
+machine:
+  id: gha-ubuntu-latest
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-16"
+gpu:
+  backend: vulkan
+  computes: true
+  gpu_version: llvmpipe (LLVM 21.1.8, 256 bits)
+  name: llvmpipe (LLVM 21.1.8, 256 bits) (vulkan)
+  id: llvmpipe-llvm-21-1-8-256-bits-vulkan
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 564585.86
+      lower_value: 555238.63
+      upper_value: 575435.08
+  gpus/combined_signature:
+    latency:
+      value: 71306.23
+      lower_value: 69843.59
+      upper_value: 72932.9
+  gpus/f16_combined_signature:
+    latency:
+      value: 73188.41
+      lower_value: 72054.45
+      upper_value: 74770.93
+  gpus/f16_signature:
+    latency:
+      value: 698937.15
+      lower_value: 683057.82
+      upper_value: 717692.23
+  gpus/fixed_function_signature:
+    latency:
+      value: 5.33538507e+06
+      lower_value: 5.27510015e+06
+      upper_value: 5.3977533e+06
+  gpus/report:
+    latency:
+      value: 3784.6
+      lower_value: 3763.06
+      upper_value: 3808.59
+  gpus/signature:
+    latency:
+      value: 694734.99
+      lower_value: 673380.78
+      upper_value: 718932.45

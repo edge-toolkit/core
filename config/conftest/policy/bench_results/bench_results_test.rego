@@ -32,7 +32,7 @@ gpu_results(path, id, gpu, os) := {
 	"contents": {
 		"machine": {"id": id, "os": os},
 		"gpu": {"id": gpu, "name": "Quadro M2000 (vulkan)"},
-		"benchmarks": {"gpus/clear_signature/Quadro M2000 (vulkan)": {"latency": {"value": 1.0}}},
+		"benchmarks": {"gpus/clear_signature": {"latency": {"value": 1.0}}},
 	},
 }
 
@@ -40,6 +40,16 @@ test_a_gpus_file_named_for_its_machine_gpu_and_os_passes if {
 	path := "libs/gpu-probe/benches/results/desktop-quadro-m2000-vulkan-linux.yaml"
 	named := gpu_results(path, "desktop", "quadro-m2000-vulkan", "linux")
 	count(bench_results.deny) == 0 with input as [named]
+}
+
+test_a_benchmark_named_for_its_adapter_is_refused if {
+	path := "libs/gpu-probe/benches/results/desktop-linux.yaml"
+	benchmarks := {"gpus/open": {"latency": {"value": 1.0}}, "gpus/signature/Quadro M2000 (vulkan)": {"latency": {}}}
+	unsplit := {"path": path, "contents": {"machine": {"id": "desktop", "os": "linux"}, "benchmarks": benchmarks}}
+	msgs := bench_results.deny with input as [unsplit]
+	count(msgs) == 1
+	some msg in msgs
+	contains(msg, "\"gpus/signature/Quadro M2000 (vulkan)\" names its adapter")
 }
 
 test_a_gpus_file_named_for_its_machine_alone_is_refused if {

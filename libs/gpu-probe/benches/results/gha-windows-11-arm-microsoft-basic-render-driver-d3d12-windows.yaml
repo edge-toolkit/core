@@ -1,0 +1,48 @@
+machine:
+  id: gha-windows-11-arm
+  os: windows
+  host: aarch64-pc-windows-msvc
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+gpu:
+  backend: d3d12
+  computes: true
+  gpu_version: Microsoft Basic Render Driver
+  name: Microsoft Basic Render Driver (d3d12)
+  id: microsoft-basic-render-driver-d3d12
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 1.44634106e+06
+      lower_value: 1.4297342e+06
+      upper_value: 1.46332033e+06
+  gpus/combined_signature:
+    latency:
+      value: 396761.03
+      lower_value: 393395.67
+      upper_value: 399846.78
+  gpus/f16_combined_signature:
+    latency:
+      value: 227465.77
+      lower_value: 226210.45
+      upper_value: 228836.74
+  gpus/f16_signature:
+    latency:
+      value: 228155.25
+      lower_value: 227391.99
+      upper_value: 228925.11
+  gpus/fixed_function_signature:
+    latency:
+      value: 1.036008538e+07
+      lower_value: 1.025389964e+07
+      upper_value: 1.05227081e+07
+  gpus/report:
+    latency:
+      value: 31450.55
+      lower_value: 31346.96
+      upper_value: 31543.06
+  gpus/signature:
+    latency:
+      value: 2.36595316e+06
+      lower_value: 2.34783106e+06
+      upper_value: 2.38693313e+06

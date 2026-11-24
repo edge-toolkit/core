@@ -4,6 +4,11 @@ machine:
   host: aarch64-pc-windows-msvc
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
   recorded: "2026-11-17"
+  adapters:
+    - backend: d3d12
+      computes: true
+      gpu_version: Microsoft Basic Render Driver
+      name: Microsoft Basic Render Driver (d3d12)
 benchmarks:
   formats/decode/rg11b10ufloat:
     latency:
@@ -105,31 +110,6 @@ benchmarks:
       value: 30.91
       lower_value: 30.81
       upper_value: 31.03
-  gpus/clear_signature/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 1.44634106e+06
-      lower_value: 1.4297342e+06
-      upper_value: 1.46332033e+06
-  gpus/combined_signature/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 396761.03
-      lower_value: 393395.67
-      upper_value: 399846.78
-  gpus/f16_combined_signature/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 227465.77
-      lower_value: 226210.45
-      upper_value: 228836.74
-  gpus/f16_signature/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 228155.25
-      lower_value: 227391.99
-      upper_value: 228925.11
-  gpus/fixed_function_signature/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 1.036008538e+07
-      lower_value: 1.025389964e+07
-      upper_value: 1.05227081e+07
   gpus/open:
     latency:
       value: 1.1928179539e+08
@@ -140,16 +120,6 @@ benchmarks:
       value: 1.2051769476e+08
       lower_value: 1.1980923156e+08
       upper_value: 1.2134045301e+08
-  gpus/report/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 31450.55
-      lower_value: 31346.96
-      upper_value: 31543.06
-  gpus/signature/Microsoft Basic Render Driver (d3d12):
-    latency:
-      value: 2.36595316e+06
-      lower_value: 2.34783106e+06
-      upper_value: 2.38693313e+06
   probe_sets/clear_reference:
     latency:
       value: 126.12

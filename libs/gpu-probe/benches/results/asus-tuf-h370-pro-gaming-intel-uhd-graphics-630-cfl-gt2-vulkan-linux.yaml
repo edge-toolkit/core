@@ -15,37 +15,37 @@ gpu:
     driver_version: 26.1.6
   id: intel-uhd-graphics-630-cfl-gt2-vulkan
 benchmarks:
-  gpus/clear_signature/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/clear_signature:
     latency:
       value: 1.83955292e+06
       lower_value: 1.68780907e+06
       upper_value: 1.9924917e+06
-  gpus/combined_signature/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/combined_signature:
     latency:
       value: 273397.18
       lower_value: 272379.88
       upper_value: 274516.32
-  gpus/f16_combined_signature/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/f16_combined_signature:
     latency:
       value: 279901.88
       lower_value: 277410.2
       upper_value: 282879.48
-  gpus/f16_signature/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/f16_signature:
     latency:
       value: 2.86548788e+06
       lower_value: 2783964
       upper_value: 2.96861431e+06
-  gpus/fixed_function_signature/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/fixed_function_signature:
     latency:
       value: 3.99892933e+06
       lower_value: 3.99765124e+06
       upper_value: 3.99997558e+06
-  gpus/report/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/report:
     latency:
       value: 7983.85
       lower_value: 7977.31
       upper_value: 7991.32
-  gpus/signature/Intel(R) UHD Graphics 630 (CFL GT2) (vulkan):
+  gpus/signature:
     latency:
       value: 2.22069103e+06
       lower_value: 2.01914238e+06
