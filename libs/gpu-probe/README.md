@@ -3,6 +3,102 @@
 Numeric and fixed-function probes that tell one GPU's arithmetic from another's, the registry of every signature they
 have been seen to give, and, with the `native` feature, the driver that puts them to a GPU through wgpu.
 
+## Collecting signatures
+
+A machine's GPUs are reached through several mechanisms, and each gives signatures of its own, filed under
+`signatures/curated/` by interface. Probe every one of them, on every GPU, and on the CPU where a mechanism falls back
+to it: a software renderer such as WARP, llvmpipe or SwiftShader, or ONNX Runtime on the CPU, is a signature too.
+
+### From a clone, on this computer
+
+Install the tools first; everything below runs through mise, and `et-ws-wasi-runner` and its ONNX Runtime build only
+with mise's tools:
+
+```bash
+MISE_ENV=rust mise install
+```
+
+Name the machine the same way in every step, by its make and model, so its rows agree.
+
+1. **wgpu directly, and the CPU.** `gpu-probe` puts every probe set to each adapter wgpu finds through Vulkan, Metal
+   and Direct3D 12, software renderers included, and the `host` set to the CPU, adding what the registry lacks:
+
+   ```bash
+   mise exec -- cargo run -p et-gpu-probe-server --bin gpu-probe -- --device "HP EliteBook 645 G10"
+   ```
+
+2. **Every browser, as WASM.** The probe page runs WebGL 1 and 2 on the GPU the browser picks, WebGPU on each
+   adapter it offers (high-performance, low-power and its software fallback), and the canvas fingerprints. On Linux
+   and macOS, run each installed browser in turn, and Chrome on Linux on each ANGLE backend:
+
+   ```bash
+   mise run gpu-probe-browser firefox --device "Dell Precision 5570" --submit
+   mise run gpu-probe-chrome vulkan --device "Dell Precision 5570" --submit
+   ```
+
+   On Windows neither task runs, so serve the page with `mise run gpu-probe-page` and open
+   `http://localhost:8099/?submit&device=<machine>` in each browser from a fresh profile (`--user-data-dir` for
+   Chrome and Edge, `--no-remote --profile` with `.mise/gpu-probe-browser.user.js` as its `user.js` for Firefox), with
+   `&browser=edge&browser_version=<version>` for Edge, which reports Chromium's. Open Chrome and Edge once with each
+   `--use-angle=` of `d3d11`, `d3d11on12`, `d3d11-warp`, `gl`, `vulkan` and `swiftshader` (the last with
+   `--enable-unsafe-swiftshader`), each of which runs WebGL through another API or renderer, once with
+   `--enable-unsafe-webgpu --enable-unsafe-swiftshader`, without which they give WebGPU no fallback adapter, and once
+   in a private window (`--incognito`, `--inprivate`, Firefox's `-private-window`, with `&window=private`).
+   On a machine with two GPUs, add `--force_high_performance_gpu` for WebGL on the other one.
+
+3. **`wasi:nn`.** ONNX Runtime behind `et-ws-wasi-runner`, under each execution target; without the `cuda` feature
+   every target runs on the CPU. It proposes what it measured as a file in `signatures/submitted/`:
+
+   ```bash
+   GPU_PROBE_DEVICE="HP EliteBook 645 G10" GPU_PROBE_INTO=libs/gpu-probe/signatures/submitted \
+     mise exec -- cargo test -p et-ws-wasi-runner --test nn_probe -- --nocapture
+   ```
+
+   On Linux with an NVIDIA GPU, run it again with `MISE_ENV=rust,cuda` and `--features cuda`, as CONTRIBUTING.md
+   describes.
+
+4. **Deno.** The graphics-info module puts the six WebGPU probe sets to each adapter Deno's WebGPU gives, under
+   `et-ws-web-runner`, and proposes them the same way:
+
+   ```bash
+   mise run build-ws-graphics-info-module
+   GPU_PROBE_DEVICE="HP EliteBook 645 G10" GPU_PROBE_INTO=libs/gpu-probe/signatures/submitted \
+     mise exec -- cargo test -p et-ws-web-runner --test modules graphics_info -- --nocapture
+   ```
+
+   On Windows, run both under `MISE_ENV=rust,msvc`, after `mise run prefetch:msvc` stages the portable MSVC
+   toolchain: the default gnullvm target has no V8 prebuilt, and `MISE_ENV=mingw`'s gnu link of the msvc one stops
+   on v8 150.4.0 with `undefined symbol: v8__V8__EnableWebAssemblyTrapHandler`. A clone that has moved since it was
+   staged needs the task run again, as `target/msvc/msvc.env` names the toolchain by its absolute path. On an HP
+   EliteBook 645 G10's AMD Radeon (TM) Graphics, Deno's WebGPU refuses the module's second `requestDevice` with
+   `OperationError: Not enough memory left.`, so no set is measured there yet.
+
+5. **File and commit.** File what was proposed into `curated/` and regenerate the JSON the crate embeds, then check
+   the rows -- a browser that blanks or masks its GPU, as Firefox does, is recorded as the GPU it ran on, with what it
+   reported in `reported` -- and commit:
+
+   ```bash
+   mise run gpu-probe-fold
+   ```
+
+### From other devices nearby
+
+Phones, tablets and other machines on the same network submit to this clone's registry through the HTTPS server:
+
+```bash
+mise run gpu-probe-server-lan
+```
+
+Open one of the addresses it prints in each browser on the device, accept the self-signed certificate, and submit each
+row, or add `?submit&device=<model>` to submit every set at once. Then file and commit as above.
+
+### Without a clone
+
+Open the probe page hosted at <https://edge-toolkit-core.vercel.app/>, the repository's homepage, in each browser.
+With no registry behind it, it holds what it measured against the registry it was deployed with, and proposes what is
+new as a pull request of a file for `signatures/submitted/`, one link per file, or as a file to download and email.
+A maintainer then files it with `mise run gpu-probe-fold`.
+
 ## Benchmarks
 
 `benches/gpu_probe.rs` measures every operation the crate offers: building each probe set and its exact answers, the

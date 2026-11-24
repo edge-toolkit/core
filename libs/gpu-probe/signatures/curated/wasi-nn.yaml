@@ -125,6 +125,39 @@ signatures:
         runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"

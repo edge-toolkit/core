@@ -93,6 +93,42 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
     results:
       lane0: "6f919589"
       lane1: "21590c7f"
@@ -706,3 +742,46 @@ signatures:
       lane1: "08e8612e"
       lane2: "3facb764"
       lane3: "cdfe6041"
+  - interface: canvas
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      lane0: "8592baf0"
+      lane1: "8e9585be"
+      lane2: "5eaf5c75"
+      lane3: "8c64bf88"
+  - interface: canvas
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      lane0: "45a430a5"
+      lane1: "d1e946e3"
+      lane2: "523431d3"
+      lane3: "283a4312"

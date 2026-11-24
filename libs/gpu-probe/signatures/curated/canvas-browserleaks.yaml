@@ -641,3 +641,169 @@ signatures:
         window: normal
     results:
       md5: "323dfd6d5457113e4a9d3dec1c116161"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+    results:
+      md5: "5538d653b7a6e2e97ef35127d979da45"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      md5: "867a67b06afca98b3db126e27a9c4d7f"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      md5: "8d90d8d3dcaea9caf5dcaa8803bccd3d"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      md5: "83215e6b6f515d32eb63f97d6a8b89ff"
+  - interface: canvas-browserleaks
+    label: "Edge 158.0.4370.33 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      md5: "5df90ee5c5af1620d202b92f110ac4ad"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      md5: "0886025d3f5849f03084593e79225e03"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+    results:
+      md5: "e795fb0c5b41abe8a924075318212e03"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      md5: "ca2212bcdf0298d21e8f7622001b4cee"

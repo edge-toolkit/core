@@ -902,6 +902,232 @@
       }
     },
     {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "md5": "5538d653b7a6e2e97ef35127d979da45"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "867a67b06afca98b3db126e27a9c4d7f"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "8d90d8d3dcaea9caf5dcaa8803bccd3d"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.36 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "83215e6b6f515d32eb63f97d6a8b89ff"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Edge 158.0.4370.33 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "5df90ee5c5af1620d202b92f110ac4ad"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "0886025d3f5849f03084593e79225e03"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "md5": "e795fb0c5b41abe8a924075318212e03"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "ca2212bcdf0298d21e8f7622001b4cee"
+      }
+    },
+    {
       "interface": "canvas",
       "label": "Apple M5 Pro, macOS -- canvas 2D on Chromium",
       "seen": [
@@ -1027,6 +1253,50 @@
           "gpu": "unknown",
           "backend": "unknown",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
         }
       ],
       "results": {
@@ -1856,6 +2126,63 @@
       }
     },
     {
+      "interface": "canvas",
+      "label": "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "8592baf0",
+        "lane1": "8e9585be",
+        "lane2": "5eaf5c75",
+        "lane3": "8c64bf88"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "45a430a5",
+        "lane1": "d1e946e3",
+        "lane2": "523431d3",
+        "lane3": "283a4312"
+      }
+    },
+    {
       "interface": "host",
       "label": "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64",
       "seen": [
@@ -2171,6 +2498,19 @@
           "runtime": "Rust f32, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "none",
+          "backend": "none",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "Rust f32, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -2338,6 +2678,45 @@
           "backend": "none",
           "device": "Dell Precision 5570",
           "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "none",
+          "backend": "none",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "none",
+          "backend": "none",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "none",
+          "backend": "none",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target",
           "window": "none",
           "date": "2026-11-24"
         }
@@ -3077,6 +3456,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -3191,6 +3594,246 @@
         "atan2": "3d088000",
         "tanh": "????????",
         "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "????????",
+        "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "????????",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc756b",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c38",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087708",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "AMD Radeon (TM) Graphics through opengl on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "ati technologies inc.",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "40000000"
       }
     },
     {
@@ -3714,6 +4357,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -3828,6 +4495,246 @@
         "atan2": "3d088000",
         "tanh": "????????",
         "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "????????",
+        "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "????????",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc756b",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c38",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087708",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "AMD Radeon (TM) Graphics through opengl on windows, HP EliteBook 645 G10 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "ati technologies inc.",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "40000000"
       }
     },
     {
@@ -3963,6 +4870,78 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "private"
         }
       ],
       "results": {
@@ -4322,6 +5301,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4335,6 +5338,114 @@
         "half_rounding": "00003c01",
         "half_subnormal": "00000010",
         "half_overflow": "00007c00"
+      }
+    },
+    {
+      "interface": "webgl2-clear",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "ati technologies inc.",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000b",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c0",
+        "half_rounding": "00003c00",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007bff"
+      }
+    },
+    {
+      "interface": "webgl2-clear",
+      "label": "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000a",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000006",
+        "ufloat11_rounding": "000003c0",
+        "half_rounding": "00003c00",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007bff"
       }
     },
     {
@@ -4503,6 +5614,78 @@
           "backend": "d3d11",
           "device": "HP EliteBook",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "private"
         }
       ],
       "results": {
@@ -5015,6 +6198,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5152,6 +6359,150 @@
         "atan2": "3d087b99",
         "tanh": "3dcc1ebc",
         "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl2-combined",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl2-combined",
+      "label": "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc756b",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c38",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087708",
+        "tanh": "3dcc1ebe",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl2-combined",
+      "label": "AMD Radeon (TM) Graphics through opengl on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "ati technologies inc.",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
       }
     },
     {
@@ -5490,6 +6841,114 @@
           "backend": "unknown",
           "device": "MacBook Pro (16-inch, 2019)",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "ati technologies inc.",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "private"
         }
       ],
       "results": {
@@ -5604,6 +7063,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5619,6 +7102,47 @@
       }
     },
     {
+      "interface": "webgl2-fixed-function",
+      "label": "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c00",
+        "blend_srgb": "000000e1",
+        "filter_third": "3ea9fdfe",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0a8b",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
       "interface": "webgl2-split",
       "label": "AMD Radeon Graphics (0x15E7) through Direct3D 11 on Windows, HP EliteBook -- WebGL 2 on Chrome",
       "seen": [
@@ -5631,6 +7155,78 @@
           "backend": "d3d11",
           "device": "HP EliteBook",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "reported": "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar",
+          "window": "private"
         }
       ],
       "results": {
@@ -6411,6 +8007,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader Device (Subzero)",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -6488,6 +8108,150 @@
         "pow": "3f8edd1f",
         "atan2": "3d087ae6",
         "tanh": "3dcc1eb6",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl2-split",
+      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgl2-split",
+      "label": "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "microsoft",
+          "gpu_version": "Basic Render Driver",
+          "backend": "d3d11",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc756b",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c38",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087708",
+        "tanh": "3dcc1ebe",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl2-split",
+      "label": "AMD Radeon (TM) Graphics through opengl on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "ati technologies inc.",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebe",
         "dot": "40000000"
       }
     },
@@ -7360,6 +9124,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
         }
       ],
       "results": {
@@ -7495,6 +9300,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -7569,6 +9398,129 @@
         "srgb8_mid": "000000bc",
         "srgb8_dark": "00000007",
         "ufloat11_rounding": "????????",
+        "half_rounding": "00003c00",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007bff"
+      }
+    },
+    {
+      "interface": "webgpu-clear",
+      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000b",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c0",
         "half_rounding": "00003c00",
         "half_subnormal": "00000010",
         "half_overflow": "00007bff"
@@ -7694,6 +9646,54 @@
           "backend": "d3d12",
           "device": "HP EliteBook",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
         }
       ],
       "results": {
@@ -8485,6 +10485,21 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -9030,6 +11045,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -9096,6 +11135,185 @@
         "atan2": "3d087ae6",
         "tanh": "3dcc1eb6",
         "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-combined",
+      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "33800000",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-combined",
+      "label": "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-combined",
+      "label": "AMD Radeon (TM) Graphics through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b98",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-combined",
+      "label": "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc756b",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c38",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087708",
+        "tanh": "3dcc1ebc",
+        "dot": "00000000"
       }
     },
     {
@@ -9416,6 +11634,60 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
           "window": "normal"
         }
       ],
@@ -10270,6 +12542,194 @@
       }
     },
     {
+      "interface": "webgpu-f16-combined",
+      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e64",
+        "dot": "00003c00"
+      }
+    },
+    {
+      "interface": "webgpu-f16-combined",
+      "label": "rdna-2 through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002844",
+        "tanh": "00002e61",
+        "dot": "00003c00"
+      }
+    },
+    {
+      "interface": "webgpu-f16-combined",
+      "label": "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e61",
+        "dot": "00004000"
+      }
+    },
+    {
       "interface": "webgpu-f16-split",
       "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser",
       "seen": [
@@ -10587,6 +13047,60 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
           "window": "normal"
         }
       ],
@@ -11441,6 +13955,194 @@
       }
     },
     {
+      "interface": "webgpu-f16-split",
+      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e64",
+        "dot": "00003c00"
+      }
+    },
+    {
+      "interface": "webgpu-f16-split",
+      "label": "rdna-2 through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002844",
+        "tanh": "00002e61",
+        "dot": "00003c00"
+      }
+    },
+    {
+      "interface": "webgpu-f16-split",
+      "label": "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e61",
+        "dot": "00004000"
+      }
+    },
+    {
       "interface": "webgpu-fixed-function",
       "label": "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser",
       "seen": [
@@ -12163,6 +14865,111 @@
           "backend": "metal",
           "device": "MacBook Pro (16-inch, 2019)",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
         }
       ],
       "results": {
@@ -12335,6 +15142,47 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
         }
       ],
       "results": {
@@ -12385,6 +15233,30 @@
           "backend": "vulkan",
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
           "window": "normal"
         }
       ],
@@ -12829,6 +15701,54 @@
           "backend": "d3d12",
           "device": "HP EliteBook",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
         }
       ],
       "results": {
@@ -13279,6 +16199,32 @@
           "window": "none",
           "date": "2026-11-12",
           "source": "https://github.com/edge-toolkit/core/actions/runs/43167303165/job/131012836624"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
         }
       ],
       "results": {
@@ -13361,6 +16307,21 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -14023,6 +16984,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.36",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
         }
       ],
       "results": {
@@ -14088,6 +17073,135 @@
         "pow": "3f8edd1f",
         "atan2": "3d087ae6",
         "tanh": "3dcc1eb6",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-split",
+      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "33800000",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-split",
+      "label": "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-24"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "40800000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087707",
+        "tanh": "3dcc1ebe",
+        "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-split",
+      "label": "AMD Radeon (TM) Graphics through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "00000000",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaaa",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc7577",
+        "cos": "3f7eb897",
+        "tan": "3dcd7c45",
+        "exp": "3f8d763e",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b98",
+        "tanh": "3dcc1ebe",
         "dot": "40000000"
       }
     },

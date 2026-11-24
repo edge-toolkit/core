@@ -99,6 +99,46 @@ signatures:
         backend: d3d12
         device: "HP EliteBook"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: private
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -768,6 +808,19 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        driver_version: "10.0.26100.9711"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -1237,6 +1290,26 @@ signatures:
         device: "Dell Precision 5570"
         defence: "Shields farbling, on as Brave ships"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -1293,3 +1366,156 @@ signatures:
       atan2: "3d087ae6"
       tanh: "3dcc1eb6"
       dot: "40000000"
+  - interface: webgpu-combined
+    label: "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no
+      browser"
+    seen:
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver_version: "2.0.279"
+        api_version: "Vulkan 1.3.260"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
+    results:
+      multiply_add: "00000000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no
+      browser"
+    seen:
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver_version: "31.0.21925.1001"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087707"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "AMD Radeon (TM) Graphics through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: private
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b98"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-combined
+    label: "Microsoft Basic Render Driver through d3d12 on windows, HP EliteBook 645 G10 -- WebGPU on firefox (adapter info blanked)"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: private
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756b"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087708"
+      tanh: "3dcc1ebc"
+      dot: "00000000"

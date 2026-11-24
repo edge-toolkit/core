@@ -19,6 +19,7 @@ name: gpu-probe
       - .github/actions/install-lavapipe/**
       - .github/actions/install-mise/**
       - .github/actions/remove-mise-shim/**
+      - .mise/config.msvc.toml
       - libs/gpu-probe/**
       - modules/web/graphics-info/**
       - services/ws-wasi-runner/tests/nn_probe.rs
@@ -198,17 +199,25 @@ jobs:
 
   # The probes through a runtime the workspace hosts, built on each image that can build it -- ubuntu-slim cannot.
   # `wasi-nn` puts the probe set as ONNX operators behind wasi:nn, and ONNX Runtime publishes a build for every target
-  # here. `deno` puts the six WebGPU sets through Deno's WebGPU as the graphics-info module does in et-ws-web-runner;
-  # it leaves out Windows, where the runner's V8 has no working prebuilt for the default gnullvm target, which is why
-  # config.windows.toml excludes the runner too.
+  # here. `deno` puts the six WebGPU sets through Deno's WebGPU as the graphics-info module does in et-ws-web-runner.
+  # The runner's V8 has no working prebuilt for Windows' default gnullvm target, which is why config.windows.toml
+  # excludes the runner, so on Windows it is built under the msvc target env instead, as test.yaml's
+  # `override (msvc)` lane builds it: against rusty_v8's native msvc prebuilt, with the portable MSVC toolchain.
+  # The mingw env is no way round it: its gnu link of that same prebuilt stops on v8 150.4.0 with
+  #
+  #     ld.lld: error: undefined symbol: v8__V8__EnableWebAssemblyTrapHandler
+  #
+  # windows-11-arm has no deno job, as the msvc env targets x86_64 and the arm64 image cannot complete its install.
   runtime:
     name: ${{ matrix.probe }} (${{ matrix.image }})
     permissions:
       contents: read
     runs-on: ${{ matrix.image }}
     timeout-minutes: ${{ contains(matrix.image, 'intel') && 140 || 100 }}
+    # Job-level, as in test.yaml, because the msvc env must be loaded when the first `mise install` runs: it adds
+    # the x86_64-pc-windows-msvc std and the tools that env needs.
     env:
-      MISE_ENV: rust
+      MISE_ENV: ${{ matrix.probe == 'deno' && startsWith(matrix.image, 'windows') && 'rust,msvc' || 'rust' }}
     strategy:
       fail-fast: false
       matrix:
@@ -237,10 +246,6 @@ jobs:
         exclude:
           - probe: deno
             image: ubuntu-22.04-arm
-          - probe: deno
-            image: windows-2025
-          - probe: deno
-            image: windows-2022
           - probe: deno
             image: windows-11-arm
     steps:
@@ -283,6 +288,22 @@ jobs:
 
       - name: Remove mise shim
         uses: $/.github/actions/remove-mise-shim
+
+      # The portable MSVC + Windows SDK that prefetch:msvc stages, cached as test.yaml caches it, keyed by the
+      # config that pins it. Only the stage is cached; the task renders msvc.env and its junctions on every run.
+      - name: Cache portable MSVC
+        if: matrix.probe == 'deno' && runner.os == 'Windows'
+        uses: actions/cache@v6
+        with:
+          path: target/msvc/msvc
+          key: portable-msvc-${{ hashFiles('.mise/config.msvc.toml') }}
+
+      - name: Stage portable MSVC
+        if: matrix.probe == 'deno' && runner.os == 'Windows'
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch:msvc
 
       - name: Build the graphics-info module
         if: matrix.probe == 'deno'

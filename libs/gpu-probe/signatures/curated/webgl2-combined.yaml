@@ -137,6 +137,66 @@ signatures:
         backend: d3d11
         device: "HP EliteBook"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
+        window: private
     results:
       multiply_add: "00000000"
       fma: "????????"
@@ -564,6 +624,26 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
     results:
       multiply_add: "00000000"
       fma: "????????"
@@ -680,3 +760,123 @@ signatures:
       atan2: "3d087b99"
       tanh: "3dcc1ebc"
       dot: "00000000"
+  - interface: webgl2-combined
+    label: "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087707"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgl2-combined
+    label: "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc756b"
+      cos: "3f7eb898"
+      tan: "3dcd7c38"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087708"
+      tanh: "3dcc1ebe"
+      dot: "00000000"
+  - interface: webgl2-combined
+    label: "AMD Radeon (TM) Graphics through opengl on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: "ati technologies inc."
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: opengl
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebe"
+      dot: "40000000"

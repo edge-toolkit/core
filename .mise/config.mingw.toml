@@ -53,12 +53,16 @@ et_cli = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-gnu/debug/et-cli.e
 # rusty_v8's msvc prebuilts, linked into the gnu build.
 # Upstream ships no windows-gnu assets; x64 COFF + the C-ABI binding surface make the msvc archive
 # linkable, and services/ws-web-runner/build.rs closes the CRT gaps. The `simdutf` variants match the v8
-# crate features deno enables. The version segment must track the workspace's Cargo.lock `v8` pin -- bump
-# together.
+# crate features deno enables. The version must track the workspace's Cargo.lock `v8` pin -- bump together.
+rusty_v8_version = "150.4.0"
 rusty_v8_binding = "src_binding_simdutf_release_x86_64-pc-windows-msvc.rs"
-rusty_v8_dir = "{{ vars.config_root_fwd }}/target/mingw/rusty-v8"
+# Keyed by version, so a bump fetches into a fresh directory. rclone's http remote gives no size to compare, so it
+# takes any file already at the destination as current: unkeyed, a checkout kept linking the archive of the version
+# it first fetched, and a bump to 150.4.0 stopped the link on
+#     ld.lld: error: undefined symbol: v8__V8__EnableWebAssemblyTrapHandler
+rusty_v8_dir = "{{ vars.config_root_fwd }}/target/mingw/rusty-v8/{{ vars.rusty_v8_version }}"
 rusty_v8_lib_gz = "rusty_v8_simdutf_release_x86_64-pc-windows-msvc.lib.gz"
-rusty_v8_src = ":http:denoland/rusty_v8/releases/download/v150.4.0"
+rusty_v8_src = ":http:denoland/rusty_v8/releases/download/v{{ vars.rusty_v8_version }}"
 # Where rustc must find the archive when bundling the v8 rlib.
 # The v8 build script decompresses the archive to `rusty_v8.lib` under its deterministic gn_out dir, but
 # rustc on windows-gnu only accepts the `librusty_v8.a` spelling -- prefetch:mingw stages that copy.
@@ -124,13 +128,19 @@ rclone copyto "{{ vars.rusty_v8_src }}/$lib" "$dst/$lib" {{ vars.gh_http }}
 rclone copyto "{{ vars.rusty_v8_src }}/$bind" "$dst/$bind" {{ vars.gh_http }}
 # Stage librusty_v8.a where the v8 build script's -L will point, before cargo runs.
 # rustc only accepts that spelling on windows-gnu; the build script's own decompressed copy is named
-# rusty_v8.lib.
+# rusty_v8.lib. A stamp beside it names the version it was unpacked from, and any other version is unpacked
+# again: gn_out is not keyed by version, and the download keeps the release's own date, so a fresh archive can
+# be older than a stale copy and its age tells nothing.
 gz="$dst/$lib"
 a="{{ vars.rusty_v8_gn_obj }}/librusty_v8.a"
+stamp="$a.version"
+version="{{ vars.rusty_v8_version }}"
 py="{{ vars.py3_win_fwd }}"
-if [ ! -f "$a" ]; then
+if [ ! -f "$a" ] || [ "$(coreutils cat "$stamp" 2>/dev/null)" != "$version" ]; then
   coreutils mkdir -p "{{ vars.rusty_v8_gn_obj }}"
-  "$py" -c "import gzip,shutil,sys;shutil.copyfileobj(gzip.open(sys.argv[1]),open(sys.argv[2],'wb'))" "$gz" "$a"
+  "$py" -c "import gzip,shutil,sys;shutil.copyfileobj(gzip.open(sys.argv[1]),open(sys.argv[2],'wb'))" "$gz" "$a.tmp"
+  coreutils mv -f "$a.tmp" "$a"
+  printf '%s\\n' "$version" >"$stamp"
 fi
 """
 shell = "{{ vars.task_shell }}"

@@ -277,6 +277,96 @@ signatures:
         backend: unknown
         device: "MacBook Pro (16-inch, 2019)"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: "ati technologies inc."
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: opengl
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
+        window: private
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -369,6 +459,26 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -379,3 +489,36 @@ signatures:
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "00000007"
+  - interface: webgl2-fixed-function
+    label: "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3ea9fdfe"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0a8b"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"

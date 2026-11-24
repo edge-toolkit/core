@@ -267,6 +267,17 @@ signatures:
         runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "33800000"

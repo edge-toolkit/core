@@ -228,15 +228,23 @@
 
     // The GPU WebGL reports, where the browser unmasks it: its vendor, its name, and the API the browser drives it
     // through. ANGLE gives them as "ANGLE (vendor, model, API)" over OpenGL, and as
-    // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan.
+    // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan, and as
+    // "ANGLE (vendor, vendor model (0xid) Direct3D11 vs_5_0 ps_5_0, D3D11)" over Direct3D on Windows.
+    // Firefox names a stand-in GPU of the same vendor and API instead, followed by ", or similar": its vendor and API
+    // are still the GPU's, but its model is not, so the string is kept only as what was reported.
     const webglGpu = (kind) => {
       const context = document.createElement("canvas").getContext(kind);
       const debug = context?.getExtension("WEBGL_debug_renderer_info");
       const renderer = debug
         ? context.getParameter(debug.UNMASKED_RENDERER_WEBGL)
         : "";
-      const angle = renderer.match(/^ANGLE \((.*)\)$/);
-      if (!angle) return { vendor: "", model: renderer, backend: "unknown" };
+      const similar = renderer.match(/^(.*), or similar$/);
+      const angle = (similar ? similar[1] : renderer).match(/^ANGLE \((.*)\)$/);
+      if (!angle) {
+        return similar
+          ? { vendor: "", model: "", backend: "unknown", reported: renderer }
+          : { vendor: "", model: renderer, backend: "unknown" };
+      }
       const [vendor, named = "", ...rest] = topLevel(angle[1]);
       const api = apis.find(([pattern]) =>
         [named, ...rest].some((part) => pattern.test(part))
@@ -244,10 +252,16 @@
       const vulkan = named.match(
         /^Vulkan [\d.]+ \((.*?)(?: \(0x[0-9A-Fa-f]+\))?\)$/,
       );
-      const model = vulkan
-        ? vulkan[1].replace(new RegExp(`^${vendor} `, "i"), "")
+      const direct3d = named.match(
+        /^(.*?)(?: \(0x[0-9A-Fa-f]+\))? Direct3D\w* vs_\w+ ps_\w+$/,
+      );
+      const listed = vulkan ?? direct3d;
+      const model = listed
+        ? listed[1].replace(new RegExp(`^${vendor} `, "i"), "")
         : named;
-      return { vendor, model, backend: api ? api[1] : "unknown" };
+      const backend = api ? api[1] : "unknown";
+      if (similar) return { vendor, model: "", backend, reported: renderer };
+      return { vendor, model, backend };
     };
 
     // An iPhone's agent says "like Mac OS X", and an iPad's since iPadOS 13 is a Mac's outright; only a touch screen
@@ -270,12 +284,15 @@
         : "unknown";
 
     // The API a browser's WebGPU runs on, which it does not say: the one each browser uses on that system, where there
-    // is only one.
+    // is only one. On Windows Chrome and Edge's Dawn and Firefox's wgpu each run on Direct3D 12.
     const webgpuBackendOf = (os) =>
-      ({ linux: "vulkan", android: "vulkan", macos: "metal", ios: "metal" })[
-        os
-      ] ??
-        "unknown";
+      ({
+        linux: "vulkan",
+        android: "vulkan",
+        macos: "metal",
+        ios: "metal",
+        windows: "d3d12",
+      })[os] ?? "unknown";
 
     // Only Chromium says which CPU it runs on; everywhere else the field is left for the person submitting.
     const architectureOf = async () => {
@@ -519,7 +536,8 @@
     };
 
     // A GPU's part of the row, and the label an entry first seen on it would take.
-    const gpuValues = (vendor, model, backend, api) => {
+    // `reported` is what the browser named in place of the GPU, where it named a stand-in.
+    const gpuValues = (vendor, model, backend, api, reported = "") => {
       const os = field("os").value;
       // The version is the row's to record; the label names only the browser, which keeps it to one line, and the
       // browser's own version where that is not the one the row records.
@@ -528,14 +546,15 @@
         .join(" ");
       // WebKit reports every GPU as an Apple one, so off Apple's systems that is what it said, not what the GPU is.
       const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
-      const name = masked ? "unknown GPU" : model || "unknown GPU";
+      const stood = reported && vendor ? `${vendor} GPU` : "";
+      const name = masked ? "unknown GPU" : model || stood || "unknown GPU";
       return {
         label:
           `${name} through ${backend} on ${os}${onDevice()} -- ${api} on ${browser}`,
         gpu: masked ? "unknown" : vendorOf(vendor),
         gpu_version: masked ? "" : model,
         backend,
-        reported: masked ? model : "",
+        reported: masked ? model : reported,
       };
     };
 
@@ -650,6 +669,7 @@
           webgl.model,
           webgl.backend,
           title,
+          webgl.reported,
         );
         const webglAnswer = JSON.parse(probe());
         problems.push(...webglAnswer.problems);
