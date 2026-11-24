@@ -321,17 +321,35 @@ fn noop_adapter() -> wgpu::Adapter {
     block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap()
 }
 
+/// The adapter wgpu prefers for `power_preference`, opened.
+fn preferring(power_preference: wgpu::PowerPreference) -> Gpu {
+    let options = wgpu::RequestAdapterOptions {
+        power_preference,
+        ..wgpu::RequestAdapterOptions::default()
+    };
+    let gpu = block_on(Gpu::open_with(&options)).unwrap();
+    println!("{power_preference:?}: {} through {}", gpu.info().name, gpu.backend());
+    gpu
+}
+
 #[test]
 fn the_adapter_preferred_for_each_power_preference_opens_and_answers_the_probe_set() {
     for power_preference in [wgpu::PowerPreference::HighPerformance, wgpu::PowerPreference::LowPower] {
-        let options = wgpu::RequestAdapterOptions {
-            power_preference,
-            ..wgpu::RequestAdapterOptions::default()
-        };
-        let gpu = block_on(Gpu::open_with(&options)).unwrap();
-        println!("{power_preference:?}: {} through {}", gpu.info().name, gpu.backend());
+        let gpu = preferring(power_preference);
         assert_eq!(block_on(gpu.signature()).unwrap().completed(), PROBE_COUNT);
     }
+}
+
+/// An Apple silicon Mac has one GPU, so either power preference is given it, and every set answers alike through both.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn both_power_preferences_answer_every_set_the_same_on_apple_silicon() {
+    let answers = [wgpu::PowerPreference::HighPerformance, wgpu::PowerPreference::LowPower].map(|power_preference| {
+        let gpu = preferring(power_preference);
+        let sets = block_on(gpu.every_set()).map(|(interface, set)| (interface, set.unwrap().fingerprint()));
+        (gpu.info().name, sets)
+    });
+    assert_eq!(answers[0], answers[1]);
 }
 
 #[cfg(not(target_vendor = "apple"))]
