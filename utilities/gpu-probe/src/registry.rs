@@ -98,8 +98,10 @@ pub(crate) const ROW_ORDER: [&str; 18] = [
 /// The field of a row holding the browser's version, which a sighting is matched by its major version alone.
 const BROWSER_VERSION: &str = "browser_version";
 
-/// The fields of a row saying when and by which run it was first seen, which no sighting is matched by: a rerun on a
-/// later day, or another CI run, is the sighting already on record, and the row keeps its first day and run.
+/// The fields of a row saying when and by which run it was first seen, which no sighting is matched by.
+///
+/// A rerun on a later day, or another CI run, is the sighting already on record, and the row keeps its first day and
+/// run.
 const FIRST_SEEN: [&str; 2] = ["date", "source"];
 
 /// The fields of a row whose values come from fixed sets, which the registry writes unquoted.

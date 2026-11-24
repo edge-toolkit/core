@@ -215,8 +215,7 @@ pub struct GpuComputeResult {
     result_c00: f32,
 }
 
-/// What each of the six WebGPU probe sets answers on each GPU this runtime's WebGPU offers, as the JSON stored for
-/// the run.
+/// What each of the six WebGPU probe sets answers on each GPU this runtime's WebGPU offers, as the run's JSON.
 ///
 /// A runtime offers its GPUs only one for each power preference, as a browser does, so an adapter is asked for with
 /// each; one that gives an adapter already measured, as a machine with a single GPU does, adds nothing. A preference

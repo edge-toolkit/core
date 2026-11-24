@@ -58,6 +58,13 @@ const OPERATORS: [(&str, &[&str], &str); 19] = [
     ("MatMul", &["row", "column"], "dot"),
 ];
 
+/// Each execution target a guest can name, beside how the target is written in WIT.
+const TARGETS: [(ExecutionTarget, &str); 3] = [
+    (ExecutionTarget::Cpu, "cpu"),
+    (ExecutionTarget::Gpu, "gpu"),
+    (ExecutionTarget::Tpu, "tpu"),
+];
+
 /// A protobuf message being written: the bytes of the fields given to it so far.
 #[derive(Default)]
 struct Message(Vec<u8>);
@@ -190,13 +197,6 @@ fn nn_signature(context: &mut ExecutionContext) -> Signature {
             .collect(),
     )
 }
-
-/// Each execution target a guest can name, beside how the target is written in WIT.
-const TARGETS: [(ExecutionTarget, &str); 3] = [
-    (ExecutionTarget::Cpu, "cpu"),
-    (ExecutionTarget::Gpu, "gpu"),
-    (ExecutionTarget::Tpu, "tpu"),
-];
 
 /// The GPU the backend runs a graph loaded for `target` on, as a row names it, beside how a label says so.
 ///

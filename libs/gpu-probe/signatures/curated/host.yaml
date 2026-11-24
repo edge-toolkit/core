@@ -73,17 +73,6 @@ signatures:
         date: "2026-11-12"
         source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
       - browser: none
-        os: linux
-        os_version: "Pop!_OS 24.04"
-        cpu_arch: x86_64
-        cpu_version: "12th Gen Intel Core i7-12800H"
-        gpu: none
-        backend: none
-        device: "Dell Precision 5570"
-        runtime: "Rust f32 and glibc"
-        window: none
-        date: "2026-11-13"
-      - browser: none
         os: macos
         cpu_arch: x86_64
         gpu: none
@@ -265,6 +254,17 @@ signatures:
         backend: none
         device: "MacBook Pro (16-inch, 2019)"
         runtime: "Rust f32, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
         window: none
         date: "2026-11-24"
     results:

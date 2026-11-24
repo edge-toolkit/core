@@ -81,6 +81,50 @@ signatures:
         runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: unknown
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -231,3 +275,36 @@ signatures:
       atan2: "3d087b99"
       tanh: "3dcc1ebb"
       dot: "00000000"
+  - interface: wasi-nn
+    label: "ONNX Runtime 1.22, through ort 2.0.0-rc.10 on CUDA behind wasi:nn: NVIDIA RTX A1000 Laptop GPU, linux
+      Pop!_OS 24.04 x86_64, Dell Precision 5570"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU, CUDA 12.9 and cuDNN 9"
+        backend: unknown
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22 GPU build, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "3f800000"

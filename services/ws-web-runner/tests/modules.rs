@@ -191,11 +191,11 @@ fn adapter_vendor(adapter: &serde_json::Value, name: &str) -> et_gpu_probe::GpuV
     }
 }
 
-/// Each probe set in the `sets` the graphics-info module stored, on every GPU it reached, as a submission seen at a row
-/// of this machine and that GPU.
+/// Each probe set the graphics-info module stored in `sets`, on every GPU it reached, as a submission.
 ///
-/// Every adapter the module measured gives its sets, so a machine with a high-performance and a low-power GPU proposes
-/// both. One adapter at least must have been reached, unless the runtime gave none at all.
+/// Each is seen at a row of this machine and that GPU. Every adapter the module measured gives its sets, so a machine
+/// with a high-performance and a low-power GPU proposes both. One adapter at least must have been reached, unless the
+/// runtime gave none at all.
 #[expect(
     clippy::single_call_fn,
     reason = "a named step of the graphics-info case, kept apart from the run it records"

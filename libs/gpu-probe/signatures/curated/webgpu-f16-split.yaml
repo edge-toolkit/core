@@ -1,54 +1,7 @@
 signatures:
   - interface: webgpu-f16-split
-    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
-    seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        driver_version: "26.1.6"
-        api_version: "Vulkan 1.4.354"
-        backend: vulkan
-        window: none
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "gen-12lp"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      multiply_add: "00001000"
-      fma: "00001000"
-      swamped_sum: "00004400"
-      divide: "00003555"
-      subnormal_product: "00000000"
-      sqrt: "00003eee"
-      inverse_sqrt: "0000389e"
-      sin: "00002e63"
-      cos: "00003bf6"
-      tan: "00002e6b"
-      exp: "00003c6c"
-      log: "00003c65"
-      pow: "00003c77"
-      atan2: "00002843"
-      tanh: "00002e64"
-      dot: "00003c00"
-  - interface: webgpu-f16-split
     label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
     seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: nvidia
-        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
-        driver_version: "595.104.2.0"
-        api_version: "Vulkan 1.4.329"
-        backend: vulkan
-        window: none
       - browser: none
         os: linux
         cpu_arch: aarch64
@@ -58,6 +11,33 @@ signatures:
         api_version: "Vulkan 1.4.312"
         backend: vulkan
         window: none
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00001000"
       fma: "00001000"
@@ -78,15 +58,6 @@ signatures:
   - interface: webgpu-f16-split
     label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
     seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: mesa
-        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
-        driver_version: "26.1.6"
-        api_version: "Vulkan 1.4.354"
-        backend: vulkan
-        window: none
       - browser: none
         os: linux
         os_version: "Ubuntu 26.04"
@@ -145,6 +116,20 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -165,24 +150,6 @@ signatures:
   - interface: webgpu-f16-split
     label: "ampere through vulkan on linux -- WebGPU on chrome"
     seen:
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: nvidia
-        gpu_version: "ampere"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: google
-        gpu_version: "SwiftShader (software renderer)"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
       - browser: none
         os: windows
         os_version: "11 (26100)"
@@ -225,6 +192,86 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
     results:
       multiply_add: "????????"
       fma: "????????"
@@ -852,3 +899,99 @@ signatures:
       atan2: "00002844"
       tanh: "00002e61"
       dot: "00003c00"
+  - interface: webgpu-f16-split
+    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 --
+      wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00004400"
+      divide: "00003555"
+      subnormal_product: "00000000"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002843"
+      tanh: "00002e64"
+      dot: "00003c00"
+  - interface: webgpu-f16-split
+    label: "gen-12lp through vulkan on linux, Dell Precision 5570 -- WebGPU on chromium"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00004400"
+      divide: "00003555"
+      subnormal_product: "00000000"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002843"
+      tanh: "00002e64"
+      dot: "00004000"

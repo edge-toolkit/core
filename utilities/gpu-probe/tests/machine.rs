@@ -18,13 +18,6 @@ const UNSET: [(&str, Option<&str>); 6] = [
     ("GPU_PROBE_DEVICE", None),
 ];
 
-/// The variables the machine reads off a runner, `GPU_PROBE_DEVICE` naming `device` and the rest unset.
-fn named(device: &'static str) -> [(&'static str, Option<&'static str>); 6] {
-    let mut vars = UNSET;
-    vars[5].1 = Some(device);
-    vars
-}
-
 /// The variables a run on a `macos-latest` runner sets that the machine reads, a device named beside them.
 const RUNNER: [(&str, Option<&str>); 6] = [
     ("ImageOS", Some("macos15")),
@@ -34,6 +27,13 @@ const RUNNER: [(&str, Option<&str>); 6] = [
     ("GITHUB_RUN_ID", Some("45112698960")),
     ("GPU_PROBE_DEVICE", Some("ignored on a runner")),
 ];
+
+/// The variables the machine reads off a runner, `GPU_PROBE_DEVICE` naming `device` and the rest unset.
+fn named(device: &'static str) -> [(&'static str, Option<&'static str>); 6] {
+    let mut vars = UNSET;
+    vars[5].1 = Some(device);
+    vars
+}
 
 #[test]
 fn a_machine_off_a_runner_is_named_as_given_and_gives_its_release_cpu_and_day() {

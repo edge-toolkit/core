@@ -3,24 +3,6 @@ signatures:
     label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
     seen:
       - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        driver_version: "26.1.6"
-        api_version: "Vulkan 1.4.354"
-        backend: vulkan
-        window: none
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "gen-12lp"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-      - browser: none
         os: macos
         cpu_arch: x86_64
         gpu: intel
@@ -88,6 +70,61 @@ signatures:
         runtime: "et-ws-web-runner 0.3.0"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -103,13 +140,40 @@ signatures:
     seen:
       - browser: none
         os: linux
+        cpu_arch: aarch64
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        window: none
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
         cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
         gpu: nvidia
         gpu_version: "NVIDIA RTX A1000 Laptop GPU"
         driver_version: "595.104.2.0"
         api_version: "Vulkan 1.4.329"
         backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
         window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
       - browser: chrome
         browser_version: "157.0.8103.78"
         os: linux
@@ -119,15 +183,25 @@ signatures:
         backend: vulkan
         device: "Dell Precision 5570"
         window: normal
-      - browser: none
+      - browser: chromium
+        browser_version: "157.0.8103.78"
         os: linux
-        cpu_arch: aarch64
+        cpu_arch: x86_64
         gpu: nvidia
-        gpu_version: "NVIDIA GB10"
-        driver_version: "580.178.4.0"
-        api_version: "Vulkan 1.4.312"
+        gpu_version: "ampere"
         backend: vulkan
-        window: none
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -141,15 +215,6 @@ signatures:
   - interface: webgpu-fixed-function
     label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
     seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: mesa
-        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
-        driver_version: "26.1.6"
-        api_version: "Vulkan 1.4.354"
-        backend: vulkan
-        window: none
       - browser: deno
         browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
         os: linux
@@ -280,6 +345,20 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -290,28 +369,6 @@ signatures:
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
-  - interface: webgpu-fixed-function
-    label: "SwiftShader (software renderer) through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
-    seen:
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: google
-        gpu_version: "SwiftShader (software renderer)"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      blend_multiply: "00000032"
-      blend_half_float: "00003c01"
-      blend_srgb: "000000e1"
-      filter_third: "3eaaaaac"
-      filter_fine: "3a831201"
-      filter_srgb: "3ddd090a"
-      raster_right_edge_fine: "00000007"
-      raster_left_edge_fine: "000000f8"
-      raster_right_edge_coarse: "00000007"
   - interface: webgpu-fixed-function
     label: "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari"
     seen:
@@ -705,6 +762,85 @@ signatures:
       filter_third: "3ea9fdfe"
       filter_fine: "00000000"
       filter_srgb: "3ddd0a8b"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-fixed-function
+    label: "SwiftShader (software renderer) through vulkan on linux, Dell Precision 5570 -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    results:
+      blend_multiply: "00000032"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaaaaac"
+      filter_fine: "3a831201"
+      filter_srgb: "3ddd090a"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "00000007"
+  - interface: webgpu-fixed-function
+    label: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2) through opengl on linux Pop!_OS 24.04 x86_64, Dell Precision
+      5570 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "????????"
+      filter_fine: "????????"
+      filter_srgb: "????????"
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"

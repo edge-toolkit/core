@@ -262,6 +262,9 @@ allowed_os_scoped_tool := {
 	# Scoped to linux/macos in config.coverage.toml -- the coverage workflow runs only there, and Windows
 	# has no coverage lane.
 	"conda:clang",
+	# http:onnxruntime-gpu: ONNX Runtime 1.22's GPU build is published as a NuGet package for Linux x64 alone.
+	# config.cuda.toml, loaded only by an opt-in MISE_ENV, scopes it there; every other host keeps the CPU build.
+	"http:onnxruntime-gpu",
 }
 
 # A tool must not be os-scoped unless allowlisted, since every tool must work on every OS.
