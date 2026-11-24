@@ -83,6 +83,26 @@ impl Write for Broken {
 }
 
 #[test]
+fn other_driver_settings_or_none_are_a_sighting_of_their_own() {
+    let (_dir, registry) = registry();
+    let fields = [("device", "a desktop"), ("environment", "INTEL_DEBUG=nofc")];
+    let outcome = |machine: &Machine| {
+        let mut out = Vec::new();
+        measure(&registry, machine, Vec::new(), &mut out).unwrap();
+        String::from_utf8(out).unwrap()
+    };
+    let nofc = Machine::with(&fields);
+    assert!(outcome(&nofc).contains("added as entry"));
+    assert!(outcome(&nofc).contains("already present"));
+    // A row with no setting is not covered by the one with `INTEL_DEBUG=nofc`, though it gives less.
+    let defaults = Machine::with(&fields[..1]);
+    assert!(outcome(&defaults).contains("added a sighting"));
+    assert!(outcome(&defaults).contains("already present"));
+    let other = Machine::with(&[("device", "a desktop"), ("environment", "RADV_DEBUG=nodcc")]);
+    assert!(outcome(&other).contains("added a sighting"));
+}
+
+#[test]
 fn the_cpu_is_recorded_once_and_left_alone_after() {
     let (_dir, registry) = registry();
     let (first, outcome) = measured(&registry, Vec::new());
@@ -100,7 +120,36 @@ fn an_adapter_that_did_not_open_is_passed_over_and_counted() {
     let (out, outcome) = measured(&registry, vec![unopened()]);
     assert!(out.contains("an adapter was not measured"), "{out}");
     assert!(out.contains("host on Rust f32 on the CPU"), "{out}");
-    assert_eq!(outcome.unwrap_err().to_string(), "1 adapter(s) could not be measured");
+    assert_eq!(
+        outcome.unwrap_err().to_string(),
+        "1 adapter(s) could not be measured in full"
+    );
+}
+
+#[test]
+fn a_device_without_compute_shaders_has_each_shader_set_said_and_counted() {
+    let (_dir, registry) = registry();
+    let adapter = block_on(instance(wgpu::Backends::NOOP).request_adapter(&wgpu::RequestAdapterOptions::default()));
+    let gpu = block_on(Gpu::open_without_compute(adapter.unwrap()));
+    let (out, outcome) = measured(&registry, vec![gpu]);
+    for set in [
+        "webgpu-split",
+        "webgpu-combined",
+        "webgpu-f16-split",
+        "webgpu-f16-combined",
+    ] {
+        let said = format!("{set} on noop wgpu backend was not measured: the device runs no compute shaders: ");
+        assert!(out.contains(&said), "{set}: {out}");
+    }
+    // The clears and the fixed-function probes draw rather than compute, so they are still recorded.
+    for set in ["webgpu-clear", "webgpu-fixed-function"] {
+        assert!(
+            out.contains(&format!("{set} on noop wgpu backend: added")),
+            "{set}: {out}"
+        );
+    }
+    assert!(out.contains("host on Rust f32 on the CPU"), "{out}");
+    assert!(matches!(outcome, Err(MeasureError::Skipped(1))), "{outcome:?}");
 }
 
 #[test]

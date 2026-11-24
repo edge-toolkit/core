@@ -1,0 +1,32 @@
+machine:
+  id: asus-tuf-h370-pro-gaming
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-24"
+gpu:
+  backend: opengl
+  computes: false
+  gpu_version: Quadro M2000/PCIe/SSE2
+  name: Quadro M2000/PCIe/SSE2 (opengl)
+  versions:
+    api_version: OpenGL 3.3.0
+    driver: NVIDIA Corporation
+    driver_version: NVIDIA 580.178.04
+  id: quadro-m2000-pcie-sse2-opengl
+benchmarks:
+  gpus/clear_signature/Quadro M2000/PCIe/SSE2 (opengl):
+    latency:
+      value: 3.13864611e+06
+      lower_value: 3.13364395e+06
+      upper_value: 3.14324814e+06
+  gpus/fixed_function_signature/Quadro M2000/PCIe/SSE2 (opengl):
+    latency:
+      value: 9.55692004e+06
+      lower_value: 9.53800258e+06
+      upper_value: 9.57157618e+06
+  gpus/report/Quadro M2000/PCIe/SSE2 (opengl):
+    latency:
+      value: 50943.87
+      lower_value: 50804.47
+      upper_value: 51144.05

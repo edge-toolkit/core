@@ -1,0 +1,52 @@
+machine:
+  id: asus-tuf-h370-pro-gaming
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-24"
+gpu:
+  backend: vulkan
+  computes: true
+  gpu_version: llvmpipe (LLVM 20.1.2, 256 bits)
+  name: llvmpipe (LLVM 20.1.2, 256 bits) (vulkan)
+  versions:
+    api_version: Vulkan 1.4.354
+    driver: llvmpipe
+    driver_version: 26.1.6
+  id: llvmpipe-llvm-20-1-2-256-bits-vulkan
+benchmarks:
+  gpus/clear_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 524526.52
+      lower_value: 523531.87
+      upper_value: 525588.98
+  gpus/combined_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 97143.25
+      lower_value: 96879.39
+      upper_value: 97386.55
+  gpus/f16_combined_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 97106.75
+      lower_value: 96932.64
+      upper_value: 97309.87
+  gpus/f16_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 832958.03
+      lower_value: 831717.2
+      upper_value: 834160.78
+  gpus/fixed_function_signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 8.0632359e+06
+      lower_value: 8051261
+      upper_value: 8.07521915e+06
+  gpus/report/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 8003.05
+      lower_value: 7998.91
+      upper_value: 8006.93
+  gpus/signature/llvmpipe (LLVM 20.1.2, 256 bits) (vulkan):
+    latency:
+      value: 835639.04
+      lower_value: 830004.45
+      upper_value: 841774.88

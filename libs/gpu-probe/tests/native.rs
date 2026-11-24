@@ -9,7 +9,7 @@
 
 use std::sync::LazyLock;
 
-use et_gpu_probe::native::{Gpu, NativeError};
+use et_gpu_probe::native::{Gpu, NativeError, NoCompute, backend_name, gl_versions, runs_compute};
 use et_gpu_probe::{Answer, BLENDS, CLEARS, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host};
 use futures_executor::block_on;
 use pretty_assertions::assert_eq;
@@ -175,14 +175,140 @@ fn every_adapter_opens_and_answers_the_probe_set() {
             info.device_type,
             gpu.backend()
         );
-        assert_eq!(block_on(gpu.signature()).unwrap().completed(), PROBE_COUNT);
+        // A context that runs no compute shaders, as NVIDIA's EGL gives wgpu, says so for the shader probes, and still
+        // answers the clears, which draw.
+        match block_on(gpu.signature()) {
+            Ok(signature) => assert_eq!(signature.completed(), PROBE_COUNT),
+            Err(NativeError::Compute(reason)) => {
+                println!("adapter runs no compute shaders: {reason}");
+                assert_eq!(block_on(gpu.clear_signature()).unwrap().completed(), CLEARS.len());
+            }
+            Err(error) => panic!("{} would not answer: {error}", info.name),
+        }
+        // Vulkan names its driver, and OpenGL its vendor, for the row's `driver`.
+        let versions = gpu.report().versions;
+        println!("adapter versions: {versions:?}");
+        if ["vulkan", "opengl", "opengl-es"].contains(&gpu.backend()) {
+            assert!(versions.iter().any(|(field, _)| *field == "driver"), "{versions:?}");
+        }
     }
 }
 
 #[test]
+fn a_context_without_compute_shaders_names_its_backend_and_version() {
+    let reason = NoCompute::Context {
+        backend: "opengl",
+        version: "3.3.0 NVIDIA 580.178.04".to_owned(),
+    };
+    let error = NativeError::from(reason);
+    assert_eq!(
+        error.to_string(),
+        "the device runs no compute shaders: opengl gives 3.3.0 NVIDIA 580.178.04"
+    );
+}
+
+#[test]
+fn a_device_opened_without_compute_shaders_says_so_and_still_draws() {
+    let gpu = block_on(Gpu::open_without_compute(noop_adapter())).unwrap();
+    for (interface, outcome) in block_on(gpu.every_set()) {
+        let computes = !matches!(interface, "webgpu-clear" | "webgpu-fixed-function");
+        match outcome {
+            Err(NativeError::Compute(reason)) => {
+                assert!(computes, "{interface}");
+                let not_asked = NoCompute::NotAsked {
+                    adapter: "noop wgpu backend".to_owned(),
+                };
+                assert_eq!(reason, not_asked);
+                assert_eq!(reason.to_string(), "noop wgpu backend was opened without them");
+            }
+            other => assert!(
+                !computes,
+                "{interface}: {:?}",
+                other.map(|signature| signature.completed())
+            ),
+        }
+    }
+}
+
+#[test]
+fn the_opengl_backend_is_named_by_the_api_its_context_gives() {
+    assert_eq!(
+        backend_name(wgpu::Backend::Gl, "4.6 (Core Profile) Mesa 26.1.6"),
+        "opengl"
+    );
+    assert_eq!(
+        backend_name(wgpu::Backend::Gl, "OpenGL ES 3.2 Mesa 26.1.6"),
+        "opengl-es"
+    );
+    assert_eq!(backend_name(wgpu::Backend::Vulkan, "OpenGL ES 3.2"), "vulkan");
+    assert_eq!(backend_name(wgpu::Backend::Noop, ""), "unknown");
+}
+
+#[test]
+fn an_opengl_version_string_gives_the_api_and_driver_versions() {
+    let owned = |pairs: &[(&'static str, &str)]| -> Vec<(&'static str, String)> {
+        pairs
+            .iter()
+            .map(|(field, value)| (*field, (*value).to_owned()))
+            .collect()
+    };
+    assert_eq!(
+        gl_versions("4.6 (Core Profile) Mesa 26.1.6-1pop0"),
+        owned(&[
+            ("api_version", "OpenGL 4.6"),
+            ("driver_version", "(Core Profile) Mesa 26.1.6-1pop0")
+        ])
+    );
+    assert_eq!(
+        gl_versions("OpenGL ES 3.2 Mesa 26.1.6"),
+        owned(&[("api_version", "OpenGL ES 3.2"), ("driver_version", "Mesa 26.1.6")])
+    );
+    assert_eq!(
+        gl_versions("3.3.0 NVIDIA 580.178.04"),
+        owned(&[("api_version", "OpenGL 3.3.0"), ("driver_version", "NVIDIA 580.178.04")])
+    );
+    assert_eq!(gl_versions("3.3"), owned(&[("api_version", "OpenGL 3.3")]));
+    assert_eq!(gl_versions("3.3 "), owned(&[("api_version", "OpenGL 3.3")]));
+}
+
+#[test]
+fn compute_shaders_run_from_opengl_4_3_and_opengl_es_3_1() {
+    let all = wgpu::DownlevelFlags::all();
+    let opengl = wgpu::Backend::Gl;
+    assert!(runs_compute(opengl, all, "4.6 (Core Profile) Mesa 26.1.6"));
+    assert!(runs_compute(opengl, all, "4.3.0 NVIDIA 580.178.04"));
+    assert!(!runs_compute(opengl, all, "3.3.0 NVIDIA 580.178.04"));
+    assert!(!runs_compute(opengl, all, "4.2 Mesa"));
+    assert!(runs_compute(opengl, all, "OpenGL ES 3.1 Mesa 26.1.6"));
+    assert!(!runs_compute(opengl, all, "OpenGL ES 3.0 Mesa 26.1.6"));
+    // A version this cannot read leaves the flags to decide.
+    assert!(runs_compute(opengl, all, "an unknown version"));
+    assert!(runs_compute(wgpu::Backend::Vulkan, all, "3.3"));
+    let without = wgpu::DownlevelFlags::all() - wgpu::DownlevelFlags::COMPUTE_SHADERS;
+    assert!(!runs_compute(wgpu::Backend::Vulkan, without, ""));
+}
+
+#[test]
 fn an_adapter_no_graphics_api_stands_behind_reports_only_what_wgpu_says() {
-    // wgpu's no-op backend is on every platform and has no Vulkan, Metal or Direct3D 12 side, so the report reads none
-    // of those APIs: what each reader does for an adapter opened through another API than its own.
+    // wgpu's no-op backend is on every platform and has no Vulkan, Metal, Direct3D 12 or OpenGL side, so the report
+    // reads none of those APIs: what each reader does for an adapter opened through another API than its own.
+    let gpu = block_on(Gpu::open_adapter(noop_adapter())).unwrap();
+    assert_eq!(gpu.info().backend, wgpu::Backend::Noop);
+    let report = gpu.report();
+    assert_ne!(report.lines.len(), 0);
+    for api in ["vulkan", "metal", "dxgi", "gl "] {
+        assert!(
+            !report.lines.iter().any(|line| line.starts_with(api)),
+            "{api} in {:?}",
+            report.lines
+        );
+    }
+    // wgpu is the whole of the no-op backend, its driver too, and there is no API beneath it to give a version.
+    assert_eq!(report.versions, [("driver", "wgpu".to_owned())]);
+}
+
+/// The adapter of wgpu's no-op backend, which every platform has.
+fn noop_adapter() -> wgpu::Adapter {
     let descriptor = wgpu::InstanceDescriptor {
         backends: wgpu::Backends::NOOP,
         backend_options: wgpu::BackendOptions {
@@ -192,19 +318,7 @@ fn an_adapter_no_graphics_api_stands_behind_reports_only_what_wgpu_says() {
         ..wgpu::InstanceDescriptor::new_without_display_handle()
     };
     let instance = wgpu::Instance::new(descriptor);
-    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap();
-    let gpu = block_on(Gpu::open_adapter(adapter)).unwrap();
-    assert_eq!(gpu.info().backend, wgpu::Backend::Noop);
-    let report = gpu.report();
-    assert_ne!(report.lines.len(), 0);
-    for api in ["vulkan", "metal", "dxgi"] {
-        assert!(
-            !report.lines.iter().any(|line| line.starts_with(api)),
-            "{api} in {:?}",
-            report.lines
-        );
-    }
-    assert_eq!(report.versions.len(), 0);
+    block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).unwrap()
 }
 
 #[test]

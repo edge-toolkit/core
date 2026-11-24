@@ -807,3 +807,53 @@ signatures:
         window: normal
     results:
       md5: "ca2212bcdf0298d21e8f7622001b4cee"
+  - interface: canvas-browserleaks
+    label: "Chromium 158.0.8127.36 on Linux, ASUS TUF H370-PRO GAMING -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      md5: "28b3bf73b7d36a33733cb85bdba413ee"
+  - interface: canvas-browserleaks
+    label: "Chromium 158.0.8127.36 on Linux, ASUS TUF H370-PRO GAMING -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      md5: "398df3de3612e14b8a95dabf6679081b"

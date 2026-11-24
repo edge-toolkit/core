@@ -737,6 +737,17 @@ signatures:
         backend: vulkan
         device: "HP EliteBook 645 G10"
         window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
     results:
       multiply_add: "00000000"
       fma: "????????"
@@ -924,3 +935,89 @@ signatures:
       atan2: "3d087b99"
       tanh: "3dcc1ebe"
       dot: "40000000"
+  - interface: webgl2-split
+    label: "Radeon RX 580 Series (RADV POLARIS10) through vulkan on linux, ASUS TUF H370-PRO GAMING -- WebGL 2 on
+      chromium"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RX 580 Series (RADV POLARIS10)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RX 580 Series (RADV POLARIS10)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae5"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgl2-split
+    label: "Mesa Intel(R) UHD Graphics 630 (CFL GT2) through opengl on linux, ASUS TUF H370-PRO GAMING -- WebGL 2 on
+      chromium"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"

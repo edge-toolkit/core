@@ -40,16 +40,16 @@ pub enum MeasureError {
     /// What became of a signature could not be written out.
     #[error("the output could not be written: {0}")]
     Write(#[from] std::io::Error),
-    /// Some adapters could not be measured, by how many; every other one was recorded all the same.
-    #[error("{0} adapter(s) could not be measured")]
+    /// Some adapters could not be measured in full, by how many; every set that answered was recorded all the same.
+    #[error("{0} adapter(s) could not be measured in full")]
     Skipped(usize),
 }
 
 /// Measure every adapter in `opened` and this machine's CPU, `machine`, and add what they answer to `registry`.
 ///
-/// What became of each signature is written to `out`. An adapter that did not open, or would not answer, is said so
-/// and passed over: the others are measured all the same, and the count of those passed over is the error returned once
-/// every other one is recorded.
+/// What became of each signature is written to `out`. An adapter that did not open is said so and passed over, as is
+/// each set an adapter would not answer: everything else is measured all the same, and the count of adapters not
+/// measured in full is the error returned once every other signature is recorded.
 pub fn measure<Out>(
     registry: &RegistryTree,
     machine: &Machine,
@@ -112,12 +112,26 @@ where
     let mut submissions = Vec::new();
     let mut skipped = 0_usize;
     for gpu in opened {
-        match gpu.and_then(|gpu| gpu_signatures(&gpu, machine)) {
-            Ok(signatures) => submissions.extend(signatures),
+        let gpu = match gpu {
+            Ok(gpu) => gpu,
             Err(error) => {
                 writeln!(out, "an adapter was not measured: {error}")?;
                 skipped = skipped.saturating_add(1);
+                continue;
             }
+        };
+        let mut in_full = true;
+        for (interface, outcome) in gpu_signatures(&gpu, machine) {
+            match outcome {
+                Ok(submission) => submissions.push(submission),
+                Err(error) => {
+                    writeln!(out, "{interface} on {} was not measured: {error}", gpu.info().name)?;
+                    in_full = false;
+                }
+            }
+        }
+        if !in_full {
+            skipped = skipped.saturating_add(1);
         }
     }
     submissions.push(cpu_signature(machine));
@@ -140,8 +154,11 @@ fn built_with(package: &str) -> &'static str {
         .map_or("", |(_, version)| version)
 }
 
-/// Every probe set `gpu` answers, each as a submission at the row `machine` and the adapter make.
-fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Result<Vec<Submission>, NativeError> {
+/// Every probe set put to `gpu`, beside the submission at the row `machine` and the adapter make, or why it gave none.
+///
+/// Each set is its own outcome, so a device that answers the clears but runs no compute shaders, say, still gives the
+/// sets it answered.
+fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Vec<(&'static str, Result<Submission, NativeError>)> {
     let info = gpu.info();
     let (system, arch) = HERE;
     let runtime = format!("wgpu {}, built for {}", built_with("wgpu"), built_info::TARGET);
@@ -167,7 +184,10 @@ fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Result<Vec<Submission>, Nativ
     );
     block_on(gpu.every_set())
         .into_iter()
-        .map(|(interface, outcome)| Ok(Submission::measured(interface, &outcome?, &label, seen.clone())))
+        .map(|(interface, outcome)| {
+            let submission = outcome.map(|signature| Submission::measured(interface, &signature, &label, seen.clone()));
+            (interface, submission)
+        })
         .collect()
 }
 

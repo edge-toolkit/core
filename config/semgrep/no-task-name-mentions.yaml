@@ -152,6 +152,7 @@ rules:
         - "/AGENTS.md" # Documents the bootstrap-then-publish sequence for a new cached asset.
         - "/README.md" # Tells a contributor which install to run first.
         - "/CONTRIBUTING.md" # Walks a contributor through those installs.
+        - "/libs/gpu-probe/README.md" # Walks a collector through what each probe needs first, MSVC on Windows.
         - "/Dockerfile" # Installs the toolchain and prefetches models.
         - "/Dockerfile.nanoserver" # Same, with a narrower prefetch.
         - "/Dockerfile.windows" # Same.

@@ -1268,6 +1268,89 @@ signatures:
         runtime: "et-ws-web-runner 0.3.0"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -1313,6 +1396,106 @@ signatures:
         backend: opengl
         device: "Dell Precision 5570"
         runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "Mesa"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
         window: none
         date: "2026-11-24"
     results:
@@ -1430,6 +1613,28 @@ signatures:
         gpu_version: "SwiftShader (software renderer)"
         backend: d3d12
         device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
         window: normal
     results:
       multiply_add: "00000000"
@@ -1596,5 +1801,307 @@ signatures:
       log: "3f8c9f54"
       pow: "3f8edd20"
       atan2: "3d087b98"
+      tanh: "3dcc1ebe"
+      dot: "40000000"
+  - interface: webgpu-split
+    label: "Intel(R) UHD Graphics 630 (CFL GT2) through vulkan on linux Pop!_OS 24.04 x86_64, ASUS TUF H370-PRO GAMING
+      -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-9"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-9"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      multiply_add: "33800000"
+      fma: "33800000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc75ec"
+      cos: "3f7eb8a9"
+      tan: "3dcd7cac"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087ae6"
+      tanh: "3dcc1eb6"
+      dot: "3f800000"
+  - interface: webgpu-split
+    label: "AMD Radeon RX 580 Series (RADV POLARIS10) through vulkan on linux Pop!_OS 24.04 x86_64, ASUS TUF H370-PRO
+      GAMING -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic)"
+        driver: "AMD"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "gcn-4"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "gcn-4"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "40800000"
+      divide: "3eaaaaaa"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb897"
+      tan: "3dcd7c45"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087ae5"
       tanh: "3dcc1ebe"
       dot: "40000000"

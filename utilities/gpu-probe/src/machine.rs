@@ -2,7 +2,7 @@
 //!
 //! That is the operating system's release, the CPU's model, the machine -- or, on a GitHub Actions runner, the runner
 //! image and its build, since a runner label such as `macos-latest` names a pool of machines that changes under it --
-//! the day, and where the run that measured it is on record.
+//! the day, every driver setting in force, and where the run that measured it is on record.
 #![expect(
     clippy::single_call_fn,
     reason = "each source of a machine's fields is a named function, read in one place"
@@ -14,6 +14,31 @@ use sysinfo::{CpuRefreshKind, RefreshKind, System};
 
 use crate::config::{self, Config};
 use crate::registry::row;
+
+/// The environment variables that are driver settings, by the prefix each starts with.
+///
+/// Each can change what a GPU answers without anything else about the row changing -- `INTEL_DEBUG=nofc` turns Mesa's
+/// Intel fast clears off, `VK_ICD_FILENAMES` picks the Vulkan driver, `__EGL_VENDOR_LIBRARY_FILENAMES` the vendor
+/// glvnd loads for OpenGL, `WGPU_BACKEND` the API wgpu opens -- so each is as much a part of where a signature was seen
+/// as the driver's version.
+pub const DRIVER_SETTINGS: [&str; 24] = [
+    "AMD_", "ANV_", "DRI_", "DXVK_", "EGL_", "GALLIUM_", "INTEL_", "IRIS_", "LIBGL_", "LP_", "MESA_", "METAL_", "MTL_",
+    "MVK_", "NV_", "RADV_", "RUSTICL_", "VK_", "WGPU_", "ZINK_", "__EGL_", "__GLX_", "__GL_", "__NV_",
+];
+
+/// The driver settings among `vars`, as `NAME=value` in name order, separated by spaces; empty if there are none.
+pub fn environment<Vars>(vars: Vars) -> String
+where
+    Vars: IntoIterator<Item = (String, String)>,
+{
+    let mut settings: Vec<String> = vars
+        .into_iter()
+        .filter(|(name, _)| DRIVER_SETTINGS.iter().any(|prefix| name.starts_with(prefix)))
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect();
+    settings.sort();
+    settings.join(" ")
+}
 
 /// What stopped the machine being described.
 #[derive(Debug, thiserror::Error)]
@@ -35,17 +60,19 @@ impl Machine {
     /// This machine, named `device` unless it is a GitHub Actions runner, which is named by its image instead.
     ///
     /// An empty `device` names the machine `GPU_PROBE_DEVICE` gives. A field whose value the system does not give is
-    /// left out, as is `device` when neither names one and this is no runner.
+    /// left out, as is `device` when neither names one and this is no runner, and `environment` when no driver setting
+    /// is in force.
     pub fn here(device: &str) -> Result<Self, MachineError> {
         let env = config::load()?;
         let date = jiff::Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).date();
-        Ok(Self::from_parts(
-            &env,
-            device,
-            &os_version(),
-            &cpu_version(),
-            &date.to_string(),
-        ))
+        let mut machine = Self::from_parts(&env, device, &os_version(), &cpu_version(), &date.to_string());
+        let settings = environment(
+            std::env::vars_os().filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?))),
+        );
+        if !settings.is_empty() {
+            let _previous: Option<String> = machine.fields.insert("environment".to_owned(), settings);
+        }
+        Ok(machine)
     }
 
     /// The machine whose fields are exactly `fields`.

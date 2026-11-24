@@ -28,8 +28,8 @@ required-features = ["native", "registry"]
 ## `Signature::identify` then names the hardware a signature was seen on, and `Signature::seen` lists each place.
 registry = ["dep:platforms", "dep:serde_json", "dep:target-lexicon", "dep:thiserror", "dep:webbrowser", "dep:wgpu-hal"]
 ## Puts the probe sets to a GPU through wgpu, and reads what the device says it is.
-## Natively it opens the backends `et-ws-wasi-runner` hosts and reads the API beneath wgpu; on wasm32, WebGPU.
-native = ["dep:futures-channel", "dep:objc2", "dep:objc2-metal", "dep:thiserror", "dep:wgpu", "dep:windows"]
+## Natively it opens Vulkan, Metal, Direct3D 12 and OpenGL and reads the API beneath wgpu; on wasm32, WebGPU.
+native = ["dep:futures-channel", "dep:glow", "dep:objc2", "dep:objc2-metal", "dep:thiserror", "dep:wgpu", "dep:windows"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
@@ -50,6 +50,11 @@ wgpu-hal = { workspace = true, optional = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wgpu = { workspace = true, features = ["dx12", "metal", "std", "vulkan", "wgsl"], optional = true }
 
+# OpenGL too, where wgpu reaches it without ANGLE: through EGL, or WGL on Windows.
+[target.'cfg(not(any(target_arch = "wasm32", target_vendor = "apple")))'.dependencies]
+glow = { workspace = true, optional = true }
+wgpu = { workspace = true, features = ["gles"], optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wgpu = { workspace = true, features = ["std", "webgpu", "wgsl"], optional = true }
 
@@ -64,9 +69,13 @@ windows = { workspace = true, features = ["Win32_Graphics_Dxgi", "std"], optiona
 # The crate's dependency on itself turns the registry on for every test.
 [dev-dependencies]
 criterion.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-gpu-probe = { workspace = true, features = ["registry"] }
+fs-err.workspace = true
 futures-executor.workspace = true
 pretty_assertions.workspace = true
+serde.workspace = true
+serde-env.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 wgpu = { workspace = true, features = ["noop"] }
 

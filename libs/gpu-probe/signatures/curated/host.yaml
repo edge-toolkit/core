@@ -278,6 +278,69 @@ signatures:
         runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "33800000"

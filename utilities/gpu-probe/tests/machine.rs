@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use et_gpu_probe_server::machine::Machine;
+use et_gpu_probe_server::machine::{Machine, environment};
 use pretty_assertions::assert_eq;
 use temp_env::with_vars;
 
@@ -109,4 +109,55 @@ fn a_label_names_the_release_then_the_device_where_each_is_known() {
     assert_eq!(device.named("macos", "aarch64"), "macos aarch64, a runner");
     assert_eq!(Machine::with(&[]).named("macos", ""), "macos");
     assert_eq!(Machine::default().named("", ""), "");
+}
+
+/// `pairs` as owned environment variables.
+fn vars(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+    pairs
+        .iter()
+        .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+        .collect()
+}
+
+#[test]
+fn only_driver_settings_are_kept_in_name_order() {
+    let settings = environment(vars(&[
+        ("PATH", "/usr/bin"),
+        ("VK_ICD_FILENAMES", "/usr/share/vulkan/icd.d/intel_icd.x86_64.json"),
+        ("INTEL_DEBUG", "nofc"),
+        ("HOME", "/home/someone"),
+        ("__GL_SYNC_TO_VBLANK", "0"),
+    ]));
+    assert_eq!(
+        settings,
+        "INTEL_DEBUG=nofc VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json __GL_SYNC_TO_VBLANK=0"
+    );
+    assert_eq!(environment(vars(&[("PATH", "/usr/bin")])), "");
+}
+
+#[test]
+fn the_vendor_glvnd_loads_is_a_driver_setting() {
+    let settings = environment(vars(&[
+        ("__GLX_VENDOR_LIBRARY_NAME", "mesa"),
+        (
+            "__EGL_VENDOR_LIBRARY_FILENAMES",
+            "/usr/share/glvnd/egl_vendor.d/50_mesa.json",
+        ),
+    ]));
+    assert_eq!(
+        settings,
+        "__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json __GLX_VENDOR_LIBRARY_NAME=mesa"
+    );
+}
+
+#[test]
+fn this_machine_gives_the_driver_settings_in_force() {
+    let mut set = UNSET.to_vec();
+    set.push(("INTEL_DEBUG", Some("nofc")));
+    let machine = with_vars(set, || Machine::here("a desktop")).unwrap();
+    let settings = machine.fields().get("environment").unwrap();
+    assert!(
+        settings.split(' ').any(|setting| setting == "INTEL_DEBUG=nofc"),
+        "{settings}"
+    );
 }

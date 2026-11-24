@@ -145,44 +145,6 @@ sudo xcodebuild -runFirstLaunch
 xcodebuild -downloadPlatform iOS
 ```
 
-### NVIDIA GPUs through CUDA
-
-`et-ws-wasi-runner` reaches an NVIDIA GPU through `wasi:nn` only when it is built with its `cuda` feature and loads
-an ONNX Runtime that carries the CUDA execution provider. The opt-in `MISE_ENV=cuda` installs that GPU build of ONNX
-Runtime, which is published for Linux x64 alone, and points `ORT_DYLIB_PATH` at it. Stack it after the other envs:
-
-```bash
-MISE_ENV=rust,cuda mise install
-```
-
-The provider also needs the CUDA 12 runtime, cuBLAS, cuFFT, cuRAND, NVRTC and cuDNN 9 on the host, which no mise
-tool supplies. On Ubuntu 24.04 or Pop!_OS 24.04 they come from NVIDIA's own apt repository; install only these
-libraries, since the `cuda` and `cuda-drivers` metapackages would replace the distribution's NVIDIA driver:
-
-```bash
-repo=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64
-curl -fsSLo target/cuda-keyring.deb "$repo/cuda-keyring_1.1-1_all.deb"
-sudo dpkg -i target/cuda-keyring.deb
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends cuda-cudart-12-9 cuda-nvrtc-12-9 libcudnn9-cuda-12
-sudo apt-get install -y --no-install-recommends libcublas-12-9 libcufft-12-9 libcurand-12-9
-echo /usr/local/cuda-12.9/targets/x86_64-linux/lib | sudo tee /etc/ld.so.conf.d/cuda-12-9.conf
-sudo ldconfig
-```
-
-Then run the GPU probe through it:
-
-```bash
-MISE_ENV=rust,cuda mise exec -- cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture
-```
-
-A missing library does not fail anything: ONNX Runtime runs the session on the CPU without saying so. Check that
-every library the provider links resolves, which prints nothing when they all do:
-
-```bash
-MISE_ENV=cuda mise exec -- sh -c 'ldd "${ORT_DYLIB_PATH%/*}/libonnxruntime_providers_cuda.so" | rg "not found"'
-```
-
 ### Optionally pre-populating tools from the OCI stores
 
 Most of the tool tree can be restored from this project's per-platform OCI packages on ghcr.io instead of

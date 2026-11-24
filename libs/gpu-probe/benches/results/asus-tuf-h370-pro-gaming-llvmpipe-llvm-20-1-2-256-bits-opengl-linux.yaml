@@ -1,0 +1,52 @@
+machine:
+  id: asus-tuf-h370-pro-gaming
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-24"
+gpu:
+  backend: opengl
+  computes: true
+  gpu_version: llvmpipe (LLVM 20.1.2, 256 bits)
+  name: llvmpipe (LLVM 20.1.2, 256 bits) (opengl)
+  versions:
+    api_version: OpenGL 4.6
+    driver: Mesa
+    driver_version: (Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea
+  id: llvmpipe-llvm-20-1-2-256-bits-opengl
+benchmarks:
+  gpus/clear_signature/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 409163.4
+      lower_value: 405203.7
+      upper_value: 412931.72
+  gpus/combined_signature/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 79353.16
+      lower_value: 79254.5
+      upper_value: 79463.44
+  gpus/f16_combined_signature/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 42492.22
+      lower_value: 42469.32
+      upper_value: 42516.61
+  gpus/f16_signature/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 42666.96
+      lower_value: 42629.27
+      upper_value: 42713.22
+  gpus/fixed_function_signature/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 5.34492549e+06
+      lower_value: 5.33794155e+06
+      upper_value: 5.35206927e+06
+  gpus/report/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 7728.02
+      lower_value: 7723.13
+      upper_value: 7734.05
+  gpus/signature/llvmpipe (LLVM 20.1.2, 256 bits) (opengl):
+    latency:
+      value: 496490.11
+      lower_value: 494063.04
+      upper_value: 498966.24

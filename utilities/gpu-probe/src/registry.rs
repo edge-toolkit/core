@@ -74,7 +74,7 @@ const WRITING: &str = "writing";
 const REPOSITORY_REGISTRY: &str = "libs/gpu-probe/signatures";
 
 /// Every field a row may carry, in the order the registry writes them.
-pub(crate) const ROW_ORDER: [&str; 18] = [
+pub(crate) const ROW_ORDER: [&str; 20] = [
     "browser",
     "browser_version",
     "os",
@@ -83,11 +83,13 @@ pub(crate) const ROW_ORDER: [&str; 18] = [
     "cpu_version",
     "gpu",
     "gpu_version",
+    "driver",
     "driver_version",
     "api_version",
     "backend",
     "device",
     "runtime",
+    "environment",
     "defence",
     "reported",
     "window",
@@ -103,6 +105,9 @@ const BROWSER_VERSION: &str = "browser_version";
 /// A rerun on a later day, or another CI run, is the sighting already on record, and the row keeps its first day and
 /// run.
 const FIRST_SEEN: [&str; 2] = ["date", "source"];
+
+/// The field of a row naming the driver settings in force when it was seen.
+const ENVIRONMENT: &str = "environment";
 
 /// The fields of a row whose values come from fixed sets, which the registry writes unquoted.
 const ENUMERATED: [&str; 6] = ["browser", "os", "cpu_arch", "gpu", "backend", "window"];
@@ -659,13 +664,18 @@ fn reads_back(updated: &str, before: &File, index: usize) -> Result<(), Register
 /// a submission that tells it nothing new is a sighting already on record, not one to add beside it. Only the entry
 /// holding the same signature is asked, so a browser's version is compared by its major version alone: a point release
 /// that answers the same is the sighting already on record, and one that answers differently is another entry.
+///
+/// The driver settings are the exception to a held row knowing more: a driver run with no setting is not one run with
+/// `INTEL_DEBUG=nofc`, so both rows must give the same `environment`, or neither give one.
 fn covers(row: &BTreeMap<String, String>, seen: &BTreeMap<String, String>) -> bool {
-    seen.iter()
-        .filter(|(field, _)| !FIRST_SEEN.contains(&field.as_str()))
-        .all(|(field, value)| {
-            row.get(field)
-                .is_some_and(|held| comparable(field, held) == comparable(field, value))
-        })
+    row.get(ENVIRONMENT) == seen.get(ENVIRONMENT)
+        && seen
+            .iter()
+            .filter(|(field, _)| !FIRST_SEEN.contains(&field.as_str()))
+            .all(|(field, value)| {
+                row.get(field)
+                    .is_some_and(|held| comparable(field, held) == comparable(field, value))
+            })
 }
 
 /// The part of `value`, the value of `field`, that two rows are compared by: a browser's major version, or all of it.

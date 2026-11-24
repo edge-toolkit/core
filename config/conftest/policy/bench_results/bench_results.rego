@@ -6,7 +6,9 @@
 # with its `id` and the `os` it ran, and every benchmark's estimates under `benchmarks`. The same machine gives other
 # results under another OS, through its other drivers, so a file is found by both, and its name must agree with what
 # it records: a file renamed by hand, or one recorded under a mistyped id, would sit beside the real one as a second
-# machine nobody has. The id is lowercase words joined by `-`, so it is the same file name on every OS.
+# machine nobody has. The id is lowercase words joined by `-`, so it is the same file name on every OS. A file of one
+# GPU's benchmarks also records that GPU under `gpu`, with an `id` of the same form, and is named for it between the
+# machine and the OS, so one machine's GPUs each have a file of their own.
 package bench_results
 
 import data.paths
@@ -20,6 +22,11 @@ results_path := `^(?:libs|services)/[^/]+/benches/results/([^/]+)\.yaml$`
 # Where a results file belongs, as the denial for one elsewhere names it.
 results_home := "<libs|services>/<crate>/benches/results/<machine>-<os>.yaml"
 
+# The name a file recording machine `id` under `os` takes, and the GPU `gpu` where it records one.
+expected_stem(id, "", os) := $"{id}-{os}"
+
+expected_stem(id, gpu, os) := $"{id}-{gpu}-{os}" if gpu != ""
+
 # Every OS a host build runs the benchmarks on, as the registry's rows name it.
 oses := {"linux", "macos", "windows"}
 
@@ -30,13 +37,14 @@ deny contains msg if {
 	msg := sprintf("%s: a benchmark results file belongs in %s", [file.path, results_home])
 }
 
-# A results file is named for the machine and OS it records.
+# A results file is named for the machine and OS it records, and the GPU where it records one.
 deny contains msg if {
 	some file in paths.files
 	stem := regex.find_all_string_submatch_n(results_path, file.path, 1)[0][1]
 	id := object.get(file.contents, ["machine", "id"], "<none>")
 	os := object.get(file.contents, ["machine", "os"], "<none>")
-	expected := $"{id}-{os}"
+	gpu := object.get(file.contents, ["gpu", "id"], "")
+	expected := expected_stem(id, gpu, os)
 	stem != expected
 	msg := sprintf("%s: records machine %v under %v, so it must be named %v.yaml", [file.path, id, os, expected])
 }
@@ -47,6 +55,14 @@ deny contains msg if {
 	id := file.contents.machine.id
 	not regex.match(id_pattern, id)
 	msg := sprintf("%s: machine id %q must be lowercase words joined by -", [file.path, id])
+}
+
+# A GPU id is lowercase words joined by hyphens, as a machine id is.
+deny contains msg if {
+	some file in paths.files
+	id := file.contents.gpu.id
+	not regex.match(id_pattern, id)
+	msg := sprintf("%s: gpu id %q must be lowercase words joined by -", [file.path, id])
 }
 
 # A results file records the OS it ran, as one a host build runs on.

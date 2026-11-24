@@ -785,3 +785,31 @@ signatures:
       lane1: "d1e946e3"
       lane2: "523431d3"
       lane3: "283a4312"
+  - interface: canvas
+    label: "Chromium 158.0.8127.36 on Linux, ASUS TUF H370-PRO GAMING -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      lane0: "04abefea"
+      lane1: "b692dd54"
+      lane2: "101c7254"
+      lane3: "3aa81160"

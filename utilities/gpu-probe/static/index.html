@@ -82,6 +82,10 @@
         </datalist>
         <label for="device">device</label><input id="device" size="40">
         <label for="defence">defence</label><input id="defence" size="40">
+        <label for="environment">environment</label><input
+          id="environment"
+          size="40"
+        >
       </fieldset>
     </form>
     <p><button id="submit-all" disabled>Submit every probe set</button></p>
@@ -99,6 +103,12 @@
         <a
           href="mailto:john.vandenberg@curtin.edu.au?subject=GPU%20Probe%20results"
         >john.vandenberg@curtin.edu.au</a>.
+      </p>
+      <p>
+        To submit more data than a browser can measure, read the
+        <a
+          href="https://github.com/edge-toolkit/core/blob/main/libs/gpu-probe/README.md"
+        >et-gpu-probe README</a>.
       </p>
       <p id="judged"></p>
       <ol id="proposals"></ol>
@@ -333,7 +343,8 @@
     const vendorOf = (name) => name.trim().toLowerCase() || "unknown";
 
     // What the page was opened with: `device` names the machine and `os_version` the system's version, in place of
-    // what the browser says of either, `defence` the privacy setting the browser has in force, and `submit` submits
+    // what the browser says of either, `defence` the privacy setting the browser has in force, `environment` the driver
+    // settings the browser was started under, such as `INTEL_DEBUG=nofc`, which a page cannot see, and `submit` submits
     // every probe set once probed. `browser`, `browser_version` and `window` say what a
     // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
     // and Mullvad Browser always browses privately. `brand_version` is the browser's own version where it is not the
@@ -346,6 +357,7 @@
       field("device").value = query.get("device") ?? system.model;
       field("os_version").value = query.get("os_version") ?? system.version;
       field("defence").value = query.get("defence") ?? "";
+      field("environment").value = query.get("environment") ?? "";
       const [browser, version] = await browserOf(navigator.userAgent);
       field("browser").value = query.get("browser") ?? browser;
       field("browser_version").value = query.get("browser_version") ?? version;
@@ -379,7 +391,7 @@
         if (value) row[name] = value;
       }
       row.window = field("window").value;
-      for (const id of ["device", "defence"]) {
+      for (const id of ["device", "defence", "environment"]) {
         if (field(id).value.trim()) row[id] = field(id).value.trim();
       }
       return row;

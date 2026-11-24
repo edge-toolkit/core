@@ -9,10 +9,11 @@
 )]
 
 use std::hint::black_box;
+use std::path::PathBuf;
 
 use criterion::measurement::WallTime;
 use criterion::{BenchmarkGroup, Criterion, criterion_group, criterion_main};
-use et_gpu_probe::native::Gpu;
+use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe::{
     Answer, BLENDS, FILTERS, Format, GpuVendor, HOST, RASTER_FORMAT, RASTER_WIDTH, RASTERS, Sighting, Signature,
     WEBGL2, WEBGPU, WEBGPU_CLEAR, WEBGPU_F16, WEBGPU_FIXED_FUNCTION, clear_reference, combined_shader, coverage,
@@ -20,6 +21,7 @@ use et_gpu_probe::{
     reference, shaders,
 };
 use futures_executor::block_on;
+use serde::Deserialize;
 use serde_json::json;
 
 /// Every texture format the probe sets use.
@@ -171,34 +173,110 @@ fn registry(criterion: &mut Criterion) {
 /// Opening the GPUs, and putting every probe set to each adapter this machine has.
 ///
 /// A GPU answers in milliseconds where the CPU groups take nanoseconds, so this group takes fewer samples. Each adapter
-/// is named as wgpu names it, beside the API it was opened through; one whose device does not open is left out, as
-/// `Gpu::open_all` reports it.
+/// is named as wgpu names it, beside the API it was opened through, and every one `Gpu::open_all` gives is written to
+/// `adapters.json` in `CRITERION_HOME`, so the results say which GPUs they were taken on: what each one reports, and
+/// why one whose device does not open, which is left out here, was. A device that runs no compute shaders answers the
+/// clears and fixed-function probes alone, so only those are measured on it.
 fn gpus(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("gpus");
     let _sampled: &mut BenchmarkGroup<'_, WallTime> = group.sample_size(10);
     measure(&mut group, "open", || block_on(Gpu::open()));
     measure(&mut group, "open_all", || block_on(Gpu::open_all()));
-    for gpu in block_on(Gpu::open_all()).into_iter().flatten() {
-        let name = format!("{} ({})", gpu.info().name, gpu.backend());
-        measure(&mut group, &format!("signature/{name}"), || block_on(gpu.signature()));
-        measure(&mut group, &format!("combined_signature/{name}"), || {
-            block_on(gpu.combined_signature())
-        });
+    let opened = block_on(Gpu::open_all());
+    record_adapters(&opened);
+    for gpu in opened.iter().flatten() {
+        let name = adapter_name(gpu);
+        if runs_compute_shaders(gpu) {
+            measure(&mut group, &format!("signature/{name}"), || block_on(gpu.signature()));
+            measure(&mut group, &format!("combined_signature/{name}"), || {
+                block_on(gpu.combined_signature())
+            });
+            measure(&mut group, &format!("f16_signature/{name}"), || {
+                block_on(gpu.f16_signature())
+            });
+            measure(&mut group, &format!("f16_combined_signature/{name}"), || {
+                block_on(gpu.f16_combined_signature())
+            });
+        }
         measure(&mut group, &format!("clear_signature/{name}"), || {
             block_on(gpu.clear_signature())
         });
         measure(&mut group, &format!("fixed_function_signature/{name}"), || {
             block_on(gpu.fixed_function_signature())
         });
-        measure(&mut group, &format!("f16_signature/{name}"), || {
-            block_on(gpu.f16_signature())
-        });
-        measure(&mut group, &format!("f16_combined_signature/{name}"), || {
-            block_on(gpu.f16_combined_signature())
-        });
         measure(&mut group, &format!("report/{name}"), || gpu.report());
     }
     group.finish();
+}
+
+/// The name an adapter's benchmarks carry: wgpu's name for it, beside the API it was opened through.
+fn adapter_name(gpu: &Gpu) -> String {
+    format!("{} ({})", gpu.info().name, gpu.backend())
+}
+
+/// Whether `gpu` runs the shader probe sets, rather than saying it runs no compute shaders.
+fn runs_compute_shaders(gpu: &Gpu) -> bool {
+    !matches!(block_on(gpu.signature()), Err(NativeError::Compute(_)))
+}
+
+/// The `CRITERION_*` variables the bench reads.
+#[derive(Default, Deserialize)]
+struct CriterionEnv {
+    /// Where criterion keeps its results, which the bench task sets; empty where it is not set.
+    #[serde(default)]
+    home: PathBuf,
+}
+
+/// The environment the bench reads.
+#[derive(Deserialize)]
+struct BenchEnv {
+    /// The `CRITERION_*` variables, each empty where it is not set.
+    #[serde(default)]
+    criterion: CriterionEnv,
+}
+
+/// Write every adapter in `opened` to `adapters.json` in `CRITERION_HOME`, where that is set.
+///
+/// Each opened adapter is its benchmarks' name, wgpu's name for it, its backend, the registry fields its report gives
+/// and whether it runs compute shaders; each that did not open is why. A file that cannot be written stops the run,
+/// since its results would then say nothing of the GPUs they were taken on.
+#[expect(
+    clippy::unwrap_used,
+    reason = "a bench has no caller to hand the error to, and results that cannot name their GPUs are not worth keeping"
+)]
+fn record_adapters(opened: &[Result<Gpu, NativeError>]) {
+    let BenchEnv {
+        criterion: CriterionEnv { home },
+    } = serde_env::from_env().unwrap();
+    if home.as_os_str().is_empty() {
+        return;
+    }
+    let adapters: Vec<serde_json::Value> = opened
+        .iter()
+        .map(|gpu| match gpu {
+            Ok(gpu) => {
+                let versions: serde_json::Map<String, serde_json::Value> = gpu
+                    .report()
+                    .versions
+                    .into_iter()
+                    .map(|(field, value)| (field.to_owned(), value.into()))
+                    .collect();
+                json!({
+                    "name": adapter_name(gpu),
+                    "gpu_version": gpu.info().name,
+                    "backend": gpu.backend(),
+                    "computes": runs_compute_shaders(gpu),
+                    "versions": versions,
+                })
+            }
+            Err(error) => json!({ "error": error.to_string() }),
+        })
+        .collect();
+    fs_err::write(
+        home.join("adapters.json"),
+        serde_json::to_string_pretty(&adapters).unwrap(),
+    )
+    .unwrap();
 }
 
 criterion_group!(benches, probe_sets, formats, signatures, registry, gpus);

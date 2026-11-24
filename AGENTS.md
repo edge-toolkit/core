@@ -17,6 +17,20 @@ touched and which did not depend on anything it changed. Every one of those lint
 single missing commit. The wrong diagnosis reached for first was a toolchain change, which the dates flatly
 contradicted; `git rev-list --left-right --count origin/main...HEAD` would have settled it immediately.
 
+## NEVER modify git state unless asked
+
+An agent edits files in the working tree of whatever branch is checked out, and nothing more. It never runs a git
+command that changes the repository -- creating or deleting a branch, switching or checking one out, committing,
+amending, stashing, resetting, rebasing, merging, cherry-picking, tagging, pushing, or restoring files with
+`git checkout --` / `git restore` -- unless the operator has asked for that specific action. Read-only git is fine:
+`status`, `diff`, `log`, `show`, `grep`, `ls-tree`, `fetch`. A general instruction to "branch before committing" is
+not a request to branch: when work looks as though it needs a branch or a commit, say so and leave it to the operator.
+
+The operator moves between work branches themselves, and an agent's git change lands on top of theirs unseen. A
+worked example: an agent created a branch with `git switch -c` before recording probe data, while the operator's own
+work was on another branch it had not been told about; the two diverged, and untangling them cost a commit, a
+checkout and a port that a file edit on the right branch would never have needed.
+
 ## Install the mise tools at the start of every session
 
 Run `mise install` right after the branch check, once per session, before touching anything else. It is idempotent

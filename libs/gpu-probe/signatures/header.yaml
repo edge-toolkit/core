@@ -28,10 +28,16 @@
 #   window     normal, private (an incognito window), both (each gave the signature, so one row stands for the two),
 #              or none where no browser was involved
 # and may add, as free text: browser_version, os_version, cpu_version (the chip), gpu_version (the model and driver),
-# driver_version and api_version (the versions the graphics API itself reports for the driver and the device, as the
-# native test prints them, not as a browser or wgpu describes them), device (the machine), runtime (what ran the
-# probes where no browser did), defence (a privacy setting in force), reported (what the interface said the GPU was,
-# where that is not what it is), date and source (where the sighting is on record).
+# driver (the driver's own name for itself, as the graphics API gives it: Vulkan's driverName, such as "Intel
+# open-source Mesa driver" or "NVK", and OpenGL's GL_VENDOR, the nearest OpenGL comes to naming one; backend names the
+# API and not the driver, and one GPU can be reached through several drivers of one API), driver_version and
+# api_version (the versions the graphics API itself reports for the driver and the device, as the native test prints
+# them, not as a browser or wgpu describes them; OpenGL's driver_version is the vendor's part of GL_VERSION, as
+# given), device (the machine), runtime (what ran the probes where no browser did), environment (each driver setting
+# in force that can change an answer, as the environment variables that set it, such as INTEL_DEBUG=nofc; a row with
+# other settings, or none, is a sighting of its own), defence (a privacy setting in force), reported (what the
+# interface said the GPU was, where that is not what it is), date and source (where the sighting is on record; a later
+# sighting differing only in these is the same row).
 # Each result is keyed by a name its mechanism gives it (a probe, a hash lane) so fields can be added.
 # An interface a browser blocks or does not offer is recorded as an entry with "blocked: true" and a "reason"
 # instead of results, so the registry also shows which browsers withhold which interface, and why.

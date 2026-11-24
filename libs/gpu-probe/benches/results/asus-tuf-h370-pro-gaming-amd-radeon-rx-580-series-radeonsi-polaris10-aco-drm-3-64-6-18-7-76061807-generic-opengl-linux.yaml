@@ -1,0 +1,52 @@
+machine:
+  id: asus-tuf-h370-pro-gaming
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-24"
+gpu:
+  backend: opengl
+  computes: true
+  gpu_version: AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic)
+  name: AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl)
+  versions:
+    api_version: OpenGL 4.6
+    driver: AMD
+    driver_version: (Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea
+  id: amd-radeon-rx-580-series-radeonsi-polaris10-aco-drm-3-64-6-18-7-76061807-generic-opengl
+benchmarks:
+  gpus/clear_signature/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 478260.52
+      lower_value: 453210.06
+      upper_value: 506231.52
+  gpus/combined_signature/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 138273.38
+      lower_value: 136949.43
+      upper_value: 139615.93
+  gpus/f16_combined_signature/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 102501.59
+      lower_value: 101444.33
+      upper_value: 103536.03
+  gpus/f16_signature/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 104417.9
+      lower_value: 103738.29
+      upper_value: 105146.67
+  gpus/fixed_function_signature/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 3.66480489e+06
+      lower_value: 3.65624768e+06
+      upper_value: 3.6736545e+06
+  gpus/report/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 7864.45
+      lower_value: 7843.06
+      upper_value: 7890.45
+  gpus/signature/AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic) (opengl):
+    latency:
+      value: 548139.83
+      lower_value: 493606.12
+      upper_value: 617660.91

@@ -214,8 +214,8 @@ jobs:
       contents: read
     runs-on: ${{ matrix.image }}
     timeout-minutes: ${{ contains(matrix.image, 'intel') && 140 || 100 }}
-    # Job-level, as in test.yaml, because the msvc env must be loaded when the first `mise install` runs: it adds
-    # the x86_64-pc-windows-msvc std and the tools that env needs.
+    # The mise env is set job-level, as in test.yaml, so it is loaded when the first `mise install` runs.
+    # The msvc env adds the x86_64-pc-windows-msvc std and the tools that env needs.
     env:
       MISE_ENV: ${{ matrix.probe == 'deno' && startsWith(matrix.image, 'windows') && 'rust,msvc' || 'rust' }}
     strategy:
@@ -289,8 +289,9 @@ jobs:
       - name: Remove mise shim
         uses: $/.github/actions/remove-mise-shim
 
-      # The portable MSVC + Windows SDK that prefetch:msvc stages, cached as test.yaml caches it, keyed by the
-      # config that pins it. Only the stage is cached; the task renders msvc.env and its junctions on every run.
+      # The portable MSVC + Windows SDK that prefetch:msvc stages, cached as test.yaml caches it.
+      # It is keyed by the config that pins it. Only the stage is cached; the task renders msvc.env and its junctions
+      # on every run.
       - name: Cache portable MSVC
         if: matrix.probe == 'deno' && runner.os == 'Windows'
         uses: actions/cache@v6

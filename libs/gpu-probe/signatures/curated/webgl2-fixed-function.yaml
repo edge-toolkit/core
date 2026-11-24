@@ -88,6 +88,28 @@ signatures:
         backend: opengl-es
         device: "Dell Precision 5570"
         window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -367,6 +389,28 @@ signatures:
         device: "HP EliteBook 645 G10"
         reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
         window: private
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RX 580 Series (RADV POLARIS10)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RX 580 Series (RADV POLARIS10)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -478,6 +522,17 @@ signatures:
         gpu_version: "SwiftShader Device (Subzero)"
         backend: vulkan
         device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
         window: normal
     results:
       blend_multiply: "00000032"

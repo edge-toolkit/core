@@ -3,6 +3,26 @@
 Numeric and fixed-function probes that tell one GPU's arithmetic from another's, the registry of every signature they
 have been seen to give, and, with the `native` feature, the driver that puts them to a GPU through wgpu.
 
+## The registry records everything
+
+The registry exists to record every variation of CPU and GPU behaviour there is: every chip, driver, driver version
+and driver setting, backend, operating system, browser and browser version, window mode and privacy defence, and every
+signature each combination gives -- as accurately as it can be measured, and with as much metadata about where it was
+measured as can be gathered. Nothing is too ordinary to record and nothing is too surprising to keep.
+
+A signature is what the whole stack answered, not what the silicon alone would. A driver that answers a clear from
+the CPU instead of the GPU, a browser that rounds or randomises a read-back, a software renderer standing in for a
+GPU: each is a variation in its own right, and is recorded as faithfully as a GPU's own arithmetic. Mesa's Intel
+Vulkan driver is the worked example: on a UHD Graphics 630 it packs a fast clear's colour on the CPU, correctly
+rounded, so the `webgpu-clear` set gives the exact reference answers; with `INTEL_DEBUG=nofc` turning fast clears off,
+the same GPU gives what it gives under Metal on macOS. Both are sightings to keep, each with the setting that made it.
+
+So when collecting, run every probe set on every adapter, through every interface, browser and backend the machine
+offers -- and again under each driver setting that changes the answer. A sighting that matches an entry already in
+the registry still adds its row, because where a signature has been seen is as much the record as the signature.
+Never leave out, correct or "fix" a sighting because it looks wrong or unexpected; an unexpected answer is the
+registry doing its job. Record it, with everything known about how it was taken, and work out why afterwards.
+
 ## Collecting signatures
 
 A machine's GPUs are reached through several mechanisms, and each gives signatures of its own, filed under
@@ -20,12 +40,21 @@ MISE_ENV=rust mise install
 
 Name the machine the same way in every step, by its make and model, so its rows agree.
 
-1. **wgpu directly, and the CPU.** `gpu-probe` puts every probe set to each adapter wgpu finds through Vulkan, Metal
-   and Direct3D 12, software renderers included, and the `host` set to the CPU, adding what the registry lacks:
+1. **wgpu directly, and the CPU.** `gpu-probe` puts every probe set to each adapter wgpu finds through Vulkan, Metal,
+   Direct3D 12 and OpenGL, software renderers included, and the `host` set to the CPU, adding what the registry
+   lacks. Each row names the driver and records, as `environment`, every driver setting in force:
 
    ```bash
    mise exec -- cargo run -p et-gpu-probe-server --bin gpu-probe -- --device "HP EliteBook 645 G10"
    ```
+
+   Then run it again under each driver setting that can change an answer. On Linux, wgpu opens one OpenGL adapter,
+   whichever GPU the EGL vendor glvnd loads gives, so with more than one vendor or GPU, reach each in turn:
+   `__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json` for Mesa where NVIDIA's EGL is the
+   default, with `DRI_PRIME=pci-0000_00_02_0` (a GPU's PCI address) for each GPU Mesa drives, and
+   `LIBGL_ALWAYS_SOFTWARE=1` for llvmpipe. On an Intel GPU under Mesa, add `INTEL_DEBUG=nofc` for its clears without
+   fast clears. NVIDIA's EGL gives wgpu an OpenGL 3.3 context, which runs no compute shaders, so there only the
+   clears and fixed-function probes are measured, and `gpu-probe` says which sets were not.
 
 2. **Every browser, as WASM.** The probe page runs WebGL 1 and 2 on the GPU the browser picks, WebGPU on each
    adapter it offers (high-performance, low-power and its software fallback), and the canvas fingerprints. On Linux
@@ -44,26 +73,72 @@ Name the machine the same way in every step, by its make and model, so its rows 
    `--enable-unsafe-swiftshader`), each of which runs WebGL through another API or renderer, once with
    `--enable-unsafe-webgpu --enable-unsafe-swiftshader`, without which they give WebGPU no fallback adapter, and once
    in a private window (`--incognito`, `--inprivate`, Firefox's `-private-window`, with `&window=private`).
-   On a machine with two GPUs, add `--force_high_performance_gpu` for WebGL on the other one.
+   On a machine with two GPUs, add `--force_high_performance_gpu` for WebGL on the other one. A browser started under
+   a driver setting, such as `INTEL_DEBUG=nofc`, names it with `&environment=INTEL_DEBUG%3Dnofc`, since a page cannot
+   see it. Ubuntu's snap Chromium sees only Mesa's drivers, so it reaches no GPU that NVIDIA's own driver drives.
 
 3. **`wasi:nn`.** ONNX Runtime behind `et-ws-wasi-runner`, under each execution target; without the `cuda` feature
-   every target runs on the CPU. It proposes what it measured as a file in `signatures/submitted/`:
+   every target runs on the CPU. It proposes what it measured as a file in `signatures/submitted/`, named by an
+   absolute path, since a test runs in its own package's directory:
 
    ```bash
-   GPU_PROBE_DEVICE="HP EliteBook 645 G10" GPU_PROBE_INTO=libs/gpu-probe/signatures/submitted \
-     mise exec -- cargo test -p et-ws-wasi-runner --test nn_probe -- --nocapture
+   export GPU_PROBE_DEVICE="HP EliteBook 645 G10" GPU_PROBE_INTO="$PWD/libs/gpu-probe/signatures/submitted"
+   mise exec -- cargo test -p et-ws-wasi-runner --test nn_probe -- --nocapture
    ```
 
-   On Linux with an NVIDIA GPU, run it again with `MISE_ENV=rust,cuda` and `--features cuda`, as CONTRIBUTING.md
-   describes.
+   On Linux x64 with an NVIDIA GPU, run it again through CUDA. `et-ws-wasi-runner` reaches an NVIDIA GPU through
+   `wasi:nn` only when it is built with its `cuda` feature and loads an ONNX Runtime that carries the CUDA execution
+   provider. The opt-in `MISE_ENV=cuda` installs that GPU build of ONNX Runtime, which is published for Linux x64
+   alone, and points `ORT_DYLIB_PATH` at it. Stack it after the other envs:
+
+   ```bash
+   MISE_ENV=rust,cuda mise install
+   ```
+
+   The provider also needs the CUDA 12 runtime, cuBLAS, cuFFT, cuRAND, NVRTC and cuDNN 9 on the host, which no mise
+   tool supplies. On Ubuntu 24.04 or Pop!_OS 24.04 they come from NVIDIA's own apt repository; install only these
+   libraries, since the `cuda` and `cuda-drivers` metapackages would replace the distribution's NVIDIA driver:
+
+   ```bash
+   repo=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64
+   curl -fsSLo target/cuda-keyring.deb "$repo/cuda-keyring_1.1-1_all.deb"
+   sudo dpkg -i target/cuda-keyring.deb
+   sudo apt-get update
+   sudo apt-get install -y --no-install-recommends cuda-cudart-12-9 cuda-nvrtc-12-9 libcudnn9-cuda-12
+   sudo apt-get install -y --no-install-recommends libcublas-12-9 libcufft-12-9 libcurand-12-9
+   echo /usr/local/cuda-12.9/targets/x86_64-linux/lib | sudo tee /etc/ld.so.conf.d/cuda-12-9.conf
+   sudo ldconfig
+   ```
+
+   A missing library does not fail anything: ONNX Runtime runs the session on the CPU without saying so. Check that
+   every library the provider links resolves, which prints nothing when they all do:
+
+   ```bash
+   MISE_ENV=cuda mise exec -- sh -c 'ldd "${ORT_DYLIB_PATH%/*}/libonnxruntime_providers_cuda.so" | rg "not found"'
+   ```
+
+   The provider also has to carry kernels for the GPU's compute capability, which this prints:
+
+   ```bash
+   nvidia-smi --query-gpu=name,compute_cap --format=csv
+   ```
+
+   ONNX Runtime 1.22's has none for Maxwell: a Quadro M2000, at 5.2, fails its first kernel with
+   `cudaErrorNoKernelImageForDevice: no kernel image is available for execution on the device`.
+
+   Then run the probe through it:
+
+   ```bash
+   MISE_ENV=rust,cuda mise exec -- cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture
+   ```
 
 4. **Deno.** The graphics-info module puts the six WebGPU probe sets to each adapter Deno's WebGPU gives, under
    `et-ws-web-runner`, and proposes them the same way:
 
    ```bash
    mise run build-ws-graphics-info-module
-   GPU_PROBE_DEVICE="HP EliteBook 645 G10" GPU_PROBE_INTO=libs/gpu-probe/signatures/submitted \
-     mise exec -- cargo test -p et-ws-web-runner --test modules graphics_info -- --nocapture
+   export GPU_PROBE_DEVICE="HP EliteBook 645 G10" GPU_PROBE_INTO="$PWD/libs/gpu-probe/signatures/submitted"
+   mise exec -- cargo test -p et-ws-web-runner --test modules graphics_info -- --nocapture
    ```
 
    On Windows, run both under `MISE_ENV=rust,msvc`, after `mise run prefetch:msvc` stages the portable MSVC
@@ -114,6 +189,13 @@ naming the machine as lowercase words joined by `-`. That runs the bench and wri
 results under another OS through its other drivers. It records the machine, OS, host triple, compiler and date, and
 each benchmark's mean time with its 95% confidence interval, in nanoseconds, in Bencher Metric Format. criterion's raw
 samples stay under `target/`.
+
+Each GPU adapter's benchmarks go in a file of their own, `benches/results/<machine>-<gpu>-<os>.yaml`, named for the
+adapter as wgpu names it and the API it was opened through, such as `quadro-m2000-vulkan`, and recording what it
+reports of itself: its driver and their versions, and whether it runs compute shaders. The machine's file keeps the
+benchmarks that run on the CPU or open every adapter at once, and lists every adapter the machine gave, with the
+reason for any whose device did not open. Run it with every GPU installed, and again under each EGL vendor and
+`DRI_PRIME` the collecting steps use, since each makes another GPU wgpu's one OpenGL adapter.
 
 ### Dell Precision 5570, Linux
 

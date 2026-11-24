@@ -1558,7 +1558,7 @@ shell = "{{ vars.task_shell }}"
 # nothing behind to be recorded. criterion's raw samples stay in that home, out of the repository.
 # The crate's package name, and the features its benches require, are read from its Cargo.toml.
 [tasks.bench]
-description = "Benchmark the crate in <dir> and record the estimates in <dir>/benches/results/<machine>-<os>.yaml"
+description = "Benchmark the crate in <dir>, recording the estimates per machine and per GPU in <dir>/benches/results"
 run = """
 dir="${usage_dir%/}"
 package=$(yq -p toml -o yaml '.package.name' "$dir/Cargo.toml")
@@ -1606,17 +1606,46 @@ rg --files --no-ignore -g '**/new/benchmark.json' "$home" | coreutils sort | whi
   # Named beside the metadata by swapping the file name, since on Windows the path mixes forward and back slashes.
   jaq -c --slurpfile est "${meta%benchmark.json}estimates.json" "$measure" "$meta"
 done >"$lines"
-out="$dir/benches/results/$machine-$os.yaml"
-coreutils mkdir -p "$(coreutils dirname "$out")"
+coreutils mkdir -p "$dir/benches/results"
 rustc=$(rustc -V)
 date=$(coreutils date -u +%F)
-# `$id`, `$os`, `$host`, `$rustc` and `$date` are the jaq variables bound below, so the shell must not expand them.
+# Each GPU's benchmarks go in a file of their own, named for the GPU, so the results say which GPU each was taken on.
+# A bench that puts its sets to GPUs writes adapters.json, every adapter the machine gave. The rest, which run on the
+# CPU or open every adapter at once, stay in the machine's file, beside the list of every adapter. A bench that writes
+# none has no GPUs, and its machine's file is all there is.
+adapters="$home/adapters.json"
+if [ ! -f "$adapters" ]; then
+  echo '[]' >"$adapters"
+fi
+# The `$` names in the jaq programs below are jaq's variables, which the shell must not expand.
+# They are `$id`, `$os`, `$host`, `$rustc`, `$date`, `$adapters` and `$gpu`, each bound where its program runs.
 # shellcheck disable=SC2016
-record='{ machine: { id: $id, os: $os, host: $host, rustc: $rustc, recorded: $date }, benchmarks: add }'
+machine_record='{ id: $id, os: $os, host: $host, rustc: $rustc, recorded: $date }'
+# shellcheck disable=SC2016
+per_gpu='startswith("gpus/") and . != "gpus/open" and . != "gpus/open_all"'
+# shellcheck disable=SC2016
+listed="machine: ($machine_record + { adapters: \\$adapters[0] })"
+record="{ $listed, benchmarks: ([ .[] | select(keys[0] | $per_gpu | not) ] | add) }"
 set -- --arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$rustc" --arg date "$date"
-jaq -s "$@" "$record" "$lines" >"$home/record.json"
+out="$dir/benches/results/$machine-$os.yaml"
+jaq -s "$@" --slurpfile adapters "$adapters" "$record" "$lines" >"$home/record.json"
 yq -p json -o yaml '.' "$home/record.json" >"$out"
 echo "wrote $out"
+# A GPU's id is its benchmarks' name as lowercase words joined by -, without the (R) and (TM) marks.
+slug='ascii_downcase | gsub("[(](r|tm)[)]"; "") | gsub("[^a-z0-9]+"; "-") | ltrimstr("-") | rtrimstr("-")'
+# shellcheck disable=SC2016
+named="gpu: (\\$gpu[0] + { id: (\\$gpu[0].name | $slug) })"
+# shellcheck disable=SC2016
+its_own="select(keys[0] | $per_gpu and endswith(\\"/\\" + \\$gpu[0].name))"
+gpu_record="{ machine: $machine_record, $named, benchmarks: ([ .[] | $its_own ] | add) }"
+jaq -c '.[] | select(.name)' "$adapters" | while read -r adapter; do
+  printf '%s\\n' "$adapter" >"$home/adapter.json"
+  gpu=$(jaq -r ".name | $slug" "$home/adapter.json")
+  out="$dir/benches/results/$machine-$gpu-$os.yaml"
+  jaq -s "$@" --slurpfile gpu "$home/adapter.json" "$gpu_record" "$lines" >"$home/record.json"
+  yq -p json -o yaml '.' "$home/record.json" >"$out"
+  echo "wrote $out"
+done
 """
 shell = "{{ vars.task_shell }}"
 usage = """
