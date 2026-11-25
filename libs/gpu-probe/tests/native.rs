@@ -336,6 +336,10 @@ fn noop_adapter() -> wgpu::Adapter {
 }
 
 /// The adapter wgpu prefers for `power_preference`, opened.
+#[cfg_attr(
+    not(all(target_os = "macos", target_arch = "aarch64")),
+    expect(clippy::single_call_fn, reason = "its second caller compares both preferences on Apple silicon alone")
+)]
 fn preferring(power_preference: wgpu::PowerPreference) -> Gpu {
     let options = wgpu::RequestAdapterOptions {
         power_preference,
