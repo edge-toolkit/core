@@ -17,8 +17,9 @@ doctest = false
 test = false
 
 [dependencies]
-et-gpu-probe.workspace = true
+et-gpu-probe = { workspace = true, features = ["native"] }
 et-org.workspace = true
+et-rest-client.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 js-sys.workspace = true
@@ -35,6 +36,7 @@ web-sys = { workspace = true, features = [
   "Window",
   "console",
 ] }
+wgpu.workspace = true
 
 [lints]
 workspace = true

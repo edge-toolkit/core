@@ -1,0 +1,49 @@
+machine:
+  id: gha-macos-latest
+  os: macos
+  host: aarch64-apple-darwin
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-25"
+gpu:
+  backend: metal
+  computes: true
+  gpu_version: Apple Paravirtual device
+  name: Apple Paravirtual device (metal)
+  versions: {}
+  id: apple-paravirtual-device-metal
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 11873804
+      lower_value: 1.126783318e+07
+      upper_value: 1.266181455e+07
+  gpus/combined_signature:
+    latency:
+      value: 8.25814592e+06
+      lower_value: 6.94336047e+06
+      upper_value: 9.55747599e+06
+  gpus/f16_combined_signature:
+    latency:
+      value: 1.010422806e+07
+      lower_value: 8.96698328e+06
+      upper_value: 1.104409534e+07
+  gpus/f16_signature:
+    latency:
+      value: 1.247574439e+07
+      lower_value: 1.192898191e+07
+      upper_value: 1.306840025e+07
+  gpus/fixed_function_signature:
+    latency:
+      value: 4.359554811e+07
+      lower_value: 4.068202747e+07
+      upper_value: 4.647741509e+07
+  gpus/report:
+    latency:
+      value: 7401.83
+      lower_value: 7026.11
+      upper_value: 7744.72
+  gpus/signature:
+    latency:
+      value: 1.29056688e+07
+      lower_value: 1.236287359e+07
+      upper_value: 1.352157421e+07

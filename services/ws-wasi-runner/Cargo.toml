@@ -125,10 +125,11 @@ nn = ["dep:ort", "dep:wasmtime-wasi-nn", "std"]
 ## A wgpu instance on every native backend gives guests real GPU compute and rendering.
 webgpu = ["dep:wasi-webgpu-wasmtime", "dep:wgpu-core", "dep:wgpu-types", "std"]
 ## Dispatches `wasi:nn` inference on `ExecutionTarget::Gpu` to ONNX Runtime's `CUDAExecutionProvider`.
-## Without it such a request warns and falls back to the CPU. It enables wasmtime-wasi-nn's `onnx-cuda`, and
-## through it `ort/cuda`, so `ort/download-binaries` pulls the CUDA-flavoured ONNX Runtime prebuilt -- which only
-## exists for some host triples: Linux x86_64 reliably, while Linux aarch64 and macOS are not covered by Pyke's
-## mirror at this version. wasmtime-wasi-nn knows no other GPU provider, so there is no CoreML equivalent on macOS.
+## Without it such a request warns and falls back to the CPU. It enables wasmtime-wasi-nn's `onnx-cuda`, which asks
+## for the provider; the provider itself comes from the ONNX Runtime library `ORT_DYLIB_PATH` names at run time,
+## since `ort` loads it dynamically. The CPU build http:onnxruntime installs carries none, and a GPU build whose CUDA
+## libraries the loader cannot find registers none: either way ONNX Runtime runs the session on the CPU without saying
+## so. wasmtime-wasi-nn knows no other GPU provider, so there is no CoreML equivalent on macOS.
 cuda = ["nn", "wasmtime-wasi-nn/onnx-cuda"]
 ## Internal: compiles in the `/cov` preopen for the repo's coverage workflow.
 ## Mapped to `target/wasi-cov`, it is where instrumented WASI guests dump their minicov `.profraw`.
@@ -196,6 +197,7 @@ libc = { workspace = true, optional = true }
 command-error.workspace = true
 critical-section = { workspace = true, features = ["std"] }
 et-gpu-probe = { workspace = true, features = ["registry"] }
+et-gpu-probe-server.workspace = true
 et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true

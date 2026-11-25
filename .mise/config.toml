@@ -1558,7 +1558,7 @@ shell = "{{ vars.task_shell }}"
 # nothing behind to be recorded. criterion's raw samples stay in that home, out of the repository.
 # The crate's package name, and the features its benches require, are read from its Cargo.toml.
 [tasks.bench]
-description = "Benchmark the crate in <dir> and record the estimates in <dir>/benches/results/<machine>-<os>.yaml"
+description = "Benchmark the crate in <dir>, recording the estimates per machine and per GPU in <dir>/benches/results"
 run = """
 dir="${usage_dir%/}"
 package=$(yq -p toml -o yaml '.package.name' "$dir/Cargo.toml")
@@ -1606,17 +1606,49 @@ rg --files --no-ignore -g '**/new/benchmark.json' "$home" | coreutils sort | whi
   # Named beside the metadata by swapping the file name, since on Windows the path mixes forward and back slashes.
   jaq -c --slurpfile est "${meta%benchmark.json}estimates.json" "$measure" "$meta"
 done >"$lines"
-out="$dir/benches/results/$machine-$os.yaml"
-coreutils mkdir -p "$(coreutils dirname "$out")"
+coreutils mkdir -p "$dir/benches/results"
 rustc=$(rustc -V)
 date=$(coreutils date -u +%F)
-# `$id`, `$os`, `$host`, `$rustc` and `$date` are the jaq variables bound below, so the shell must not expand them.
+# Each GPU's benchmarks go in a file of their own, named for the GPU, so the results say which GPU each was taken on.
+# A bench that puts its sets to GPUs writes adapters.json, every adapter the machine gave. The rest, which run on the
+# CPU or open every adapter at once, stay in the machine's file, beside the list of every adapter. A bench that writes
+# none has no GPUs, and its machine's file is all there is.
+adapters="$home/adapters.json"
+if [ ! -f "$adapters" ]; then
+  echo '[]' >"$adapters"
+fi
+# The `$` names in the jaq programs below are jaq's variables, which the shell must not expand.
+# They are `$id`, `$os`, `$host`, `$rustc`, `$date`, `$adapters` and `$gpu`, each bound where its program runs.
 # shellcheck disable=SC2016
-record='{ machine: { id: $id, os: $os, host: $host, rustc: $rustc, recorded: $date }, benchmarks: add }'
+machine_record='{ id: $id, os: $os, host: $host, rustc: $rustc, recorded: $date }'
+# shellcheck disable=SC2016
+per_gpu='startswith("gpus/") and . != "gpus/open" and . != "gpus/open_all"'
+# shellcheck disable=SC2016
+listed="machine: ($machine_record + { adapters: \\$adapters[0] })"
+record="{ $listed, benchmarks: ([ .[] | select(keys[0] | $per_gpu | not) ] | add) }"
 set -- --arg id "$machine" --arg os "$os" --arg host "$host" --arg rustc "$rustc" --arg date "$date"
-jaq -s "$@" "$record" "$lines" >"$home/record.json"
+out="$dir/benches/results/$machine-$os.yaml"
+jaq -s "$@" --slurpfile adapters "$adapters" "$record" "$lines" >"$home/record.json"
 yq -p json -o yaml '.' "$home/record.json" >"$out"
 echo "wrote $out"
+# A GPU's id is its benchmarks' name as lowercase words joined by -, without the (R) and (TM) marks.
+slug='ascii_downcase | gsub("[(](r|tm)[)]"; "") | gsub("[^a-z0-9]+"; "-") | ltrimstr("-") | rtrimstr("-")'
+# shellcheck disable=SC2016
+named="gpu: (\\$gpu[0] + { id: (\\$gpu[0].name | $slug) })"
+# shellcheck disable=SC2016
+its_own="select(keys[0] | $per_gpu and endswith(\\"/\\" + \\$gpu[0].name))"
+# Each is keyed by the benchmark alone, since the file's `gpu` already names the adapter every one of them ran on.
+# shellcheck disable=SC2016
+unnamed="with_entries(.key |= rtrimstr(\\"/\\" + \\$gpu[0].name))"
+gpu_record="{ machine: $machine_record, $named, benchmarks: ([ .[] | $its_own ] | add | $unnamed) }"
+jaq -c '.[] | select(.name)' "$adapters" | while read -r adapter; do
+  printf '%s\\n' "$adapter" >"$home/adapter.json"
+  gpu=$(jaq -r ".name | $slug" "$home/adapter.json")
+  out="$dir/benches/results/$machine-$gpu-$os.yaml"
+  jaq -s "$@" --slurpfile gpu "$home/adapter.json" "$gpu_record" "$lines" >"$home/record.json"
+  yq -p json -o yaml '.' "$home/record.json" >"$out"
+  echo "wrote $out"
+done
 """
 shell = "{{ vars.task_shell }}"
 usage = """
@@ -1703,8 +1735,9 @@ description = "Fail when the branch modifies more files than CodeRabbit reviews 
 # A branch whose name contains `reorg` is exempt: a reorganisation moves files wholesale, and splitting one to fit
 # the limit would leave the tree half-moved between pull requests. Branches named in full below are exempt as
 # mechanical sweeps: `pretty_assertions` adds one import line to every test file that asserts equality, and `test-log`
-# wraps the runtime attribute of every async service test. CI checks out the pull request's merge commit detached, so
-# the name comes from `GITHUB_HEAD_REF` there and from git everywhere else.
+# wraps the runtime attribute of every async service test. `update-gpu-data` is exempt as a data branch: it files GPU
+# probe signatures and benchmark results, a YAML file for each device measured. CI checks out the pull request's merge
+# commit detached, so the name comes from `GITHUB_HEAD_REF` there and from git everywhere else.
 run = """
 branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
 case "$branch" in
@@ -1714,6 +1747,10 @@ case "$branch" in
     ;;
   pretty_assertions | test-log)
     echo "conftest-check-branch-size: $branch is a mechanical sweep, which the file limit exempts; skipping"
+    exit 0
+    ;;
+  update-gpu-data)
+    echo "conftest-check-branch-size: $branch is a data branch, which the file limit exempts; skipping"
     exit 0
     ;;
 esac
@@ -3419,26 +3456,38 @@ flag "--submit" help="Drive Chrome through chromedriver and submit every probe s
 
 [tasks.gpu-probe-browser]
 depends = ["build-gpu-probe-page"]
-description = "Probe a browser on the GPU probe page from a fresh profile: Firefox, or a Flatpak one such as Brave"
+description = "Probe a browser on the GPU probe page from a fresh profile: a Flatpak one on Linux, an app on macOS"
 # Serve the probe page and open a browser on it, for a person to submit from or, with --submit, to submit by itself.
 #
 # The task serves the page itself, on a port of its own, and every job it starts is stopped when it ends. Each run
 # gets a fresh profile under target/, so the person's own profile is never touched, and every run is a session of its
 # own: Firefox keys its canvas PNG encoding to the session, so two runs are what tells a stable signature from a
-# randomised one. firefox is the host's, and the others are the system Flatpaks from Flathub, given the profile's
-# directory: the probes measure the browser the person has, as it ships, its own defences named as the rows' defence.
+# randomised one. On Linux firefox is the host's, and the others are the system Flatpaks from Flathub, given the
+# profile's directory. On macOS each is the app installed in /Applications or ~/Applications, its version read from the
+# bundle with the system's plutil; Safari alone takes no profile of its own, so it runs on the person's, and is quit
+# once the run ends only if it was not open before. The probes measure the browser the person has, as it ships, its
+# own defences named as the rows' defence.
 #
 # There is no WebDriver for most of these, and the one GNOME Web ships cannot reach the browser from inside its
 # sandbox, so with --submit the page is opened with `submit` and read from the server: the page posts its status
 # lines to `/status` once every set is submitted, and the server logs them.
 run = """
-# shellcheck shell=bash # Linux only: it starts the host's firefox or a Flathub Flatpak.
+# shellcheck shell=bash # Linux and macOS: the host's firefox or a Flathub Flatpak, or a macOS app.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
 browser="$usage_browser"
 window=normal
 defence=""
+macos=false
+if [ "$(coreutils uname -s)" = Darwin ]; then macos=true; fi
 case "$browser" in
   firefox) app="" ;;
+  chrome | safari)
+    app=""
+    if [ "$macos" != true ]; then
+      printf '%s is run here on macOS only; on Linux Chrome has gpu-probe-chrome\\n' "$browser" >&2
+      exit 2
+    fi
+    ;;
   librewolf)
     app=io.gitlab.librewolf-community
     defence="privacy.resistFingerprinting, on as LibreWolf ships"
@@ -3460,12 +3509,15 @@ case "$browser" in
     window=private
     defence="privacy.resistFingerprinting, on as Tor Browser ships"
     ;;
-  *)
-    known="firefox, librewolf, mullvad-browser, tor-browser, brave, chromium, edge or gnome-web"
-    printf 'no way to run %s: name %s\\n' "$browser" "$known" >&2
-    exit 2
-    ;;
 esac
+case "$browser" in
+  brave | chromium | edge | chrome) chromium_based=true ;;
+  *) chromium_based=false ;;
+esac
+if [ "${usage_high_performance_gpu:-false}" = true ] && [ "$chromium_based" != true ]; then
+  printf -- '--high-performance-gpu is for a browser built on Chromium, not %s\\n' "$browser" >&2
+  exit 2
+fi
 port="${usage_port:-8097}"
 # A run's workspace is keyed by its port as well, so runs of one browser on two ports never share or remove the other's.
 run="target/gpu-probe-browser/$browser-$port"
@@ -3495,7 +3547,50 @@ for _ in $(coreutils seq 600); do
   fi
   coreutils sleep 1
 done
-if [ "$browser" = tor-browser ]; then
+if [ "$macos" = true ]; then
+  case "$browser" in
+    firefox) bundle=Firefox ;;
+    librewolf) bundle=LibreWolf ;;
+    mullvad-browser) bundle="Mullvad Browser" ;;
+    tor-browser) bundle="Tor Browser" ;;
+    brave) bundle="Brave Browser" ;;
+    chromium) bundle=Chromium ;;
+    edge) bundle="Microsoft Edge" ;;
+    chrome) bundle="Google Chrome" ;;
+    safari) bundle=Safari ;;
+    *)
+      printf '%s has no macOS app\\n' "$browser" >&2
+      exit 2
+      ;;
+  esac
+  bundle_path=""
+  for dir in /Applications "$HOME/Applications"; do
+    if [ -d "$dir/$bundle.app" ]; then bundle_path="$dir/$bundle.app"; fi
+  done
+  if [ -z "$bundle_path" ]; then
+    printf '%s.app is in neither /Applications nor ~/Applications\\n' "$bundle" >&2
+    exit 1
+  fi
+  plist="$bundle_path/Contents/Info.plist"
+  # A macOS app is no Flatpak: the run stops the process it started rather than a Flatpak instance.
+  app=""
+  launch=("$bundle_path/Contents/MacOS/$(plutil -extract CFBundleExecutable raw "$plist")")
+  # The page reads the version of Firefox, Chrome and Safari itself; the others report another browser's.
+  case "$browser" in
+    firefox | chrome | safari) version="" ;;
+    *) version="$(plutil -extract CFBundleShortVersionString raw "$plist")" ;;
+  esac
+  if [ "$browser" = tor-browser ]; then
+    # The browser runs with no Tor, as it does on Linux, which cannot reach the page on localhost anyway.
+    launch=(coreutils env TOR_PROVIDER=none "${launch[@]}")
+  elif [ "$browser" = safari ]; then
+    # Safari opens a URL only through Launch Services, whose `open` is made to wait for Safari to quit.
+    # A run for a person then serves the page until they quit Safari, and a submitting run quits it itself.
+    launch=(/usr/bin/open -W -a Safari)
+    safari_was_open=false
+    if pgrep -x Safari >/dev/null; then safari_was_open=true; fi
+  fi
+elif [ "$browser" = tor-browser ]; then
   # The launcher's Flatpak downloads Tor Browser on its first run; this runs that copy's own start script.
   tbb="$HOME/.var/app/$app/data/torbrowser/tbb/$(coreutils uname -m)/tor-browser/Browser"
   if [ ! -x "$tbb/start-tor-browser" ]; then
@@ -3516,8 +3611,15 @@ else
   version=""
 fi
 query="device=$(device="${usage_device:-}" yq -n 'strenv(device) | @uri')&browser=$browser&window=$window"
-if [ -n "$version" ]; then
+if [ "$browser" = brave ]; then
+  # Brave's own version is only for the labels: the row records the Chromium version, which the page reads itself.
+  query="$query&brand_version=$version"
+elif [ -n "$version" ]; then
   query="$query&browser_version=$version"
+fi
+if [ "$macos" = true ]; then
+  # Only Chromium gives the system's version to the page.
+  query="$query&os_version=$(sw_vers -productVersion)"
 fi
 case "$browser" in
   firefox | librewolf | mullvad-browser | tor-browser)
@@ -3550,8 +3652,14 @@ case "$browser" in
     fi
     ;;
   gnome-web) args=(--private-instance) ;;
+  # Safari starts without restoring the person's windows, so the probe page is the only one it opens.
+  safari) args=(--fresh) ;;
   *) args=("--user-data-dir=$profile" --no-first-run --no-default-browser-check) ;;
 esac
+if [ "${usage_high_performance_gpu:-false}" = true ]; then
+  # A machine with two GPUs runs WebGL on the low-power one unless told otherwise; WebGPU offers both either way.
+  args+=(--force_high_performance_gpu)
+fi
 if [ -n "$defence" ]; then
   query="$query&defence=$(defence="$defence" yq -n 'strenv(defence) | @uri')"
 fi
@@ -3577,6 +3685,8 @@ if [ -n "$app" ]; then
   if [ -s "$instance" ]; then
     flatpak kill "$(coreutils cat "$instance")" 2>/dev/null || true
   fi
+elif [ "$browser" = safari ]; then
+  if [ "$safari_was_open" != true ]; then osascript -e 'quit app "Safari"' || true; fi
 else
   coreutils kill "$opened" 2>/dev/null || true
 fi
@@ -3585,9 +3695,12 @@ rg -q 'page status: Submitted' "$log"
 """
 shell = "{{ vars.task_shell }}"
 usage = """
-arg "<browser>" help="firefox, librewolf, mullvad-browser, tor-browser, brave, chromium, edge or gnome-web"
+arg "<browser>" help="The browser to probe" {
+  choices "firefox" "librewolf" "mullvad-browser" "tor-browser" "brave" "chromium" "edge" "gnome-web" "chrome" "safari"
+}
 flag "--device <device>" help="The machine the rows name, such as its make and model"
 flag "--fingerprinting-protection" help="Turn on privacy.fingerprintingProtection, for one built on Firefox"
+flag "--high-performance-gpu" help="Run WebGL on the high-performance GPU, for one built on Chromium"
 flag "--port <port>" help="The port to serve the page on for the run, 8097 if not given"
 flag "--submit" help="Submit every probe set from the page and print how each went, rather than open it for a person"
 """

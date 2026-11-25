@@ -1,0 +1,52 @@
+machine:
+  id: asus-tuf-h370-pro-gaming
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-24"
+gpu:
+  backend: vulkan
+  computes: true
+  gpu_version: AMD Radeon RX 580 Series (RADV POLARIS10)
+  name: AMD Radeon RX 580 Series (RADV POLARIS10) (vulkan)
+  versions:
+    api_version: Vulkan 1.4.354
+    driver: radv
+    driver_version: 26.1.6
+  id: amd-radeon-rx-580-series-radv-polaris10-vulkan
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 356553.3
+      lower_value: 340858.2
+      upper_value: 373540.37
+  gpus/combined_signature:
+    latency:
+      value: 94275.42
+      lower_value: 87214.81
+      upper_value: 104830.21
+  gpus/f16_combined_signature:
+    latency:
+      value: 58308.39
+      lower_value: 58170.32
+      upper_value: 58479.77
+  gpus/f16_signature:
+    latency:
+      value: 60189.37
+      lower_value: 58503.32
+      upper_value: 62406.63
+  gpus/fixed_function_signature:
+    latency:
+      value: 2.62574297e+06
+      lower_value: 2.61551584e+06
+      upper_value: 2.63604032e+06
+  gpus/report:
+    latency:
+      value: 8072.26
+      lower_value: 8053.05
+      upper_value: 8096.14
+  gpus/signature:
+    latency:
+      value: 605621.91
+      lower_value: 549833.44
+      upper_value: 668080.91

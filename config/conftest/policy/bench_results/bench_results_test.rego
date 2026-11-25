@@ -26,6 +26,49 @@ test_a_file_outside_libs_and_services_is_refused if {
 	contains(msg, "belongs in <libs|services>/<crate>/benches/results/<machine>-<os>.yaml")
 }
 
+# A results file at `path` recording GPU `gpu` of machine `id` under `os`, and one benchmark.
+gpu_results(path, id, gpu, os) := {
+	"path": path,
+	"contents": {
+		"machine": {"id": id, "os": os},
+		"gpu": {"id": gpu, "name": "Quadro M2000 (vulkan)"},
+		"benchmarks": {"gpus/clear_signature": {"latency": {"value": 1.0}}},
+	},
+}
+
+test_a_gpus_file_named_for_its_machine_gpu_and_os_passes if {
+	path := "libs/gpu-probe/benches/results/desktop-quadro-m2000-vulkan-linux.yaml"
+	named := gpu_results(path, "desktop", "quadro-m2000-vulkan", "linux")
+	count(bench_results.deny) == 0 with input as [named]
+}
+
+test_a_benchmark_named_for_its_adapter_is_refused if {
+	path := "libs/gpu-probe/benches/results/desktop-linux.yaml"
+	benchmarks := {"gpus/open": {"latency": {"value": 1.0}}, "gpus/signature/Quadro M2000 (vulkan)": {"latency": {}}}
+	unsplit := {"path": path, "contents": {"machine": {"id": "desktop", "os": "linux"}, "benchmarks": benchmarks}}
+	msgs := bench_results.deny with input as [unsplit]
+	count(msgs) == 1
+	some msg in msgs
+	contains(msg, "\"gpus/signature/Quadro M2000 (vulkan)\" names its adapter")
+}
+
+test_a_gpus_file_named_for_its_machine_alone_is_refused if {
+	unnamed := gpu_results("libs/gpu-probe/benches/results/desktop-linux.yaml", "desktop", "quadro-m2000-vulkan", "linux")
+	msgs := bench_results.deny with input as [unnamed]
+	count(msgs) == 1
+	some msg in msgs
+	contains(msg, "must be named desktop-quadro-m2000-vulkan-linux.yaml")
+}
+
+test_a_gpu_id_that_is_not_lowercase_words_is_refused if {
+	path := "libs/gpu-probe/benches/results/desktop-Quadro_M2000-linux.yaml"
+	capitalised := gpu_results(path, "desktop", "Quadro_M2000", "linux")
+	msgs := bench_results.deny with input as [capitalised]
+	count(msgs) == 1
+	some msg in msgs
+	contains(msg, "gpu id \"Quadro_M2000\" must be lowercase words joined by -")
+}
+
 test_the_same_machine_under_two_oses_is_two_files if {
 	linux := results("libs/gpu-probe/benches/results/dell-linux.yaml", "dell", "linux")
 	windows := results("libs/gpu-probe/benches/results/dell-windows.yaml", "dell", "windows")

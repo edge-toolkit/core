@@ -61,9 +61,12 @@ winapi.workspace = true
 
 [dev-dependencies]
 edge-toolkit = { workspace = true, features = ["std"] }
+et-gpu-probe = { workspace = true, features = ["registry"] }
+et-gpu-probe-server.workspace = true
 et-org.workspace = true
 et-ws-test-server.workspace = true
 fs-err.workspace = true
+pretty_assertions.workspace = true
 rstest.workspace = true
 serde_json = { workspace = true, features = ["std"] }
 test-log.workspace = true

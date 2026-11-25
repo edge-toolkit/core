@@ -1,57 +1,9 @@
 signatures:
   - interface: webgpu-clear
-    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
+    label: "NVIDIA RTX A1000 Laptop GPU, Quadro M2000 and GB10, AMD Radeon RX 580 and Radeon Pro 5300M, and llvmpipe
+      (LLVM 15.0.7), Vulkan, Metal and OpenGL, Linux x86_64 and arm64 and macOS -- wgpu alone and WebGPU on Chrome,
+      Chromium, Brave, Safari and Deno"
     seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        driver_version: "26.1.6"
-        api_version: "Vulkan 1.4.354"
-        backend: vulkan
-        window: none
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "gen-12lp"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      unorm8_quarter: "0000000a"
-      unorm8_half: "0000000a"
-      unorm8_three_quarters: "0000000b"
-      unorm10_three_quarters: "00000065"
-      srgb8_mid: "000000bb"
-      srgb8_dark: "00000006"
-      ufloat11_rounding: "000003c0"
-      half_rounding: "00003c01"
-      half_subnormal: "00000010"
-      half_overflow: "00007c00"
-  - interface: webgpu-clear
-    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
-    seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: nvidia
-        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
-        driver_version: "595.104.2.0"
-        api_version: "Vulkan 1.4.329"
-        backend: vulkan
-        window: none
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: nvidia
-        gpu_version: "ampere"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
       - browser: none
         os: macos
         cpu_arch: x86_64
@@ -68,6 +20,400 @@ signatures:
         api_version: "Vulkan 1.4.312"
         backend: vulkan
         window: none
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 15.0.7, 256 bits)"
+        driver_version: "0.0.1"
+        api_version: "Vulkan 1.3.255"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu22 20261116.365.1"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 7763 64-Core Processor"
+        gpu: unknown
+        gpu_version: "llvmpipe (LLVM 15.0.7, 256 bits)"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu22 20261116.365.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 15.0.7, 128 bits)"
+        driver_version: "0.0.1"
+        api_version: "Vulkan 1.3.255"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu22-arm64 20261116.196.1"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "wgpu 29.0.4, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-1"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "amd"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "ampere"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000/PCIe/SSE2"
+        driver: "NVIDIA Corporation"
+        driver_version: "NVIDIA 580.178.04"
+        api_version: "OpenGL 3.3.0"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (radeonsi, polaris10, ACO, DRM 3.64, 6.18.7-76061807-generic)"
+        driver: "AMD"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "gcn-4"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "gcn-4"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10/PCIe"
+        driver: "NVIDIA Corporation"
+        driver_version: "NVIDIA 580.178.04"
+        api_version: "OpenGL 3.3.0"
+        backend: opengl
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -80,17 +426,9 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007bff"
   - interface: webgpu-clear
-    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 20.1.2 and 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub
+      runners, Dell Precision 5570, ASUS TUF H370-PRO GAMING and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno"
     seen:
-      - browser: none
-        os: linux
-        cpu_arch: x86_64
-        gpu: mesa
-        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
-        driver_version: "26.1.6"
-        api_version: "Vulkan 1.4.354"
-        backend: vulkan
-        window: none
       - browser: none
         os: linux
         cpu_arch: aarch64
@@ -100,6 +438,248 @@ signatures:
         api_version: "Vulkan 1.4.318"
         backend: vulkan
         window: none
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu24-arm64 20261116.188.1"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) 6975P-C"
+        gpu: unknown
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu24 20261116.133.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 21.1.8, 128 bits)"
+        driver_version: "26.0.8"
+        api_version: "Vulkan 1.4.335"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu26-arm64 20261116.190.1"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 21.1.8, 256 bits)"
+        driver_version: "26.0.8"
+        api_version: "Vulkan 1.4.335"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu26 20261116.202.1"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: unknown
+        gpu_version: "llvmpipe (LLVM 21.1.8, 128 bits)"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu26-arm64 20261116.190.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: unknown
+        gpu_version: "llvmpipe (LLVM 21.1.8, 256 bits)"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu26 20261116.202.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: unknown
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu24-arm64 20261116.188.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) 6975P-C"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        device: "GitHub Actions runner image ubuntu24 20261116.133.1"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        driver: "llvmpipe"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -112,30 +692,7 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007bff"
   - interface: webgpu-clear
-    label: "SwiftShader (software renderer) through vulkan on linux -- WebGPU on chrome 157.0.8103.78"
-    seen:
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: google
-        gpu_version: "SwiftShader (software renderer)"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      unorm8_quarter: "0000000a"
-      unorm8_half: "0000000b"
-      unorm8_three_quarters: "0000000b"
-      unorm10_three_quarters: "00000065"
-      srgb8_mid: "000000bc"
-      srgb8_dark: "00000007"
-      ufloat11_rounding: "000003c1"
-      half_rounding: "00003c01"
-      half_subnormal: "00000010"
-      half_overflow: "00007c46"
-  - interface: webgpu-clear
-    label: "Apple M5 Pro GPU through Metal on macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave, Firefox and Safari"
+    label: "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari"
     seen:
       - browser: none
         os: macos
@@ -194,6 +751,66 @@ signatures:
         backend: metal
         reported: "apple"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "metal-3"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: none
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro"
+        backend: metal
+        device: "MacBook Pro (M5 Pro, 2026)"
+        runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-24"
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000b"
@@ -215,6 +832,95 @@ signatures:
         gpu_version: "Intel(R) UHD Graphics 630"
         backend: metal
         window: none
+      - browser: none
+        os: macos
+        os_version: "26.6.1"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos26 20260824.0517.1"
+        runtime: "wgpu 29.0.4, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "15.7.9"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos15 20260824.0482.1"
+        runtime: "wgpu 29.0.4, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "wgpu 29.0.4, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-9"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-9"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -222,6 +928,645 @@ signatures:
       unorm10_three_quarters: "00000065"
       srgb8_mid: "000000bb"
       srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-9"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgpu-clear
+    label: "Apple Paravirtual device through metal on macos 26.7.2 aarch64, GitHub Actions runner image macos26
+      20261117.0516.1 -- WebGPU on Deno, deno_runtime 0.268.0, deno_webgpu 0.227.0"
+    seen:
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "26.7.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos26 20261117.0516.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "27.0.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos27 20261104.0337.1"
+        runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "15.8.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos15 20261118.0550.1"
+        runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "15.8.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos15 20261118.0550.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: macos
+        os_version: "27.0.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: apple
+        gpu_version: "Apple Paravirtual device"
+        backend: metal
+        device: "GitHub Actions runner image macos27 20261104.0337.1"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgpu-clear
+    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26100) x86_64, GitHub Actions runner image
+      win25-vs2026 20261116.315.1 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: windows
+        os_version: "11 (26100)"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V45 96-Core Processor"
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        driver_version: "10.0.26100.33648"
+        backend: d3d12
+        device: "GitHub Actions runner image win25-vs2026 20261116.315.1"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: aarch64
+        cpu_version: "Cobalt 100"
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        driver_version: "10.0.26100.9818"
+        backend: d3d12
+        device: "GitHub Actions runner image win11-vs2026-arm64 20261115.219.1"
+        runtime: "wgpu 29.0.4, built for aarch64-pc-windows-msvc"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "10 (20348)"
+        cpu_arch: x86_64
+        cpu_version: "INTEL(R) XEON(R) PLATINUM 8573C"
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        driver_version: "10.0.20348.5756"
+        backend: d3d12
+        device: "GitHub Actions runner image win22 20261116.370.1"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        driver_version: "10.0.26100.9711"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: private
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 --
+      wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "gen-12lp"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgpu-clear
+    label: "SwiftShader (software renderer) through vulkan on linux, Dell Precision 5570 -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader (software renderer)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c46"
+  - interface: webgpu-clear
+    label: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2) through opengl on linux Pop!_OS 24.04 x86_64, Dell Precision
+      5570 -- wgpu, no browser"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "????????"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through OpenGL on Linux x86_64, Dell Precision 5570 and ASUS TUF
+      H370-PRO GAMING -- wgpu alone"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "Mesa"
+        driver_version: "(Core Profile) Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea"
+        api_version: "OpenGL 4.6"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "????????"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgpu-clear
+    label: "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no
+      browser"
+    seen:
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver_version: "2.0.279"
+        api_version: "Vulkan 1.3.260"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver_version: "31.0.21925.1001"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "rdna-2"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        reported: "adapter info blanked"
+        window: private
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
       ufloat11_rounding: "000003c0"
       half_rounding: "00003c00"
       half_subnormal: "00000010"

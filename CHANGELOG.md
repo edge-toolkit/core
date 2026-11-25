@@ -7,6 +7,31 @@ Changelog 1.1.0.
 
 ### Added
 
+- The `gpu-probe` workflow measures the GPU probe sets on every free GitHub-hosted runner image: wgpu and the CPU
+  through `gpu-probe`, the probes behind `wasi:nn`, and the six WebGPU sets through Deno, as the graphics-info module
+  now measures them. Its `gpu-probe-submitted` artifact holds a file of submissions per runner for the registry.
+- `gpu-probe` records the system's release, the CPU's model, the day, and the wgpu and build target in each row, names
+  a GitHub Actions runner by its image and links its run, takes `--device`, and with `--into <dir>` writes a file of
+  submissions instead of adding to the registry. `et-gpu-probe-server` gains `machine::Machine`, `submitted::write`
+  and `submitted::propose_where_asked`, which writes where `GPU_PROBE_INTO` names a directory, and `et-gpu-probe`
+  gains `native::Gpu::every_set`.
+- A GPU probe registry row may record `driver`, the driver's own name as the graphics API gives it, since `backend`
+  names only the API and one GPU can be reached through several drivers of one, and `environment`, the driver
+  settings in force, such as `INTEL_DEBUG=nofc`. A sighting under other settings, or none, is a row of its own.
+  `gpu-probe` fills both, and the probe page takes `?environment=`. `et-gpu-probe`'s `Gpu::open_all` opens OpenGL
+  adapters too, on every platform but Apple's, and `Gpu::report` gives each driver: Vulkan's `driverName`, and
+  OpenGL's `GL_VENDOR` beside the API and driver versions its `GL_VERSION` gives, which `gl_versions` splits.
+  `backend_name` names an OpenGL ES context `opengl-es`.
+- `et-gpu-probe` opens a device that runs no compute shaders, as `runs_compute` judges it, or as
+  `Gpu::open_without_compute` asks, without the shader probe sets, which then answer `NativeError::Compute` while the
+  clears and fixed-function probes still answer. `gpu-probe` records every set an adapter answered, rather than none
+  when one set fails, and says which it could not.
+- **Breaking:** `mise run bench` records every GPU it can open. `<machine>-<os>.yaml` keeps the benchmarks no GPU
+  runs and lists the adapters opened, and each GPU's benchmarks go to `<machine>-<gpu>-<os>.yaml`, whose `gpu` names
+  the adapter and its backend, keyed by the benchmark alone, such as `gpus/signature`. The results already recorded
+  are split the same way, and the bench workflow compares every one of a runner's files and fails a run that opened
+  no GPU adapter. A results file holding one GPU's benchmarks under the machine's name alone no longer
+  passes the bench results policy.
 - `et-ws-server` answers `GET /info` with how it was built: crate name, version, `rustc` version, target triple,
   cargo profile and enabled features, so an operator can tell which release and service set a hub is running. The
   REST spec and the generated Rust and Python clients gain the route and its `BuildInfo` schema.

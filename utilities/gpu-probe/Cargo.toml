@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+# Built with the feature list alone: `env-schema` serves et-int-gen and adds nothing a reader of the docs needs.
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
 
@@ -29,18 +33,30 @@ name = "gpu-probe-fold"
 path = "src/bin/gpu-probe-fold.rs"
 test = false
 
+[features]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+## Internal: derives JSON Schema for the crate's environment config, which et-int-gen renders into HELP.md.
+env-schema = ["dep:schemars"]
+
 [dependencies]
 actix-files.workspace = true
 actix-web = { workspace = true, features = ["macros", "rustls-0_23"] }
 clap.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit = { workspace = true, features = ["std"] }
 et-gpu-probe = { workspace = true, features = ["native", "registry"] }
 et-https-listener = { workspace = true, features = ["tls-self-signed"] }
 fs-err.workspace = true
 futures-executor.workspace = true
+jiff.workspace = true
+schemars = { workspace = true, optional = true }
 serde = { workspace = true, features = ["std"] }
+serde-env.workspace = true
 serde-saphyr = { workspace = true, features = ["deserialize"] }
 serde_json = { workspace = true, features = ["std"] }
+sha2.workspace = true
+sysinfo = { workspace = true, features = ["system"] }
 thiserror = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std"] }
 tracing-subscriber.workspace = true
@@ -49,8 +65,13 @@ tracing-subscriber.workspace = true
 actix-http.workspace = true
 actix-rt.workspace = true
 pretty_assertions.workspace = true
+temp-env.workspace = true
 tempfile.workspace = true
 wgpu = { workspace = true, features = ["noop"] }
+
+[build-dependencies]
+# cargo-lock records the wgpu this crate is built with, which a measurement's row names.
+built = { workspace = true, features = ["cargo-lock"] }
 
 [lints]
 workspace = true

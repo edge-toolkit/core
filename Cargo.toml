@@ -179,6 +179,8 @@ fs-err = "3"
 futures-channel = { version = "0.3", default-features = false }
 futures-executor = "0.3"
 futures-util = "0.3"
+# Held to the release wgpu-hal's OpenGL backend is built on, so the context it hands out is one of these types.
+glow = "0.17"
 half = { version = "2.7", default-features = false }
 heck = "0.5"
 hostname = "0.4"
@@ -344,6 +346,8 @@ strum = { version = "0.28", features = ["derive"] }
 subtle = "2.6"
 syn = "3"
 sys_traits = { version = "0.1", features = ["libc", "real"] }
+# Reads the CPU's model and the operating system's release, for the rows a GPU probe measurement is recorded at.
+sysinfo = { version = "0.40", default-features = false }
 temp-env = "0.3"
 # Names CPU architectures the way a target triple spells them.
 target-lexicon = "0.13"
@@ -595,6 +599,10 @@ ignore = [
   "command-error",
   # Archived upstream at matklad/countme.
   "countme",
+  # No commit upstream at rusticata/der-parser for over a year.
+  # 8.2.0 still requires nom ^7.0 and rusticata-macros ^4.0. Pulled only by x509-parser 0.15.1, which deno_net
+  # pins, so it moves when Deno does.
+  "der-parser",
   # Unmaintained upstream at denoland/deno_native_certs.
   # Pulled by deno_node + deno_tls.
   "deno_native_certs",

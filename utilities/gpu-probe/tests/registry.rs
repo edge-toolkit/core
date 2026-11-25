@@ -122,9 +122,8 @@ fn a_known_signature_seen_somewhere_new_gains_a_row_before_its_results() {
     assert!(updated.starts_with("# The header, kept as it is.\n"));
 }
 
-#[test]
-fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
-    let (_dir, registry) = registry(REGISTRY);
+/// The known `webgpu-split` signature of [`REGISTRY`], seen at its entry's row with `extra` fields added.
+fn known_seen_with(extra: &[(&str, &str)]) -> Submission {
     let seen = [
         ("browser", "chrome"),
         ("os", "macos"),
@@ -137,32 +136,87 @@ fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
         ("multiply_add".to_owned(), "33800000".to_owned()),
         ("fma".to_owned(), "33800000".to_owned()),
     ];
-    let row = |extra: &[(&str, &str)]| {
-        seen.iter()
-            .chain(extra)
-            .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
-            .collect()
-    };
+    let row = seen
+        .iter()
+        .chain(extra)
+        .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
+        .collect();
+    Submission::signature("webgpu-split", "ignored", results, row)
+}
 
+#[test]
+fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
+    let (_dir, registry) = registry(REGISTRY);
     // Fields the registry's row does not give make a sighting of its own.
-    let richer = row(&[("device", "a laptop"), ("browser_version", "157")]);
-    let outcome = registry.register(&Submission::signature(
-        "webgpu-split",
-        "ignored",
-        results.clone(),
-        richer,
-    ));
-    assert_eq!(outcome.unwrap(), Outcome::Sighted("Known GPU".to_owned()));
+    let richer = known_seen_with(&[("device", "a laptop"), ("browser_version", "157")]);
+    assert_eq!(
+        registry.register(&richer).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
     let after = text(&registry);
     assert!(after.contains("        device: \"a laptop\"\n"));
 
     // A submission giving only some of that row's fields, all the same, is already on record.
-    let partial = Submission::signature("webgpu-split", "ignored", results, row(&[("device", "a laptop")]));
+    let partial = known_seen_with(&[("device", "a laptop")]);
     assert_eq!(
         registry.register(&partial).unwrap(),
         Outcome::Present("Known GPU".to_owned())
     );
     assert_eq!(text(&registry), after);
+}
+
+#[test]
+fn a_later_day_or_run_is_the_sighting_already_on_record() {
+    let (_dir, registry) = registry(REGISTRY);
+    let seen_on =
+        |date: &str, source: &str| known_seen_with(&[("device", "a laptop"), ("date", date), ("source", source)]);
+    assert_eq!(
+        registry
+            .register(&seen_on("2026-11-12", "https://example.test/runs/1"))
+            .unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
+    let recorded = text(&registry);
+    for (date, source) in [
+        ("2026-11-24", "https://example.test/runs/1"),
+        ("2026-11-12", "https://example.test/runs/2"),
+    ] {
+        assert_eq!(
+            registry.register(&seen_on(date, source)).unwrap(),
+            Outcome::Present("Known GPU".to_owned())
+        );
+    }
+    assert_eq!(text(&registry), recorded);
+    // Any other field still tells one sighting from another.
+    let elsewhere = known_seen_with(&[("device", "a desktop"), ("date", "2026-11-24")]);
+    assert_eq!(
+        registry.register(&elsewhere).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
+}
+
+#[test]
+fn a_browser_version_is_matched_by_its_major_version() {
+    let (_dir, registry) = registry(REGISTRY);
+    let at_version = |version: &str| known_seen_with(&[("browser_version", version)]);
+    assert_eq!(
+        registry.register(&at_version("157.0.8103.79")).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
+    let recorded = text(&registry);
+    // A point release of the same major version is the sighting on record already, whichever way it is written.
+    for point in ["157.0.8103.80", "157", "157.1"] {
+        assert_eq!(
+            registry.register(&at_version(point)).unwrap(),
+            Outcome::Present("Known GPU".to_owned())
+        );
+    }
+    assert_eq!(text(&registry), recorded);
+    // The next major version is a sighting of its own.
+    assert_eq!(
+        registry.register(&at_version("158.0.8127.37")).unwrap(),
+        Outcome::Sighted("Known GPU".to_owned())
+    );
 }
 
 #[test]
@@ -398,6 +452,31 @@ fn text_past_ascii_is_written_escaped_and_reads_back_the_same() {
         registry.register(&new("chrome")).unwrap(),
         Outcome::Sighted(label.to_owned())
     );
+}
+
+#[test]
+fn long_text_is_folded_within_the_line_width_and_reads_back_the_same() {
+    let (_dir, registry) = registry(REGISTRY);
+    let label = format!("{}  two spaces stay together", "word ".repeat(34).trim_end());
+    let reason = format!("{} unbroken", "y".repeat(125));
+    let mut seen = row("firefox");
+    seen["device"] = json!("phone ".repeat(30).trim_end());
+    let new = submission(json!({
+        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": seen
+    }));
+    assert_eq!(registry.register(&new).unwrap(), Outcome::Added(3));
+    let written = text(&registry);
+    let added = written.strip_prefix(REGISTRY).unwrap();
+    // Only the reason's first word, too long to fit after its key, runs past the width, on a line of its own.
+    let wide: Vec<&str> = added.lines().filter(|line| line.len() > 120).collect();
+    assert_eq!(wide, [format!("    reason: \"{}", "y".repeat(125))]);
+    // The label, the device and the reason each take two lines.
+    assert_eq!(added.lines().count(), 16);
+    assert!(added.contains("word  two spaces"));
+    let resubmitted = submission(json!({
+        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": row("chrome")
+    }));
+    assert_eq!(registry.register(&resubmitted).unwrap(), Outcome::Sighted(label));
 }
 
 #[test]

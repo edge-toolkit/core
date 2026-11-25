@@ -1,9 +1,9 @@
 //! Covers reading a plain-text file of submissions, as the hosted probe page proposes one on GitHub.
 #![cfg(test)]
 
-use et_gpu_probe_server::registry::{RegisterError, Submission};
-use et_gpu_probe_server::submitted::parse;
-use pretty_assertions::assert_eq;
+use et_gpu_probe_server::registry::{RegisterError, Submission, row};
+use et_gpu_probe_server::submitted::{name_of, parse, propose, propose_where_asked, write};
+use pretty_assertions::{assert_eq, assert_ne};
 
 /// Two GPUs: one with a canvas signature and a withheld interface, the other with a wrapped shader signature.
 const TWO_GPUS: &str = "label Canvas on Firefox
@@ -167,4 +167,94 @@ fn a_fault_reads_as_its_line_and_problem() {
     let refused = parse("label A\nlabel B\n").unwrap_err();
     assert_eq!(refused.to_string(), "line 2: a second label");
     assert!(!refused.is_rejection());
+}
+
+/// Submissions that try every part of the layout.
+///
+/// That is two blocks, escapes, a word too long for a line, double spaces, and a withheld interface.
+fn awkward() -> Vec<Submission> {
+    let long = format!("{} then {}  spaced", "x".repeat(150), "\u{e9}\\".repeat(30));
+    let seen = row(&[
+        ("browser", "none"),
+        ("os", "linux"),
+        ("runtime", "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"),
+        ("device", &long),
+    ]);
+    let lanes: Vec<(String, String)> = ["lane0", "lane1", "lane2", "lane3"]
+        .iter()
+        .zip(["00000001", "00000002", "00000003", "00000004"])
+        .map(|(name, value)| ((*name).to_owned(), value.to_owned()))
+        .collect();
+    let shaders: Vec<(String, String)> = et_gpu_probe::result_names("webgpu-split")
+        .into_iter()
+        .map(|name| (name.to_owned(), "3f800000".to_owned()))
+        .collect();
+    vec![
+        Submission::signature("canvas", &long, lanes, seen.clone()),
+        Submission::signature("webgpu-split", "Second", shaders, row(&[("os", "macos")])),
+        Submission::withheld("webgl2", &long, "no WebGL 2 \\ here", seen),
+    ]
+}
+
+#[test]
+fn what_is_written_reads_back_as_the_same_submissions_in_lines_a_tracked_file_allows() {
+    let submissions = awkward();
+    let text = write(&submissions);
+    for line in text.lines() {
+        assert!(line.len() <= 120);
+        assert!(line.is_ascii());
+        assert!(!line.ends_with(' '));
+    }
+    // The two blocks are separated by a blank line, the withheld interface joining the first block it shares.
+    assert_eq!(text.matches("\n\n").count(), 1);
+    let read = parse(&text).unwrap();
+    // Each block holds every submission of its label and row, so the withheld one is read back beside the canvas.
+    let grouped = [&submissions[0], &submissions[2], &submissions[1]];
+    assert_eq!(read.len(), grouped.len());
+    for (given, back) in grouped.into_iter().zip(&read) {
+        assert_eq!(back.interface, given.interface);
+        assert_eq!(back.label, given.label);
+        assert_eq!(back.seen, given.seen);
+        assert_eq!(back.blocked, given.blocked);
+        assert_eq!(back.reason, given.reason);
+        assert_eq!(back.results.pairs(), given.results.pairs());
+    }
+}
+
+#[test]
+fn a_file_is_named_for_its_text_with_a_hash_typos_passes_over() {
+    let name = name_of("label A\n");
+    assert_eq!(name, name_of("label A\n"));
+    assert_ne!(name, name_of("label B\n"));
+    let (stem, extension) = name.split_once('.').unwrap();
+    assert_eq!(extension, "txt");
+    assert_eq!(stem.len(), 32);
+    assert!(stem.chars().all(|digit| digit.is_ascii_hexdigit()));
+}
+
+#[test]
+fn a_proposal_is_written_where_asked_and_nowhere_otherwise() {
+    let dir = tempfile::tempdir().unwrap();
+    let into = dir.path().join("into");
+    let submissions = awkward();
+    let unasked = temp_env::with_var_unset("GPU_PROBE_INTO", || propose_where_asked(&submissions)).unwrap();
+    assert_eq!(unasked, Vec::<std::path::PathBuf>::new());
+    let into_text = into.to_str().unwrap();
+    let asked = temp_env::with_var("GPU_PROBE_INTO", Some(into_text), || propose_where_asked(&submissions)).unwrap();
+    assert_eq!(asked.len(), 1);
+    assert_eq!(parse(&fs_err::read_to_string(&asked[0]).unwrap()).unwrap().len(), 3);
+    assert_eq!(asked[0], into.join(name_of(&write(&submissions))));
+}
+
+#[test]
+fn a_proposal_into_a_path_that_is_a_file_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a file");
+    fs_err::write(&file, "").unwrap();
+    let refused = propose(&file, &awkward()).unwrap_err();
+    assert!(
+        refused
+            .to_string()
+            .starts_with("the file of submissions could not be written: ")
+    );
 }

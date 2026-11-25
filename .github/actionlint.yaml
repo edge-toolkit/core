@@ -1,0 +1,10 @@
+# The workflow linter's settings.
+#
+# GitHub-hosted runner labels newer than the linter's own list, which it would otherwise report as unknown. Each is a
+# free image named in https://github.com/actions/runner-images that the gpu-probe workflow measures. The linter has
+# only this list for labels it does not know, which it calls self-hosted; drop an entry once a release knows it.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm
+    - xcode-27

@@ -17,6 +17,20 @@ touched and which did not depend on anything it changed. Every one of those lint
 single missing commit. The wrong diagnosis reached for first was a toolchain change, which the dates flatly
 contradicted; `git rev-list --left-right --count origin/main...HEAD` would have settled it immediately.
 
+## NEVER modify git state unless asked
+
+An agent edits files in the working tree of whatever branch is checked out, and nothing more. It never runs a git
+command that changes the repository -- creating or deleting a branch, switching or checking one out, committing,
+amending, stashing, resetting, rebasing, merging, cherry-picking, tagging, pushing, or restoring files with
+`git checkout --` / `git restore` -- unless the operator has asked for that specific action. Read-only git is fine:
+`status`, `diff`, `log`, `show`, `grep`, `ls-tree`, `fetch`. A general instruction to "branch before committing" is
+not a request to branch: when work looks as though it needs a branch or a commit, say so and leave it to the operator.
+
+The operator moves between work branches themselves, and an agent's git change lands on top of theirs unseen. A
+worked example: an agent created a branch with `git switch -c` before recording probe data, while the operator's own
+work was on another branch it had not been told about; the two diverged, and untangling them cost a commit, a
+checkout and a port that a file edit on the right branch would never have needed.
+
 ## Install the mise tools at the start of every session
 
 Run `mise install` right after the branch check, once per session, before touching anything else. It is idempotent
@@ -1277,6 +1291,12 @@ than the ones it was handed. Casing cannot account for that on its own, since on
 have resolved just as well as the uppercase one -- so a variadic arg may not be exported as a scalar at all.
 Settle it on Windows before touching the convention again: dump the environment inside two task bodies, one with a
 variadic arg and one with a plain arg, on the mise version the CI lanes install.
+
+## Next PR: reach a GPU other than NVIDIA's through `wasi:nn`
+
+The next pull request after the one adding the execution targets to `nn_probe` is to build wasmtime-wasi-nn's
+`openvino` backend, and `winml` on Windows, with the OpenVINO runtime as a mise tool, so the `gpu` target reaches an
+Intel GPU and, on Windows, any GPU, and `nn_probe` measures one.
 
 ## Linting
 

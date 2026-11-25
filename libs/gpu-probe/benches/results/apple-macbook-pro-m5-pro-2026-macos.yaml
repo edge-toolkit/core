@@ -4,6 +4,11 @@ machine:
   host: aarch64-apple-darwin
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
   recorded: "2026-11-16"
+  adapters:
+    - backend: metal
+      computes: true
+      gpu_version: Apple M5 Pro
+      name: Apple M5 Pro (metal)
 benchmarks:
   formats/decode/rg11b10ufloat:
     latency:
@@ -105,31 +110,6 @@ benchmarks:
       value: 13.57
       lower_value: 13.53
       upper_value: 13.62
-  gpus/clear_signature/Apple M5 Pro (metal):
-    latency:
-      value: 2.05027519e+06
-      lower_value: 1.88371196e+06
-      upper_value: 2.21021926e+06
-  gpus/combined_signature/Apple M5 Pro (metal):
-    latency:
-      value: 1.49279888e+06
-      lower_value: 1.43930351e+06
-      upper_value: 1.55121396e+06
-  gpus/f16_combined_signature/Apple M5 Pro (metal):
-    latency:
-      value: 1.48032162e+06
-      lower_value: 1.43810992e+06
-      upper_value: 1.52657033e+06
-  gpus/f16_signature/Apple M5 Pro (metal):
-    latency:
-      value: 2.2344464e+06
-      lower_value: 2.08925295e+06
-      upper_value: 2.3568162e+06
-  gpus/fixed_function_signature/Apple M5 Pro (metal):
-    latency:
-      value: 2.61313782e+06
-      lower_value: 2.51582454e+06
-      upper_value: 2.71691465e+06
   gpus/open:
     latency:
       value: 2.73169946e+06
@@ -140,16 +120,6 @@ benchmarks:
       value: 2.76042277e+06
       lower_value: 2.73273649e+06
       upper_value: 2.78898793e+06
-  gpus/report/Apple M5 Pro (metal):
-    latency:
-      value: 4137.88
-      lower_value: 4112.45
-      upper_value: 4171.6
-  gpus/signature/Apple M5 Pro (metal):
-    latency:
-      value: 1.74845008e+06
-      lower_value: 1.60779155e+06
-      upper_value: 1.92999643e+06
   probe_sets/clear_reference:
     latency:
       value: 26.94

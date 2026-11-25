@@ -30,11 +30,13 @@ const rowOrder = [
   "cpu_version",
   "gpu",
   "gpu_version",
+  "driver",
   "driver_version",
   "api_version",
   "backend",
   "device",
   "runtime",
+  "environment",
   "defence",
   "reported",
   "window",
@@ -183,8 +185,20 @@ const holds = (entry, submission) => {
   return sameNames && given.every(([name, value]) => asText(held[name]) === asText(value));
 };
 
+// The part of `value`, the value of `field`, that two rows are compared by: a browser's major version, or all of it.
+// Only the entry holding the same signature is asked, so a point release that answers the same is already on record.
+const comparable = (field, value) => (field === "browser_version" ? value?.split(".")[0] : value);
+
+// The fields of a row saying when and by which run it was first seen, which no sighting is matched by.
+const firstSeen = new Set(["date", "source"]);
+
 // Whether `row`, already in the registry, records `seen`: it gives every field `seen` gives, with the same value.
-const covers = (row, seen) => Object.entries(seen).every(([field, value]) => asText(row[field]) === value);
+const covers = (row, seen) =>
+  Object.entries(seen).every(([field, value]) => {
+    if (firstSeen.has(field)) return true;
+    const held = asText(row[field]);
+    return held !== undefined && comparable(field, held) === comparable(field, value);
+  });
 
 // What the registry `known`, the document signatures.json holds, makes of each of `submissions`: `recorded` when it
 // already has the sighting, `sighting` with the entry's label when the signature is known but not seen there, and

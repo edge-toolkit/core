@@ -37,8 +37,13 @@ Plus, attached to the same `Linker` but defined by external WIT packages, each b
 - `nn`: `wasi:nn/{tensor, graph, inference, errors}` -- standardised ML inference. The host wires
   `wasmtime-wasi-nn` with the ONNX Runtime backend (`ort` 2.0.0-rc.10, pinned because rc.11+ moved API surface that
   wasmtime-wasi-nn 48 still uses). Guests load model bytes via `graph.load`, build `Tensor`s, and call `compute` --
-  the same shape of calls Spin / wasmCloud / Fermyon production wasi-nn workloads use. Inference runs on the CPU
-  unless the `cuda` feature is on.
+  the same shape of calls Spin / wasmCloud / Fermyon production wasi-nn workloads use. A guest names the device it
+  wants in `graph.load` as the `cpu`, `gpu` or `tpu` execution target, and the backend decides what runs it: `gpu`
+  reaches an NVIDIA GPU through CUDA when the `cuda` feature is on, and every other request runs on the CPU, with a
+  warning when the guest asked for something else. No other GPU is reachable through `wasi:nn`, on any OS: the ONNX
+  backend of wasmtime-wasi-nn knows no provider but CUDA, so there is no CoreML path on macOS, and its `openvino` and
+  `winml` backends, whose `gpu` target reaches an Intel GPU through OpenVINO and any GPU through DirectX on Windows,
+  are not built.
 - `lidar`: `et:ws-wasi/serial` -- the serial ports the runner's `SERIAL_PORTS_<NAME>` variables lend a guest, each a
   device the `serialport` crate opens or a port a bridge such as ser2net serves over TCP. It is this repository's own
   interface, in the `serial-host` world rather than `runner`, so that its host bindings link only in a build with the

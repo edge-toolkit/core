@@ -119,18 +119,43 @@ pub enum NativeError {
     /// wgpu dropped the buffer's mapping callback without ever calling it.
     #[error("the GPU never said whether its answers could be read back: {0}")]
     Unmapped(#[from] futures_channel::oneshot::Canceled),
+    /// The device runs no compute shaders, which a shader probe set is, for the reason given.
+    #[error("the device runs no compute shaders: {0}")]
+    Compute(#[from] NoCompute),
+}
+
+/// Why a device runs no compute shaders.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+#[non_exhaustive]
+pub enum NoCompute {
+    /// The API gave a context whose shading language has no compute shaders, as [`runs_compute`] judges it.
+    #[error("{backend} gives {version}")]
+    Context {
+        /// The backend's registry name, such as `opengl`.
+        backend: &'static str,
+        /// The context's version string.
+        version: String,
+    },
+    /// The device was opened without them, by [`Gpu::open_without_compute`].
+    #[error("{adapter} was opened without them")]
+    NotAsked {
+        /// wgpu's name for the adapter.
+        adapter: String,
+    },
 }
 
 /// A probe as a device holds it: the pipeline that evaluates it, or the device's reason for refusing to build one.
 type Probe = Result<wgpu::ComputePipeline, wgpu::Error>;
 
 /// What a device says it is, read from wgpu and from the API beneath it.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[non_exhaustive]
 pub struct Report {
     /// Every value, one `name: value` line each.
     pub lines: Vec<String>,
-    /// The values a registry row has a field for: `driver_version` and `api_version`, as far as the API gives them.
+    /// The values a registry row has a field for, as far as the API gives them.
+    ///
+    /// Those are `driver`, `driver_version` and `api_version`.
     pub versions: Vec<(&'static str, String)>,
 }
 
@@ -138,18 +163,24 @@ pub struct Report {
 pub struct Gpu {
     /// The adapter the device was opened on.
     adapter: wgpu::Adapter,
-    /// The whole probe set as one shader.
-    combined: Probe,
+    /// The shader probe sets compiled for the device, or why the device runs none.
+    compute: Result<Compute, NoCompute>,
     /// The device the probes run on.
     device: wgpu::Device,
+    /// Where the device's work is submitted.
+    queue: wgpu::Queue,
+}
+
+/// The shader probe sets, each a compute pipeline, as a device compiled them.
+struct Compute {
+    /// The whole probe set as one shader.
+    combined: Probe,
     /// The whole `f16` probe set as one shader.
     f16_combined: Probe,
     /// The `f16` probe set, in output order.
     f16_probes: Vec<Probe>,
     /// The probe set, in output order.
     probes: Vec<Probe>,
-    /// Where the device's work is submitted.
-    queue: wgpu::Queue,
 }
 
 /// How a probe drawn into a target reads its answer from the bytes of the target it copied back.
@@ -191,19 +222,35 @@ impl Gpu {
         Self::open_adapter(adapter).await
     }
 
-    /// Open every adapter wgpu finds through Vulkan, Metal and Direct3D 12, with the probe set compiled for each.
+    /// Open every adapter wgpu finds, with the probe set compiled for each.
     ///
-    /// They come in the order wgpu lists them. A software renderer, such as llvmpipe or WARP, is opened beside the
-    /// GPUs: it answers as the CPU's own arithmetic does through that renderer, which is a signature of its own. So is
-    /// a GPU reached through two of those APIs, which is opened once through each.
+    /// wgpu finds them through Vulkan, Metal, Direct3D 12 and OpenGL. They come in the order wgpu lists them. A
+    /// software renderer, such as llvmpipe or WARP, is opened beside the GPUs: it answers as the CPU's own arithmetic
+    /// does through that renderer, which is a signature of its own. So is a GPU reached through two of those APIs,
+    /// which is opened once through each: the driver beneath each API is its own, and can answer differently.
     ///
     /// Each adapter gives its own outcome, so one whose device will not open -- a broken driver, or a software renderer
     /// that rejects the default limits -- stops none of the others being measured.
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn open_all() -> Vec<Result<Self, NativeError>> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let primary = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        // OpenGL is opened from an instance of its own, without wgpu-core's validation of indirect calls, which no
+        // probe makes. That validation is a compute pipeline built as each device opens, and a context that runs no
+        // compute shaders cannot build it, so the device would never open. NVIDIA's EGL gives wgpu 29.0.4 an OpenGL 3.3
+        // context, whose GLSL 330 has no compute shaders; with NVIDIA's 580.178.04 driver on Linux, a Quadro M2000's
+        // OpenGL adapter failed with indirect-validation error: ComputePipeline(Internal("The selected version doesn't
+        // support Features(BUFFER_STORAGE | COMPUTE_SHADER | DYNAMIC_ARRAY_SIZE)")) and then `the GPU adapter would not
+        // open a device: Parent device is lost`. The other APIs keep it: on Direct3D 12, turning it off also changes
+        // what `vertex_index` reports.
+        let mut without_indirect = wgpu::InstanceDescriptor::new_without_display_handle();
+        without_indirect
+            .flags
+            .remove(wgpu::InstanceFlags::VALIDATION_INDIRECT_CALL);
+        let opengl = wgpu::Instance::new(without_indirect);
+        let mut adapters = primary.enumerate_adapters(wgpu::Backends::PRIMARY).await;
+        adapters.extend(opengl.enumerate_adapters(wgpu::Backends::GL).await);
         let mut gpus = Vec::new();
-        for adapter in instance.enumerate_adapters(wgpu::Backends::PRIMARY).await {
+        for adapter in adapters {
             gpus.push(Self::open_adapter(adapter).await);
         }
         gpus
@@ -211,30 +258,53 @@ impl Gpu {
 
     /// Open a device on `adapter`, and compile the probe set for it.
     ///
-    /// For a caller that chose the adapter itself, from an instance of its own: one limited to a backend, say.
+    /// For a caller that chose the adapter itself, from an instance of its own: one limited to a backend, say. A device
+    /// that runs no compute shaders, as [`compute_shaders`] judges it, is opened as [`open_without_compute`] does.
+    ///
+    /// [`open_without_compute`]: Self::open_without_compute
     pub async fn open_adapter(adapter: wgpu::Adapter) -> Result<Self, NativeError> {
+        let info = adapter.get_info();
+        let flags = adapter.get_downlevel_capabilities().flags;
+        let compute = compute_shaders(info.backend, flags, &info.driver_info);
+        Self::open_device(adapter, compute).await
+    }
+
+    /// Open a device on `adapter` with no shader probe set compiled, for a context that runs no compute shaders.
+    ///
+    /// The clears and the fixed-function probes draw rather than compute, so they still answer; each shader probe set
+    /// answers [`NativeError::Compute`] instead of the device failing as it compiles one.
+    pub async fn open_without_compute(adapter: wgpu::Adapter) -> Result<Self, NativeError> {
+        let reason = NoCompute::NotAsked {
+            adapter: adapter.get_info().name,
+        };
+        Self::open_device(adapter, Err(reason)).await
+    }
+
+    /// Open a device on `adapter`, compiling the shader probe sets for it unless `compute` gives the reason not to.
+    async fn open_device(adapter: wgpu::Adapter, compute: Result<(), NoCompute>) -> Result<Self, NativeError> {
         let descriptor = wgpu::DeviceDescriptor {
             required_features: adapter.features() & OPTIONAL_FEATURES,
             ..wgpu::DeviceDescriptor::default()
         };
         let (device, queue) = adapter.request_device(&descriptor).await?;
-        let mut probes = Vec::new();
-        for shader in shaders() {
-            probes.push(compile(&device, &shader.1).await);
-        }
-        let mut f16_probes = Vec::new();
-        for shader in f16_shaders() {
-            f16_probes.push(compile(&device, &shader.1).await);
-        }
+        let compute = match compute {
+            Ok(()) => Ok(Compute::compile(&device).await),
+            Err(reason) => Err(reason),
+        };
         Ok(Self {
-            combined: compile(&device, &combined_shader()).await,
-            f16_combined: compile(&device, &f16_combined_shader()).await,
-            f16_probes,
-            probes,
             adapter,
+            compute,
             device,
             queue,
         })
+    }
+
+    /// The shader probe sets compiled for the device, or the error saying why it has none.
+    fn compute(&self) -> Result<&Compute, NativeError> {
+        match &self.compute {
+            Ok(compute) => Ok(compute),
+            Err(reason) => Err(reason.clone().into()),
+        }
     }
 
     /// What wgpu reports the adapter is.
@@ -260,34 +330,33 @@ impl Gpu {
     /// The name the registry gives the graphics API the device was opened through, or `unknown`.
     #[must_use]
     pub fn backend(&self) -> &'static str {
-        let backend = self.info().backend;
-        BACKENDS
-            .iter()
-            .find(|known| known.0 == backend)
-            .map_or("unknown", |known| known.1)
+        let info = self.info();
+        backend_name(info.backend, &info.driver_info)
     }
 
     /// What the probe set answers on this GPU, each probe in a shader of its own.
     pub async fn signature(&self) -> Result<Signature, NativeError> {
-        let stages: Vec<(&Probe, u64)> = self.probes.iter().map(|probe| (probe, 1)).collect();
+        let stages: Vec<(&Probe, u64)> = self.compute()?.probes.iter().map(|probe| (probe, 1)).collect();
         Ok(Signature::new(WEBGPU, self.answers(&stages, &INPUTS).await?))
     }
 
     /// What the probe set answers on this GPU, every probe in the one combined shader.
     pub async fn combined_signature(&self) -> Result<Signature, NativeError> {
-        let answers = self.answers(&[(&self.combined, SET_WORDS)], &INPUTS).await?;
+        let answers = self.answers(&[(&self.compute()?.combined, SET_WORDS)], &INPUTS).await?;
         Ok(Signature::new(WEBGPU_COMBINED, answers))
     }
 
     /// What the `f16` probe set answers on this GPU, each probe in a shader of its own.
     pub async fn f16_signature(&self) -> Result<Signature, NativeError> {
-        let stages: Vec<(&Probe, u64)> = self.f16_probes.iter().map(|probe| (probe, 1)).collect();
+        let stages: Vec<(&Probe, u64)> = self.compute()?.f16_probes.iter().map(|probe| (probe, 1)).collect();
         Ok(Signature::new(WEBGPU_F16, self.answers(&stages, &F16_INPUTS).await?))
     }
 
     /// What the `f16` probe set answers on this GPU, every probe in the one combined shader.
     pub async fn f16_combined_signature(&self) -> Result<Signature, NativeError> {
-        let answers = self.answers(&[(&self.f16_combined, SET_WORDS)], &F16_INPUTS).await?;
+        let answers = self
+            .answers(&[(&self.compute()?.f16_combined, SET_WORDS)], &F16_INPUTS)
+            .await?;
         Ok(Signature::new(WEBGPU_F16_COMBINED, answers))
     }
 
@@ -315,22 +384,31 @@ impl Gpu {
         Ok(Signature::new(WEBGPU_FIXED_FUNCTION, self.pass_answers(&passes).await?))
     }
 
+    /// What every probe set answers on this GPU, each beside the interface the registry files a measurement under.
+    ///
+    /// The sets are the shader probes, each in a shader of its own and all in one, the clears, the fixed-function
+    /// probes, and the `f16` shader probes both ways. Each is measured on its own, so one that fails -- the device lost
+    /// at its readback, say -- leaves the sets before it answered.
+    pub async fn every_set(&self) -> [(&'static str, Result<Signature, NativeError>); 6] {
+        [
+            ("webgpu-split", self.signature().await),
+            ("webgpu-combined", self.combined_signature().await),
+            ("webgpu-clear", self.clear_signature().await),
+            ("webgpu-fixed-function", self.fixed_function_signature().await),
+            ("webgpu-f16-split", self.f16_signature().await),
+            ("webgpu-f16-combined", self.f16_combined_signature().await),
+        ]
+    }
+
     /// What the adapter and device say the GPU is.
     ///
     /// The first lines are what wgpu reports for every backend. The rest are read from the API the device was opened
-    /// through, for whichever of Vulkan, Metal or Direct3D 12 it is: the version numbers there are the device's own,
-    /// not anything wgpu infers. Each backend's reader finds nothing when the device was not opened through it.
+    /// through, for whichever of Vulkan, Metal, Direct3D 12 or OpenGL it is: the version numbers there are the device's
+    /// own, not anything wgpu infers. Each backend's reader finds nothing when the device was not opened through it.
     #[must_use]
     pub fn report(&self) -> Report {
         let adapter = &self.adapter;
         let info = adapter.get_info();
-        #[cfg_attr(
-            target_arch = "wasm32",
-            expect(
-                unused_mut,
-                reason = "in a page there is no API beneath wgpu to add to the report from"
-            )
-        )]
         let mut report = Report {
             lines: vec![
                 format!("name: {}", info.name),
@@ -351,8 +429,11 @@ impl Gpu {
             ],
             versions: Vec::new(),
         };
+        report.versions.extend(named_driver(info.driver));
         #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
         vulkan_report(adapter, &mut report);
+        #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
+        gl_report(adapter, &mut report);
         #[cfg(target_vendor = "apple")]
         metal_report(&self.device, &mut report);
         #[cfg(windows)]
@@ -575,7 +656,7 @@ impl Gpu {
         // https://github.com/edge-toolkit/core/actions/runs/44185724160/job/134401605307. The same step on that lane
         // later ran past its own timeout and left no log, the job ending in
         //
-        //     The hosted runner lost communication with the server.
+        // The hosted runner lost communication with the server.
         //
         // on commit https://github.com/edge-toolkit/core/commit/9b0c23ecc64c3de8a0215a557749260975bf3dda at
         // https://github.com/edge-toolkit/core/actions/runs/44840432688/job/136647262861.
@@ -731,6 +812,26 @@ const fn blend_component(operation: Operation) -> wgpu::BlendComponent {
     }
 }
 
+impl Compute {
+    /// Every shader probe set, compiled for `device`.
+    async fn compile(device: &wgpu::Device) -> Self {
+        let mut probes = Vec::new();
+        for shader in shaders() {
+            probes.push(compile(device, &shader.1).await);
+        }
+        let mut f16_probes = Vec::new();
+        for shader in f16_shaders() {
+            f16_probes.push(compile(device, &shader.1).await);
+        }
+        Self {
+            combined: compile(device, &combined_shader()).await,
+            f16_combined: compile(device, &f16_combined_shader()).await,
+            f16_probes,
+            probes,
+        }
+    }
+}
+
 /// The pipeline on `device` that runs the shader `wgsl` holds.
 ///
 /// A shader the device will not compile, or a pipeline it will not build, is a refusal, which the error scope catches.
@@ -873,6 +974,134 @@ fn vulkan_report(adapter: &wgpu::Adapter, report: &mut Report) {
     report
         .versions
         .extend([("driver_version", driver), ("api_version", format!("Vulkan {api}"))]);
+}
+
+/// The name the registry gives `backend`, the graphics API a device was opened through, or `unknown`.
+///
+/// wgpu's one OpenGL backend opens either OpenGL or OpenGL ES, whichever the platform offers, and only the context's
+/// own `version` string says which: OpenGL ES's starts `OpenGL ES`, and OpenGL's with its version number.
+#[must_use]
+pub fn backend_name(backend: wgpu::Backend, version: &str) -> &'static str {
+    if backend == wgpu::Backend::Gl && version.starts_with("OpenGL ES") {
+        return "opengl-es";
+    }
+    BACKENDS
+        .iter()
+        .find(|known| known.0 == backend)
+        .map_or("unknown", |known| known.1)
+}
+
+/// The `api_version` and `driver_version` a row records from `version`, the string OpenGL gives for `GL_VERSION`.
+///
+/// OpenGL's is `<major>.<minor>[.<release>] <vendor-specific information>`, and OpenGL ES's the same after `OpenGL ES
+/// `. The number is the API's version, and whatever the vendor put after it is the driver's, kept exactly as given:
+/// Mesa writes the profile and its own release there, NVIDIA its driver's version. A string with nothing after the
+/// number gives the API's version alone.
+#[must_use]
+pub fn gl_versions(version: &str) -> Vec<(&'static str, String)> {
+    let (api, rest) = version
+        .strip_prefix("OpenGL ES ")
+        .map_or(("OpenGL", version), |rest| ("OpenGL ES", rest));
+    let (number, vendor) = rest.split_once(' ').unwrap_or((rest, ""));
+    let mut versions = vec![("api_version", format!("{api} {number}"))];
+    if !vendor.trim().is_empty() {
+        versions.push(("driver_version", vendor.trim().to_owned()));
+    }
+    versions
+}
+
+/// Whether a device opened through `backend` runs compute shaders.
+///
+/// That is by its downlevel `flags` and, for OpenGL, the context's own `version` string. wgpu's OpenGL backend claims
+/// compute shaders wherever the driver offers them, but translates every shader for the GLSL of the context it was
+/// given, and GLSL has compute shaders only from OpenGL 4.3 and OpenGL ES 3.1. A version string this cannot read leaves
+/// the flags to decide.
+#[must_use]
+pub fn runs_compute(backend: wgpu::Backend, flags: wgpu::DownlevelFlags, version: &str) -> bool {
+    if !flags.contains(wgpu::DownlevelFlags::COMPUTE_SHADERS) {
+        return false;
+    }
+    if backend != wgpu::Backend::Gl {
+        return true;
+    }
+    // NVIDIA's EGL gives wgpu 29.0.4 an OpenGL 3.3 context, where a compute shader fails as it is translated, which
+    // wgpu treats as fatal: Shader translation error for stage ShaderStages(COMPUTE): The selected version doesn't
+    // support Features(BUFFER_STORAGE | COMPUTE_SHADER)
+    let (minimum, rest) = version
+        .strip_prefix("OpenGL ES ")
+        .map_or(((4, 3), version), |rest| ((3, 1), rest));
+    let mut parts = rest.split([' ', '.']).map(str::parse::<u32>);
+    match (parts.next(), parts.next()) {
+        (Some(Ok(major)), Some(Ok(minor))) => (major, minor) >= minimum,
+        _ => true,
+    }
+}
+
+/// Whether a device opened through `backend` runs compute shaders, as [`runs_compute`] judges by `flags` and `version`.
+///
+/// # Errors
+///
+/// [`NoCompute::Context`], naming the backend and `version`, where it runs none.
+pub fn compute_shaders(backend: wgpu::Backend, flags: wgpu::DownlevelFlags, version: &str) -> Result<(), NoCompute> {
+    if runs_compute(backend, flags, version) {
+        return Ok(());
+    }
+    Err(NoCompute::Context {
+        backend: backend_name(backend, version),
+        version: version.to_owned(),
+    })
+}
+
+/// The `driver` a row records from `driver`, the driver's own name for itself as wgpu reads it.
+///
+/// That is Vulkan's `driverName`. The other APIs leave it empty, and Vulkan without `VK_KHR_driver_properties` gives
+/// `?`, neither of which names anything, so neither is recorded.
+#[must_use]
+pub fn named_driver(driver: String) -> Vec<(&'static str, String)> {
+    if matches!(driver.as_str(), "" | "?") {
+        return Vec::new();
+    }
+    vec![("driver", driver)]
+}
+
+/// What OpenGL says it is, from `vendor` and `version`, the strings it gives for `GL_VENDOR` and `GL_VERSION`.
+///
+/// OpenGL has no query naming its driver. `GL_VENDOR`, the implementation's own name for who provides it, is the
+/// nearest it comes, and is recorded as the driver as given; `GL_VERSION` gives the API's and the driver's versions.
+#[must_use]
+pub fn gl_report_of(vendor: &str, version: &str) -> Report {
+    let mut versions = vec![("driver", vendor.to_owned())];
+    versions.extend(gl_versions(version));
+    Report {
+        lines: vec![format!("gl vendor: {vendor}"), format!("gl version: {version}")],
+        versions,
+    }
+}
+
+/// Add what OpenGL itself says to `report`, for an adapter opened through it.
+#[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
+#[expect(
+    unsafe_code,
+    reason = "wgpu hands out the OpenGL context beneath it, and glow reads it, only through unsafe calls"
+)]
+fn gl_report(adapter: &wgpu::Adapter, report: &mut Report) {
+    use glow::HasContext as _;
+    // SAFETY: the OpenGL adapter is only read from, and is not kept past this function.
+    let hal = unsafe { adapter.as_hal::<wgpu::hal::api::Gles>() };
+    // An adapter opened through another API has no OpenGL side, and adds nothing here. Reading the side of one that
+    // does takes a real OpenGL driver, which no CI runner has, so the closure only reads the two strings: what they say
+    // is made into the report by `gl_report_of`, which the tests drive with the strings real drivers give.
+    let said = hal.map_or_default(|opengl| {
+        let context = opengl.adapter_context().lock();
+        // SAFETY: the call reads a string the context holds, made current on this thread by the lock around it.
+        let vendor = unsafe { context.get_parameter_string(glow::VENDOR) };
+        // SAFETY: as for the vendor, under the same lock.
+        let version = unsafe { context.get_parameter_string(glow::VERSION) };
+        drop(context);
+        gl_report_of(&vendor, &version)
+    });
+    report.lines.extend(said.lines);
+    report.versions.extend(said.versions);
 }
 
 /// The name of `architecture`, the one a Metal device gives, or `none` for a device that gives none.

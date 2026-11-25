@@ -1,0 +1,25 @@
+# CUDA environment: the GPU build of ONNX Runtime, loaded with MISE_ENV=cuda on a Linux x64 host with an NVIDIA GPU.
+# Stackable after the language envs (e.g. MISE_ENV=rust,cuda). It is opt-in because the package is 227 MB, which
+# every Linux x64 `mise install` would otherwise fetch. With it, `et-ws-wasi-runner` built with its `cuda` feature
+# loads an ONNX Runtime that carries the CUDA execution provider, which the default http:onnxruntime does not ship.
+
+[tools]
+# ONNX Runtime 1.22's GPU build, Microsoft's NuGet package for Linux x64, the one platform it is published for.
+# Pinned to the http:onnxruntime version, which ort-sys 2.0.0-rc.10 binds to; ort_gpu_loc below embeds it
+# (conftest's version_drift enforces).
+[tools."http:onnxruntime-gpu"]
+checksum = "sha256:d3dabd8235b7a04a67838a3b93437420f1a709528a8d8611e08bedbb08206d1d"
+format = "zip"
+os = ["linux/x64"]
+url = "{{ vars.ort_gpu_nuget }}/{{version}}/microsoft.ml.onnxruntime.gpu.linux.{{version}}.nupkg"
+version = "1.22.0"
+
+[vars]
+# Where NuGet serves each version of the GPU package, which the http:onnxruntime-gpu tool fetches.
+ort_gpu_nuget = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.gpu.linux"
+# Directory of the http:onnxruntime-gpu tool's native libraries, the CUDA provider among them.
+ort_gpu_loc = "{{ vars.mise_data_dir }}/installs/http-onnxruntime-gpu/1.22.0/runtimes/linux-x64/native"
+
+[env]
+# The runner loads ONNX Runtime from here rather than from the CPU-only http:onnxruntime.
+ORT_DYLIB_PATH = "{{ vars.ort_gpu_loc }}/libonnxruntime.so"

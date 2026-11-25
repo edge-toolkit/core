@@ -1,4 +1,7 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::net::IpAddr;
 use std::path::PathBuf;
@@ -6,6 +9,9 @@ use std::path::PathBuf;
 use edge_toolkit::ports::Services;
 
 pub mod app;
+mod built_info;
+pub mod config;
+pub mod machine;
 pub mod measure;
 pub mod registry;
 pub mod submitted;

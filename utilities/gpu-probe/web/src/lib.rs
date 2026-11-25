@@ -102,16 +102,8 @@ pub async fn probe_webgpu(power: &str, fallback: bool) -> Result<String, JsError
     };
     let (signatures, report, problems) = match Gpu::open_with(&options).await {
         Ok(gpu) => {
-            // Each set is measured on its own, so one that fails -- the device lost at its readback, say -- leaves the
-            // sets before it answered and submittable, and is reported beside them.
-            let (signatures, problems) = gather([
-                ("webgpu-split", gpu.signature().await),
-                ("webgpu-combined", gpu.combined_signature().await),
-                ("webgpu-clear", gpu.clear_signature().await),
-                ("webgpu-fixed-function", gpu.fixed_function_signature().await),
-                ("webgpu-f16-split", gpu.f16_signature().await),
-                ("webgpu-f16-combined", gpu.f16_combined_signature().await),
-            ]);
+            // A set that fails leaves the others answered and submittable, and is reported beside them.
+            let (signatures, problems) = gather(gpu.every_set().await);
             (signatures, gpu.report().lines, problems)
         }
         Err(problem) => (Vec::new(), Vec::new(), vec![format!("WebGPU: {problem}")]),

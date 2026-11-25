@@ -30,6 +30,25 @@
     </style>
   </head>
   <body>
+    <a
+      class="github-corner"
+      href="https://github.com/edge-toolkit/core"
+      aria-label="edge-toolkit/core on GitHub"
+    >
+      <svg viewBox="0 0 16 16" width="28" height="28" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="
+          M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2
+          0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0
+          0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16
+          1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51
+          1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68
+          1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z
+          "
+        />
+      </svg>
+    </a>
     <h1>GPU Probe</h1>
     <p id="status">Loading the probes...</p>
     <form id="seen">
@@ -63,6 +82,10 @@
         </datalist>
         <label for="device">device</label><input id="device" size="40">
         <label for="defence">defence</label><input id="defence" size="40">
+        <label for="environment">environment</label><input
+          id="environment"
+          size="40"
+        >
       </fieldset>
     </form>
     <p><button id="submit-all" disabled>Submit every probe set</button></p>
@@ -74,6 +97,18 @@
         page for adding a file to the registry, with these results filled in.
         GitHub makes a copy of the repository for you, and opens a pull request
         with the file when you press "Propose changes".
+      </p>
+      <p>
+        Without a GitHub account, download each file instead and email it to
+        <a
+          href="mailto:john.vandenberg@curtin.edu.au?subject=GPU%20Probe%20results"
+        >john.vandenberg@curtin.edu.au</a>.
+      </p>
+      <p>
+        To submit more data than a browser can measure, read the
+        <a
+          href="https://github.com/edge-toolkit/core/blob/main/libs/gpu-probe/README.md"
+        >et-gpu-probe README</a>.
       </p>
       <p id="judged"></p>
       <ol id="proposals"></ol>
@@ -203,15 +238,23 @@
 
     // The GPU WebGL reports, where the browser unmasks it: its vendor, its name, and the API the browser drives it
     // through. ANGLE gives them as "ANGLE (vendor, model, API)" over OpenGL, and as
-    // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan.
+    // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan, and as
+    // "ANGLE (vendor, vendor model (0xid) Direct3D11 vs_5_0 ps_5_0, D3D11)" over Direct3D on Windows.
+    // Firefox names a stand-in GPU of the same vendor and API instead, followed by ", or similar": its vendor and API
+    // are still the GPU's, but its model is not, so the string is kept only as what was reported.
     const webglGpu = (kind) => {
       const context = document.createElement("canvas").getContext(kind);
       const debug = context?.getExtension("WEBGL_debug_renderer_info");
       const renderer = debug
         ? context.getParameter(debug.UNMASKED_RENDERER_WEBGL)
         : "";
-      const angle = renderer.match(/^ANGLE \((.*)\)$/);
-      if (!angle) return { vendor: "", model: renderer, backend: "unknown" };
+      const similar = renderer.match(/^(.*), or similar$/);
+      const angle = (similar ? similar[1] : renderer).match(/^ANGLE \((.*)\)$/);
+      if (!angle) {
+        return similar
+          ? { vendor: "", model: "", backend: "unknown", reported: renderer }
+          : { vendor: "", model: renderer, backend: "unknown" };
+      }
       const [vendor, named = "", ...rest] = topLevel(angle[1]);
       const api = apis.find(([pattern]) =>
         [named, ...rest].some((part) => pattern.test(part))
@@ -219,10 +262,16 @@
       const vulkan = named.match(
         /^Vulkan [\d.]+ \((.*?)(?: \(0x[0-9A-Fa-f]+\))?\)$/,
       );
-      const model = vulkan
-        ? vulkan[1].replace(new RegExp(`^${vendor} `, "i"), "")
+      const direct3d = named.match(
+        /^(.*?)(?: \(0x[0-9A-Fa-f]+\))? Direct3D\w* vs_\w+ ps_\w+$/,
+      );
+      const listed = vulkan ?? direct3d;
+      const model = listed
+        ? listed[1].replace(new RegExp(`^${vendor} `, "i"), "")
         : named;
-      return { vendor, model, backend: api ? api[1] : "unknown" };
+      const backend = api ? api[1] : "unknown";
+      if (similar) return { vendor, model: "", backend, reported: renderer };
+      return { vendor, model, backend };
     };
 
     // An iPhone's agent says "like Mac OS X", and an iPad's since iPadOS 13 is a Mac's outright; only a touch screen
@@ -245,12 +294,15 @@
         : "unknown";
 
     // The API a browser's WebGPU runs on, which it does not say: the one each browser uses on that system, where there
-    // is only one.
+    // is only one. On Windows Chrome and Edge's Dawn and Firefox's wgpu each run on Direct3D 12.
     const webgpuBackendOf = (os) =>
-      ({ linux: "vulkan", android: "vulkan", macos: "metal", ios: "metal" })[
-        os
-      ] ??
-        "unknown";
+      ({
+        linux: "vulkan",
+        android: "vulkan",
+        macos: "metal",
+        ios: "metal",
+        windows: "d3d12",
+      })[os] ?? "unknown";
 
     // Only Chromium says which CPU it runs on; everywhere else the field is left for the person submitting.
     const architectureOf = async () => {
@@ -291,17 +343,21 @@
     const vendorOf = (name) => name.trim().toLowerCase() || "unknown";
 
     // What the page was opened with: `device` names the machine and `os_version` the system's version, in place of
-    // what the browser says of either, `defence` the privacy setting the browser has in force, and `submit` submits
+    // what the browser says of either, `defence` the privacy setting the browser has in force, `environment` the driver
+    // settings the browser was started under, such as `INTEL_DEBUG=nofc`, which a page cannot see, and `submit` submits
     // every probe set once probed. `browser`, `browser_version` and `window` say what a
     // driver knows and the page cannot: LibreWolf, Mullvad Browser and Tor Browser each report themselves as Firefox,
-    // and Mullvad Browser always browses privately.
+    // and Mullvad Browser always browses privately. `brand_version` is the browser's own version where it is not the
+    // engine's: Brave reports only its Chromium version, which the row records, so its own goes in the labels alone.
     const query = new URLSearchParams(location.search);
+    const brandVersion = query.get("brand_version") ?? "";
 
     const fillShared = async () => {
       const system = await systemHintsOf();
       field("device").value = query.get("device") ?? system.model;
       field("os_version").value = query.get("os_version") ?? system.version;
       field("defence").value = query.get("defence") ?? "";
+      field("environment").value = query.get("environment") ?? "";
       const [browser, version] = await browserOf(navigator.userAgent);
       field("browser").value = query.get("browser") ?? browser;
       field("browser_version").value = query.get("browser_version") ?? version;
@@ -335,7 +391,7 @@
         if (value) row[name] = value;
       }
       row.window = field("window").value;
-      for (const id of ["device", "defence"]) {
+      for (const id of ["device", "defence", "environment"]) {
         if (field(id).value.trim()) row[id] = field(id).value.trim();
       }
       return row;
@@ -473,6 +529,14 @@
           `${sets}${part} make a file too long for GitHub to take from a link: add it to the repository by hand.`;
         item.append(tooLong);
       }
+      // The file to download, for emailing in place of a pull request. A data URL rather than a blob one, as the list
+      // is made again on every edit and a blob URL would hold its file until the page closed.
+      const download = document.createElement("a");
+      const encoded = encodeURIComponent(proposal.text);
+      download.href = `data:text/plain;charset=utf-8,${encoded}`;
+      download.download = proposal.name;
+      download.textContent = `Download ${proposal.name} to email`;
+      item.append(" ", download);
       const file = document.createElement("details");
       const summary = document.createElement("summary");
       summary.textContent = `The file: ${proposal.name}`;
@@ -484,20 +548,25 @@
     };
 
     // A GPU's part of the row, and the label an entry first seen on it would take.
-    const gpuValues = (vendor, model, backend, api) => {
+    // `reported` is what the browser named in place of the GPU, where it named a stand-in.
+    const gpuValues = (vendor, model, backend, api, reported = "") => {
       const os = field("os").value;
-      // The version is the row's to record; the label names only the browser, which keeps it to one line.
-      const browser = field("browser").value;
+      // The version is the row's to record; the label names only the browser, which keeps it to one line, and the
+      // browser's own version where that is not the one the row records.
+      const browser = [field("browser").value, brandVersion]
+        .filter(Boolean)
+        .join(" ");
       // WebKit reports every GPU as an Apple one, so off Apple's systems that is what it said, not what the GPU is.
       const masked = model === "Apple GPU" && !["macos", "ios"].includes(os);
-      const name = masked ? "unknown GPU" : model || "unknown GPU";
+      const stood = reported && vendor ? `${vendor} GPU` : "";
+      const name = masked ? "unknown GPU" : model || stood || "unknown GPU";
       return {
         label:
           `${name} through ${backend} on ${os}${onDevice()} -- ${api} on ${browser}`,
         gpu: masked ? "unknown" : vendorOf(vendor),
         gpu_version: masked ? "" : model,
         backend,
-        reported: masked ? model : "",
+        reported: masked ? model : reported,
       };
     };
 
@@ -612,6 +681,7 @@
           webgl.model,
           webgl.backend,
           title,
+          webgl.reported,
         );
         const webglAnswer = JSON.parse(probe());
         problems.push(...webglAnswer.problems);
@@ -638,7 +708,7 @@
         return spelled[value] ??
           value.charAt(0).toUpperCase() + value.slice(1);
       };
-      const version = field("browser_version").value;
+      const version = brandVersion || field("browser_version").value;
       const canvasValues = {
         label: `${named("browser")} ${version} on ${
           named("os")

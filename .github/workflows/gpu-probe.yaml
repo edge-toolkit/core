@@ -1,0 +1,352 @@
+---
+name: gpu-probe
+
+# Measures the GPU probe sets on every free GitHub-hosted runner image.
+#
+# The images are those of https://github.com/actions/runner-images, so the registry gathers what each image's software
+# renderers, GPUs and CPUs answer. Each runner writes what it measured as a file of submissions, named by the runner
+# image's `ImageOS` and `ImageVersion` rather than the job's label, which names a pool of machines that changes under
+# it; the `collect` job gathers every runner's file into the one `gpu-probe-submitted` artifact, whose files go in
+# libs/gpu-probe/signatures/submitted/ for `mise run gpu-probe-fold`.
+#
+# `gpu-probe` is built once per target and each image only downloads and runs it, so an image too small to build the
+# workspace, such as `ubuntu-slim`, is measured all the same. The Linux binaries are built on Ubuntu 22.04, whose
+# glibc is the oldest of the images, so they run on every newer one. Images are rebuilt weekly, hence the schedule.
+"on":
+  pull_request:
+    paths:
+      - .github/workflows/gpu-probe.yaml
+      - .github/actions/install-lavapipe/**
+      - .github/actions/install-mise/**
+      - .github/actions/remove-mise-shim/**
+      - .mise/config.msvc.toml
+      - libs/gpu-probe/**
+      - modules/web/graphics-info/**
+      - services/ws-wasi-runner/tests/nn_probe.rs
+      - services/ws-web-runner/tests/modules.rs
+      - utilities/gpu-probe/**
+  schedule:
+    - cron: "17 5 * * 2"
+  workflow_dispatch:
+
+env:
+  MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+permissions:
+  contents: read
+
+jobs:
+  binaries:
+    name: binaries (${{ matrix.target }})
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    # Only rust, as in bench.yaml's gpu-probe job: the build needs the toolchain and nothing of the guest languages.
+    env:
+      MISE_ENV: rust
+    strategy:
+      fail-fast: false
+      # `linker` is the linker the target needs from mise, where it needs one, as in bench.yaml.
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            linker: ""
+            timeout: 45
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            linker: ""
+            timeout: 45
+          - os: macos-15
+            target: aarch64-apple-darwin
+            linker: conda:lld
+            timeout: 45
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            linker: conda:lld
+            timeout: 90
+          - os: windows-2022
+            target: x86_64-pc-windows-gnullvm
+            linker: github:mstorsjo/llvm-mingw
+            timeout: 60
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            linker: ""
+            timeout: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install mise
+        uses: $/.github/actions/install-mise
+
+      # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
+      - name: Install the toolchain
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LINKER: ${{ matrix.linker }}
+        run: mise install rust ${LINKER:+"$LINKER"}
+
+      - name: Remove mise shim
+        uses: $/.github/actions/remove-mise-shim
+
+      - name: Build gpu-probe
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          mise exec -- cargo build --release --locked -p et-gpu-probe-server --bin gpu-probe --target "$TARGET"
+          mkdir -p target/gpu-probe-bin
+          cp target/"$TARGET"/release/gpu-probe* target/gpu-probe-bin/
+          rm -f target/gpu-probe-bin/*.d target/gpu-probe-bin/*.pdb
+
+      - name: Upload gpu-probe
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-probe-${{ matrix.target }}
+          path: target/gpu-probe-bin
+          if-no-files-found: error
+
+  # wgpu with no browser, and the CPU, through the gpu-probe binary.
+  measure:
+    name: measure (${{ matrix.image }})
+    needs: binaries
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      # Every free image, by its own label rather than an alias such as `ubuntu-latest`, so none is measured twice.
+      # macos-14 is gone: it retired on 2026-11-02. xcode-27 is a preview image, measured for its newer macOS.
+      matrix:
+        include:
+          - image: ubuntu-26.04
+            target: x86_64-unknown-linux-gnu
+          - image: ubuntu-26.04-arm
+            target: aarch64-unknown-linux-gnu
+          - image: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - image: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - image: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - image: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - image: ubuntu-slim
+            target: x86_64-unknown-linux-gnu
+          - image: macos-26
+            target: aarch64-apple-darwin
+          - image: macos-15
+            target: aarch64-apple-darwin
+          - image: xcode-27
+            target: aarch64-apple-darwin
+          - image: macos-26-intel
+            target: x86_64-apple-darwin
+          - image: macos-15-intel
+            target: x86_64-apple-darwin
+          - image: windows-2025
+            target: x86_64-pc-windows-gnullvm
+          - image: windows-2022
+            target: x86_64-pc-windows-gnullvm
+          - image: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # A hosted Linux runner has no GPU, so lavapipe gives wgpu a Vulkan adapter to probe.
+      # ubuntu-slim is a container whose package installs are not assured; without lavapipe its CPU is still measured.
+      - name: Install Mesa Vulkan drivers (lavapipe)
+        if: runner.os == 'Linux'
+        continue-on-error: ${{ matrix.image == 'ubuntu-slim' }}
+        uses: $/.github/actions/install-lavapipe
+
+      - name: Download gpu-probe
+        uses: actions/download-artifact@v8
+        with:
+          name: gpu-probe-${{ matrix.target }}
+          path: target/gpu-probe-bin
+
+      # An adapter that cannot be measured fails the step once the rest are written, so the file is uploaded anyway.
+      - name: Measure
+        run: |
+          chmod +x target/gpu-probe-bin/gpu-probe*
+          target/gpu-probe-bin/gpu-probe --into target/gpu-probe-submitted
+
+      - name: Upload the submissions
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-probe-submitted-${{ matrix.image }}
+          path: target/gpu-probe-submitted
+          if-no-files-found: error
+
+  # The probes through a runtime the workspace hosts, built on each image that can build it -- ubuntu-slim cannot.
+  # `wasi-nn` puts the probe set as ONNX operators behind wasi:nn, and ONNX Runtime publishes a build for every target
+  # here. `deno` puts the six WebGPU sets through Deno's WebGPU as the graphics-info module does in et-ws-web-runner.
+  # The runner's V8 has no working prebuilt for Windows' default gnullvm target, which is why config.windows.toml
+  # excludes the runner, so on Windows it is built under the msvc target env instead, as test.yaml's
+  # `override (msvc)` lane builds it: against rusty_v8's native msvc prebuilt, with the portable MSVC toolchain.
+  # The mingw env is no way round it: its gnu link of that same prebuilt stops on v8 150.4.0 with
+  #
+  #     ld.lld: error: undefined symbol: v8__V8__EnableWebAssemblyTrapHandler
+  #
+  # windows-11-arm has no deno job, as the msvc env targets x86_64 and the arm64 image cannot complete its install.
+  runtime:
+    name: ${{ matrix.probe }} (${{ matrix.image }})
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: ${{ contains(matrix.image, 'intel') && 140 || 100 }}
+    # The mise env is set job-level, as in test.yaml, so it is loaded when the first `mise install` runs.
+    # The msvc env adds the x86_64-pc-windows-msvc std and the tools that env needs.
+    env:
+      MISE_ENV: ${{ matrix.probe == 'deno' && startsWith(matrix.image, 'windows') && 'rust,msvc' || 'rust' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        probe: [wasi-nn, deno]
+        image:
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
+          - macos-26
+          - macos-15
+          - xcode-27
+          - macos-26-intel
+          - macos-15-intel
+          - windows-2025
+          - windows-2022
+          - windows-11-arm
+        # Deno is not measured on ubuntu-22.04-arm, whose glibc 2.35 is older than wasm-bindgen's arm64 build needs.
+        #
+        #     wasm-bindgen: /lib/aarch64-linux-gnu/libc.so.6: version `GLIBC_2.38' not found
+        #
+        # observed on commit https://github.com/edge-toolkit/core/commit/59e0f7c7d548b577159cf79bba06021f1adbbfff
+        # at https://github.com/edge-toolkit/core/actions/runs/45225204449/job/137869711651.
+        exclude:
+          - probe: deno
+            image: ubuntu-22.04-arm
+          - probe: deno
+            image: windows-11-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Deno's WebGPU is wgpu, which on a hosted Linux runner has no GPU, so lavapipe gives it a Vulkan adapter.
+      - name: Install Mesa Vulkan drivers (lavapipe)
+        if: runner.os == 'Linux' && matrix.probe == 'deno'
+        uses: $/.github/actions/install-lavapipe
+
+      # Neither probe uses these cargo: tools, which every later mise call leaves out.
+      # On the Intel macOS images vector and rustfs build from source and ran the install past its 30 minutes, and
+      # cargo:open does not build on Windows.
+      - name: Leave out unused tools
+        run: |
+          tools=cargo:cargo-expand,cargo:cargo-rail,cargo:open,cargo:ryl
+          tools=$tools,cargo:rustfs/rustfs,cargo:vectordotdev/vector
+          echo "MISE_DISABLE_TOOLS=$tools" >> "$GITHUB_ENV"
+
+      - name: Install mise
+        uses: $/.github/actions/install-mise
+
+      # The Windows arm64 runner takes the toolchain and ONNX Runtime alone, as the full install cannot complete there.
+      # ORT_DYLIB_PATH names the ONNX Runtime install on every OS, so ort finds no library of its own without it.
+      - name: Install the toolchain
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ARM_WINDOWS: ${{ matrix.image == 'windows-11-arm' }}
+        run: |
+          if [ "$ARM_WINDOWS" = true ]; then
+            mise install rust http:onnxruntime
+          else
+            mise install
+          fi
+
+      - name: Remove mise shim
+        uses: $/.github/actions/remove-mise-shim
+
+      # The portable MSVC + Windows SDK that prefetch:msvc stages, cached as test.yaml caches it.
+      # It is keyed by the config that pins it. Only the stage is cached; the task renders msvc.env and its junctions
+      # on every run.
+      - name: Cache portable MSVC
+        if: matrix.probe == 'deno' && runner.os == 'Windows'
+        uses: actions/cache@v6
+        with:
+          path: target/msvc/msvc
+          key: portable-msvc-${{ hashFiles('.mise/config.msvc.toml') }}
+
+      - name: Stage portable MSVC
+        if: matrix.probe == 'deno' && runner.os == 'Windows'
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch:msvc
+
+      - name: Build the graphics-info module
+        if: matrix.probe == 'deno'
+        run: mise run build-ws-graphics-info-module
+
+      - name: Measure
+        env:
+          GPU_PROBE_INTO: ${{ github.workspace }}/target/gpu-probe-submitted
+          PROBE: ${{ matrix.probe }}
+        run: |
+          if [ "$PROBE" = wasi-nn ]; then
+            mise exec -- cargo test --locked -p et-ws-wasi-runner --test nn_probe
+          else
+            mise exec -- cargo test --locked -p et-ws-web-runner --test modules -- graphics_info
+          fi
+
+      - name: Upload the submissions
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-probe-submitted-${{ matrix.probe }}-${{ matrix.image }}
+          path: target/gpu-probe-submitted
+          if-no-files-found: error
+
+  collect:
+    needs: [measure, runtime]
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download every runner's submissions
+        uses: actions/download-artifact@v8
+        with:
+          pattern: gpu-probe-submitted-*
+          path: target/gpu-probe-submitted
+          merge-multiple: true
+
+      - name: Upload them together
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-probe-submitted
+          path: target/gpu-probe-submitted
+          if-no-files-found: error

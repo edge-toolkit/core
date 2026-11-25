@@ -32,3 +32,47 @@ Collect GPU probe signatures into a registry over HTTPS
   A browser treats a loopback origin as secure, so WebGPU still runs there.
 
   `--cert` and `--key` are not read.
+
+## Environment variables
+
+### `GITHUB_REPOSITORY`
+
+Type: string. Default: empty.
+
+The repository, `owner/name`.
+
+### `GITHUB_RUN_ID`
+
+Type: string. Default: empty.
+
+The run's number.
+
+### `GITHUB_SERVER_URL`
+
+Type: string. Default: empty.
+
+The server, such as `https://github.com`.
+
+### `GPU_PROBE_DEVICE`
+
+Type: string. Default: empty.
+
+The machine a measurement names as its device, such as `Dell Precision 5570`, where it is given none itself.
+
+### `GPU_PROBE_INTO`
+
+Type: string. Default: empty.
+
+A directory a measurement writes what it measured into as a file of submissions; none is written when empty.
+
+### `IMAGEOS`
+
+Type: string. Default: empty.
+
+The runner image's name, such as `macos15` or `ubuntu24`, which a GitHub Actions runner sets as `ImageOS`.
+
+### `IMAGEVERSION`
+
+Type: string. Default: empty.
+
+The runner image's build, such as `20261110.1`, which a GitHub Actions runner sets as `ImageVersion`.

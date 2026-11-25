@@ -12,27 +12,6 @@ signatures:
     blocked: true
     reason: "WebGL 1 is unavailable (getContext returned null, so WebGL is turned off)"
   - interface: webgl1
-    label: "Mullvad Browser 16.0.1 and Tor Browser 16.0.1 on Linux -- WebGL 1"
-    seen:
-      - browser: mullvad-browser
-        browser_version: "16.0.1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
-        window: private
-      - browser: tor-browser
-        browser_version: "16.0.1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
-        window: private
-    blocked: true
-    reason: "readPixels throws NotSupportedError (Operation is not supported), as a float read and as an 8-bit one"
-  - interface: webgl1
     label: "Tor Browser 16.0.1 on macOS, Apple M5 Pro -- WebGL 1 readback refused"
     seen:
       - browser: tor-browser

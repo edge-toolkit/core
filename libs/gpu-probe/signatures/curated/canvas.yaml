@@ -93,13 +93,49 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
     results:
       lane0: "6f919589"
       lane1: "21590c7f"
       lane2: "99fa99fb"
       lane3: "459a0e48"
   - interface: canvas
-    label: "Brave 157.0.0 on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise, not reproducible across sessions)"
+    label: "Brave (Chromium 157) on macOS 26.7.1 -- canvas 2D (farbled; session-keyed noise)"
     seen:
       - browser: brave
         browser_version: "157.0.0"
@@ -153,6 +189,15 @@ signatures:
         backend: unknown
         device: "Samsung Galaxy S10"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-G973F"
+        window: normal
     results:
       lane0: "c1161ae6"
       lane1: "4f61a1f8"
@@ -180,7 +225,7 @@ signatures:
     label: "Samsung Galaxy S10, Android 12 -- canvas 2D on Brave 1.99 (farbled; differs from Chrome's on this phone)"
     seen:
       - browser: brave
-        browser_version: "1.99"
+        browser_version: "157.0.0.0"
         os: android
         os_version: "12"
         cpu_arch: aarch64
@@ -195,22 +240,6 @@ signatures:
       lane1: "7aa1bb28"
       lane2: "ea31c65e"
       lane3: "9637a16c"
-  - interface: canvas
-    label: "Dell Precision 5570, Linux -- canvas 2D on Chrome 157"
-    seen:
-      - browser: chrome
-        browser_version: "157"
-        os: linux
-        cpu_arch: x86_64
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      lane0: "e55c4313"
-      lane1: "fdb387dd"
-      lane2: "e659dabe"
-      lane3: "d711a464"
   - interface: canvas
     label: "Laser tablet, Android 10 -- canvas 2D on Chrome 157"
     seen:
@@ -239,6 +268,15 @@ signatures:
         gpu: unknown
         backend: unknown
         device: "Intel MacBook Pro"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
         window: normal
     results:
       lane0: "61a3f194"
@@ -289,126 +327,6 @@ signatures:
     blocked: true
     reason: "randomised: hash differs between visits in one browser (noise keyed to the session)"
   - interface: canvas
-    label: "GNOME Web 51.2 on Linux -- canvas 2D"
-    seen:
-      - browser: gnome-web
-        browser_version: "51.2"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      lane0: "17e621cd"
-      lane1: "4566bc3b"
-      lane2: "924f1183"
-      lane3: "8c1a4901"
-  - interface: canvas
-    label: "LibreWolf 160.0-1 on Linux -- canvas 2D"
-    seen:
-      - browser: librewolf
-        browser_version: "160.0-1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
-        window: normal
-    blocked: true
-    reason: "randomised: two reads of the same scene differed (per-read noise)"
-  - interface: canvas
-    label: "Brave 1.99.57 on Linux -- canvas 2D"
-    seen:
-      - browser: brave
-        browser_version: "1.99.57"
-        os: linux
-        cpu_arch: x86_64
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        defence: "Shields farbling, on as Brave ships"
-        window: normal
-    blocked: true
-    reason: "randomised: getImageData altered a scene whose every value is known (noise added to reads)"
-  - interface: canvas
-    label: "Chromium 157.0.8103.78 on Linux -- canvas 2D"
-    seen:
-      - browser: chromium
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      lane0: "60945690"
-      lane1: "6aa38a96"
-      lane2: "5eb12a72"
-      lane3: "866f078b"
-  - interface: canvas
-    label: "Mullvad Browser 16.0.1 on Linux -- canvas 2D"
-    seen:
-      - browser: mullvad-browser
-        browser_version: "16.0.1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
-        window: private
-      - browser: mullvad-browser
-        browser_version: "16.0.1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
-        window: private
-    blocked: true
-    reason: "randomised: two reads of the same scene differed (per-read noise)"
-  - interface: canvas
-    label: "Tor Browser 16.0.1 on Linux -- canvas 2D"
-    seen:
-      - browser: tor-browser
-        browser_version: "16.0.1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
-        window: private
-      - browser: tor-browser
-        browser_version: "16.0.1"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
-        window: private
-    blocked: true
-    reason: "randomised: two reads of the same scene differed (per-read noise)"
-  - interface: canvas
-    label: "Chrome 157.0.8103.78 on Linux -- canvas 2D"
-    seen:
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      lane0: "4ad3f346"
-      lane1: "c3cf0718"
-      lane2: "065688f9"
-      lane3: "bed96749"
-  - interface: canvas
     label: "Chrome 157.0.8103.79 and Edge 157.0.4341.60 on macOS -- canvas 2D"
     seen:
       - browser: chrome
@@ -425,13 +343,31 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       lane0: "95560b85"
       lane1: "d14328eb"
       lane2: "f5f9a4fa"
       lane3: "d814a28a"
   - interface: canvas
-    label: "Brave 157.0.0.0 on macOS -- canvas 2D"
+    label: "Brave (Chromium 157) on macOS -- canvas 2D"
     seen:
       - browser: brave
         browser_version: "157.0.0.0"
@@ -452,6 +388,14 @@ signatures:
         cpu_arch: unknown
         gpu: unknown
         backend: unknown
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
         window: normal
     results:
       lane0: "10852f2b"
@@ -481,6 +425,14 @@ signatures:
         gpu: unknown
         backend: unknown
         window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
     results:
       lane0: "ac5df78e"
       lane1: "ff8de7f0"
@@ -499,3 +451,365 @@ signatures:
         window: private
     blocked: true
     reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "LibreWolf 160.0 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Brave 1.100.58 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: getImageData altered a scene whose every value is known (noise added to reads)"
+  - interface: canvas
+    label: "Tor Browser 16.0.1 on macOS, M5 Pro MacBook Pro -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Safari 27.2 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.2"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      lane0: "68ab50e7"
+      lane1: "278c0a69"
+      lane2: "84bb7f19"
+      lane3: "1831b9ec"
+  - interface: canvas
+    label: "Safari 26.4 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "26.4"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      lane0: "cb6c7f51"
+      lane1: "7f6148a7"
+      lane2: "7553dfc5"
+      lane3: "c9b2b6e7"
+  - interface: canvas
+    label: "Safari 26.0 on the iOS Simulator -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "26.0"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+    results:
+      lane0: "75b2513e"
+      lane1: "56ed8fb8"
+      lane2: "895ddffa"
+      lane3: "8683d69c"
+  - interface: canvas
+    label: "Safari 27.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      lane0: "36a7ff71"
+      lane1: "7eb02a2f"
+      lane2: "ce9eb375"
+      lane3: "41b414cd"
+  - interface: canvas
+    label: "LibreWolf 160.0.1 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0.1"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Firefox 160.0 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      lane0: "b8653572"
+      lane1: "50f5117c"
+      lane2: "46992d81"
+      lane3: "91bf6b07"
+  - interface: canvas
+    label: "Mullvad Browser 16.0.2 on macOS, MacBook Pro (16-inch, 2019) -- canvas 2D"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Chrome 157.0.8103.78 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "4ad3f346"
+      lane1: "c3cf0718"
+      lane2: "065688f9"
+      lane3: "bed96749"
+  - interface: canvas
+    label: "LibreWolf 160.0-1 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: librewolf
+        browser_version: "160.0-1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as LibreWolf ships"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Mullvad Browser 16.0.1 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: mullvad-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as Mullvad Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Tor Browser 16.0.1 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: tor-browser
+        browser_version: "16.0.1"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.resistFingerprinting, on as Tor Browser ships, NoScript left out"
+        window: private
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Brave 1.99.57 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+    blocked: true
+    reason: "randomised: getImageData altered a scene whose every value is known (noise added to reads)"
+  - interface: canvas
+    label: "Chromium 157.0.8103.78 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "60945690"
+      lane1: "6aa38a96"
+      lane2: "5eb12a72"
+      lane3: "866f078b"
+  - interface: canvas
+    label: "GNOME Web 51.2 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "17e621cd"
+      lane1: "4566bc3b"
+      lane2: "924f1183"
+      lane3: "8c1a4901"
+  - interface: canvas
+    label: "Chromium Claude 5.11492.0 (Chromium 156.0.8078.75) on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "e55c4313"
+      lane1: "fdb387dd"
+      lane2: "e659dabe"
+      lane3: "d711a464"
+  - interface: canvas
+    label: "Chromium 157.0.8103.78 on Linux, Dell Precision 5570 -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+    results:
+      lane0: "e0c01560"
+      lane1: "08e8612e"
+      lane2: "3facb764"
+      lane3: "cdfe6041"
+  - interface: canvas
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      lane0: "8592baf0"
+      lane1: "8e9585be"
+      lane2: "5eaf5c75"
+      lane3: "8c64bf88"
+  - interface: canvas
+    label: "Firefox 160.0 on Windows, HP EliteBook 645 G10 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      lane0: "45a430a5"
+      lane1: "d1e946e3"
+      lane2: "523431d3"
+      lane3: "283a4312"
+  - interface: canvas
+    label: "Chromium 158.0.8127.36 on Linux, ASUS TUF H370-PRO GAMING -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      lane0: "04abefea"
+      lane1: "b692dd54"
+      lane2: "101c7254"
+      lane3: "3aa81160"

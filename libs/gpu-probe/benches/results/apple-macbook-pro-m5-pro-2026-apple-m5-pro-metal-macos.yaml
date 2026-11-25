@@ -1,0 +1,48 @@
+machine:
+  id: apple-macbook-pro-m5-pro-2026
+  os: macos
+  host: aarch64-apple-darwin
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-16"
+gpu:
+  backend: metal
+  computes: true
+  gpu_version: Apple M5 Pro
+  name: Apple M5 Pro (metal)
+  id: apple-m5-pro-metal
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 2.05027519e+06
+      lower_value: 1.88371196e+06
+      upper_value: 2.21021926e+06
+  gpus/combined_signature:
+    latency:
+      value: 1.49279888e+06
+      lower_value: 1.43930351e+06
+      upper_value: 1.55121396e+06
+  gpus/f16_combined_signature:
+    latency:
+      value: 1.48032162e+06
+      lower_value: 1.43810992e+06
+      upper_value: 1.52657033e+06
+  gpus/f16_signature:
+    latency:
+      value: 2.2344464e+06
+      lower_value: 2.08925295e+06
+      upper_value: 2.3568162e+06
+  gpus/fixed_function_signature:
+    latency:
+      value: 2.61313782e+06
+      lower_value: 2.51582454e+06
+      upper_value: 2.71691465e+06
+  gpus/report:
+    latency:
+      value: 4137.88
+      lower_value: 4112.45
+      upper_value: 4171.6
+  gpus/signature:
+    latency:
+      value: 1.74845008e+06
+      lower_value: 1.60779155e+06
+      upper_value: 1.92999643e+06

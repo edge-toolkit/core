@@ -81,7 +81,7 @@ const WINDOWS: [(&str, Window); 4] = [
 ];
 
 /// Every field a row may carry: the six it must, then its free text.
-const FIELDS: [&str; 18] = [
+const FIELDS: [&str; 20] = [
     "browser",
     "os",
     "cpu_arch",
@@ -92,10 +92,12 @@ const FIELDS: [&str; 18] = [
     "os_version",
     "cpu_version",
     "gpu_version",
+    "driver",
     "driver_version",
     "api_version",
     "device",
     "runtime",
+    "environment",
     "defence",
     "reported",
     "date",

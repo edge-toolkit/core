@@ -1,6 +1,6 @@
 signatures:
   - interface: wasi-nn
-    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux x86_64, where its multiply-add is not fused"
+    label: "ONNX Runtime 1.22 on the CPU behind wasi:nn: Linux and macOS x86_64, where its multiply-add is not fused"
     seen:
       - browser: none
         os: linux
@@ -12,6 +12,188 @@ signatures:
         window: none
         date: "2026-11-12"
         source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) 6975P-C"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu24 20261116.133.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 7763 64-Core Processor"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu22 20261116.365.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu26 20261116.202.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: unknown
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the cpu execution target"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10, asked for the tpu execution target"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -73,6 +255,78 @@ signatures:
         runtime: "ONNX Runtime 1.22"
         window: none
         date: "2026-11-17"
+      - browser: none
+        os: macos
+        os_version: "15.8.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos15 20261118.0550.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu22-arm64 20261116.196.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu26-arm64 20261116.190.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "27.0.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos27 20261104.0337.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos26 20261117.0516.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu24-arm64 20261116.188.1"
+        runtime: "ONNX Runtime 1.22, through ort 2.0.0-rc.10"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
     results:
       multiply_add: "00000000"
       fma: "33800000"
@@ -90,3 +344,36 @@ signatures:
       atan2: "3d087b99"
       tanh: "3dcc1ebb"
       dot: "00000000"
+  - interface: wasi-nn
+    label: "ONNX Runtime 1.22, through ort 2.0.0-rc.10 on CUDA behind wasi:nn: NVIDIA RTX A1000 Laptop GPU, linux
+      Pop!_OS 24.04 x86_64, Dell Precision 5570"
+    seen:
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU, CUDA 12.9 and cuDNN 9"
+        backend: unknown
+        device: "Dell Precision 5570"
+        runtime: "ONNX Runtime 1.22 GPU build, through ort 2.0.0-rc.10, asked for the gpu execution target"
+        window: none
+        date: "2026-11-24"
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00400000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc7577"
+      cos: "3f7eb898"
+      tan: "3dcd7c44"
+      exp: "3f8d763e"
+      log: "3f8c9f54"
+      pow: "3f8edd20"
+      atan2: "3d087b99"
+      tanh: "3dcc1ebd"
+      dot: "3f800000"

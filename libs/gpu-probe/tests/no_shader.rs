@@ -338,11 +338,103 @@ fn coverage_sets_a_bit_for_each_texel_with_red() {
 
 #[cfg(feature = "registry")]
 #[test]
-fn the_registry_holds_no_signature_of_the_new_sets_yet() {
-    assert_eq!(answered(WEBGPU_CLEAR, &CLEAR_CODES).identify(), Vec::<&str>::new());
-    assert_eq!(
-        answered(WEBGPU_FIXED_FUNCTION, &FIXED_FUNCTION_ANSWERS).identify(),
-        Vec::<&str>::new()
-    );
-    assert_eq!(answered(WEBGL2_CLEAR, &CLEAR_CODES).identify(), Vec::<&str>::new());
+fn a_signature_of_the_sets_the_registry_has_not_seen_names_nothing() {
+    // No device answers a probe with every bit set, so no entry holds a signature with that answer in it.
+    let mut clears = CLEAR_CODES;
+    clears[0] = u32::MAX;
+    let mut fixed = FIXED_FUNCTION_ANSWERS;
+    fixed[0] = u32::MAX;
+    assert_eq!(answered(WEBGPU_CLEAR, &clears).identify(), Vec::<&str>::new());
+    assert_eq!(answered(WEBGPU_FIXED_FUNCTION, &fixed).identify(), Vec::<&str>::new());
+    assert_eq!(answered(WEBGL2_CLEAR, &clears).identify(), Vec::<&str>::new());
+}
+
+/// Every registry entry filed under `interface` and labelled one of `labels`, whole.
+///
+/// Each is as the crate embeds it, its free text and every row included.
+#[cfg(feature = "registry")]
+fn entries_labelled(interface: &str, labels: &[&str]) -> Vec<serde_json::Value> {
+    let path = edge_toolkit::config::get_project_root().join("libs/gpu-probe/signatures.json");
+    let text = fs_err::read_to_string(path).unwrap();
+    let registry: serde_json::Value = serde_json::from_str(&text).unwrap();
+    registry["signatures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["interface"] == interface && labels.contains(&entry["label"].as_str().unwrap()))
+        .cloned()
+        .collect()
+}
+
+/// The registry's answers to the clears as a device converting every one correctly gives them.
+#[cfg(feature = "registry")]
+fn exact_clear_results() -> serde_json::Value {
+    serde_json::json!({
+        "unorm8_quarter": "0000000a", "unorm8_half": "0000000a", "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065", "srgb8_mid": "000000bc", "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c1", "half_rounding": "00003c01", "half_subnormal": "00000010",
+        "half_overflow": "00007c00"
+    })
+}
+
+/// The row a Galaxy S10 gave through Chrome 157, on the GPU named `gpu_version` through `backend`.
+#[cfg(feature = "registry")]
+fn galaxy_s10_row(gpu_version: &str, backend: &str) -> serde_json::Value {
+    serde_json::json!({
+        "browser": "chrome", "browser_version": "157.0.8103.80", "os": "android", "os_version": "12.0.0",
+        "cpu_arch": "unknown", "gpu": "arm", "gpu_version": gpu_version, "backend": backend, "device": "SM-G973F",
+        "window": "normal"
+    })
+}
+
+#[cfg(feature = "registry")]
+#[test]
+fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
+    // Mesa's Intel Vulkan driver packs a fast clear's colour on the CPU, correctly rounded, so the UHD 630 gives the
+    // exact clear answers through it, as the Galaxy S10's Mali-G76 does. Every entry and row holding them is listed in
+    // full: one that joins them, or a field that changes, fails here until it has been looked at and added.
+    let through_webgpu = answered(WEBGPU_CLEAR, &CLEAR_CODES).identify();
+    let bifrost = "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome";
+    assert_eq!(through_webgpu, [bifrost]);
+    let through_webgl2 = answered(WEBGL2_CLEAR, &CLEAR_CODES).identify();
+    let mali = "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 2 on chrome";
+    assert_eq!(through_webgl2, [mali]);
+
+    let mesa = "__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json";
+    let wgpu_row = |environment: String| {
+        serde_json::json!({
+            "browser": "none", "os": "linux", "os_version": "Pop!_OS 24.04", "cpu_arch": "x86_64",
+            "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz", "gpu": "intel",
+            "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)", "driver": "Intel open-source Mesa driver",
+            "driver_version": "26.1.6", "api_version": "Vulkan 1.4.354", "backend": "vulkan",
+            "device": "ASUS TUF H370-PRO GAMING", "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+            "environment": environment, "window": "none", "date": "2026-11-24"
+        })
+    };
+    let webgpu_entry = serde_json::json!({
+        "interface": WEBGPU_CLEAR,
+        "label": bifrost,
+        "seen": [
+            galaxy_s10_row("bifrost", "vulkan"),
+            wgpu_row("EGL_PLATFORM=wayland".to_owned()),
+            wgpu_row(format!("EGL_PLATFORM=wayland {mesa}")),
+            wgpu_row(format!("DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland {mesa}")),
+            wgpu_row(format!("EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1 {mesa}")),
+            {
+                "browser": "chromium", "browser_version": "158.0.8127.36", "os": "linux",
+                "os_version": "Pop!_OS 24.04", "cpu_arch": "x86_64", "gpu": "intel", "gpu_version": "gen-9",
+                "backend": "vulkan", "device": "ASUS TUF H370-PRO GAMING", "environment": "EGL_PLATFORM=wayland",
+                "window": "normal"
+            }
+        ],
+        "results": exact_clear_results()
+    });
+    assert_eq!(entries_labelled(WEBGPU_CLEAR, &through_webgpu), [webgpu_entry]);
+    let webgl2_entry = serde_json::json!({
+        "interface": WEBGL2_CLEAR,
+        "label": mali,
+        "seen": [galaxy_s10_row("Mali-G76", "opengl-es")],
+        "results": exact_clear_results()
+    });
+    assert_eq!(entries_labelled(WEBGL2_CLEAR, &through_webgl2), [webgl2_entry]);
 }

@@ -3,645 +3,616 @@ machine:
   os: macos
   host: x86_64-apple-darwin
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
-  recorded: "2026-11-16"
+  recorded: "2026-11-25"
+  adapters:
+    - backend: metal
+      computes: true
+      gpu_version: Apple Paravirtual device
+      name: Apple Paravirtual device (metal)
+      versions: {}
 benchmarks:
   formats/decode/rg11b10ufloat:
     latency:
-      value: 12.97
-      lower_value: 12.91
-      upper_value: 13.03
+      value: 10.39
+      lower_value: 10.34
+      upper_value: 10.45
   formats/decode/rgb10a2unorm:
     latency:
-      value: 5.73
-      lower_value: 5.7
-      upper_value: 5.76
+      value: 4.65
+      lower_value: 4.62
+      upper_value: 4.68
   formats/decode/rgba16float:
     latency:
-      value: 14.45
-      lower_value: 14.28
-      upper_value: 14.62
+      value: 10.4
+      lower_value: 10.34
+      upper_value: 10.46
   formats/decode/rgba8unorm:
     latency:
-      value: 6.26
-      lower_value: 6.12
-      upper_value: 6.42
+      value: 4.41
+      lower_value: 4.31
+      upper_value: 4.55
   formats/decode/rgba8unorm-srgb:
     latency:
-      value: 54.25
-      lower_value: 54.01
-      upper_value: 54.51
+      value: 42.95
+      lower_value: 41.95
+      upper_value: 44.21
   formats/encode/rg11b10ufloat:
     latency:
-      value: 15.44
-      lower_value: 15.22
-      upper_value: 15.67
+      value: 11
+      lower_value: 10.87
+      upper_value: 11.14
   formats/encode/rgb10a2unorm:
     latency:
-      value: 3.57
-      lower_value: 3.5
-      upper_value: 3.64
+      value: 2.91
+      lower_value: 2.83
+      upper_value: 3
   formats/encode/rgba16float:
     latency:
-      value: 13.56
-      lower_value: 13.52
-      upper_value: 13.62
+      value: 10.85
+      lower_value: 10.46
+      upper_value: 11.37
   formats/encode/rgba8unorm:
     latency:
-      value: 9.45
-      lower_value: 9.33
-      upper_value: 9.59
+      value: 2.8
+      lower_value: 2.74
+      upper_value: 2.87
   formats/encode/rgba8unorm-srgb:
     latency:
-      value: 43.89
-      lower_value: 42.92
-      upper_value: 45.06
+      value: 31.56
+      lower_value: 31.27
+      upper_value: 31.87
   formats/red/rg11b10ufloat:
     latency:
-      value: 2.57
-      lower_value: 2.55
-      upper_value: 2.59
+      value: 2.28
+      lower_value: 2.23
+      upper_value: 2.32
   formats/red/rgb10a2unorm:
     latency:
-      value: 3.37
-      lower_value: 3.26
-      upper_value: 3.49
+      value: 2.18
+      lower_value: 2.14
+      upper_value: 2.21
   formats/red/rgba16float:
     latency:
-      value: 2.89
-      lower_value: 2.83
-      upper_value: 2.95
+      value: 2.2
+      lower_value: 2.16
+      upper_value: 2.24
   formats/red/rgba8unorm:
     latency:
-      value: 3.21
-      lower_value: 3.09
-      upper_value: 3.34
+      value: 1.99
+      lower_value: 1.97
+      upper_value: 2.01
   formats/red/rgba8unorm-srgb:
     latency:
-      value: 3.21
-      lower_value: 3.03
-      upper_value: 3.42
+      value: 2.18
+      lower_value: 2.15
+      upper_value: 2.2
   formats/texel/rg11b10ufloat:
     latency:
-      value: 69.05
-      lower_value: 68.8
-      upper_value: 69.31
+      value: 58.09
+      lower_value: 57.33
+      upper_value: 58.92
   formats/texel/rgb10a2unorm:
     latency:
-      value: 82.56
-      lower_value: 81.28
-      upper_value: 83.9
+      value: 59.42
+      lower_value: 58.57
+      upper_value: 60.31
   formats/texel/rgba16float:
     latency:
-      value: 69.13
-      lower_value: 68.67
-      upper_value: 69.65
+      value: 56.48
+      lower_value: 55
+      upper_value: 58.21
   formats/texel/rgba8unorm:
     latency:
-      value: 83.95
-      lower_value: 81.11
-      upper_value: 87.85
+      value: 53.94
+      lower_value: 53.46
+      upper_value: 54.48
   formats/texel/rgba8unorm-srgb:
     latency:
-      value: 74.86
-      lower_value: 74.06
-      upper_value: 75.74
-  gpus/clear_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.178129803e+07
-      lower_value: 1.107171662e+07
-      upper_value: 1.240400447e+07
-  gpus/combined_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 6.65289671e+06
-      lower_value: 5.90137702e+06
-      upper_value: 7.5121126e+06
-  gpus/f16_combined_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 8.93431557e+06
-      lower_value: 8.81029476e+06
-      upper_value: 9.05785823e+06
-  gpus/f16_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.348097159e+07
-      lower_value: 1.320758938e+07
-      upper_value: 1.376726654e+07
-  gpus/fixed_function_signature/Apple Paravirtual device (metal):
-    latency:
-      value: 2.473206023e+07
-      lower_value: 2.424448679e+07
-      upper_value: 2.519488612e+07
+      value: 76.74
+      lower_value: 74.78
+      upper_value: 78.89
   gpus/open_all:
     latency:
-      value: 5.644029708e+07
-      lower_value: 5.378839188e+07
-      upper_value: 5.951905073e+07
+      value: 2.430797018e+07
+      lower_value: 2.410178699e+07
+      upper_value: 2.454476675e+07
   gpus/open:
     latency:
-      value: 4.88228245e+07
-      lower_value: 4.57281453e+07
-      upper_value: 5.186946091e+07
-  gpus/report/Apple Paravirtual device (metal):
-    latency:
-      value: 34861.44
-      lower_value: 32404.32
-      upper_value: 37592.18
-  gpus/signature/Apple Paravirtual device (metal):
-    latency:
-      value: 1.154477276e+07
-      lower_value: 1.119262964e+07
-      upper_value: 1.191548094e+07
+      value: 2.484981882e+07
+      lower_value: 2.446804906e+07
+      upper_value: 2.525811013e+07
   probe_sets/clear_reference:
     latency:
-      value: 404.99
-      lower_value: 383.51
-      upper_value: 429.54
+      value: 166.58
+      lower_value: 155.95
+      upper_value: 179.65
   probe_sets/combined_shader:
     latency:
-      value: 18136.24
-      lower_value: 17445.47
-      upper_value: 19006.48
+      value: 9376.67
+      lower_value: 9048.06
+      upper_value: 9808.73
   probe_sets/coverage:
     latency:
-      value: 9.31
-      lower_value: 9.13
-      upper_value: 9.52
+      value: 7.33
+      lower_value: 7.14
+      upper_value: 7.55
   probe_sets/f16_combined_shader:
     latency:
-      value: 16229
-      lower_value: 15649.31
-      upper_value: 16860.76
+      value: 9400.02
+      lower_value: 9162.68
+      upper_value: 9671.28
   probe_sets/f16_reference:
     latency:
-      value: 563.83
-      lower_value: 552.06
-      upper_value: 577
+      value: 256.6
+      lower_value: 250.64
+      upper_value: 264.82
   probe_sets/f16_shaders:
     latency:
-      value: 51597.76
-      lower_value: 50430.39
-      upper_value: 53102.82
+      value: 27746.71
+      lower_value: 25953.72
+      upper_value: 30020.44
   probe_sets/fixed_function_reference:
     latency:
-      value: 536.46
-      lower_value: 521.84
-      upper_value: 551.55
+      value: 349.46
+      lower_value: 334.74
+      upper_value: 367.38
   probe_sets/fragment_shaders:
     latency:
-      value: 6057.24
-      lower_value: 5831.97
-      upper_value: 6287.03
+      value: 3270.24
+      lower_value: 3054.29
+      upper_value: 3615.27
   probe_sets/glsl/blend_half_float:
     latency:
-      value: 7703.21
-      lower_value: 7074.46
-      upper_value: 8465.05
+      value: 3110.93
+      lower_value: 3071.09
+      upper_value: 3156.71
   probe_sets/glsl/blend_multiply:
     latency:
-      value: 6229.99
-      lower_value: 6096.03
-      upper_value: 6377.52
+      value: 3402.72
+      lower_value: 3310.06
+      upper_value: 3506.07
   probe_sets/glsl/blend_srgb:
     latency:
-      value: 8942.35
-      lower_value: 7764.85
-      upper_value: 10321.34
+      value: 3206.28
+      lower_value: 3134.43
+      upper_value: 3301.38
   probe_sets/glsl/filter_fine:
     latency:
-      value: 8698.4
-      lower_value: 6160.04
-      upper_value: 13395.8
+      value: 3174.52
+      lower_value: 3160.24
+      upper_value: 3189.74
   probe_sets/glsl/filter_srgb:
     latency:
-      value: 9983.47
-      lower_value: 9388.76
-      upper_value: 10695.49
+      value: 3220.65
+      lower_value: 3196.11
+      upper_value: 3248.08
   probe_sets/glsl/filter_third:
     latency:
-      value: 6585.23
-      lower_value: 6344.4
-      upper_value: 6840.36
+      value: 3728.08
+      lower_value: 3662.46
+      upper_value: 3800.72
   probe_sets/glsl/raster_left_edge_fine:
     latency:
-      value: 5530.46
-      lower_value: 4978.91
-      upper_value: 6172.25
+      value: 3157.82
+      lower_value: 3091.45
+      upper_value: 3227.65
   probe_sets/glsl/raster_right_edge_coarse:
     latency:
-      value: 4060.96
-      lower_value: 3907.63
-      upper_value: 4260.05
+      value: 3285.04
+      lower_value: 3177.64
+      upper_value: 3399.18
   probe_sets/glsl/raster_right_edge_fine:
     latency:
-      value: 4911.12
-      lower_value: 4786.33
-      upper_value: 5051.25
+      value: 2731.19
+      lower_value: 2694.61
+      upper_value: 2772.25
   probe_sets/host:
     latency:
-      value: 170.54
-      lower_value: 167.47
-      upper_value: 174.06
+      value: 93.51
+      lower_value: 92.53
+      upper_value: 94.54
   probe_sets/reference/blend_half_float:
     latency:
-      value: 32.72
-      lower_value: 31.44
-      upper_value: 34.59
+      value: 15.17
+      lower_value: 14.5
+      upper_value: 16.12
   probe_sets/reference/blend_multiply:
     latency:
-      value: 18.76
-      lower_value: 17.99
-      upper_value: 19.7
+      value: 11.83
+      lower_value: 11.41
+      upper_value: 12.47
   probe_sets/reference/blend_srgb:
     latency:
-      value: 114.68
-      lower_value: 114.31
-      upper_value: 115.07
+      value: 77.61
+      lower_value: 77.07
+      upper_value: 78.54
   probe_sets/reference/filter_fine:
     latency:
-      value: 34.95
-      lower_value: 34.52
-      upper_value: 35.35
+      value: 19.55
+      lower_value: 19.33
+      upper_value: 19.81
   probe_sets/reference/filter_srgb:
     latency:
-      value: 99.5
-      lower_value: 83.43
-      upper_value: 120.03
+      value: 44.4
+      lower_value: 43.79
+      upper_value: 45.07
   probe_sets/reference/filter_third:
     latency:
-      value: 33.67
-      lower_value: 33.29
-      upper_value: 34.03
+      value: 21.77
+      lower_value: 21.08
+      upper_value: 22.72
   probe_sets/reference:
     latency:
-      value: 21.09
-      lower_value: 20.3
-      upper_value: 21.94
+      value: 13.76
+      lower_value: 13.39
+      upper_value: 14.13
   probe_sets/reference/raster_left_edge_fine:
     latency:
-      value: 4.28
-      lower_value: 4.06
-      upper_value: 4.51
+      value: 2.78
+      lower_value: 2.7
+      upper_value: 2.88
   probe_sets/reference/raster_right_edge_coarse:
     latency:
-      value: 4.87
-      lower_value: 4.73
-      upper_value: 5.01
+      value: 3.03
+      lower_value: 2.86
+      upper_value: 3.22
   probe_sets/reference/raster_right_edge_fine:
     latency:
-      value: 4.08
-      lower_value: 3.92
-      upper_value: 4.23
+      value: 2.3
+      lower_value: 2.25
+      upper_value: 2.35
   probe_sets/shaders:
     latency:
-      value: 48333.56
-      lower_value: 46316.05
-      upper_value: 50991.43
+      value: 21964.97
+      lower_value: 21643.9
+      upper_value: 22372.55
   probe_sets/wgsl/blend_half_float:
     latency:
-      value: 7184.5
-      lower_value: 7046.49
-      upper_value: 7330.83
+      value: 3271.74
+      lower_value: 3254.64
+      upper_value: 3290.39
   probe_sets/wgsl/blend_multiply:
     latency:
-      value: 7265.33
-      lower_value: 6969.35
-      upper_value: 7675.62
+      value: 3744.47
+      lower_value: 3640.53
+      upper_value: 3861.82
   probe_sets/wgsl/blend_srgb:
     latency:
-      value: 8304.57
-      lower_value: 6791.82
-      upper_value: 10659.97
+      value: 3298.46
+      lower_value: 3277.96
+      upper_value: 3320.78
   probe_sets/wgsl/filter_fine:
     latency:
-      value: 7502.96
-      lower_value: 7380.72
-      upper_value: 7636.17
+      value: 3572.39
+      lower_value: 3516.77
+      upper_value: 3646.22
   probe_sets/wgsl/filter_srgb:
     latency:
-      value: 8892.59
-      lower_value: 8469.38
-      upper_value: 9388.68
+      value: 3653.95
+      lower_value: 3535.86
+      upper_value: 3856.13
   probe_sets/wgsl/filter_third:
     latency:
-      value: 7399.67
-      lower_value: 7212.09
-      upper_value: 7585.8
+      value: 4092.06
+      lower_value: 3986.99
+      upper_value: 4228.04
   probe_sets/wgsl/raster_left_edge_fine:
     latency:
-      value: 3894.07
-      lower_value: 3810.59
-      upper_value: 3993.88
+      value: 3199.8
+      lower_value: 3141.5
+      upper_value: 3266.04
   probe_sets/wgsl/raster_right_edge_coarse:
     latency:
-      value: 3733.68
-      lower_value: 3674.48
-      upper_value: 3802.98
+      value: 3600.64
+      lower_value: 3410.65
+      upper_value: 3819.96
   probe_sets/wgsl/raster_right_edge_fine:
     latency:
-      value: 5793.72
-      lower_value: 5708.24
-      upper_value: 5889.55
+      value: 3046.7
+      lower_value: 2996.51
+      upper_value: 3100.74
   registry/every_sighting:
     latency:
-      value: 428236.19
-      lower_value: 422092.86
-      upper_value: 434329.42
+      value: 836139.75
+      lower_value: 832788.42
+      upper_value: 839718.25
   registry/gpu_vendor_from_device_name:
     latency:
-      value: 265.69
-      lower_value: 258.06
-      upper_value: 274.62
+      value: 125.28
+      lower_value: 125.02
+      upper_value: 125.57
   registry/gpu_vendor_from_id:
     latency:
-      value: 7
-      lower_value: 6.86
-      upper_value: 7.13
+      value: 3.12
+      lower_value: 3.1
+      upper_value: 3.13
   registry/gpu_vendor_name:
     latency:
-      value: 4.05
-      lower_value: 3.93
-      upper_value: 4.17
+      value: 1.79
+      lower_value: 1.77
+      upper_value: 1.81
   registry/sighting_is_here:
     latency:
-      value: 140.63
-      lower_value: 137.62
-      upper_value: 143.67
+      value: 73.09
+      lower_value: 72.81
+      upper_value: 73.39
   registry/sighting_read_entry:
     latency:
-      value: 3365.01
-      lower_value: 3236.98
-      upper_value: 3519.08
+      value: 1662.38
+      lower_value: 1655.19
+      upper_value: 1670.77
   registry/sighting_read:
     latency:
-      value: 944.56
-      lower_value: 925.63
-      upper_value: 969.49
+      value: 453.47
+      lower_value: 451.38
+      upper_value: 456.48
   signatures/class/host:
     latency:
-      value: 2421.14
-      lower_value: 2374.7
-      upper_value: 2473.66
+      value: 1753.38
+      lower_value: 1738.44
+      upper_value: 1769.42
   signatures/class/webgl2:
     latency:
-      value: 2361.77
-      lower_value: 2325.26
-      upper_value: 2400.61
+      value: 1654.28
+      lower_value: 1647.56
+      upper_value: 1662.11
   signatures/class/webgpu-clear:
     latency:
-      value: 1672.84
-      lower_value: 1645.58
-      upper_value: 1703.06
+      value: 1147.25
+      lower_value: 1143.12
+      upper_value: 1151.46
   signatures/class/webgpu-f16:
     latency:
-      value: 3607.08
-      lower_value: 3510.48
-      upper_value: 3701.79
+      value: 1778.04
+      lower_value: 1767.43
+      upper_value: 1789.65
   signatures/class/webgpu-fixed-function:
     latency:
-      value: 2139.07
-      lower_value: 2075.49
-      upper_value: 2208.96
+      value: 993.13
+      lower_value: 989.63
+      upper_value: 996.69
   signatures/class/webgpu:
     latency:
-      value: 2228.65
-      lower_value: 2194.71
-      upper_value: 2279.05
+      value: 1663.04
+      lower_value: 1653.82
+      upper_value: 1672.44
   signatures/completed/host:
     latency:
-      value: 8.3
-      lower_value: 8.23
-      upper_value: 8.39
+      value: 6.92
+      lower_value: 6.84
+      upper_value: 7.01
   signatures/completed/webgl2:
     latency:
-      value: 9.55
-      lower_value: 9.24
-      upper_value: 9.9
+      value: 6.23
+      lower_value: 6.2
+      upper_value: 6.26
   signatures/completed/webgpu-clear:
     latency:
-      value: 6.72
-      lower_value: 6.67
-      upper_value: 6.77
+      value: 5
+      lower_value: 4.97
+      upper_value: 5.02
   signatures/completed/webgpu-f16:
     latency:
-      value: 15.24
-      lower_value: 14.86
-      upper_value: 15.75
+      value: 6.19
+      lower_value: 6.16
+      upper_value: 6.22
   signatures/completed/webgpu-fixed-function:
     latency:
-      value: 7.85
-      lower_value: 7.62
-      upper_value: 8.09
+      value: 4.6
+      lower_value: 4.55
+      upper_value: 4.67
   signatures/completed/webgpu:
     latency:
-      value: 9.08
-      lower_value: 8.94
-      upper_value: 9.23
+      value: 6.84
+      lower_value: 6.72
+      upper_value: 6.97
   signatures/describe/host:
     latency:
-      value: 7446.82
-      lower_value: 7398.68
-      upper_value: 7496.79
+      value: 6376.44
+      lower_value: 6314.48
+      upper_value: 6442.24
   signatures/describe/webgl2:
     latency:
-      value: 8554.23
-      lower_value: 8353.29
-      upper_value: 8787.21
+      value: 5824.75
+      lower_value: 5793.38
+      upper_value: 5864.53
   signatures/describe/webgpu-clear:
     latency:
-      value: 5553.17
-      lower_value: 5468.6
-      upper_value: 5645.04
+      value: 4015.75
+      lower_value: 4005.55
+      upper_value: 4026.75
   signatures/describe/webgpu-f16:
     latency:
-      value: 12033.91
-      lower_value: 11794.35
-      upper_value: 12269.84
+      value: 6377.31
+      lower_value: 6357.74
+      upper_value: 6398.35
   signatures/describe/webgpu-fixed-function:
     latency:
-      value: 6657.56
-      lower_value: 6500.19
-      upper_value: 6812.13
+      value: 3690.32
+      lower_value: 3677.32
+      upper_value: 3704.19
   signatures/describe/webgpu:
     latency:
-      value: 7544.78
-      lower_value: 7488.58
-      upper_value: 7611.5
+      value: 6465.44
+      lower_value: 6013.46
+      upper_value: 7093.67
   signatures/deviations/host:
     latency:
-      value: 213.55
-      lower_value: 202.57
-      upper_value: 226.94
+      value: 161.55
+      lower_value: 159.26
+      upper_value: 163.96
   signatures/deviations/webgl2:
     latency:
-      value: 203.28
-      lower_value: 197.41
-      upper_value: 211.53
+      value: 148.71
+      lower_value: 147.32
+      upper_value: 150.21
   signatures/deviations/webgpu-clear:
     latency:
-      value: 305.95
-      lower_value: 303.96
-      upper_value: 308.13
+      value: 232.58
+      lower_value: 231.46
+      upper_value: 233.79
   signatures/deviations/webgpu-f16:
     latency:
-      value: 747.23
-      lower_value: 731.84
-      upper_value: 762.76
+      value: 401.77
+      lower_value: 396.45
+      upper_value: 411.4
   signatures/deviations/webgpu-fixed-function:
     latency:
-      value: 725.92
-      lower_value: 704.6
-      upper_value: 748.04
+      value: 404.61
+      lower_value: 397.21
+      upper_value: 413.79
   signatures/deviations/webgpu:
     latency:
-      value: 182.29
-      lower_value: 181.44
-      upper_value: 183.2
+      value: 157.22
+      lower_value: 150.04
+      upper_value: 165.97
   signatures/fingerprint/host:
     latency:
-      value: 2510.98
-      lower_value: 2491.62
-      upper_value: 2531.46
+      value: 2139.41
+      lower_value: 2109.34
+      upper_value: 2172.3
   signatures/fingerprint/webgl2:
     latency:
-      value: 2463.01
-      lower_value: 2448.95
-      upper_value: 2477.9
+      value: 1915.48
+      lower_value: 1897.4
+      upper_value: 1937.21
   signatures/fingerprint/webgpu-clear:
     latency:
-      value: 1961.2
-      lower_value: 1918.26
-      upper_value: 2007.54
+      value: 1320.11
+      lower_value: 1315.45
+      upper_value: 1324.9
   signatures/fingerprint/webgpu-f16:
     latency:
-      value: 4359.94
-      lower_value: 4282.9
-      upper_value: 4433.04
+      value: 2051.8
+      lower_value: 2040.49
+      upper_value: 2064.24
   signatures/fingerprint/webgpu-fixed-function:
     latency:
-      value: 2256.17
-      lower_value: 2184.13
-      upper_value: 2327.39
+      value: 1216.59
+      lower_value: 1189.13
+      upper_value: 1253.49
   signatures/fingerprint/webgpu:
     latency:
-      value: 2527.91
-      lower_value: 2507.42
-      upper_value: 2550.35
+      value: 2148
+      lower_value: 2093.87
+      upper_value: 2220.45
   signatures/identify/host:
     latency:
-      value: 8877.79
-      lower_value: 8830.19
-      upper_value: 8928.56
+      value: 12291.82
+      lower_value: 12022.75
+      upper_value: 12584.61
   signatures/identify/webgl2:
     latency:
-      value: 12571.14
-      lower_value: 12333.64
-      upper_value: 12823.63
+      value: 13044.13
+      lower_value: 12950.24
+      upper_value: 13169.57
   signatures/identify/webgpu-clear:
     latency:
-      value: 11023.62
-      lower_value: 10903.11
-      upper_value: 11158.12
+      value: 15574.31
+      lower_value: 15518.24
+      upper_value: 15631.15
   signatures/identify/webgpu-f16:
     latency:
-      value: 13958.06
-      lower_value: 13684.36
-      upper_value: 14217.76
+      value: 15015.41
+      lower_value: 14580.28
+      upper_value: 15804.3
   signatures/identify/webgpu-fixed-function:
     latency:
-      value: 12364.73
-      lower_value: 12153.02
-      upper_value: 12570.63
+      value: 10342.25
+      lower_value: 10305.84
+      upper_value: 10380.96
   signatures/identify/webgpu:
     latency:
-      value: 12635.45
-      lower_value: 12522.42
-      upper_value: 12766.68
+      value: 16738.69
+      lower_value: 16014.59
+      upper_value: 17581.86
   signatures/results/host:
     latency:
-      value: 2637.23
-      lower_value: 2615.55
-      upper_value: 2662.06
+      value: 2297.07
+      lower_value: 2267.32
+      upper_value: 2329.79
   signatures/results/webgl2:
     latency:
-      value: 2832.1
-      lower_value: 2778.35
-      upper_value: 2892.66
+      value: 2003.45
+      lower_value: 1994.07
+      upper_value: 2013.32
   signatures/results/webgpu-clear:
     latency:
-      value: 2036.68
-      lower_value: 2021.75
-      upper_value: 2052.85
+      value: 1714.01
+      lower_value: 1679.21
+      upper_value: 1752.93
   signatures/results/webgpu-f16:
     latency:
-      value: 5003.19
-      lower_value: 4897.69
-      upper_value: 5103.64
+      value: 2435.87
+      lower_value: 2423.9
+      upper_value: 2448.11
   signatures/results/webgpu-fixed-function:
     latency:
-      value: 2808.14
-      lower_value: 2724.4
-      upper_value: 2894.91
+      value: 1560.9
+      lower_value: 1555.7
+      upper_value: 1566.44
   signatures/results/webgpu:
     latency:
-      value: 2598.23
-      lower_value: 2578.96
-      upper_value: 2621.77
+      value: 2434.8
+      lower_value: 2376.27
+      upper_value: 2497.69
   signatures/seen/host:
     latency:
-      value: 16258.23
-      lower_value: 16162.27
-      upper_value: 16355.92
+      value: 33434.68
+      lower_value: 33069
+      upper_value: 33815.28
   signatures/seen/webgl2:
     latency:
-      value: 11375.58
-      lower_value: 11253.71
-      upper_value: 11501.67
+      value: 13368.87
+      lower_value: 13216.85
+      upper_value: 13581.27
   signatures/seen/webgpu-clear:
     latency:
-      value: 13100.98
-      lower_value: 12553.31
-      upper_value: 13843.29
+      value: 20530.28
+      lower_value: 20476.34
+      upper_value: 20585.11
   signatures/seen/webgpu-f16:
     latency:
-      value: 14146.64
-      lower_value: 13852.43
-      upper_value: 14431.36
+      value: 14454.11
+      lower_value: 14379.46
+      upper_value: 14541.7
   signatures/seen/webgpu-fixed-function:
     latency:
-      value: 11403.91
-      lower_value: 11120.94
-      upper_value: 11693.35
+      value: 10460.04
+      lower_value: 10420.66
+      upper_value: 10502.28
   signatures/seen/webgpu:
     latency:
-      value: 12788.47
-      lower_value: 12698.24
-      upper_value: 12885.34
+      value: 15073.91
+      lower_value: 15003.39
+      upper_value: 15147.65
   signatures/traits/host:
     latency:
-      value: 2218.82
-      lower_value: 2179.38
-      upper_value: 2262.22
+      value: 1721.62
+      lower_value: 1704.07
+      upper_value: 1739.81
   signatures/traits/webgl2:
     latency:
-      value: 2198.88
-      lower_value: 2168.69
-      upper_value: 2231.92
+      value: 1581.43
+      lower_value: 1573.12
+      upper_value: 1590.27
   signatures/traits/webgpu-clear:
     latency:
-      value: 2474.04
-      lower_value: 2451.29
-      upper_value: 2502.3
+      value: 1895.41
+      lower_value: 1865
+      upper_value: 1948.27
   signatures/traits/webgpu-f16:
     latency:
-      value: 3541.88
-      lower_value: 3484.6
-      upper_value: 3597.23
+      value: 1828.21
+      lower_value: 1823.29
+      upper_value: 1833.84
   signatures/traits/webgpu-fixed-function:
     latency:
-      value: 3156.21
-      lower_value: 3098.86
-      upper_value: 3210.6
+      value: 1529.6
+      lower_value: 1523.46
+      upper_value: 1536.02
   signatures/traits/webgpu:
     latency:
-      value: 2135.16
-      lower_value: 2116.75
-      upper_value: 2154.16
+      value: 1579.53
+      lower_value: 1565.85
+      upper_value: 1594.51

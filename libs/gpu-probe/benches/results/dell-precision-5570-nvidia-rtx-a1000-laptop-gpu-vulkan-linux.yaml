@@ -1,0 +1,48 @@
+machine:
+  id: dell-precision-5570
+  os: linux
+  host: x86_64-unknown-linux-gnu
+  rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
+  recorded: "2026-11-17"
+gpu:
+  backend: vulkan
+  computes: true
+  gpu_version: NVIDIA RTX A1000 Laptop GPU
+  name: NVIDIA RTX A1000 Laptop GPU (vulkan)
+  id: nvidia-rtx-a1000-laptop-gpu-vulkan
+benchmarks:
+  gpus/clear_signature:
+    latency:
+      value: 265916.26
+      lower_value: 251199.84
+      upper_value: 280355.56
+  gpus/combined_signature:
+    latency:
+      value: 63888.25
+      lower_value: 63219.99
+      upper_value: 64556.52
+  gpus/f16_combined_signature:
+    latency:
+      value: 64954.37
+      lower_value: 62761.64
+      upper_value: 67521.62
+  gpus/f16_signature:
+    latency:
+      value: 1.09662728e+06
+      lower_value: 1.03311789e+06
+      upper_value: 1.15533586e+06
+  gpus/fixed_function_signature:
+    latency:
+      value: 2.13303055e+06
+      lower_value: 2.11112486e+06
+      upper_value: 2.15520025e+06
+  gpus/report:
+    latency:
+      value: 6128.12
+      lower_value: 6121.36
+      upper_value: 6134.99
+  gpus/signature:
+    latency:
+      value: 1.04414694e+06
+      lower_value: 994053.01
+      upper_value: 1.10021189e+06

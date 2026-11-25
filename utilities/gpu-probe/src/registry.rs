@@ -19,7 +19,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use et_gpu_probe::{RowError, Sighting};
+use et_gpu_probe::{RowError, Sighting, Signature};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -34,6 +34,15 @@ const MAX_VALUE: usize = 128;
 
 /// The longest free text may be: a label, a reason, or a row's free-text field.
 const MAX_TEXT: usize = 200;
+
+/// The widest a line of the registry's files may be.
+const LINE_WIDTH: usize = 120;
+
+/// What a line carrying on an entry's label or reason starts with: deeper than the entry's fields.
+const CONTINUED: &str = "      ";
+
+/// What a line carrying on a field of a `seen` row starts with: deeper than the row's fields.
+const ROW_CONTINUED: &str = "          ";
 
 /// The line each entry of the registry starts with, before the interface it was measured through.
 const ENTRY_START: &str = "  - interface:";
@@ -65,7 +74,7 @@ const WRITING: &str = "writing";
 const REPOSITORY_REGISTRY: &str = "libs/gpu-probe/signatures";
 
 /// Every field a row may carry, in the order the registry writes them.
-pub(crate) const ROW_ORDER: [&str; 18] = [
+pub(crate) const ROW_ORDER: [&str; 20] = [
     "browser",
     "browser_version",
     "os",
@@ -74,17 +83,31 @@ pub(crate) const ROW_ORDER: [&str; 18] = [
     "cpu_version",
     "gpu",
     "gpu_version",
+    "driver",
     "driver_version",
     "api_version",
     "backend",
     "device",
     "runtime",
+    "environment",
     "defence",
     "reported",
     "window",
     "date",
     "source",
 ];
+
+/// The field of a row holding the browser's version, which a sighting is matched by its major version alone.
+const BROWSER_VERSION: &str = "browser_version";
+
+/// The fields of a row saying when and by which run it was first seen, which no sighting is matched by.
+///
+/// A rerun on a later day, or another CI run, is the sighting already on record, and the row keeps its first day and
+/// run.
+const FIRST_SEEN: [&str; 2] = ["date", "source"];
+
+/// The field of a row naming the driver settings in force when it was seen.
+const ENVIRONMENT: &str = "environment";
 
 /// The fields of a row whose values come from fixed sets, which the registry writes unquoted.
 const ENUMERATED: [&str; 6] = ["browser", "os", "cpu_arch", "gpu", "backend", "window"];
@@ -209,6 +232,26 @@ impl Submission {
             seen,
         }
     }
+
+    /// What `signature` answered through `interface`, filed as `label` if it is new, seen at `seen`.
+    #[must_use]
+    pub fn measured(interface: &str, signature: &Signature, label: &str, seen: BTreeMap<String, String>) -> Self {
+        let results = signature
+            .results()
+            .into_iter()
+            .map(|(name, word)| (name.to_owned(), word))
+            .collect();
+        Self::signature(interface, label, results, seen)
+    }
+}
+
+/// A registry row from its `fields`, each name beside its value.
+#[must_use]
+pub fn row(fields: &[(&str, &str)]) -> BTreeMap<String, String> {
+    fields
+        .iter()
+        .map(|(field, value)| ((*field).to_owned(), (*value).to_owned()))
+        .collect()
 }
 
 /// A signature's results, each name beside its value, kept in the order they were given.
@@ -617,10 +660,30 @@ fn reads_back(updated: &str, before: &File, index: usize) -> Result<(), Register
 
 /// Whether `row`, already in the registry, records `seen`: it gives every field `seen` gives, with the same value.
 ///
-/// A row written by hand often carries more than a submission can know -- the machine's name, the OS release -- and a
-/// submission that tells it nothing new is a sighting already on record, not one to add beside it.
+/// A row written by hand often carries more than a submission can know -- the machine's name, the OS release -- and
+/// a submission that tells it nothing new is a sighting already on record, not one to add beside it. Only the entry
+/// holding the same signature is asked, so a browser's version is compared by its major version alone: a point release
+/// that answers the same is the sighting already on record, and one that answers differently is another entry.
+///
+/// The driver settings are the exception to a held row knowing more: a driver run with no setting is not one run with
+/// `INTEL_DEBUG=nofc`, so both rows must give the same `environment`, or neither give one.
 fn covers(row: &BTreeMap<String, String>, seen: &BTreeMap<String, String>) -> bool {
-    seen.iter().all(|(field, value)| row.get(field) == Some(value))
+    row.get(ENVIRONMENT) == seen.get(ENVIRONMENT)
+        && seen
+            .iter()
+            .filter(|(field, _)| !FIRST_SEEN.contains(&field.as_str()))
+            .all(|(field, value)| {
+                row.get(field)
+                    .is_some_and(|held| comparable(field, held) == comparable(field, value))
+            })
+}
+
+/// The part of `value`, the value of `field`, that two rows are compared by: a browser's major version, or all of it.
+fn comparable<'value>(field: &str, value: &'value str) -> &'value str {
+    if field == BROWSER_VERSION {
+        return value.split_once('.').map_or(value, |(major, _rest)| major);
+    }
+    value
 }
 
 /// Check every field of `submission` is one the registry can hold, as the layout the text is written in needs.
@@ -703,6 +766,34 @@ fn quoted(text: &str) -> String {
     format!("\"{body}\"")
 }
 
+/// `lead` then the double-quoted scalar `quoted`, on lines no wider than [`LINE_WIDTH`] that carry on after `indent`.
+///
+/// A line break inside a double-quoted scalar reads back as one space, and the indentation after it is dropped, so the
+/// scalar is broken only at a space with no space beside it: a break in a run of spaces would read back without the
+/// rest of the run. A word too long to fit, or text with no such space, runs past the width instead.
+fn folded(lead: &str, quoted: &str, indent: &str) -> String {
+    let mut words = quoted.split(' ');
+    let mut previous = words.next().unwrap_or_default();
+    let mut text = [lead, previous].concat();
+    let mut width = text.len();
+    for word in words {
+        let breakable = !previous.is_empty() && !word.is_empty();
+        if breakable && width.saturating_add(1).saturating_add(word.len()) > LINE_WIDTH {
+            text.push('\n');
+            text.push_str(indent);
+            width = indent.len();
+        } else {
+            text.push(' ');
+            width = width.saturating_add(1);
+        }
+        text.push_str(word);
+        width = width.saturating_add(word.len());
+        previous = word;
+    }
+    text.push('\n');
+    text
+}
+
 /// The lines of `row` as an item of an entry's `seen` list, its fields in the registry's order.
 ///
 /// A value from a field's fixed set is written bare, and every other value quoted, `others` among them: a value the
@@ -712,12 +803,12 @@ fn row_text(row: &BTreeMap<String, String>, others: &[&str]) -> String {
     for field in ROW_ORDER {
         if let Some(value) = row.get(field) {
             let lead = if lines.is_empty() { "      - " } else { "        " };
-            let value = if ENUMERATED.contains(&field) && !others.contains(&field) {
-                value.clone()
+            let start = [lead, field, ": "].concat();
+            if ENUMERATED.contains(&field) && !others.contains(&field) {
+                lines.push_str(&[&start, value.as_str(), "\n"].concat());
             } else {
-                quoted(value)
-            };
-            lines.push_str(&[lead, field, ": ", &value, "\n"].concat());
+                lines.push_str(&folded(&start, &quoted(value), ROW_CONTINUED));
+            }
         }
     }
     lines
@@ -752,21 +843,22 @@ fn append_entry(text: &str, submission: &Submission, row: &str) -> String {
     if !updated.is_empty() && !updated.ends_with('\n') {
         updated.push('\n');
     }
-    let label = quoted(&submission.label);
+    let label = folded("    label: ", &quoted(&submission.label), CONTINUED);
     updated.push_str(
         &[
             ENTRY_START,
             " ",
             &submission.interface,
-            "\n    label: ",
+            "\n",
             &label,
-            "\n    seen:\n",
+            "    seen:\n",
             row,
         ]
         .concat(),
     );
     if submission.blocked {
-        updated.push_str(&["    blocked: true\n    reason: ", &quoted(&submission.reason), "\n"].concat());
+        updated.push_str("    blocked: true\n");
+        updated.push_str(&folded("    reason: ", &quoted(&submission.reason), CONTINUED));
     } else {
         updated.push_str("    results:\n");
         for (name, value) in &submission.results.0 {

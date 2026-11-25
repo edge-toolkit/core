@@ -73,22 +73,296 @@ signatures:
         date: "2026-11-12"
         source: "https://github.com/edge-toolkit/core/actions/runs/43167303201/job/131012174690"
       - browser: none
-        os: linux
-        os_version: "Pop!_OS 24.04"
-        cpu_arch: x86_64
-        cpu_version: "12th Gen Intel Core i7-12800H"
-        gpu: none
-        backend: none
-        device: "Dell Precision 5570"
-        runtime: "Rust f32 and glibc"
-        window: none
-        date: "2026-11-13"
-      - browser: none
         os: macos
         cpu_arch: x86_64
         gpu: none
         backend: none
         window: none
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu24-arm64 20261116.188.1"
+        runtime: "Rust f32, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.6.1"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos26 20260824.0517.1"
+        runtime: "Rust f32, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "11 (26100)"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V45 96-Core Processor"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image win25-vs2026 20261116.315.1"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu26-arm64 20261116.190.1"
+        runtime: "Rust f32, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 26.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu26 20261116.202.1"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "27.0.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos27 20261104.0337.1"
+        runtime: "Rust f32, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "AMD EPYC 9V74 80-Core Processor"
+        gpu: none
+        backend: none
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "15.8.2"
+        cpu_arch: aarch64
+        cpu_version: "Apple M1 (Virtual)"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos15 20261118.0550.1"
+        runtime: "Rust f32, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: aarch64
+        cpu_version: "Cobalt 100"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image win11-vs2026-arm64 20261115.219.1"
+        runtime: "Rust f32, built for aarch64-pc-windows-msvc"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "15.7.9"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image macos15 20260824.0482.1"
+        runtime: "Rust f32, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: windows
+        os_version: "10 (20348)"
+        cpu_arch: x86_64
+        cpu_version: "INTEL(R) XEON(R) PLATINUM 8573C"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image win22 20261116.370.1"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu22 20261116.365.1"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 22.04"
+        cpu_arch: aarch64
+        cpu_version: "Neoverse-N2"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu22-arm64 20261116.196.1"
+        runtime: "Rust f32, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) 6975P-C"
+        gpu: none
+        backend: none
+        device: "GitHub Actions runner image ubuntu24 20261116.133.1"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-23"
+        source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (16-inch, 2019)"
+        runtime: "Rust f32, built for x86_64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: none
+        backend: none
+        device: "Dell Precision 5570"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: none
+        backend: none
+        device: "HP EliteBook 645 G10"
+        runtime: "Rust f32, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland LIBGL_ALWAYS_SOFTWARE=1
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        environment: "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (M5 Pro, 2026)"
+        runtime: "Rust f32, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: none
+        backend: none
+        device: "NVIDIA DGX Spark"
+        runtime: "Rust f32, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "33800000"

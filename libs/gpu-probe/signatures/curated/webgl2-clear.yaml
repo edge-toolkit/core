@@ -3,6 +3,26 @@ signatures:
     label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
     seen:
       - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "ANGLE Metal Renderer: AMD Radeon Pro 5300M"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: chrome
         browser_version: "157.0.8103.78"
         os: linux
         cpu_arch: x86_64
@@ -10,6 +30,136 @@ signatures:
         gpu_version: "NVIDIA RTX A1000 Laptop GPU"
         backend: vulkan
         device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "NVIDIA GeForce 8800 GTX, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU, through PRIME render offload"
+        backend: unknown
+        device: "Dell Precision 5570"
+        reported: "Apple GPU"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "NVIDIA GeForce 8800 GTX, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: private
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: windows
+        os_version: "11"
+        cpu_arch: unknown
+        gpu: amd
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        reported: "ANGLE (AMD, Radeon R9 200 Series Direct3D11 vs_5_0 ps_5_0), or similar"
+        window: private
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RX 580 Series (RADV POLARIS10)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon RX 580 Series (RADV POLARIS10)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
         window: normal
     results:
       unorm8_quarter: "0000000a"
@@ -23,109 +173,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007bff"
   - interface: webgl2-clear
-    label: "Intel Iris Xe (Alder Lake GT2) through OpenGL (ES) on Linux, Dell Precision 5570 -- WebGL 2"
-    seen:
-      - browser: chromium
-        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        backend: opengl-es
-        device: "Dell Precision 5570"
-        window: normal
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        backend: opengl
-        device: "Dell Precision 5570"
-        window: normal
-      - browser: firefox
-        browser_version: "160.0"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        gpu_version: "Intel(R) HD Graphics, or similar"
-        backend: unknown
-        device: "Dell Precision 5570"
-        window: normal
-      - browser: firefox
-        browser_version: "160.0"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        gpu_version: "Intel(R) HD Graphics, or similar"
-        backend: unknown
-        device: "Dell Precision 5570"
-        defence: "privacy.fingerprintingProtection on"
-        window: normal
-      - browser: gnome-web
-        browser_version: "51.2"
-        os: linux
-        cpu_arch: unknown
-        gpu: unknown
-        backend: unknown
-        device: "Dell Precision 5570"
-        reported: "Apple GPU"
-        window: normal
-      - browser: brave
-        browser_version: "1.99.57"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        backend: opengl-es
-        device: "Dell Precision 5570"
-        defence: "Shields farbling, on as Brave ships"
-        window: normal
-      - browser: chromium
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: intel
-        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
-        backend: opengl-es
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      unorm8_quarter: "0000000a"
-      unorm8_half: "0000000a"
-      unorm8_three_quarters: "0000000b"
-      unorm10_three_quarters: "00000065"
-      srgb8_mid: "000000bc"
-      srgb8_dark: "00000007"
-      ufloat11_rounding: "000003c1"
-      half_rounding: "00003c00"
-      half_subnormal: "00000010"
-      half_overflow: "00007bff"
-  - interface: webgl2-clear
-    label: "SwiftShader Device (Subzero) through vulkan on linux -- WebGL 2 on chrome 157.0.8103.78"
-    seen:
-      - browser: chrome
-        browser_version: "157.0.8103.78"
-        os: linux
-        cpu_arch: x86_64
-        gpu: google
-        gpu_version: "SwiftShader Device (Subzero)"
-        backend: vulkan
-        device: "Dell Precision 5570"
-        window: normal
-    results:
-      unorm8_quarter: "0000000a"
-      unorm8_half: "0000000b"
-      unorm8_three_quarters: "0000000b"
-      unorm10_three_quarters: "00000065"
-      srgb8_mid: "000000bc"
-      srgb8_dark: "00000007"
-      ufloat11_rounding: "000003c1"
-      half_rounding: "00003c01"
-      half_subnormal: "00000010"
-      half_overflow: "00007c00"
-  - interface: webgl2-clear
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGL 2 on Chrome, Edge, Brave, Firefox 160 and Safari 27.2"
+    label: "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160
+      and Safari 26.4 and 27.2"
     seen:
       - browser: chrome
         browser_version: "157.0.8103.79"
@@ -178,6 +227,73 @@ signatures:
         backend: metal
         reported: "Apple GPU"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "ANGLE (Apple, ANGLE Metal Renderer: Apple M1), or similar"
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: brave
+        browser_version: "158.0.0.0"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: macos
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        gpu: apple
+        gpu_version: "ANGLE Metal Renderer: Apple M5 Pro"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "27.2"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+      - browser: safari
+        browser_version: "26.4"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Apple GPU"
+        backend: unknown
+        device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000b"
@@ -189,3 +305,307 @@ signatures:
       half_rounding: "00003c01"
       half_subnormal: "00000010"
       half_overflow: "00007c00"
+  - interface: webgl2-clear
+    label: "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgl2-clear
+    label: "ANGLE Metal Renderer: Intel(R) UHD Graphics 630 through metal on macos, MacBook Pro (16-inch, 2019) -- WebGL
+      2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.37"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "ANGLE Metal Renderer: Intel(R) UHD Graphics 630"
+        backend: metal
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: macos
+        os_version: "26.7.3"
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) HD Graphics 400), or similar"
+        backend: unknown
+        device: "MacBook Pro (16-inch, 2019)"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bb"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgl2-clear
+    label: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2) through opengl on linux, Dell Precision 5570 -- WebGL 2 on
+      chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        gpu_version: "Intel(R) HD Graphics, or similar"
+        backend: unknown
+        device: "Dell Precision 5570"
+        defence: "privacy.fingerprintingProtection on"
+        window: normal
+      - browser: brave
+        browser_version: "157.0.0.0"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        defence: "Shields farbling, on as Brave ships"
+        window: normal
+      - browser: chromium
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: gnome-web
+        browser_version: "51.2"
+        os: linux
+        cpu_arch: unknown
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: unknown
+        device: "Dell Precision 5570"
+        reported: "Apple GPU"
+        window: normal
+      - browser: chromium
+        browser_version: "Claude 5.11492.0 (Chromium 156.0.8078.75)"
+        os: linux
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        backend: opengl-es
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: intel
+        gpu_version: "Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgl2-clear
+    label: "SwiftShader Device (Subzero) through vulkan on linux, Dell Precision 5570 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: linux
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: google
+        gpu_version: "SwiftShader Device (Subzero)"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        environment: "EGL_PLATFORM=wayland"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c1"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"
+  - interface: webgl2-clear
+    label: "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: "ati technologies inc."
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: opengl
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: amd
+        gpu_version: "Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
+  - interface: webgl2-clear
+    label: "Basic Render Driver through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.36"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: edge
+        browser_version: "158.0.4370.33"
+        os: windows
+        os_version: "11"
+        cpu_arch: x86_64
+        gpu: microsoft
+        gpu_version: "Basic Render Driver"
+        backend: d3d11
+        device: "HP EliteBook 645 G10"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000a"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000006"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c00"
+      half_subnormal: "00000010"
+      half_overflow: "00007bff"
