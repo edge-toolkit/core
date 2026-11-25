@@ -148,7 +148,7 @@ pub enum NoCompute {
 type Probe = Result<wgpu::ComputePipeline, wgpu::Error>;
 
 /// What a device says it is, read from wgpu and from the API beneath it.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[non_exhaustive]
 pub struct Report {
     /// Every value, one `name: value` line each.
@@ -429,11 +429,7 @@ impl Gpu {
             ],
             versions: Vec::new(),
         };
-        // The driver's own name for itself: Vulkan's `driverName`, which wgpu reads. The other APIs leave it empty, and
-        // Vulkan without `VK_KHR_driver_properties` gives `?`, neither of which names anything.
-        if !matches!(info.driver.as_str(), "" | "?") {
-            report.versions.push(("driver", info.driver));
-        }
+        report.versions.extend(named_driver(info.driver));
         #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
         vulkan_report(adapter, &mut report);
         #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
@@ -1056,10 +1052,33 @@ pub fn compute_shaders(backend: wgpu::Backend, flags: wgpu::DownlevelFlags, vers
     })
 }
 
-/// Add what OpenGL itself says to `report`, for an adapter opened through it.
+/// The `driver` a row records from `driver`, the driver's own name for itself as wgpu reads it.
+///
+/// That is Vulkan's `driverName`. The other APIs leave it empty, and Vulkan without `VK_KHR_driver_properties` gives
+/// `?`, neither of which names anything, so neither is recorded.
+#[must_use]
+pub fn named_driver(driver: String) -> Vec<(&'static str, String)> {
+    if matches!(driver.as_str(), "" | "?") {
+        return Vec::new();
+    }
+    vec![("driver", driver)]
+}
+
+/// What OpenGL says it is, from `vendor` and `version`, the strings it gives for `GL_VENDOR` and `GL_VERSION`.
 ///
 /// OpenGL has no query naming its driver. `GL_VENDOR`, the implementation's own name for who provides it, is the
 /// nearest it comes, and is recorded as the driver as given; `GL_VERSION` gives the API's and the driver's versions.
+#[must_use]
+pub fn gl_report_of(vendor: &str, version: &str) -> Report {
+    let mut versions = vec![("driver", vendor.to_owned())];
+    versions.extend(gl_versions(version));
+    Report {
+        lines: vec![format!("gl vendor: {vendor}"), format!("gl version: {version}")],
+        versions,
+    }
+}
+
+/// Add what OpenGL itself says to `report`, for an adapter opened through it.
 #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
 #[expect(
     unsafe_code,
@@ -1069,19 +1088,20 @@ fn gl_report(adapter: &wgpu::Adapter, report: &mut Report) {
     use glow::HasContext as _;
     // SAFETY: the OpenGL adapter is only read from, and is not kept past this function.
     let hal = unsafe { adapter.as_hal::<wgpu::hal::api::Gles>() };
-    // An adapter opened through another API has no OpenGL side, and adds nothing here.
-    let Some(opengl) = hal else { return };
-    let context = opengl.adapter_context().lock();
-    // SAFETY: the call reads a string the context holds, made current on this thread by the lock held around it.
-    let vendor = unsafe { context.get_parameter_string(glow::VENDOR) };
-    // SAFETY: as for the vendor, under the same lock.
-    let version = unsafe { context.get_parameter_string(glow::VERSION) };
-    drop(context);
-    report
-        .lines
-        .extend([format!("gl vendor: {vendor}"), format!("gl version: {version}")]);
-    report.versions.push(("driver", vendor));
-    report.versions.extend(gl_versions(&version));
+    // An adapter opened through another API has no OpenGL side, and adds nothing here. Reading the side of one that
+    // does takes a real OpenGL driver, which no CI runner has, so the closure only reads the two strings: what they say
+    // is made into the report by `gl_report_of`, which the tests drive with the strings real drivers give.
+    let said = hal.map_or_default(|opengl| {
+        let context = opengl.adapter_context().lock();
+        // SAFETY: the call reads a string the context holds, made current on this thread by the lock around it.
+        let vendor = unsafe { context.get_parameter_string(glow::VENDOR) };
+        // SAFETY: as for the vendor, under the same lock.
+        let version = unsafe { context.get_parameter_string(glow::VERSION) };
+        drop(context);
+        gl_report_of(&vendor, &version)
+    });
+    report.lines.extend(said.lines);
+    report.versions.extend(said.versions);
 }
 
 /// The name of `architecture`, the one a Metal device gives, or `none` for a device that gives none.

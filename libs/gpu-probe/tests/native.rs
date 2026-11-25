@@ -9,7 +9,9 @@
 
 use std::sync::LazyLock;
 
-use et_gpu_probe::native::{Gpu, NativeError, NoCompute, backend_name, compute_shaders, gl_versions, runs_compute};
+use et_gpu_probe::native::{
+    Gpu, NativeError, NoCompute, backend_name, compute_shaders, gl_report_of, gl_versions, named_driver, runs_compute,
+};
 use et_gpu_probe::{Answer, BLENDS, CLEARS, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host};
 use futures_executor::block_on;
 use pretty_assertions::assert_eq;
@@ -272,6 +274,28 @@ fn an_opengl_version_string_gives_the_api_and_driver_versions() {
 }
 
 #[test]
+fn what_opengl_says_is_reported_with_its_vendor_as_the_driver() {
+    let report = gl_report_of("Mesa", "4.6 (Core Profile) Mesa 26.1.6");
+    assert_eq!(
+        report.lines,
+        ["gl vendor: Mesa", "gl version: 4.6 (Core Profile) Mesa 26.1.6"]
+    );
+    let versions = [
+        ("driver", "Mesa".to_owned()),
+        ("api_version", "OpenGL 4.6".to_owned()),
+        ("driver_version", "(Core Profile) Mesa 26.1.6".to_owned()),
+    ];
+    assert_eq!(report.versions, versions);
+}
+
+#[test]
+fn a_driver_naming_nothing_is_not_recorded() {
+    assert_eq!(named_driver(String::new()), []);
+    assert_eq!(named_driver("?".to_owned()), []);
+    assert_eq!(named_driver("NVIDIA".to_owned()), [("driver", "NVIDIA".to_owned())]);
+}
+
+#[test]
 fn compute_shaders_run_from_opengl_4_3_and_opengl_es_3_1() {
     let all = wgpu::DownlevelFlags::all();
     let opengl = wgpu::Backend::Gl;
@@ -338,7 +362,10 @@ fn noop_adapter() -> wgpu::Adapter {
 /// The adapter wgpu prefers for `power_preference`, opened.
 #[cfg_attr(
     not(all(target_os = "macos", target_arch = "aarch64")),
-    expect(clippy::single_call_fn, reason = "its second caller compares both preferences on Apple silicon alone")
+    expect(
+        clippy::single_call_fn,
+        reason = "its second caller compares both preferences on Apple silicon alone"
+    )
 )]
 fn preferring(power_preference: wgpu::PowerPreference) -> Gpu {
     let options = wgpu::RequestAdapterOptions {
