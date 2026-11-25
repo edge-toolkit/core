@@ -265,16 +265,120 @@ const TARGETS: [(u32, &str); 11] = [
     (121, "8.8"),
 ];
 
-/// One warp-wide m16n8k16 `mma`, f16 inputs into an f32 accumulator, with every row of A and column of B the same.
-///
-/// The input is 8 words of A's 16 halves, 8 of B's, then the accumulator; lane 0 writes one element of the result,
-/// which every element equals.
-const MMA: &str = ".visible .entry probe(.param .u64 pin, .param .u64 pout)
-{
+/// The operand and accumulator types of a tensor-core probe.
+#[derive(Clone, Copy)]
+enum Mma {
+    /// m16n8k16, f16 inputs into an f32 accumulator.
+    F16,
+    /// m16n8k16, bf16 inputs into an f32 accumulator.
+    Bf16,
+    /// m16n8k8, tf32 inputs (passed as raw f32 bits) into an f32 accumulator.
+    Tf32,
+    /// m16n8k16, f16 inputs into an f16 accumulator.
+    F16Acc,
+}
+
+impl Mma {
+    const ALL: [Self; 4] = [Self::F16, Self::Bf16, Self::Tf32, Self::F16Acc];
+
+    const fn name(self) -> &'static str {
+        match self {
+            Self::F16 => "f16->f32 m16n8k16",
+            Self::Bf16 => "bf16->f32 m16n8k16",
+            Self::Tf32 => "tf32->f32 m16n8k8",
+            Self::F16Acc => "f16->f16 m16n8k16",
+        }
+    }
+
+    const fn depth(self) -> usize {
+        match self {
+            Self::Tf32 => 8,
+            Self::F16 | Self::Bf16 | Self::F16Acc => 16,
+        }
+    }
+
+    /// The value the host takes `value` to be once it is put in this probe's input format.
+    fn quantize(self, value: f32) -> f64 {
+        match self {
+            Self::F16 | Self::F16Acc => f16::from_f32(value).to_f64(),
+            Self::Bf16 => half::bf16::from_f32(value).to_f64(),
+            Self::Tf32 => f64::from(value),
+        }
+    }
+
+    /// The input word bits of one operand element.
+    fn element(self, value: f32) -> u32 {
+        match self {
+            Self::F16 | Self::F16Acc => u32::from(f16::from_f32(value).to_bits()),
+            Self::Bf16 => u32::from(half::bf16::from_f32(value).to_bits()),
+            Self::Tf32 => value.to_bits(),
+        }
+    }
+
+    /// The accumulator word.
+    fn accumulator(self, value: f32) -> u32 {
+        match self {
+            Self::F16Acc => {
+                let half = u32::from(f16::from_f32(value).to_bits());
+                half | half.rotate_left(16)
+            }
+            Self::F16 | Self::Bf16 | Self::Tf32 => value.to_bits(),
+        }
+    }
+
+    /// The answer's bits out of the word lane 0 wrote.
+    const fn answer(self, word: u32) -> u32 {
+        match self {
+            Self::F16Acc => word & 0xffff,
+            Self::F16 | Self::Bf16 | Self::Tf32 => word,
+        }
+    }
+
+    /// `exact` rounded to nearest at the accumulator's width.
+    fn nearest(self, exact: f64) -> u32 {
+        match self {
+            Self::F16Acc => u32::from(f16::from_f64(exact).to_bits()),
+            Self::F16 | Self::Bf16 | Self::Tf32 => narrow(exact).to_bits(),
+        }
+    }
+
+    /// One warp-wide `mma` with every row of A and column of B the same.
+    ///
+    /// The input is 8 words of A's k elements, 8 of B's, then the accumulator; lane 0 writes one element of the
+    /// result, which every element equals.
+    fn entry(self) -> String {
+        let (registers, load_c, mma, store) = match self {
+            Self::F16 | Self::Bf16 | Self::Tf32 => {
+                let (shape, input) = match self {
+                    Self::Bf16 => ("m16n8k16", "bf16.bf16"),
+                    Self::Tf32 => ("m16n8k8", "tf32.tf32"),
+                    Self::F16 | Self::F16Acc => ("m16n8k16", "f16.f16"),
+                };
+                (
+                    ".reg .f32 %f<6>;".to_owned(),
+                    "ld.global.f32 %f1, [%rd1+64];",
+                    format!(
+                        "mma.sync.aligned.{shape}.row.col.f32.{input}.f32 {{%f2,%f3,%f4,%f5}}, {{%r3,%r3,%r4,%r4}}, \
+                         {{%r5,%r6}}, {{%f1,%f1,%f1,%f1}};"
+                    ),
+                    "st.global.f32 [%rd2], %f2;",
+                )
+            }
+            Self::F16Acc => (
+                ".reg .b32 %q<4>;".to_owned(),
+                "ld.global.b32 %q1, [%rd1+64];",
+                "mma.sync.aligned.m16n8k16.row.col.f16.f16.f16.f16 {%q2,%q3}, {%r3,%r3,%r4,%r4}, {%r5,%r6}, {%q1,%q1};"
+                    .to_owned(),
+                "st.global.b32 [%rd2], %q2;",
+            ),
+        };
+        format!(
+            ".visible .entry probe(.param .u64 pin, .param .u64 pout)
+{{
   .reg .pred %p;
   .reg .b32 %r<8>;
-  .reg .f32 %f<6>;
   .reg .b64 %rd<5>;
+  {registers}
   ld.param.u64 %rd1, [pin];
   ld.param.u64 %rd2, [pout];
   cvta.to.global.u64 %rd1, %rd1;
@@ -287,13 +391,16 @@ const MMA: &str = ".visible .entry probe(.param .u64 pin, .param .u64 pout)
   ld.global.b32 %r4, [%rd4+16];
   ld.global.b32 %r5, [%rd4+32];
   ld.global.b32 %r6, [%rd4+48];
-  ld.global.f32 %f1, [%rd1+64];
-  mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 {%f2,%f3,%f4,%f5}, {%r3,%r3,%r4,%r4}, {%r5,%r6}, {%f1,%f1,%f1,%f1};
+  {load_c}
+  {mma}
   setp.eq.u32 %p, %r1, 0;
-  @%p st.global.f32 [%rd2], %f2;
+  @%p {store}
   ret;
+}}
+"
+        )
+    }
 }
-";
 
 /// A tensor-core case: the products `left * right` that are not zero, and the accumulator they are added to.
 struct MmaCase {
@@ -350,7 +457,56 @@ fn mma_cases() -> Vec<MmaCase> {
             vec![(tiny, tiny), (tiny, tiny), (tiny, tiny), (1.0, 1.0)],
             0.0,
         ),
+        // How many bits below the accumulator's ulp survive alignment: 2^-25, 2^-26 and 2^-27 against c=1.
+        case("c=1 + 16 x 2^-25", vec![(tiny, pow2(-13_i32)); 16], 1.0),
+        case("c=1 + 16 x 2^-26", vec![(pow2(-13_i32), pow2(-13_i32)); 16], 1.0),
+        case("c=1 + 16 x 2^-27", vec![(pow2(-13_i32), pow2(-14_i32)); 16], 1.0),
+        case("c=1 + 8 x 2^-25", vec![(tiny, pow2(-13_i32)); 8], 1.0),
+        case("c=1 + 4 x 2^-25", vec![(tiny, pow2(-13_i32)); 4], 1.0),
+        // Whether k is summed in one fused step or in chunks rounded in between: two half-ulps either side of a
+        // chunk boundary come to a whole ulp only if they meet before the sum is rounded.
+        case("1@k0 + 2^-24@k1,k2", placed(&[(0, (1.0, 1.0)), (1, (tiny, tiny)), (2, (tiny, tiny))]), 0.0),
+        case("1@k0 + 2^-24@k1,k4", placed(&[(0, (1.0, 1.0)), (1, (tiny, tiny)), (4, (tiny, tiny))]), 0.0),
+        case("1@k0 + 2^-24@k3,k4", placed(&[(0, (1.0, 1.0)), (3, (tiny, tiny)), (4, (tiny, tiny))]), 0.0),
+        case("1@k0 + 2^-24@k1,k8", placed(&[(0, (1.0, 1.0)), (1, (tiny, tiny)), (8, (tiny, tiny))]), 0.0),
+        case("1@k0 + 2^-24@k7,k8", placed(&[(0, (1.0, 1.0)), (7, (tiny, tiny)), (8, (tiny, tiny))]), 0.0),
+        case("1@k15 + 2^-24@k0,k8", placed(&[(15, (1.0, 1.0)), (0, (tiny, tiny)), (8, (tiny, tiny))]), 0.0),
+        case("1@k8 + 2^-24@k0,k1", placed(&[(8, (1.0, 1.0)), (0, (tiny, tiny)), (1, (tiny, tiny))]), 0.0),
+        case("c=1 + 2^-24@k0,k8", placed(&[(0, (tiny, tiny)), (8, (tiny, tiny))]), 1.0),
+        case("c=1 + 2^-24@k0,k4", placed(&[(0, (tiny, tiny)), (4, (tiny, tiny))]), 1.0),
+        case("c=1 + 2^-24@k0,k1", placed(&[(0, (tiny, tiny)), (1, (tiny, tiny))]), 1.0),
+        // Cancellation in different chunks: whether a chunk's partial sum is normalised before the next is added.
+        case(
+            "2^24@k0 - 2^24@k8 + 1@k15",
+            placed(&[(0, (4096.0, 4096.0)), (8, (-4096.0, 4096.0)), (15, (1.0, 1.0))]),
+            0.0,
+        ),
+        case(
+            "2^24@k0 - 2^24@k1 + 2^-10@k8",
+            placed(&[(0, (4096.0, 4096.0)), (1, (-4096.0, 4096.0)), (8, (pow2(-5_i32), pow2(-5_i32)))]),
+            0.0,
+        ),
+        // What becomes of bits below an operand format's precision: 0.75 of a tf32 ulp, and an f32 low bit.
+        case("(1 + 2^-11 + 2^-12) x 1", vec![(1.0 + pow2(-11_i32) + pow2(-12_i32), 1.0)], 0.0),
+        case("(1 + 2^-20) x 1", vec![(1.0 + pow2(-20_i32), 1.0)], 0.0),
+        case("(1 + 2^-23) x (1 + 2^-23)", vec![(1.0 + pow2(-23_i32), 1.0 + pow2(-23_i32))], 0.0),
+        // Overflow, infinity and not-a-number.
+        case("65504 x 2 (f16 overflow)", vec![(65504.0, 2.0)], 0.0),
+        case("inf x 0", vec![(f32::INFINITY, 0.0)], 0.0),
+        case("inf - inf", vec![(f32::INFINITY, 1.0), (f32::NEG_INFINITY, 1.0)], 0.0),
     ]
+}
+
+/// The products `at` names, each at its own k, with zero products between them.
+fn placed(at: &[(usize, (f32, f32))]) -> Vec<(f32, f32)> {
+    let len = at.iter().map(|&(k, _)| k + 1).max().unwrap_or(0);
+    let mut products = vec![(0.0_f32, 0.0_f32); len];
+    for &(k, product) in at {
+        if let Some(slot) = products.get_mut(k) {
+            *slot = product;
+        }
+    }
+    products
 }
 
 /// `value` rounded to f32.
@@ -363,39 +519,40 @@ const fn narrow(value: f64) -> f32 {
     value as f32
 }
 
-/// The exact sum of `case`, its products taken at the f16 precision the tensor cores read them at.
-#[expect(clippy::single_call_fn, reason = "the one reference for a tensor-core case")]
+/// The exact sum of `case`, its products taken at the precision `kind` passes them in.
 #[expect(clippy::float_arithmetic, reason = "the reference is the host's exact arithmetic")]
-fn mma_exact(case: &MmaCase) -> f64 {
-    let at_f16 = |value: f32| f64::from(f16::from_f32(value).to_f32());
+fn mma_exact(kind: Mma, case: &MmaCase) -> f64 {
     let products: f64 = case
         .products
         .iter()
-        .map(|&(left, right)| at_f16(left) * at_f16(right))
+        .map(|&(left, right)| kind.quantize(left) * kind.quantize(right))
         .sum();
-    products + f64::from(case.accumulator)
+    let accumulator = match kind {
+        Mma::F16Acc => f16::from_f32(case.accumulator).to_f64(),
+        Mma::F16 | Mma::Bf16 | Mma::Tf32 => f64::from(case.accumulator),
+    };
+    products + accumulator
 }
 
-/// The words `case` puts to the tensor cores: A's 16 halves and B's, two to a word, then the accumulator.
-fn mma_input(case: &MmaCase) -> Vec<u32> {
+/// The words `case` puts to the tensor cores: A's k elements and B's, packed into 8 words each, then the accumulator.
+fn mma_input(kind: Mma, case: &MmaCase) -> Vec<u32> {
     let side = |pick: fn(&(f32, f32)) -> f32| -> Vec<u32> {
-        let mut halves: Vec<u16> = case
-            .products
-            .iter()
-            .map(|product| f16::from_f32(pick(product)).to_bits())
-            .collect();
-        halves.resize(16, 0);
-        halves
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|&[low, high]| u32::from(low) | u32::from(high).rotate_left(16))
-            .collect()
+        let mut elements: Vec<u32> = case.products.iter().map(|product| kind.element(pick(product))).collect();
+        elements.resize(kind.depth(), 0);
+        match kind {
+            Mma::Tf32 => elements,
+            Mma::F16 | Mma::Bf16 | Mma::F16Acc => elements
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&[low, high]| low | high.rotate_left(16))
+                .collect(),
+        }
     };
     [
         side(|product| product.0),
         side(|product| product.1),
-        vec![case.accumulator.to_bits()],
+        vec![kind.accumulator(case.accumulator)],
     ]
     .concat()
 }
@@ -543,23 +700,27 @@ fn report_ops(out: &mut StdoutLock<'_>, ctx: &Arc<Context>, stream: &Arc<Stream>
 /// Write each tensor-core case's answer beside the sum rounded to nearest.
 #[expect(clippy::single_call_fn, reason = "one table of the report")]
 fn report_mma(out: &mut StdoutLock<'_>, ctx: &Arc<Context>, stream: &Arc<Stream>) -> Result<(), Box<dyn Error>> {
-    let ptx = module("7.0", 80, MMA);
-    for case in mma_cases() {
-        let name = case.name;
-        match run::<u32, u32>(ctx, stream, &ptx, &mma_input(&case), 1, 32) {
-            Ok(answer) => {
-                let got = answer.first().copied().unwrap_or_default();
-                let nearest = narrow(mma_exact(&case)).to_bits();
-                let mark = if got == nearest { "rn" } else { "differs" };
-                let (got_value, nearest_value) = (f32::from_bits(got), f32::from_bits(nearest));
-                let nearest_text = format!("round-to-nearest={nearest:08x} ({nearest_value:e})");
-                writeln!(
-                    out,
-                    "  mma {name:<28} got={got:08x} ({got_value:e}) {nearest_text} {mark}"
-                )?;
+    for kind in Mma::ALL {
+        let ptx = module("7.0", 80, &kind.entry());
+        writeln!(out, "  mma {}:", kind.name())?;
+        let mut words = Vec::new();
+        for case in mma_cases() {
+            let name = case.name;
+            if case.products.len() > kind.depth() {
+                continue;
             }
-            Err(error) => writeln!(out, "  mma {name:<28} refused: {error}")?,
+            match run::<u32, u32>(ctx, stream, &ptx, &mma_input(kind, &case), 1, 32) {
+                Ok(answer) => {
+                    let got = kind.answer(answer.first().copied().unwrap_or_default());
+                    words.push(u64::from(got));
+                    let nearest = kind.nearest(mma_exact(kind, &case));
+                    let mark = if got == nearest { "rn" } else { "differs" };
+                    writeln!(out, "    {name:<30} got={got:08x} round-to-nearest={nearest:08x} {mark}")?;
+                }
+                Err(error) => writeln!(out, "    {name:<30} refused: {error}")?,
+            }
         }
+        writeln!(out, "    fnv of every answer: {:016x}", fnv(&words))?;
     }
     Ok(())
 }
@@ -591,10 +752,10 @@ fn report_targets(out: &mut StdoutLock<'_>, ctx: &Arc<Context>, stream: &Arc<Str
     }
     let mut line = format!("    {:<24}", "mma (every case)");
     for &(arch, ptx_version) in TARGETS.iter().filter(|target| target.0 >= 80) {
-        let ptx = module(ptx_version, arch, MMA);
+        let ptx = module(ptx_version, arch, &Mma::F16.entry());
         let answers: Result<Vec<u64>, DriverError> = mma_cases()
             .iter()
-            .map(|case| run::<u32, u32>(ctx, stream, &ptx, &mma_input(case), 1, 32))
+            .map(|case| run::<u32, u32>(ctx, stream, &ptx, &mma_input(Mma::F16, case), 1, 32))
             .map(|answer| answer.map(|words| u64::from(words.first().copied().unwrap_or_default())))
             .collect();
         match answers {
