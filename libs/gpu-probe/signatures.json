@@ -2683,6 +2683,32 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "none",
+          "backend": "none",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "Rust f32, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "none",
+          "backend": "none",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "Rust f32, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -9103,7 +9129,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "NVIDIA RTX A1000 Laptop GPU, Quadro M2000 and GB10, AMD Radeon RX 580 and Radeon Pro 5300M, and llvmpipe (LLVM 15.0.7), Vulkan, Metal and OpenGL, Linux x86_64 and arm64 and macOS -- wgpu alone and WebGPU on Chrome, Chromium, Brave, Safari and Deno",
       "seen": [
         {
           "browser": "none",
@@ -9534,6 +9560,40 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10/PCIe",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 580.178.04",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -9551,7 +9611,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2 and 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners, Dell Precision 5570, ASUS TUF H370-PRO GAMING and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -9817,6 +9877,23 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -9962,6 +10039,20 @@
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -10679,7 +10770,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through opengl on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through OpenGL on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone",
       "seen": [
         {
           "browser": "none",
@@ -11206,6 +11297,20 @@
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -11534,6 +11639,23 @@
           "api_version": "Vulkan 1.4.312",
           "backend": "vulkan",
           "window": "none"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -11557,7 +11679,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -11651,6 +11773,23 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -11847,7 +11986,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "llvmpipe (LLVM 21.1.8, 128 bits) through vulkan on linux Ubuntu 26.04 aarch64, GitHub Actions runner image ubuntu26-arm64 20261116.190.1 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -11977,7 +12116,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 15.0.7, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -12312,7 +12451,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone",
       "seen": [
         {
           "browser": "none",
@@ -13200,7 +13339,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "NVIDIA RTX A1000 Laptop GPU and NVIDIA GB10 through Vulkan on Linux x86_64 and arm64 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -13243,6 +13382,23 @@
           "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -13266,7 +13422,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2 and 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -14042,6 +14198,20 @@
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -14341,7 +14511,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -14435,6 +14605,23 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -14596,7 +14783,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 15.0.7, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -15123,7 +15310,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "NVIDIA RTX A1000 Laptop GPU and NVIDIA GB10 through Vulkan on Linux x86_64 and arm64 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -15166,6 +15353,23 @@
           "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -15189,7 +15393,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2 and 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -15965,6 +16169,20 @@
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -16264,7 +16482,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -16358,6 +16576,23 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -16519,7 +16754,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 15.0.7, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -17324,7 +17559,7 @@
     },
     {
       "interface": "webgpu-fixed-function",
-      "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "NVIDIA RTX A1000 Laptop GPU, Quadro M2000 and GB10, Vulkan and OpenGL, Linux x86_64 and arm64 -- wgpu alone and WebGPU on Chrome, Chromium, Brave and Deno",
       "seen": [
         {
           "browser": "none",
@@ -17509,6 +17744,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10/PCIe",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 580.178.04",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -17525,7 +17794,7 @@
     },
     {
       "interface": "webgpu-fixed-function",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 15.0.7, 20.1.2 and 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "deno",
@@ -18002,6 +18271,20 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -18318,7 +18601,7 @@
     },
     {
       "interface": "webgpu-fixed-function",
-      "label": "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 15.0.7 and 20.1.2, 128 bits) through Vulkan on Linux arm64, GitHub runners and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -18380,6 +18663,23 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -18987,6 +19287,20 @@
           "backend": "metal",
           "device": "M5 Pro MacBook Pro",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -19047,6 +19361,23 @@
           "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-17"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -19501,7 +19832,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "llvmpipe (LLVM 20.1.2, Mesa 25.2.8) through Vulkan on Linux arm64, GitHub runner -- wgpu 29, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners and NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -19609,6 +19940,23 @@
           "window": "none",
           "date": "2026-11-23",
           "source": "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-24"
         }
       ],
       "results": {
@@ -19792,7 +20140,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "llvmpipe (LLVM 21.1.8, Mesa 26.0.8) through Vulkan on Linux x86_64, GitHub runner -- wgpu 29, no browser",
+      "label": "llvmpipe (LLVM 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -20039,7 +20387,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image ubuntu22 20261116.365.1 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 15.0.7, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -20374,7 +20722,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "llvmpipe (LLVM 20.1.2, 256 bits) through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone",
       "seen": [
         {
           "browser": "none",

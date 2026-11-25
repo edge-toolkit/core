@@ -341,6 +341,28 @@ signatures:
           __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: none
+        backend: none
+        device: "MacBook Pro (M5 Pro, 2026)"
+        runtime: "Rust f32, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: none
+        backend: none
+        device: "NVIDIA DGX Spark"
+        runtime: "Rust f32, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "33800000"

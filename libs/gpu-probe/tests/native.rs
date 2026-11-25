@@ -9,7 +9,7 @@
 
 use std::sync::LazyLock;
 
-use et_gpu_probe::native::{Gpu, NativeError, NoCompute, backend_name, gl_versions, runs_compute};
+use et_gpu_probe::native::{Gpu, NativeError, NoCompute, backend_name, compute_shaders, gl_versions, runs_compute};
 use et_gpu_probe::{Answer, BLENDS, CLEARS, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host};
 use futures_executor::block_on;
 use pretty_assertions::assert_eq;
@@ -286,6 +286,20 @@ fn compute_shaders_run_from_opengl_4_3_and_opengl_es_3_1() {
     assert!(runs_compute(wgpu::Backend::Vulkan, all, "3.3"));
     let without = wgpu::DownlevelFlags::all() - wgpu::DownlevelFlags::COMPUTE_SHADERS;
     assert!(!runs_compute(wgpu::Backend::Vulkan, without, ""));
+}
+
+#[test]
+fn a_context_without_compute_shaders_is_opened_with_its_reason() {
+    let all = wgpu::DownlevelFlags::all();
+    assert_eq!(compute_shaders(wgpu::Backend::Metal, all, ""), Ok(()));
+    let reason = NoCompute::Context {
+        backend: "opengl",
+        version: "3.3.0 NVIDIA 580.178.04".to_owned(),
+    };
+    assert_eq!(
+        compute_shaders(wgpu::Backend::Gl, all, "3.3.0 NVIDIA 580.178.04"),
+        Err(reason)
+    );
 }
 
 #[test]

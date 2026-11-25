@@ -259,20 +259,14 @@ impl Gpu {
     /// Open a device on `adapter`, and compile the probe set for it.
     ///
     /// For a caller that chose the adapter itself, from an instance of its own: one limited to a backend, say. A device
-    /// that runs no compute shaders, as [`runs_compute`] judges it, is opened as [`open_without_compute`] does.
+    /// that runs no compute shaders, as [`compute_shaders`] judges it, is opened as [`open_without_compute`] does.
     ///
     /// [`open_without_compute`]: Self::open_without_compute
     pub async fn open_adapter(adapter: wgpu::Adapter) -> Result<Self, NativeError> {
         let info = adapter.get_info();
         let flags = adapter.get_downlevel_capabilities().flags;
-        if !runs_compute(info.backend, flags, &info.driver_info) {
-            let reason = NoCompute::Context {
-                backend: backend_name(info.backend, &info.driver_info),
-                version: info.driver_info,
-            };
-            return Self::open_device(adapter, Err(reason)).await;
-        }
-        Self::open_device(adapter, Ok(())).await
+        let compute = compute_shaders(info.backend, flags, &info.driver_info);
+        Self::open_device(adapter, compute).await
     }
 
     /// Open a device on `adapter` with no shader probe set compiled, for a context that runs no compute shaders.
@@ -1045,6 +1039,21 @@ pub fn runs_compute(backend: wgpu::Backend, flags: wgpu::DownlevelFlags, version
         (Some(Ok(major)), Some(Ok(minor))) => (major, minor) >= minimum,
         _ => true,
     }
+}
+
+/// Whether a device opened through `backend` runs compute shaders, as [`runs_compute`] judges by `flags` and `version`.
+///
+/// # Errors
+///
+/// [`NoCompute::Context`], naming the backend and `version`, where it runs none.
+pub fn compute_shaders(backend: wgpu::Backend, flags: wgpu::DownlevelFlags, version: &str) -> Result<(), NoCompute> {
+    if runs_compute(backend, flags, version) {
+        return Ok(());
+    }
+    Err(NoCompute::Context {
+        backend: backend_name(backend, version),
+        version: version.to_owned(),
+    })
 }
 
 /// Add what OpenGL itself says to `report`, for an adapter opened through it.

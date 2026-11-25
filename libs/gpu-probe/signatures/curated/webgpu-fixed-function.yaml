@@ -241,7 +241,8 @@ signatures:
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
   - interface: webgpu-fixed-function
-    label: "NVIDIA RTX A1000 Laptop GPU through vulkan on linux x86_64 -- wgpu, no browser"
+    label: "NVIDIA RTX A1000 Laptop GPU, Quadro M2000 and GB10, Vulkan and OpenGL, Linux x86_64 and arm64 -- wgpu
+      alone and WebGPU on Chrome, Chromium, Brave and Deno"
     seen:
       - browser: none
         os: linux
@@ -406,6 +407,36 @@ signatures:
           __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10/PCIe"
+        driver: "NVIDIA Corporation"
+        driver_version: "NVIDIA 580.178.04"
+        api_version: "OpenGL 3.3.0"
+        backend: opengl
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -417,7 +448,8 @@ signatures:
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
   - interface: webgpu-fixed-function
-    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux x86_64 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 15.0.7, 20.1.2 and 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64,
+      GitHub runners, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Deno"
     seen:
       - browser: deno
         browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
@@ -832,6 +864,18 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro"
+        backend: metal
+        device: "MacBook Pro (M5 Pro, 2026)"
+        runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-24"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -1102,7 +1146,8 @@ signatures:
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
   - interface: webgpu-fixed-function
-    label: "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 15.0.7 and 20.1.2, 128 bits) through Vulkan on Linux arm64, GitHub runners and NVIDIA DGX
+      Spark -- wgpu alone and WebGPU on Deno"
     seen:
       - browser: none
         os: linux
@@ -1157,6 +1202,21 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        driver: "llvmpipe"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"

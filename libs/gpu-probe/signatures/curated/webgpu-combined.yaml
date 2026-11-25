@@ -295,6 +295,18 @@ signatures:
         backend: metal
         device: "M5 Pro MacBook Pro"
         window: normal
+      - browser: none
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro"
+        backend: metal
+        device: "MacBook Pro (M5 Pro, 2026)"
+        runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -569,6 +581,21 @@ signatures:
         api_version: "Vulkan 1.4.312"
         backend: vulkan
         window: none
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: nvidia
+        gpu_version: "NVIDIA GB10"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -587,7 +614,8 @@ signatures:
       tanh: "3dcc1ebd"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "llvmpipe (LLVM 20.1.2, 128 bits) through vulkan on linux aarch64 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 20.1.2, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners and
+      NVIDIA DGX Spark -- wgpu alone and WebGPU on Deno"
     seen:
       - browser: none
         os: linux
@@ -670,6 +698,21 @@ signatures:
         window: none
         date: "2026-11-23"
         source: "https://github.com/edge-toolkit/core/actions/runs/45225204449"
+      - browser: none
+        os: linux
+        os_version: "Ubuntu 24.04"
+        cpu_arch: aarch64
+        cpu_version: "Cortex-A725"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 128 bits)"
+        driver: "llvmpipe"
+        driver_version: "25.2.8"
+        api_version: "Vulkan 1.4.318"
+        backend: vulkan
+        device: "NVIDIA DGX Spark"
+        runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-24"
     results:
       multiply_add: "00000000"
       fma: "00000000"
@@ -839,8 +882,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "llvmpipe (LLVM 21.1.8, 128 bits) through vulkan on linux Ubuntu 26.04 aarch64, GitHub Actions runner image
-      ubuntu26-arm64 20261116.190.1 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 21.1.8, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu
+      alone and WebGPU on Deno"
     seen:
       - browser: none
         os: linux
@@ -953,8 +996,8 @@ signatures:
       tanh: "3dcc1ec2"
       dot: "00000000"
   - interface: webgpu-combined
-    label: "llvmpipe (LLVM 15.0.7, 256 bits) through vulkan on linux Ubuntu 22.04 x86_64, GitHub Actions runner image
-      ubuntu22 20261116.365.1 -- wgpu, no browser"
+    label: "llvmpipe (LLVM 15.0.7, 128 and 256 bits) through Vulkan on Linux arm64 and x86_64, GitHub runners -- wgpu
+      alone and WebGPU on Deno"
     seen:
       - browser: none
         os: linux
@@ -1248,8 +1291,8 @@ signatures:
       tanh: "3dcc1ebd"
       dot: "40000000"
   - interface: webgpu-combined
-    label: "llvmpipe (LLVM 20.1.2, 256 bits) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu,
-      no browser"
+    label: "llvmpipe (LLVM 20.1.2, 256 bits) through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF
+      H370-PRO GAMING -- wgpu alone"
     seen:
       - browser: none
         os: linux

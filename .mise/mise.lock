@@ -2526,16 +2526,6 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478119643"
 
 [[tools.rust]]
-version = "stable"
-backend = "core:rust"
-specifiers = ["stable"]
-
-[tools.rust.options]
-components = "clippy,rust-analyzer"
-profile = "minimal"
-targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
-
-[[tools.rust]]
 version = "nightly-2026-08-05"
 backend = "core:rust"
 specifiers = ["nightly-2026-08-05"]
@@ -2544,6 +2534,16 @@ specifiers = ["nightly-2026-08-05"]
 components = "llvm-tools,rust-src,rustfmt"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
+
+[[tools.rust]]
+version = "stable"
+backend = "core:rust"
+specifiers = ["stable"]
+
+[tools.rust.options]
+components = "clippy,rust-analyzer"
+profile = "minimal"
+targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2,wasm32v1-none"
 
 [[tools.taplo]]
 version = "0.10.0"
