@@ -152,7 +152,7 @@ pub(crate) fn run(files: &[String]) -> Result<usize, Error> {
     println!(
         "repo-check commit-hashes: {} of {} hashes are unreachable",
         missing.len(),
-        hashes.len()
+        hashes.len(),
     );
     Ok(missing.len())
 }

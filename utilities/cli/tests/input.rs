@@ -84,19 +84,19 @@ fn only_this_repositories_own_manifest_counts_as_proof() {
     let theirs = "[workspace.package]\nrepository = \"https://github.com/edge-toolkit/research\"\n";
     assert!(
         !manifest_declares_this_repository(theirs),
-        "another project's workspace"
+        "another project's workspace",
     );
     assert!(
         !manifest_declares_this_repository("[workspace]\nmembers = []\n"),
-        "a workspace that declares no package metadata"
+        "a workspace that declares no package metadata",
     );
     assert!(
         !manifest_declares_this_repository("[package]\nname = \"solo\"\n"),
-        "a manifest that is not a workspace at all"
+        "a manifest that is not a workspace at all",
     );
     assert!(
         !manifest_declares_this_repository("this is not toml { ["),
-        "and something that does not parse"
+        "and something that does not parse",
     );
 }
 
@@ -146,8 +146,8 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
                     | OutputType::K3s
                     | OutputType::FirmwarePico2
                     | OutputType::FirmwareEsp32c6
-                    | OutputType::FirmwarePicoPlus2
-            )
+                    | OutputType::FirmwarePicoPlus2,
+            ),
         );
     }
     assert_eq!(OutputType::ALL.len(), 8, "and the list of them is complete");

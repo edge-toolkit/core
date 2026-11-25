@@ -114,17 +114,17 @@ fn a_submission_is_filed_under_its_interface_whose_file_is_made_if_it_has_none()
     let (dir, registry) = tree();
     assert_eq!(
         registry.register(&new_through("webgpu-clear")).unwrap(),
-        Outcome::Added(1)
+        Outcome::Added(1),
     );
     let made = fs_err::read_to_string(dir.path().join("curated/webgpu-clear.yaml")).unwrap();
     assert!(made.starts_with("signatures:\n  - interface: webgpu-clear\n"));
     assert_eq!(
         registry.register(&new_through("webgpu-split")).unwrap(),
-        Outcome::Added(2)
+        Outcome::Added(2),
     );
     assert_eq!(
         fs_err::read_to_string(dir.path().join("curated/canvas.yaml")).unwrap(),
-        CANVAS
+        CANVAS,
     );
     assert_eq!(fs_err::read_to_string(dir.path().join("header.yaml")).unwrap(), HEADER);
     // The lock files are kept apart from the entries.
@@ -243,7 +243,7 @@ fn folding_files_each_waiting_submission_and_removes_its_file() {
             Outcome::Sighted("Known GPU".to_owned()),
             Outcome::Present("Known GPU".to_owned()),
             Outcome::Added(1),
-        ]
+        ],
     );
     assert!(!path.exists());
     let filed = fs_err::read_to_string(dir.path().join("curated/webgpu-split.yaml")).unwrap();

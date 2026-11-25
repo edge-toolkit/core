@@ -51,7 +51,7 @@ fn no_scope_is_privileged_over_another() {
         vec![
             "@edge-toolkit/et-ws-math1".to_string(),
             "@huggingface/transformers".to_string(),
-        ]
+        ],
     );
 }
 

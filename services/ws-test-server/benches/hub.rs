@@ -189,7 +189,7 @@ async fn register(dialer: Dialer, ws_url: String, agent_id: Option<String>) -> S
             Some(Ok(Message::Text(text))) => {
                 if matches!(
                     ServerMessage::from_text_frame(&text),
-                    Ok(ServerMessage::ConnectAck { .. })
+                    Ok(ServerMessage::ConnectAck { .. }),
                 ) {
                     return socket;
                 }
@@ -242,7 +242,7 @@ impl Fleet {
     fn assert_all_connected(&mut self) {
         assert!(
             self.agents.try_join_next().is_none(),
-            "an agent was disconnected while the hub held {AGENTS}"
+            "an agent was disconnected while the hub held {AGENTS}",
         );
     }
 
@@ -265,7 +265,7 @@ async fn alive(probe: &mut Socket) {
             Some(Ok(Message::Text(text))) => {
                 if matches!(
                     ServerMessage::from_text_frame(&text),
-                    Ok(ServerMessage::Response { .. })
+                    Ok(ServerMessage::Response { .. }),
                 ) {
                     return;
                 }

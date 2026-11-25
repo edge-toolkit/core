@@ -103,7 +103,7 @@ async fn an_eviction_on_one_hub_cuts_the_address_off_everywhere() {
     let evicted: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(
         evicted,
-        serde_json::json!({"agent_id": agent_id, "blocked_ip": "127.0.0.1"})
+        serde_json::json!({"agent_id": agent_id, "blocked_ip": "127.0.0.1"}),
     );
 
     cluster.assert_cut_off_everywhere().await;

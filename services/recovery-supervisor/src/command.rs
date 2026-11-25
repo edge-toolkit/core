@@ -106,7 +106,7 @@ fn timeout_error(
         elapsed_seconds,
         stderr = %stderr,
         stderr_limit_reached,
-        "kubectl deadline exceeded; dropping the child requests termination"
+        "kubectl deadline exceeded; dropping the child requests termination",
     );
     error.into()
 }

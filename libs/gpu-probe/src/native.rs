@@ -421,7 +421,7 @@ impl Gpu {
                 format!("backend: {}", info.backend),
                 format!(
                     "subgroup sizes: {}..={}",
-                    info.subgroup_min_size, info.subgroup_max_size
+                    info.subgroup_min_size, info.subgroup_max_size,
                 ),
                 format!("features: {:?}", adapter.features()),
                 format!("downlevel: {:?}", adapter.get_downlevel_capabilities()),
@@ -903,7 +903,7 @@ pub fn vulkan_driver_version(vendor: u32, version: u32, on_windows: bool) -> Str
             version >> 22_u32,
             (version >> 14_u32) & 0xff,
             (version >> 6_u32) & 0xff,
-            version & 0x3f
+            version & 0x3f,
         );
     }
     if vendor == 0x8086 && on_windows {
@@ -920,7 +920,7 @@ pub fn vulkan_api_version(version: u32) -> String {
         "{}.{}.{}",
         (version >> 22_u32) & 0x7f,
         (version >> 12_u32) & 0x3ff,
-        version & 0xfff
+        version & 0xfff,
     );
     match version >> 29_u32 {
         0 => semantic,
@@ -963,7 +963,7 @@ fn vulkan_report(adapter: &wgpu::Adapter, report: &mut Report) {
         format!("vulkan api version: {api}"),
         format!(
             "vulkan driver version: {driver} (raw {:#010x})",
-            properties.driver_version
+            properties.driver_version,
         ),
         format!("vulkan pipeline cache uuid: {uuid}"),
         format!("vulkan sub-pixel precision bits: {}", limits.sub_pixel_precision_bits),
@@ -1141,7 +1141,7 @@ fn metal_report(device: &wgpu::Device, report: &mut Report) {
         format!("metal device name: {}", raw.name()),
         format!(
             "metal architecture: {}",
-            metal_architecture_name(architecture.as_deref())
+            metal_architecture_name(architecture.as_deref()),
         ),
         format!("metal registry id: {:#x}", raw.registryID()),
         format!("metal location: {:?}", raw.location()),
@@ -1177,7 +1177,7 @@ fn dx12_report(adapter: &wgpu::Adapter, report: &mut Report) {
                 packed >> 48_u32,
                 (packed >> 32_u32) & 0xffff,
                 (packed >> 16_u32) & 0xffff,
-                packed & 0xffff
+                packed & 0xffff,
             );
             report.lines.push(format!("dxgi driver version: {driver}"));
             report.versions.push(("driver_version", driver));

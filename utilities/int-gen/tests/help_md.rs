@@ -33,15 +33,15 @@ fn committed_help_files_match_their_command_trees_and_env_configs() {
 fn a_stale_file_names_its_first_differing_line() {
     assert_eq!(
         first_difference("a\nb\nc\n", "a\nB\nc\n"),
-        "line 2 is `b` but renders as `B`"
+        "line 2 is `b` but renders as `B`",
     );
     assert_eq!(
         first_difference("a\n", "a\nb\n"),
-        "line 2 is end of file but renders as `b`"
+        "line 2 is end of file but renders as `b`",
     );
     assert_eq!(
         first_difference("a\n", "a"),
-        "the lines match, so only a line ending or the final newline differs"
+        "the lines match, so only a line ending or the final newline differs",
     );
 }
 
@@ -65,7 +65,7 @@ fn detects_every_binary_using_clap_or_serde_env() {
             ("et-ws-server", false, true),
             ("et-ws-wasi-runner", false, true),
             ("et-ws-web-runner", false, true),
-        ]
+        ],
     );
 }
 
@@ -120,22 +120,22 @@ fn renders_each_leaf_under_its_serde_env_name() {
                 "description": "Dirs, see [`default_dirs`] and [`docs`](https://example.com).",
                 "type": "array",
                 "items": {"type": "string"},
-                "default": ["a", "b"]
+                "default": ["a", "b"],
             },
-            "otlp": {"anyOf": [{"$ref": "#/$defs/Otlp"}, {"type": "null"}]}
+            "otlp": {"anyOf": [{"$ref": "#/$defs/Otlp"}, {"type": "null"}]},
         },
         "required": ["runner"],
         "$defs": {
             "Otlp": {"type": "object", "required": ["url"], "properties": {
                 "url": {"type": "string"}, "label": {"type": "string", "default": null},
-                "protocol": {"$ref": "#/$defs/Protocol", "default": "Binary"}
+                "protocol": {"$ref": "#/$defs/Protocol", "default": "Binary"},
             }},
             "Protocol": {"description": "Wire protocol.", "oneOf": [{"const": "Binary"}, {"const": "JSON"}]},
             "Runner": {"type": "object", "required": ["module"], "properties": {
                 "retries": {"type": "integer", "default": 3_i32},
-                "module": {"description": "Module to run.", "type": "string"}
-            }}
-        }
+                "module": {"description": "Module to run.", "type": "string"},
+            }},
+        },
     });
     let first_line = ["word"; 24].join(" ");
     let second_line = ["word"; 6].join(" ");

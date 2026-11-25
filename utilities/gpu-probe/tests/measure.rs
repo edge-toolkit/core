@@ -122,7 +122,7 @@ fn an_adapter_that_did_not_open_is_passed_over_and_counted() {
     assert!(out.contains("host on Rust f32 on the CPU"), "{out}");
     assert_eq!(
         outcome.unwrap_err().to_string(),
-        "1 adapter(s) could not be measured in full"
+        "1 adapter(s) could not be measured in full",
     );
 }
 
@@ -145,7 +145,7 @@ fn a_device_without_compute_shaders_has_each_shader_set_said_and_counted() {
     for set in ["webgpu-clear", "webgpu-fixed-function"] {
         assert!(
             out.contains(&format!("{set} on noop wgpu backend: added")),
-            "{set}: {out}"
+            "{set}: {out}",
         );
     }
     assert!(out.contains("host on Rust f32 on the CPU"), "{out}");
@@ -183,7 +183,7 @@ fn an_output_that_cannot_be_written_is_reported() {
     assert!(matches!(error, MeasureError::Write(_)), "{error:?}");
     assert_eq!(
         error.to_string(),
-        "the output could not be written: the output is closed"
+        "the output could not be written: the output is closed",
     );
 }
 
@@ -209,7 +209,7 @@ fn the_cpu_row_carries_the_machine_and_the_runtime_it_was_built_with() {
     let machine = format!(
         " {} 15.7.2 {}, GitHub Actions runner image macos15 20261110.1",
         std::env::consts::OS,
-        std::env::consts::ARCH
+        std::env::consts::ARCH,
     );
     assert!(cpu.label.ends_with(&machine));
 }

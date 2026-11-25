@@ -438,7 +438,7 @@ async fn requests_no_hub_can_honour_are_refused_as_a_lone_hub_would() {
     acknowledge(&mut bob, "never-sent").await;
     assert_eq!(
         next_invalid(&mut bob).await,
-        "no pending message never-sent to acknowledge"
+        "no pending message never-sent to acknowledge",
     );
 }
 
@@ -456,7 +456,7 @@ async fn an_ack_is_confirmed_to_its_recipient_after_the_sender_has_left() {
     acknowledge(&mut bob, &sent_id).await;
     assert_eq!(
         next_status(&mut bob).await,
-        (MessageDeliveryStatus::Acknowledged, sent_id)
+        (MessageDeliveryStatus::Acknowledged, sent_id),
     );
 }
 

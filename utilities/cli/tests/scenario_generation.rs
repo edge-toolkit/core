@@ -85,7 +85,7 @@ agents: []
 
     assert!(
         error.contains("RFC 1123") && error.contains(';'),
-        "expected an invalid-name error naming the character, got: {error}"
+        "expected an invalid-name error naming the character, got: {error}",
     );
 }
 
@@ -106,7 +106,7 @@ agents:
 
     assert!(
         error.contains("ws-server") && error.contains("already uses"),
-        "expected a reserved-name error, got: {error}"
+        "expected a reserved-name error, got: {error}",
     );
 }
 
@@ -148,7 +148,7 @@ agents:
 
     assert!(
         error.contains("twin") && error.contains("more than once"),
-        "expected a duplicate-name error, got: {error}"
+        "expected a duplicate-name error, got: {error}",
     );
 }
 
@@ -174,7 +174,7 @@ fn a_headless_image_is_given_neither_the_page_nor_what_the_page_imports() {
 
     assert!(
         !paths.contains(&"/app/services/ws-server/static".to_string()),
-        "{paths:?}"
+        "{paths:?}",
     );
     assert!(!paths.contains(&"/app/node_modules/stats-gl".to_string()), "{paths:?}");
     assert!(!paths.contains(&"/app/services/ws-wasm-agent".to_string()), "{paths:?}");
@@ -263,11 +263,11 @@ onnxruntime-web = "*"
     assert_eq!(package.name.as_deref(), Some("et-ws-python-module"));
     assert_eq!(
         package.dependencies.get("et-model-face1").map(String::as_str),
-        Some("*")
+        Some("*"),
     );
     assert_eq!(
         package.dependencies.get("onnxruntime-web").map(String::as_str),
-        Some("*")
+        Some("*"),
     );
 }
 
@@ -294,7 +294,7 @@ et-model-har-motion1 = "*"
     assert_eq!(package.name.as_deref(), Some("et-ws-rust-module"));
     assert_eq!(
         package.dependencies.get("et-model-har-motion1").map(String::as_str),
-        Some("*")
+        Some("*"),
     );
 }
 
@@ -332,7 +332,7 @@ agents:
     // The path list is assembled by appending to the variable, never by continuing the line with a trailing `\`.
     assert!(
         !mise.contains('\\'),
-        "generated mise.toml must carry no line-continuations"
+        "generated mise.toml must carry no line-continuations",
     );
     let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
     assert!(readme.contains("`mise.toml`"));
@@ -392,7 +392,7 @@ fn every_dekit_task_runs_a_task_of_the_mise_toml_written_beside_it() {
         assert!(mise["tasks"].get(name).is_some());
         assert_eq!(
             task.get("autostart").and_then(serde_yaml::Value::as_bool),
-            (index < 3).then_some(true)
+            (index < 3).then_some(true),
         );
     }
 }
@@ -407,12 +407,12 @@ fn dekit_starts_each_process_once_what_it_talks_to_is_ready() {
     assert_eq!(task_deps(&tasks["openobserve"]), Vec::<&str>::new());
     assert_eq!(
         tasks["openobserve"]["ready"]["http"].as_str(),
-        Some("http://localhost:5080/healthz")
+        Some("http://localhost:5080/healthz"),
     );
     assert_eq!(task_deps(&tasks["ws-server"]), ["openobserve"]);
     assert_eq!(
         tasks["ws-server"]["ready"]["http"].as_str(),
-        Some("http://localhost:8080/health")
+        Some("http://localhost:8080/health"),
     );
     assert_eq!(task_deps(&tasks["math1-twin"]), ["ws-server"]);
     // Stopped through Docker, since an interrupt that never reaches the container leaves it holding the port.
@@ -492,35 +492,35 @@ fn the_artifact_source_decides_whether_runner_images_are_pulled() {
 
     assert!(
         local_manifest.contains("image: et-ws-wasi-runner:latest"),
-        "an unqualified name is what a node resolves from its own images: {local_manifest}"
+        "an unqualified name is what a node resolves from its own images: {local_manifest}",
     );
     assert!(
         !local_manifest.contains("ghcr.io"),
-        "nothing is pulled: {local_manifest}"
+        "nothing is pulled: {local_manifest}",
     );
     assert!(
         local_readme.contains("docker build -t et-ws-wasi-runner:latest"),
-        "the README has to say how to produce it: {local_readme}"
+        "the README has to say how to produce it: {local_readme}",
     );
 
     assert!(
         published_manifest.contains("image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest"),
-        "the cluster pulls the runner: {published_manifest}"
+        "the cluster pulls the runner: {published_manifest}",
     );
     // The scenario image stays unqualified whichever source is asked for: it carries this deployment's own module set,
     // so there is no published copy of it to name.
     assert!(
         published_manifest.contains("image: et-ws-server-k3s-cluster:latest"),
-        "the scenario image is still local: {published_manifest}"
+        "the scenario image is still local: {published_manifest}",
     );
     assert!(
         !published_readme.contains("docker build -t et-ws-wasi-runner:latest"),
-        "nothing is built for a pulled image: {published_readme}"
+        "nothing is built for a pulled image: {published_readme}",
     );
     // The scenario Dockerfile names the released hub, so the build is handed no hub of its own.
     assert!(
         !published_readme.contains("hub=") && published_readme.contains("onto the released hub image"),
-        "the hub reaches the scenario build from the registry: {published_readme}"
+        "the hub reaches the scenario build from the registry: {published_readme}",
     );
 }
 
@@ -543,7 +543,7 @@ fn an_agents_declared_env_reaches_every_deployment_format() {
     for rendered in [&mise, &compose, &manifest] {
         assert!(
             rendered.contains("RUNNER_MODULE"),
-            "still wired to its module: {rendered}"
+            "still wired to its module: {rendered}",
         );
         assert!(rendered.contains("WS_SERVER_URL"), "still wired to its hub: {rendered}");
         assert!(rendered.contains("http://host:5080/api/default/v1"), "{rendered}");
@@ -568,7 +568,7 @@ agents:
 
     assert!(
         error.contains("WS_SERVER_URL") && error.contains("must own"),
-        "expected a reserved-env error, got: {error}"
+        "expected a reserved-env error, got: {error}",
     );
 }
 
@@ -581,11 +581,11 @@ fn the_scenario_dockerfile_path_stays_relative_however_shallow_the_output_dir() 
     // to `docker build -f`.
     assert_eq!(
         scenario_dockerfile_path(Path::new("my-scenario")),
-        "$scenario/Dockerfile"
+        "$scenario/Dockerfile",
     );
     assert_eq!(
         scenario_dockerfile_path(Path::new("verification/local/output/math1")),
-        "verification/local/output/$scenario/Dockerfile"
+        "verification/local/output/$scenario/Dockerfile",
     );
 }
 
@@ -628,7 +628,7 @@ agents:
     let segments: Vec<&str> = paths.split(',').map(str::trim).collect();
     assert_eq!(
         segments,
-        ["/app/modules/wasi/wasi-math1", "/app/modules/wasi/wasi-math1-sender"]
+        ["/app/modules/wasi/wasi-math1", "/app/modules/wasi/wasi-math1-sender"],
     );
 }
 
@@ -648,16 +648,16 @@ fn the_artifact_source_decides_what_the_compose_stack_builds() {
 
     assert!(
         local.contains("hub-image-build:") && local.contains("hub: service:hub-image-build"),
-        "a local stack builds the hub it layers onto: {local}"
+        "a local stack builds the hub it layers onto: {local}",
     );
     assert!(
         local.contains("dockerfile: services/ws-wasi-runner/Dockerfile"),
-        "and builds its runners: {local}"
+        "and builds its runners: {local}",
     );
 
     assert!(
         !published.contains("hub-image-build"),
-        "a published stack has no hub to build: {published}"
+        "a published stack has no hub to build: {published}",
     );
     // The scenario Dockerfile names the released hub itself, so there is no hub context to hand it.
     assert!(!published.contains("hub: "), "and hands its build no hub: {published}");
@@ -665,22 +665,22 @@ fn the_artifact_source_decides_what_the_compose_stack_builds() {
     assert!(
         dockerfile.contains("\nFROM ghcr.io/edge-toolkit/core/et-ws-server:latest\n")
             && !dockerfile.contains("FROM hub"),
-        "it layers onto the released hub: {dockerfile}"
+        "it layers onto the released hub: {dockerfile}",
     );
     let local_dockerfile = fs::read_to_string(local_dir.join("Dockerfile")).unwrap();
     assert!(
         local_dockerfile.contains("\nFROM hub\n"),
-        "a local one onto its own: {local_dockerfile}"
+        "a local one onto its own: {local_dockerfile}",
     );
     assert!(dockerfile.ends_with("\nUSER 10001\n") && local_dockerfile.ends_with("\nUSER 10001\n"));
     assert!(
         published.contains("image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest"),
-        "and pulls its runners: {published}"
+        "and pulls its runners: {published}",
     );
     // The scenario's own image is the one thing still built, because no release can carry its module set.
     assert!(
         published.matches("    build:\n").count() == 1 && !published.contains("services/ws-wasi-runner/Dockerfile"),
-        "leaving only the scenario image to build: {published}"
+        "leaving only the scenario image to build: {published}",
     );
 }
 
@@ -734,7 +734,7 @@ agents:
     for (name, text) in &files {
         assert!(
             !text.contains("..") && !text.contains("./"),
-            "{name} names a relative path"
+            "{name} names a relative path",
         );
     }
 }
@@ -774,17 +774,17 @@ fn the_artifact_source_decides_whether_the_mise_deployment_builds_what_it_runs()
 
     assert!(
         local.contains("cargo run --quiet -p et-ws-wasi-runner"),
-        "a local deployment compiles the runner from the workspace: {local}"
+        "a local deployment compiles the runner from the workspace: {local}",
     );
     assert!(
         !local.contains("cargo:et-ws-wasi-runner"),
-        "and so declares no released binary: {local}"
+        "and so declares no released binary: {local}",
     );
 
     // The released binary is named bare, as a line of its own, so a leftover `cargo run` cannot satisfy this.
     assert!(
         published.contains("\net-ws-wasi-runner\n"),
-        "a published deployment runs the released runner: {published}"
+        "a published deployment runs the released runner: {published}",
     );
     assert!(!published.contains("cargo run"), "and builds nothing: {published}");
     // Each released binary is declared as a tool, which is what puts it on `PATH` for the task above, and each waives
@@ -822,7 +822,7 @@ fn regenerate_verification_emits_one_k3s_document_per_component() {
             "Service",
             "Deployment",
         ],
-        "one document per component, runners last"
+        "one document per component, runners last",
     );
 
     // Every namespaced object names the scenario's namespace, so `kubectl apply` needs no `-n`.
@@ -833,7 +833,7 @@ fn regenerate_verification_emits_one_k3s_document_per_component() {
         assert_eq!(
             namespace.and_then(serde_yaml::Value::as_str),
             Some("et-k3s-cluster"),
-            "every object after the Namespace carries it: {document:?}"
+            "every object after the Namespace carries it: {document:?}",
         );
     }
 }
@@ -850,11 +850,11 @@ fn regenerate_verification_keeps_the_credential_out_of_the_k3s_manifest() {
         .unwrap();
     assert!(
         !text.contains(password),
-        "the scenario credential must never reach a committed manifest"
+        "the scenario credential must never reach a committed manifest",
     );
     assert!(
         text.contains("et-k3s-cluster-secrets"),
-        "the Secret is referenced by name"
+        "the Secret is referenced by name",
     );
 
     // The runners address the hub by its Service, not by the `localhost` the host-networked formats use. Asserted
@@ -938,7 +938,7 @@ fn a_module_paths_entry_holding_no_module_adds_none() {
         !paths
             .iter()
             .any(|path| path.contains("absent") || path.contains("notes")),
-        "{paths:?}"
+        "{paths:?}",
     );
 }
 
@@ -981,7 +981,7 @@ fn a_module_path_that_is_not_plain_is_refused() {
             refused.to_string(),
             format!(
                 "Module path {reported:?} has a name a shell would interpret or a filesystem would not hold; rename it"
-            )
+            ),
         );
     }
 }
@@ -1001,7 +1001,7 @@ fn a_plain_module_path_under_a_directory_a_shell_would_expand_is_refused() {
         refused.to_string(),
         format!(
             "Module path {reported:?} has a name a shell would interpret or a filesystem would not hold; rename it"
-        )
+        ),
     );
 }
 

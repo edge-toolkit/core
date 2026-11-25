@@ -84,13 +84,13 @@ fn dependencies_gate_restarts_and_are_reassessed_without_budget_consumption() {
     assert_eq!(policy.observe(&worker, Health::Unready, 23).unwrap(), Decision::Observe);
     assert_eq!(
         report(&policy)["assessments"][&worker.deployment]["reason"],
-        "dependency-unknown"
+        "dependency-unknown",
     );
     policy.dependency_observation("storage", Health::Unready).unwrap();
     assert_eq!(policy.observe(&worker, Health::Unready, 43).unwrap(), Decision::Observe);
     assert_eq!(
         policy.report().assessments[&worker.deployment].classification,
-        Classification::DependencyUnavailable
+        Classification::DependencyUnavailable,
     );
     policy.dependency_observation("storage", Health::Ready).unwrap();
     assert_eq!(policy.observe(&worker, Health::Unready, 44).unwrap(), Decision::Restart);
@@ -98,7 +98,7 @@ fn dependencies_gate_restarts_and_are_reassessed_without_budget_consumption() {
     assert!(policy.dependency_observation("foreign", Health::Ready).is_err());
     assert_eq!(
         policy.report().assessments[&worker.deployment].next_action_at,
-        ObservationTime::Recorded(43)
+        ObservationTime::Recorded(43),
     );
     let _expired = policy.observe(&worker, Health::Unready, 240).unwrap();
     assert_eq!(policy.incidents()[0].status, Status::Unrecovered);
@@ -131,7 +131,7 @@ fn transitive_dependencies_block_reservations_until_the_entire_path_is_healthy()
     let _unknown = policy.observe(&worker, Health::Unready, 23).unwrap();
     assert_eq!(
         policy.report().assessments[&worker.deployment].reason,
-        Reason::DependencyUnknown
+        Reason::DependencyUnknown,
     );
     for (health, now, expected) in [
         (Health::Unready, 24, Reason::DependencyUnavailable),
@@ -172,11 +172,11 @@ fn failed_or_stalled_dependencies_block_restarts_until_useful_work_resumes() {
         }
         assert_eq!(
             policy.observe(&worker, Health::Unready, now).unwrap(),
-            Decision::Observe
+            Decision::Observe,
         );
         assert_eq!(
             policy.report().assessments[&worker.deployment].reason,
-            Reason::DependencyUnavailable
+            Reason::DependencyUnavailable,
         );
         let _blocked = policy.reserve_restart(&worker, now).unwrap_err();
         assert!(policy.budget().restarts.is_empty());
@@ -189,7 +189,7 @@ fn failed_or_stalled_dependencies_block_restarts_until_useful_work_resumes() {
             .unwrap();
         assert_eq!(
             policy.observe(&worker, Health::Unready, now + 1).unwrap(),
-            Decision::Restart
+            Decision::Restart,
         );
         policy.reserve_restart(&worker, now + 1).unwrap();
         assert_eq!(policy.budget().restarts[&worker.deployment], 1);
@@ -242,7 +242,7 @@ fn expired_in_flight_recovery_does_not_block_a_later_incident() {
     assert_eq!(policy.report().assessments["second"].reason, Reason::ConcurrencyLimit);
     assert_eq!(
         policy.observe(&second, Health::Unready, 240).unwrap(),
-        Decision::Restart
+        Decision::Restart,
     );
     assert_eq!(policy.incidents()[0].status, Status::Detected);
     policy.reserve_restart(&second, 240).unwrap();
@@ -270,7 +270,7 @@ fn restored_terminal_incident_with_a_stale_reservation_does_not_block_the_fleet(
     assert!(now < deadline, "the status guard must act independently of expiry");
     assert_eq!(
         restored.observe(&second, Health::Unready, now).unwrap(),
-        Decision::Restart
+        Decision::Restart,
     );
     restored.reserve_restart(&second, now).unwrap();
     assert_eq!(restored.incidents()[0].status, Status::Unrecovered);
@@ -318,7 +318,7 @@ fn reconnect_evidence_requirements_distinguish_completed_and_unfinished_work() {
             assert_eq!(decision, Decision::Observe);
             assert_eq!(
                 policy.report().assessments[&worker.deployment].reason,
-                Reason::EvidenceRequired
+                Reason::EvidenceRequired,
             );
             assert!(policy.budget().restarts.is_empty());
         }
@@ -481,7 +481,7 @@ fn reconnect_requires_renewed_evidence_and_keeps_the_original_incident() {
     assert_eq!(policy.observe(&worker, Health::Unready, 31).unwrap(), Decision::Observe);
     assert_eq!(
         policy.report().assessments[&worker.deployment].reason,
-        Reason::EvidenceRequired
+        Reason::EvidenceRequired,
     );
     assert!(
         policy
@@ -496,7 +496,7 @@ fn reconnect_requires_renewed_evidence_and_keeps_the_original_incident() {
     assert_eq!(policy.incidents()[0].onset, 0);
     assert_eq!(
         policy.report().observation_gaps[0].ended_at,
-        ObservationTime::Recorded(30)
+        ObservationTime::Recorded(30),
     );
     policy
         .event(&worker.agent_id, &event("progress", 1, 3, "one"), 34)

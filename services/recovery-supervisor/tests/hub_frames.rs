@@ -68,7 +68,7 @@ async fn acknowledged(server: &mut WebSocketStream<TcpStream>, identity: &str) {
     };
     assert!(matches!(
         serde_json::from_str::<ClientMessage>(&response).unwrap(),
-        ClientMessage::MessageAck { message_id } if message_id == identity
+        ClientMessage::MessageAck { message_id } if message_id == identity,
     ));
 }
 
@@ -135,7 +135,7 @@ async fn malformed_events_and_non_event_frames_do_not_stop_delivery() {
     direct(&mut server, "invalid", serde_json::json!({"not":"a lifecycle event"})).await;
     assert_eq!(
         receiver.try_recv().unwrap_err(),
-        tokio::sync::mpsc::error::TryRecvError::Empty
+        tokio::sync::mpsc::error::TryRecvError::Empty,
     );
     server.send(Message::Ping(vec![3_u8].into())).await.unwrap();
     assert_eq!(receive(&mut server).await, Message::Pong(vec![3_u8].into()));

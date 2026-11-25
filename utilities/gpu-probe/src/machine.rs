@@ -99,7 +99,7 @@ impl Machine {
         } else {
             format!(
                 "{}/{}/actions/runs/{}",
-                github.server_url, github.repository, github.run_id
+                github.server_url, github.repository, github.run_id,
             )
         };
         let fields = [

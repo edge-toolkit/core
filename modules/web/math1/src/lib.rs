@@ -76,7 +76,7 @@ pub async fn run() -> Result<(), JsValue> {
 
     let msg = format!(
         "math1: reading input from /storage/{}/{}",
-        pointer.bucket, pointer.filename
+        pointer.bucket, pointer.filename,
     );
     log(&msg);
     set_module_status(&msg)?;
@@ -94,7 +94,7 @@ pub async fn run() -> Result<(), JsValue> {
         "math1: running FedAvg - {} clients x {} rounds x {} local epochs",
         input.clients.len(),
         input.rounds,
-        input.epochs
+        input.epochs,
     );
     log(&msg);
     set_module_status(&msg)?;

@@ -60,7 +60,7 @@ async fn ack_notifies_original_sender() {
             assert_eq!(
                 acked_id.as_deref(),
                 Some(message_id.as_str()),
-                "acknowledged status must carry the original message id"
+                "acknowledged status must carry the original message id",
             );
             return;
         }

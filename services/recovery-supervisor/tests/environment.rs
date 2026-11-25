@@ -30,7 +30,7 @@ fn multiple_workloads_and_assisted_mode_deserialize_without_global_environment_c
         "RECOVERY_WORKLOADS".into(),
         serde_json::json!([
             {"deployment":"worker-1", "agent_id":"client-1", "source":"/modules/client"},
-            {"deployment":"worker-2", "agent_id":"client-2", "source":"/modules/client"}
+            {"deployment":"worker-2", "agent_id":"client-2", "source":"/modules/client"},
         ])
         .to_string(),
     );

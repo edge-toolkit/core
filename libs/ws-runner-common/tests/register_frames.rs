@@ -105,7 +105,7 @@ async fn a_socket_closed_before_the_ack_reports_connection_closed() {
         .unwrap_err();
     assert!(
         matches!(err, ConnectError::ConnectionClosed),
-        "expected the closed-socket error rather than a timeout, got {err:?}"
+        "expected the closed-socket error rather than a timeout, got {err:?}",
     );
     hub.abort();
 }

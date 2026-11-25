@@ -171,7 +171,7 @@ async fn start() -> Result<(), Box<dyn Error>> {
         stdout,
         "Serving http://{}/ with {} runners",
         listener.local_addr()?,
-        GUESTS.len()
+        GUESTS.len(),
     )?;
     stdout.flush()?;
     // Leaked, as the board's lives in a static: it serves until the process ends, and every runner holds it that long.

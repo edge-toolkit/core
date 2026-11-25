@@ -32,7 +32,7 @@ impl MicrophoneAccess {
 
         info!(
             "Microphone access granted with {} audio track(s)",
-            stream.get_audio_tracks().length()
+            stream.get_audio_tracks().length(),
         );
 
         Ok(Self { stream })

@@ -37,7 +37,7 @@ fn twin(guest: &mut Guest<Host>) -> Result<(), GuestError> {
 
     guest.info(&format!(
         "reading input from bucket={} key={}",
-        pointer.bucket, pointer.filename
+        pointer.bucket, pointer.filename,
     ));
     let input_bytes = guest
         .get(&pointer.bucket, &pointer.filename)?
@@ -48,7 +48,7 @@ fn twin(guest: &mut Guest<Host>) -> Result<(), GuestError> {
         "running FedAvg - {} clients x {} rounds x {} local epochs",
         input.clients.len(),
         input.rounds,
-        input.epochs
+        input.epochs,
     ));
     let model = fed_avg(&input);
     guest.info(&format!("global model weight={} bias={}", model.weight, model.bias));

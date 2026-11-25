@@ -249,7 +249,7 @@ pub(crate) const GUESTS: [(&str, &[u8]); {count}] = [
 /// The bytes the board holds for its guests' memories, which they draw on as they grow, whatever they start with.
 pub(crate) const GUEST_MEMORY: u64 = {budget};
 ",
-        budget = separated(memory)
+        budget = separated(memory),
     );
     Ok(Generated { source, files: mains })
 }

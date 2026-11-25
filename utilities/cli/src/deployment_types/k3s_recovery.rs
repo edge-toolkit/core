@@ -138,7 +138,7 @@ fn supervisor_deployment(
         name: NAME.into(),
         image: Some(format!(
             "{}et-recovery-supervisor:{IMAGE_TAG}",
-            image_prefix(cluster.artifact_source)
+            image_prefix(cluster.artifact_source),
         )),
         image_pull_policy: Some(IMAGE_PULL_POLICY.into()),
         env: Some(variables.into_iter().map(|(name, value)| env(&name, value)).collect()),

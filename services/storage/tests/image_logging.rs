@@ -13,7 +13,7 @@ fn recognizes_common_image_extensions_case_insensitively() {
         let filename = format!("capture.{ext}");
         assert!(
             is_image_filename(Path::new(&filename)),
-            "{filename} should be recognized as an image"
+            "{filename} should be recognized as an image",
         );
     }
 }
@@ -23,7 +23,7 @@ fn rejects_non_image_extensions_and_extensionless_names() {
     for name in ["notes.txt", "data.json", "archive.tar.gz", "no-extension", ".hidden"] {
         assert!(
             !is_image_filename(Path::new(name)),
-            "{name} should not be recognized as an image"
+            "{name} should not be recognized as an image",
         );
     }
 }

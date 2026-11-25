@@ -36,7 +36,7 @@ fn an_evicted_agents_address_is_reported_and_a_wrong_token_is_refused() {
     assert_eq!(evicted.blocked_ip, IpAddr::V4(Ipv4Addr::LOCALHOST));
     assert_eq!(
         evicted.to_string(),
-        format!("Evicted agent {agent_id}; blocked IP 127.0.0.1")
+        format!("Evicted agent {agent_id}; blocked IP 127.0.0.1"),
     );
 }
 

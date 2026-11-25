@@ -199,7 +199,7 @@ fn quoted_now(label: &str, runner: &Runner) -> String {
     format!(
         "--- {label} stdout ---\n{}\n--- {label} stderr ---\n{}",
         captured(&runner.stdout),
-        captured(&runner.stderr)
+        captured(&runner.stderr),
     )
 }
 
@@ -409,7 +409,7 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
         !registered.is_empty(),
         "math1-trigger never registered with the hub within {:?}\n{}",
         RUNNER_STARTUP_TIMEOUT,
-        quoted("math1-trigger", &mut trigger)
+        quoted("math1-trigger", &mut trigger),
     );
     let mut twin = spawn_runner(scenario, twin_task);
 
@@ -437,7 +437,7 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
             concat!(
                 "{}: no math1-output.json appeared in any storage bucket under {}\n",
                 "exited within RUNNER_EXIT_TIMEOUT: {}={}, math1-trigger={}\n",
-                "{}\n{}"
+                "{}\n{}",
             ),
             scenario,
             storage_dir.display(),
@@ -445,7 +445,7 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
             twin_exited,
             trigger_exited,
             quoted_now(twin_task, &twin),
-            quoted_now("math1-trigger", &trigger)
+            quoted_now("math1-trigger", &trigger),
         );
     };
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap();

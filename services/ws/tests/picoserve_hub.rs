@@ -162,7 +162,7 @@ async fn agents_on_separate_sockets_reach_each_other() {
         send(&mut bob, &ClientMessage::ListAgents).await;
         assert!(matches!(
             receive(&mut bob).await,
-            ServerMessage::ListAgentsResponse { agents } if agents.len() == 2
+            ServerMessage::ListAgentsResponse { agents } if agents.len() == 2,
         ));
 
         // Frames outside the protocol are relayed to every other agent as they came.
@@ -213,7 +213,7 @@ async fn control_frames_and_undecodable_frames_leave_the_connection_open() {
         send(&mut alice, &ClientMessage::ListAgents).await;
         assert!(matches!(
             receive(&mut alice).await,
-            ServerMessage::ListAgentsResponse { agents } if agents.len() == 1
+            ServerMessage::ListAgentsResponse { agents } if agents.len() == 1,
         ));
     })
     .await;
@@ -264,7 +264,7 @@ async fn an_agent_in_process_reaches_one_on_a_socket_and_leaves_when_dropped() {
         });
         assert!(matches!(
             local_receive(&mut board).await,
-            ServerMessage::ConnectAck { agent_id, status: ConnectStatus::Assigned } if agent_id == "board"
+            ServerMessage::ConnectAck { agent_id, status: ConnectStatus::Assigned } if agent_id == "board",
         ));
 
         board.send(ClientMessage::SendAgentMessage {
@@ -316,7 +316,7 @@ async fn an_agent_in_process_is_held_to_the_frames_a_connection_may_send() {
     let refused = board.send_text(&" ".repeat(oversized)).unwrap_err();
     assert_eq!(
         refused.to_string(),
-        "a 1025-byte frame is larger than the 1024 bytes the hub reads"
+        "a 1025-byte frame is larger than the 1024 bytes the hub reads",
     );
 
     // Text that is no message is dropped, as a connection's is, so the first reply is the connect's.
@@ -325,7 +325,7 @@ async fn an_agent_in_process_is_held_to_the_frames_a_connection_may_send() {
     board.send_text(&connect).unwrap();
     assert!(matches!(
         local_receive(&mut board).await,
-        ServerMessage::ConnectAck { .. }
+        ServerMessage::ConnectAck { .. },
     ));
 }
 
@@ -343,12 +343,12 @@ async fn an_agent_in_process_that_never_reads_keeps_only_its_latest_replies() {
     for _ in 1..MAX_QUEUED {
         assert!(matches!(
             local_receive(&mut board).await,
-            ServerMessage::Response { .. }
+            ServerMessage::Response { .. },
         ));
     }
     assert!(matches!(
         local_receive(&mut board).await,
-        ServerMessage::ListAgentsResponse { .. }
+        ServerMessage::ListAgentsResponse { .. },
     ));
     let _nothing_more = tokio::time::timeout(Duration::from_millis(100), board.next())
         .await

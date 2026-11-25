@@ -132,11 +132,11 @@ fn state_change_callback_receives_transitions() {
     let seen = recorded.borrow();
     assert!(
         seen.iter().any(|state| state == "connecting"),
-        "expected a connecting transition"
+        "expected a connecting transition",
     );
     assert!(
         seen.iter().any(|state| state == "disconnected"),
-        "expected a disconnected transition"
+        "expected a disconnected transition",
     );
 
     callback.forget();
@@ -160,7 +160,7 @@ async fn connection_error_schedules_reconnect() {
     }
     assert!(
         saw_reconnecting,
-        "expected the failed connection to enter the reconnecting state"
+        "expected the failed connection to enter the reconnecting state",
     );
     client.disconnect();
 }
@@ -246,7 +246,7 @@ async fn connects_flushes_queue_and_sends() {
     }
     assert!(
         connected,
-        "client should reach the connected state against the live server"
+        "client should reach the connected state against the live server",
     );
 
     // The server's et-connect-ack assigns (and the client persists) an agent id.

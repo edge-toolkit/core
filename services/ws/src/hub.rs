@@ -179,7 +179,7 @@ fn log_client_event(agent_id: &str, event: &CloudEvent) {
             .unwrap_or("unknown");
         info!(
             "Video inference received from {}: class={} confidence={:.4} processed_at={}",
-            agent_id, detected_class, confidence, processed_at
+            agent_id, detected_class, confidence, processed_at,
         );
     }
     info!(
@@ -189,7 +189,7 @@ fn log_client_event(agent_id: &str, event: &CloudEvent) {
         event.source,
         event.id,
         event.time.to_rfc3339(),
-        details
+        details,
     );
 }
 
@@ -261,12 +261,12 @@ impl<S: Clone + Send + 'static> Link<S> {
     {
         info!(
             "Connect message: requested_agent_id={:?} client_ip={}",
-            requested_id, self.client_ip
+            requested_id, self.client_ip,
         );
         let (assigned_id, status) = self.assign(registry, requested_id, stamps);
         info!(
             "Agent {} status {:?}connected from IP {}",
-            assigned_id, status, self.client_ip
+            assigned_id, status, self.client_ip,
         );
         (assigned_id, status)
     }
@@ -292,7 +292,7 @@ impl<S: Clone + Send + 'static> Link<S> {
         info!(
             "WebSocket connection ready for client {} with status {:?}",
             self.current_agent_id(),
-            status
+            status,
         );
         ServerMessage::ConnectAck { agent_id, status }
     }
@@ -307,7 +307,7 @@ impl<S: Clone + Send + 'static> Link<S> {
                     "Delivering pending message {} to agent {} from {}",
                     pending.message_id,
                     self.current_agent_id(),
-                    pending.from_agent_id
+                    pending.from_agent_id,
                 );
                 direct_message(pending)
             })
@@ -320,7 +320,7 @@ impl<S: Clone + Send + 'static> Link<S> {
         info!(
             "Agent {} requested list_agents; returning {} agents",
             self.current_agent_id(),
-            agents.len()
+            agents.len(),
         );
         ServerMessage::ListAgentsResponse { agents }
     }
@@ -448,7 +448,7 @@ impl<S: Clone + Send + 'static> Link<S> {
         if let Some(recipient) = recipient_session {
             info!(
                 "Direct message {} delivered from {} to {}",
-                message_id, from_agent_id, to_agent_id
+                message_id, from_agent_id, to_agent_id,
             );
             routing
                 .deliveries
@@ -461,7 +461,7 @@ impl<S: Clone + Send + 'static> Link<S> {
         } else {
             info!(
                 "Direct message {} queued from {} to disconnected agent {}",
-                message_id, from_agent_id, to_agent_id
+                message_id, from_agent_id, to_agent_id,
             );
             routing.replies.push(status(
                 Some(message_id),
@@ -486,7 +486,7 @@ impl<S: Clone + Send + 'static> Link<S> {
             "Broadcast message {} from {} to {} agent(s)",
             message_id,
             from_agent_id,
-            recipients.len()
+            recipients.len(),
         );
         let broadcast = ServerMessage::AgentMessage {
             message_id: message_id.clone(),
@@ -521,7 +521,7 @@ impl<S: Clone + Send + 'static> Link<S> {
             Ok((message_id, sender_session, sender_agent_id)) => {
                 info!(
                     "Agent {} acknowledged direct message {} from {}",
-                    recipient_agent_id, message_id, sender_agent_id
+                    recipient_agent_id, message_id, sender_agent_id,
                 );
                 let mut routing = Routing::reply(status(
                     Some(message_id.clone()),
@@ -557,12 +557,12 @@ impl<S: Clone + Send + 'static> Link<S> {
                 "Broadcasting unrecognised binary message ({} bytes) from {} to {} agent(s)",
                 bytes.len(),
                 from_agent_id,
-                recipients.len()
+                recipients.len(),
             ),
             SessionMessage::Json(_) | SessionMessage::Text(_) => info!(
                 "Broadcasting unrecognised text message from {} to {} agent(s)",
                 from_agent_id,
-                recipients.len()
+                recipients.len(),
             ),
         }
         routing.deliveries = recipients

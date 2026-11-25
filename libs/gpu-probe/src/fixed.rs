@@ -229,7 +229,7 @@ impl Filter {
     pub fn shader(&self) -> String {
         let bindings = concat!(
             "@group(0) @binding(0) var probeTexture : texture_2d<f32>;\n",
-            "@group(0) @binding(1) var probeSampler : sampler;\n"
+            "@group(0) @binding(1) var probeSampler : sampler;\n",
         );
         let point = format!("vec2<f32>({}, 0.5)", literal(self.coordinate));
         let sample = format!("textureSampleLevel(probeTexture, probeSampler, {point}, 0.0).r");

@@ -74,8 +74,8 @@ fn a_signature_line_names_its_values_and_takes_the_label_and_row_of_its_block() 
             ("lane0", "4e31fa9b"),
             ("lane1", "76b62595"),
             ("lane2", "5debc5c0"),
-            ("lane3", "52ef3664")
-        ]
+            ("lane3", "52ef3664"),
+        ],
     );
 }
 
@@ -113,7 +113,7 @@ fn a_line_opening_three_spaces_continues_the_word_before_it() {
 fn a_block_with_no_interface_line_is_refused() {
     assert_eq!(
         fault("label A\ncanvas 1 2 3 4\n\nlabel B\nbrowser firefox\n"),
-        (4, "a block with no interface line")
+        (4, "a block with no interface line"),
     );
 }
 
@@ -129,21 +129,21 @@ fn a_line_out_of_place_is_named_by_its_number() {
     assert_eq!(fault("   joined\n"), (1, "a continuation with no line to continue"));
     assert_eq!(
         fault("label A\n\n  continued\n"),
-        (3, "a continuation with no line to continue")
+        (3, "a continuation with no line to continue"),
     );
     assert_eq!(
         fault("label A\ncanvas 1 2 3 4\nbrowser firefox\n"),
-        (3, "a label or row field after the block's first interface")
+        (3, "a label or row field after the block's first interface"),
     );
     assert_eq!(
         fault("label A\ncanvas 1 2 3 4\nlabel B\n"),
-        (3, "a label or row field after the block's first interface")
+        (3, "a label or row field after the block's first interface"),
     );
     assert_eq!(fault("label A\nlabel B\n"), (2, "a second label"));
     assert_eq!(fault("os linux\nos macos\n"), (2, "a row field given twice"));
     assert_eq!(
         fault("label A\ncanvas 1 2 3\n"),
-        (2, "not as many values as the interface has results")
+        (2, "not as many values as the interface has results"),
     );
 }
 
@@ -158,7 +158,7 @@ fn an_escape_that_names_no_character_is_refused() {
     assert_eq!(fault("label A\nos \\q\n"), (2, "a backslash that starts no escape"));
     assert_eq!(
         fault("label A\nwebgl2 blocked: \\q\n"),
-        (2, "a backslash that starts no escape")
+        (2, "a backslash that starts no escape"),
     );
 }
 

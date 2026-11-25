@@ -50,7 +50,7 @@ async fn connect_peer(
         };
         if matches!(
             serde_json::from_str::<ServerMessage>(&text),
-            Ok(ServerMessage::ConnectAck { .. })
+            Ok(ServerMessage::ConnectAck { .. }),
         ) {
             return socket;
         }
@@ -81,7 +81,7 @@ async fn binary_frame_arrives_as_relay_binary() {
         if let ServerMessage::RelayBinary { content } = message {
             assert_eq!(
                 content, payload,
-                "the relayed bytes must survive the round trip unchanged"
+                "the relayed bytes must survive the round trip unchanged",
             );
             return;
         }
@@ -105,7 +105,7 @@ async fn heartbeat_keeps_the_connection_past_the_idle_close() {
     assert_eq!(
         backend.current_state().await,
         State::Connected,
-        "an idle backend must be held open by its own heartbeat"
+        "an idle backend must be held open by its own heartbeat",
     );
 }
 
@@ -139,7 +139,7 @@ async fn relay_binary_leaves_as_a_raw_binary_frame() {
             assert_eq!(
                 bytes.to_vec(),
                 payload,
-                "the relay must not wrap or re-encode the bytes"
+                "the relay must not wrap or re-encode the bytes",
             );
             return;
         }

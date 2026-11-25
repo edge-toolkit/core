@@ -109,7 +109,7 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
     let message = outcome.as_ref().map_or_else(ToString::to_string, ToString::to_string);
     info!(
         "{peer} submitted {} {:?}: {message}",
-        submission.interface, submission.label
+        submission.interface, submission.label,
     );
     match outcome {
         Ok(_) => reply(HttpResponse::Ok(), true, &message),

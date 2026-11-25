@@ -122,7 +122,7 @@ fn a_probe_glsl_has_no_builtin_for_is_refused_without_a_shader() {
             .iter()
             .any(|line| line.contains("fma") && line.contains(NO_GLSL_BUILTIN)),
         "{:?}",
-        signature.describe()
+        signature.describe(),
     );
 }
 

@@ -18,7 +18,7 @@ fn headers_carry_basic_auth_only_when_the_config_supplies_it() {
     // No auth: the exporters go out bare, which is what a local collector expects.
     assert!(
         exporter_headers(None).is_empty(),
-        "an unauthenticated config must add no headers at all"
+        "an unauthenticated config must add no headers at all",
     );
 
     // The credential comes from the committed dev-only env file the local collector starts from, so the
@@ -43,11 +43,11 @@ fn headers_carry_basic_auth_only_when_the_config_supplies_it() {
     let authorization = &headers["authorization"];
     assert!(
         authorization.starts_with("Basic "),
-        "expected an HTTP basic credential, got {authorization:?}"
+        "expected an HTTP basic credential, got {authorization:?}",
     );
     assert!(
         !authorization.contains(&password),
-        "the password must be encoded, not passed through in the clear"
+        "the password must be encoded, not passed through in the clear",
     );
     assert_eq!(headers.len(), 1, "no other headers should be added: {headers:?}");
 }
@@ -62,7 +62,7 @@ fn a_resolved_hostname_becomes_the_service_instance() {
     assert_eq!(instance.value, Value::from("runner-7"));
     assert!(
         descriptors.iter().any(|attr| attr.key.as_str() == "service.version"),
-        "the crate version is unconditional and must survive alongside the instance"
+        "the crate version is unconditional and must survive alongside the instance",
     );
 }
 
@@ -73,7 +73,7 @@ fn an_unresolvable_hostname_drops_the_instance_but_keeps_the_version() {
     let descriptors = service_descriptors(None);
     assert!(
         !descriptors.iter().any(|attr| attr.key.as_str() == "service.instance"),
-        "an unresolvable hostname must not produce an empty service.instance: {descriptors:?}"
+        "an unresolvable hostname must not produce an empty service.instance: {descriptors:?}",
     );
     assert_eq!(descriptors.len(), 1, "only the version should remain: {descriptors:?}");
     assert_eq!(descriptors[0].key.as_str(), "service.version");

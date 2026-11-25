@@ -49,7 +49,7 @@ fn paths(root: &TempDir) -> String {
     format!(
         "{}, {} ,",
         root.path().join("built").display(),
-        root.path().join("plain").display()
+        root.path().join("plain").display(),
     )
 }
 
@@ -86,7 +86,7 @@ fn it_builds_in_what_each_package_publishes() {
             "built/pkg/package.json",
             "plain/package.json",
             "plain/style.css",
-        ]
+        ],
     );
 
     let source = &generated.source;

@@ -209,7 +209,7 @@ fn an_exposed_hub_gets_a_load_balancer_beside_its_cluster_service() {
     let external = &services["ws-server-ext"];
     assert_eq!(
         exposure(external),
-        ("LoadBalancer".to_owned(), "Local".to_owned(), String::default())
+        ("LoadBalancer".to_owned(), "Local".to_owned(), String::default()),
     );
     assert_eq!(selector(external), "ws-server");
     assert_eq!(service_ports(external), [tcp("ws", 8080), tcp("wss", 8443)]);
@@ -232,12 +232,12 @@ fn an_exposed_runner_gets_a_load_balancer_and_declares_its_ports() {
     let twin = &generated.services()["twin"];
     assert_eq!(
         exposure(twin),
-        ("LoadBalancer".to_owned(), "Local".to_owned(), String::default())
+        ("LoadBalancer".to_owned(), "Local".to_owned(), String::default()),
     );
     assert_eq!(selector(twin), "twin");
     assert_eq!(
         service_ports(twin),
-        [tcp("http", 8000), ("metrics".to_owned(), 9000_i32, "UDP".to_owned())]
+        [tcp("http", 8000), ("metrics".to_owned(), 9000_i32, "UDP".to_owned())],
     );
 
     let deployments: BTreeMap<String, Deployment> = generated.objects();

@@ -99,7 +99,7 @@ fn start_rustfs(volume: &Path, port: u16, log_path: &Path) -> ChildGuard {
     assert!(
         wait_for_port(port),
         "rustfs did not start listening on port {port}\n--- rustfs output ---\n{}",
-        fs_err::read_to_string(log_path).unwrap_or_default()
+        fs_err::read_to_string(log_path).unwrap_or_default(),
     );
     guard
 }
@@ -134,7 +134,7 @@ async fn wait_for_ready(port: u16, log_path: &Path) {
     assert!(
         ready.is_ok(),
         "rustfs storage did not become ready: {last_response}\n--- rustfs output ---\n{}",
-        fs_err::read_to_string(log_path).unwrap_or_default()
+        fs_err::read_to_string(log_path).unwrap_or_default(),
     );
 }
 
@@ -228,13 +228,13 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
         StatusCode::OK,
         "PUT through the S3 backend should succeed\n--- PUT response ---\n{}\n--- rustfs output ---\n{}",
         String::from_utf8_lossy(&put_body),
-        rustfs_log()
+        rustfs_log(),
     );
     assert_eq!(
         get_status,
         StatusCode::OK,
         "GET through the S3 backend should succeed\n--- rustfs output ---\n{}",
-        rustfs_log()
+        rustfs_log(),
     );
     assert_eq!(&*body, BODY, "bytes must survive the S3 round-trip unchanged");
 
@@ -244,6 +244,6 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
     assert!(
         stored.is_dir(),
         "expected the object at {} in rustfs's volume",
-        stored.display()
+        stored.display(),
     );
 }

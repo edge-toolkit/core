@@ -57,7 +57,7 @@ impl Platform for BoardPlatform {
     fn write(&self, _console: Console, bytes: &[u8]) {
         info!(
             "{=str}",
-            core::str::from_utf8(bytes).unwrap_or("(output that is not UTF-8)")
+            core::str::from_utf8(bytes).unwrap_or("(output that is not UTF-8)"),
         );
     }
 }

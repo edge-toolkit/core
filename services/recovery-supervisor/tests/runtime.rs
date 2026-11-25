@@ -59,7 +59,7 @@ impl Backend for FakeBackend {
         let restored = load_budget(&self.config).unwrap();
         assert_eq!(
             restored.restarts.get(&workload.deployment).copied(),
-            Some(self.restarts.saturating_add(1))
+            Some(self.restarts.saturating_add(1)),
         );
         self.restarts = self.restarts.saturating_add(1);
         if self.fail_restart {
@@ -150,7 +150,7 @@ async fn cycles_observe_dependencies_once_and_gate_actions_on_their_current_heal
             assert_eq!(backend.observed.iter().filter(|name| *name == "storage").count(), 3);
             assert_eq!(
                 backend.restarted.contains(&"example-worker".into()),
-                health == Health::Ready
+                health == Health::Ready,
             );
             if !supervised {
                 assert!(!backend.restarted.contains(&"storage".into()));
@@ -180,11 +180,11 @@ async fn cycle_persists_budget_before_action_and_retains_failed_attempts() {
         supervisor.incidents()[0].actions.last(),
         Some(&Action::RestartFailed {
             error: "restart denied".into()
-        })
+        }),
     );
     assert_eq!(
         report(&supervisor)["incidents"][0]["actions"][3]["kind"],
-        "restart-failed"
+        "restart-failed",
     );
     backend.unknown = true;
     cycle(&config, &store, &mut supervisor, &mut backend, 63).await.unwrap();
@@ -342,7 +342,7 @@ async fn kubernetes_reports_command_errors_without_contacting_a_cluster() {
         .unwrap_err();
     assert!(
         matches!(error, RecoveryError::Invalid(_)),
-        "expected a kubectl context error, not a process startup or timeout failure: {error}"
+        "expected a kubectl context error, not a process startup or timeout failure: {error}",
     );
     assert!(error.to_string().contains("kubectl"));
     assert!(error.to_string().contains("context"));

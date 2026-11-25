@@ -69,7 +69,7 @@ async fn an_https_hub_registers_an_agent_that_trusts_its_self_signed_certificate
     };
     assert!(matches!(
         ServerMessage::from_text_frame(&text),
-        Ok(ServerMessage::ConnectAck { .. })
+        Ok(ServerMessage::ConnectAck { .. }),
     ));
 }
 

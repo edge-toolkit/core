@@ -45,7 +45,7 @@ fn a_machine_off_a_runner_is_named_as_given_and_gives_its_release_cpu_and_day() 
     let date = fields.get("date").unwrap();
     assert_eq!(
         jiff::civil::Date::strptime("%Y-%m-%d", date).unwrap().to_string(),
-        *date
+        *date,
     );
     assert_eq!(fields.get("source"), None);
 }
@@ -61,7 +61,7 @@ fn a_machine_named_nothing_is_named_by_the_environment() {
     let machine = with_vars(named("MacBook Pro (16-inch, 2019)"), || Machine::here("")).unwrap();
     assert_eq!(
         machine.fields().get("device").map(String::as_str),
-        Some("MacBook Pro (16-inch, 2019)")
+        Some("MacBook Pro (16-inch, 2019)"),
     );
 }
 
@@ -70,7 +70,7 @@ fn a_device_given_outranks_the_environments() {
     let machine = with_vars(named("a desktop"), || Machine::here("M5 Pro MacBook Pro")).unwrap();
     assert_eq!(
         machine.fields().get("device").map(String::as_str),
-        Some("M5 Pro MacBook Pro")
+        Some("M5 Pro MacBook Pro"),
     );
 }
 
@@ -80,11 +80,11 @@ fn a_runner_is_named_by_its_image_and_the_run_it_is_part_of() {
     let fields = machine.fields();
     assert_eq!(
         fields.get("device").map(String::as_str),
-        Some("GitHub Actions runner image macos15 20261110.1")
+        Some("GitHub Actions runner image macos15 20261110.1"),
     );
     assert_eq!(
         fields.get("source").map(String::as_str),
-        Some("https://github.com/edge-toolkit/core/actions/runs/45112698960")
+        Some("https://github.com/edge-toolkit/core/actions/runs/45112698960"),
     );
 }
 
@@ -130,7 +130,7 @@ fn only_driver_settings_are_kept_in_name_order() {
     ]));
     assert_eq!(
         settings,
-        "INTEL_DEBUG=nofc VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json __GL_SYNC_TO_VBLANK=0"
+        "INTEL_DEBUG=nofc VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json __GL_SYNC_TO_VBLANK=0",
     );
     assert_eq!(environment(vars(&[("PATH", "/usr/bin")])), "");
 }
@@ -146,7 +146,7 @@ fn the_vendor_glvnd_loads_is_a_driver_setting() {
     ]));
     assert_eq!(
         settings,
-        "__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json __GLX_VENDOR_LIBRARY_NAME=mesa"
+        "__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json __GLX_VENDOR_LIBRARY_NAME=mesa",
     );
 }
 
@@ -158,6 +158,6 @@ fn this_machine_gives_the_driver_settings_in_force() {
     let settings = machine.fields().get("environment").unwrap();
     assert!(
         settings.split(' ').any(|setting| setting == "INTEL_DEBUG=nofc"),
-        "{settings}"
+        "{settings}",
     );
 }

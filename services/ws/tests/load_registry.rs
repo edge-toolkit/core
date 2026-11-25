@@ -36,11 +36,11 @@ fn round_trips_state_ip_and_pending_messages_but_not_sessions() {
     let (agent_2_id, agent_2_status) = registry.connect_agent(None, "agent-2".to_string(), AGENT_2_IP, tx2);
     assert_eq!(
         (agent_1_id.as_str(), agent_1_status),
-        ("agent-1", ConnectStatus::Assigned)
+        ("agent-1", ConnectStatus::Assigned),
     );
     assert_eq!(
         (agent_2_id.as_str(), agent_2_status),
-        ("agent-2", ConnectStatus::Assigned)
+        ("agent-2", ConnectStatus::Assigned),
     );
     let queued = registry.queue_direct(
         "msg-1".to_string(),
@@ -61,11 +61,11 @@ fn round_trips_state_ip_and_pending_messages_but_not_sessions() {
         vec![
             AgentSummary::new("agent-1".to_string(), AgentConnectionState::Connected, AGENT_1_IP),
             AgentSummary::new("agent-2".to_string(), AgentConnectionState::Disconnected, AGENT_2_IP),
-        ]
+        ],
     );
     assert!(
         loaded.agent_session("agent-1").is_none(),
-        "sessions are never persisted, so a reloaded agent must have none even though it was Connected"
+        "sessions are never persisted, so a reloaded agent must have none even though it was Connected",
     );
 
     let pending = loaded.pending_messages_for("agent-2");

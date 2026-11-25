@@ -250,7 +250,7 @@ impl OutputType {
     pub const fn runs_schedules(self) -> bool {
         !matches!(
             self,
-            Self::Mise | Self::Dekit | Self::FirmwarePico2 | Self::FirmwareEsp32c6 | Self::FirmwarePicoPlus2
+            Self::Mise | Self::Dekit | Self::FirmwarePico2 | Self::FirmwareEsp32c6 | Self::FirmwarePicoPlus2,
         )
     }
 

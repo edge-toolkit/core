@@ -131,7 +131,7 @@ impl NfcScanResult {
 
         info!(
             "NFC scan captured: serial_number={} summary={}",
-            serial_number, record_summary
+            serial_number, record_summary,
         );
 
         Ok(Self {

@@ -93,7 +93,7 @@ async fn request(address: SocketAddr, method: &str, path: &str) -> String {
 async fn put(address: SocketAddr, path: &str, contents: &[u8]) -> String {
     let head = format!(
         "PUT {path} HTTP/1.1\r\nHost: hub\r\nContent-Length: {}\r\n",
-        contents.len()
+        contents.len(),
     );
     send(address, &head, contents).await
 }

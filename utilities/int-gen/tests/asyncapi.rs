@@ -37,7 +37,7 @@ fn the_send_operation_carries_every_client_message() {
             "RelayBinary",
             "RelayText",
             "SendAgentMessage",
-        ]
+        ],
     );
 }
 
@@ -56,7 +56,7 @@ fn the_receive_operation_carries_every_server_message() {
             "RelayBinary",
             "RelayText",
             "Response",
-        ]
+        ],
     );
 }
 

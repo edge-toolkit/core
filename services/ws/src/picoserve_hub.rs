@@ -276,7 +276,7 @@ impl core::fmt::Display for FrameTooLarge {
         write!(
             f,
             "a {}-byte frame is larger than the {} bytes the hub reads",
-            self.size, self.max
+            self.size, self.max,
         )
     }
 }
@@ -317,7 +317,7 @@ where
             Err(err) => warn!(
                 "Decode error for et-* frame from {}: {}",
                 self.link.current_agent_id(),
-                err
+                err,
             ),
         }
         Ok(())
@@ -411,7 +411,7 @@ fn received<'buffer>(link: &Link<Outbox>, message: Result<Message<'buffer>, Read
             info!(
                 "WebSocket close request from client: {} reason: {:?}",
                 link.current_agent_id(),
-                reason
+                reason,
             );
             Received::Ended
         }
@@ -419,7 +419,7 @@ fn received<'buffer>(link: &Link<Outbox>, message: Result<Message<'buffer>, Read
             warn!(
                 "Unreadable WebSocket message from {}: {:?}",
                 link.current_agent_id(),
-                err
+                err,
             );
             Received::Ended
         }
@@ -488,7 +488,7 @@ where
         info!(
             "Agent {} disconnected; last known IP {}",
             link.current_agent_id(),
-            self.client_ip
+            self.client_ip,
         );
         exchanged?;
         tx.close(None).await

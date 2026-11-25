@@ -59,7 +59,7 @@ impl Guest for Component {
                     info(&format!(
                         "stored the first revolution to {SCAN_KEY}: {} samples at {} Hz",
                         scan.samples.len(),
-                        scan.frequency_hz()
+                        scan.frequency_hz(),
                     ));
                 }
                 stored = stored.saturating_add(1);
@@ -70,7 +70,7 @@ impl Guest for Component {
         info(&format!(
             "the lidar's port closed after {stored} revolutions, with {} bytes skipped and {} packets rejected",
             decoder.skipped_bytes(),
-            decoder.rejected_packets()
+            decoder.rejected_packets(),
         ));
         disconnect();
         #[cfg(feature = "coverage")]

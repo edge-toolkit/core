@@ -471,7 +471,7 @@ impl Dispatcher {
         if !has_hook {
             return Err(PythonError::Py(format!(
                 "module `{module_name}` defines none of the runner hooks ({})",
-                HOOKS.join(", ")
+                HOOKS.join(", "),
             )));
         }
 

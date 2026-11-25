@@ -1,0 +1,11 @@
+id: multi-line-string
+language: Rust
+# A token tree holding a string literal that spans lines, at any depth.
+# Replacing such a tree through a fix re-indents its later lines to the line it starts on, which changes the string.
+rule:
+  has:
+    any:
+      - kind: string_literal
+      - kind: raw_string_literal
+    regex: "\n"
+    stopBy: end

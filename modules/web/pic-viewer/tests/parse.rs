@@ -54,7 +54,7 @@ fn decodes_the_live_broadcast_envelope() {
     assert_eq!(notification.filename, "pyeye1-eye-capture-demo.png");
     assert_eq!(
         notification.url,
-        "/storage/019f8c4a-25f5-7162-a35a-db901665cefb/pyeye1-eye-capture-demo.png"
+        "/storage/019f8c4a-25f5-7162-a35a-db901665cefb/pyeye1-eye-capture-demo.png",
     );
 }
 
@@ -79,7 +79,7 @@ fn ignores_non_agent_message_traffic() {
     for frame in other_frames {
         assert!(
             parse_capture_notification(frame).is_none(),
-            "frame should be ignored: {frame}"
+            "frame should be ignored: {frame}",
         );
     }
 }
@@ -123,7 +123,7 @@ fn rejects_urls_outside_same_origin_storage() {
         payload["url"] = json!(url);
         assert!(
             parse_capture_notification(&envelope(&payload)).is_none(),
-            "url should be rejected: {url}"
+            "url should be rejected: {url}",
         );
     }
 }

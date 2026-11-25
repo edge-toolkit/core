@@ -52,7 +52,7 @@ fn restored_downtime_expires_the_original_recovery_deadline() {
     assert!(now >= 323);
     assert_eq!(
         restored.observe(&worker, Health::Unready, now).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(restored.incidents()[0].status, Status::Unrecovered);
     assert!(restored.reserve_restart(&worker, now).is_err());
@@ -200,7 +200,7 @@ fn restored_context_keeps_policy_history_and_rejects_replayed_or_mismatched_evid
     );
     assert_eq!(
         restored.observe(&worker, Health::Unready, restored.elapsed(1)).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(restored.report().observation_gaps.len(), 1);
     settings.policy.max_restarts = 3;
@@ -220,7 +220,7 @@ fn restoration_archives_legacy_reports_and_rejects_invalid_contexts() {
             .as_array()
             .unwrap()
             .len(),
-        1
+        1,
     );
     for (field, value) in [
         ("schema_version", serde_json::json!(2_u32)),

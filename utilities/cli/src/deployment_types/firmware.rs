@@ -307,7 +307,7 @@ fn firmware_tasks(
         let host_test = module_task(
             &format!(
                 "Serve {}'s modules from this host as the board would, and fetch each",
-                cluster.cluster_name
+                cluster.cluster_name,
             ),
             &format!("mise run cargo-test-pkg {}", board.package),
         );

@@ -241,7 +241,7 @@ pub fn read_paths() -> Result<ReadPaths, CanvasError> {
                     path.name(),
                     found.changed,
                     found.total,
-                    found.pattern
+                    found.pattern,
                 )
             }
             Ok(Err(problem)) => format!("{}: {problem}", path.name()),

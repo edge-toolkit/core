@@ -159,11 +159,11 @@ async fn a_submission_is_added_then_found_present() {
     let path = dir.path().join("registry");
     assert_eq!(
         register(path.clone(), NEW).await,
-        (StatusCode::OK, true, "added as entry 1 of its interface".to_owned())
+        (StatusCode::OK, true, "added as entry 1 of its interface".to_owned()),
     );
     assert_eq!(
         register(path, NEW).await,
-        (StatusCode::OK, true, "already present: New".to_owned())
+        (StatusCode::OK, true, "already present: New".to_owned()),
     );
 }
 
@@ -223,7 +223,7 @@ async fn a_page_status_is_logged_and_answered_with_no_content() {
 async fn a_page_status_that_is_not_lines_is_a_bad_request() {
     assert_eq!(
         status_as(r#"{"status": 1}"#, "application/json").await,
-        StatusCode::BAD_REQUEST
+        StatusCode::BAD_REQUEST,
     );
 }
 
@@ -231,7 +231,7 @@ async fn a_page_status_that_is_not_lines_is_a_bad_request() {
 async fn a_page_status_not_sent_as_json_is_refused_unread() {
     assert_eq!(
         status_as("Submitted.", "text/plain").await,
-        StatusCode::UNSUPPORTED_MEDIA_TYPE
+        StatusCode::UNSUPPORTED_MEDIA_TYPE,
     );
 }
 
@@ -240,7 +240,7 @@ async fn a_page_status_past_64_kib_is_refused_unread() {
     let lines = format!(r#"{{"status": ["{}"]}}"#, "x".repeat(64 * 1024));
     assert_eq!(
         status_as(&lines, "application/json").await,
-        StatusCode::PAYLOAD_TOO_LARGE
+        StatusCode::PAYLOAD_TOO_LARGE,
     );
 }
 
@@ -299,7 +299,7 @@ fn a_certificate_covers_each_public_host_and_each_lan_address_with_its_nip_io_na
     assert_eq!(nip_io(lan[0]), "10-1-2-3.nip.io");
     assert_eq!(
         advertised_names(&["probe.example".to_owned()], &lan),
-        ["probe.example", "10.1.2.3", "10-1-2-3.nip.io"]
+        ["probe.example", "10.1.2.3", "10-1-2-3.nip.io"],
     );
     assert_eq!(advertised_names(&[], &[]), Vec::<String>::new());
 }

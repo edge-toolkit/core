@@ -83,7 +83,7 @@ fn wait_for_connected_agents_ignores_a_peer_that_has_gone() {
 
     assert!(
         seen.is_empty(),
-        "a departed peer must not count as connected, got {seen:?}"
+        "a departed peer must not count as connected, got {seen:?}",
     );
 }
 
@@ -144,6 +144,6 @@ async fn next_payload_skips_control_frames_and_protocol_acks() {
     assert_eq!(
         text.as_str(),
         "actual-payload",
-        "next_payload should return the first non-ack payload"
+        "next_payload should return the first non-ack payload",
     );
 }

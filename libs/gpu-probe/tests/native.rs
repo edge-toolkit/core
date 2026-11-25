@@ -67,7 +67,7 @@ where
     let info = GPU.info();
     let hardware = format!(
         "{} | {} {} | {}",
-        info.name, info.driver, info.driver_info, info.backend
+        info.name, info.driver, info.driver_info, info.backend,
     );
     report(interface, &hardware, &signature);
     assert_eq!(signature.fingerprint(), block_on(measure()).unwrap().fingerprint());
@@ -100,8 +100,8 @@ fn every_set_is_each_set_beside_the_interface_it_is_filed_under() {
             "webgpu-clear",
             "webgpu-fixed-function",
             "webgpu-f16-split",
-            "webgpu-f16-combined"
-        ]
+            "webgpu-f16-combined",
+        ],
     );
     let split = sets[0].1.as_ref().unwrap();
     assert_eq!(split.fingerprint(), block_on(GPU.signature()).unwrap().fingerprint());
@@ -175,7 +175,7 @@ fn every_adapter_opens_and_answers_the_probe_set() {
             "adapter: {} ({:?}) through {}",
             info.name,
             info.device_type,
-            gpu.backend()
+            gpu.backend(),
         );
         // A context that runs no compute shaders, as NVIDIA's EGL gives wgpu, says so for the shader probes, and still
         // answers the clears, which draw.
@@ -205,7 +205,7 @@ fn a_context_without_compute_shaders_names_its_backend_and_version() {
     let error = NativeError::from(reason);
     assert_eq!(
         error.to_string(),
-        "the device runs no compute shaders: opengl gives 3.3.0 NVIDIA 580.178.04"
+        "the device runs no compute shaders: opengl gives 3.3.0 NVIDIA 580.178.04",
     );
 }
 
@@ -226,7 +226,7 @@ fn a_device_opened_without_compute_shaders_says_so_and_still_draws() {
             other => assert!(
                 !computes,
                 "{interface}: {:?}",
-                other.map(|signature| signature.completed())
+                other.map(|signature| signature.completed()),
             ),
         }
     }
@@ -236,11 +236,11 @@ fn a_device_opened_without_compute_shaders_says_so_and_still_draws() {
 fn the_opengl_backend_is_named_by_the_api_its_context_gives() {
     assert_eq!(
         backend_name(wgpu::Backend::Gl, "4.6 (Core Profile) Mesa 26.1.6"),
-        "opengl"
+        "opengl",
     );
     assert_eq!(
         backend_name(wgpu::Backend::Gl, "OpenGL ES 3.2 Mesa 26.1.6"),
-        "opengl-es"
+        "opengl-es",
     );
     assert_eq!(backend_name(wgpu::Backend::Vulkan, "OpenGL ES 3.2"), "vulkan");
     assert_eq!(backend_name(wgpu::Backend::Noop, ""), "unknown");
@@ -258,16 +258,16 @@ fn an_opengl_version_string_gives_the_api_and_driver_versions() {
         gl_versions("4.6 (Core Profile) Mesa 26.1.6-1pop0"),
         owned(&[
             ("api_version", "OpenGL 4.6"),
-            ("driver_version", "(Core Profile) Mesa 26.1.6-1pop0")
-        ])
+            ("driver_version", "(Core Profile) Mesa 26.1.6-1pop0"),
+        ]),
     );
     assert_eq!(
         gl_versions("OpenGL ES 3.2 Mesa 26.1.6"),
-        owned(&[("api_version", "OpenGL ES 3.2"), ("driver_version", "Mesa 26.1.6")])
+        owned(&[("api_version", "OpenGL ES 3.2"), ("driver_version", "Mesa 26.1.6")]),
     );
     assert_eq!(
         gl_versions("3.3.0 NVIDIA 580.178.04"),
-        owned(&[("api_version", "OpenGL 3.3.0"), ("driver_version", "NVIDIA 580.178.04")])
+        owned(&[("api_version", "OpenGL 3.3.0"), ("driver_version", "NVIDIA 580.178.04")]),
     );
     assert_eq!(gl_versions("3.3"), owned(&[("api_version", "OpenGL 3.3")]));
     assert_eq!(gl_versions("3.3 "), owned(&[("api_version", "OpenGL 3.3")]));
@@ -278,7 +278,7 @@ fn what_opengl_says_is_reported_with_its_vendor_as_the_driver() {
     let report = gl_report_of("Mesa", "4.6 (Core Profile) Mesa 26.1.6");
     assert_eq!(
         report.lines,
-        ["gl vendor: Mesa", "gl version: 4.6 (Core Profile) Mesa 26.1.6"]
+        ["gl vendor: Mesa", "gl version: 4.6 (Core Profile) Mesa 26.1.6"],
     );
     let versions = [
         ("driver", "Mesa".to_owned()),
@@ -322,7 +322,7 @@ fn a_context_without_compute_shaders_is_opened_with_its_reason() {
     };
     assert_eq!(
         compute_shaders(wgpu::Backend::Gl, all, "3.3.0 NVIDIA 580.178.04"),
-        Err(reason)
+        Err(reason),
     );
 }
 
@@ -338,7 +338,7 @@ fn an_adapter_no_graphics_api_stands_behind_reports_only_what_wgpu_says() {
         assert!(
             !report.lines.iter().any(|line| line.starts_with(api)),
             "{api} in {:?}",
-            report.lines
+            report.lines,
         );
     }
     // wgpu is the whole of the no-op backend, its driver too, and there is no API beneath it to give a version.

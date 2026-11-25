@@ -42,7 +42,7 @@ impl Guest for Component {
 
         info(&format!(
             "reading input from bucket={} key={}",
-            pointer.bucket, pointer.filename
+            pointer.bucket, pointer.filename,
         ));
         let input_bucket = store::open(&pointer.bucket)?;
         let input_bytes = input_bucket
@@ -57,7 +57,7 @@ impl Guest for Component {
             "running FedAvg - {} clients x {} rounds x {} local epochs",
             input.clients.len(),
             input.rounds,
-            input.epochs
+            input.epochs,
         ));
         let model = fed_avg(&input);
         info(&format!("global model weight={} bias={}", model.weight, model.bias));

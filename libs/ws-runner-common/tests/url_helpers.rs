@@ -14,7 +14,7 @@ fn derive_http_base_strips_ws_suffix() {
         let actual = derive_http_base(input);
         assert!(
             matches!(&actual, Ok(base) if base == expected),
-            "derive_http_base({input:?}): expected Ok({expected:?}), got {actual:?}"
+            "derive_http_base({input:?}): expected Ok({expected:?}), got {actual:?}",
         );
     }
 }
@@ -25,7 +25,7 @@ fn derive_http_base_rejects_non_ws_schemes() {
         let actual = derive_http_base(bad);
         assert!(
             matches!(&actual, Err(BootstrapError::InvalidWsUrl { ws_url }) if ws_url == bad),
-            "derive_http_base({bad:?}): expected Err(InvalidWsUrl), got {actual:?}"
+            "derive_http_base({bad:?}): expected Err(InvalidWsUrl), got {actual:?}",
         );
     }
 }

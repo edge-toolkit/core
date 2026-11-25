@@ -60,7 +60,7 @@ fn a_row_reads_as_what_it_names() {
 fn a_row_seen_in_both_kinds_of_window_reads_as_both() {
     assert_eq!(
         Sighting::read(&row_with("window", "both")).unwrap().window,
-        Window::Both
+        Window::Both,
     );
 }
 
@@ -88,7 +88,7 @@ fn a_gpu_vendor_is_known_by_the_name_metal_gives_its_gpu() {
     assert_eq!(GpuVendor::from_device_name("AMD Radeon Pro 5500M"), GpuVendor::Amd);
     assert_eq!(
         GpuVendor::from_device_name("Intel(R) UHD Graphics 630"),
-        GpuVendor::Intel
+        GpuVendor::Intel,
     );
     assert_eq!(GpuVendor::from_device_name("Radeon"), GpuVendor::Unknown);
     assert_eq!(GpuVendor::from_device_name(""), GpuVendor::Unknown);
@@ -159,7 +159,7 @@ fn a_sighting_on_an_os_or_cpu_the_registry_has_no_name_for_is_not_here() {
 fn a_field_the_registry_does_not_know_is_refused() {
     assert_eq!(
         refusal(&row_with("colour", "blue")),
-        "the registry gives `field` as `colour`, which is not one it knows"
+        "the registry gives `field` as `colour`, which is not one it knows",
     );
 }
 
@@ -193,7 +193,7 @@ fn an_entry_listing_a_row_that_cannot_be_read_is_refused() {
     let entry = json!({ "seen": [row(), row_with("colour", "blue")] });
     assert_eq!(
         Sighting::read_entry(&entry).unwrap_err().to_string(),
-        "the registry gives `field` as `colour`, which is not one it knows"
+        "the registry gives `field` as `colour`, which is not one it knows",
     );
 }
 

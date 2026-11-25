@@ -133,7 +133,7 @@ fn the_websocket_refuses_messages_until_it_connects() {
     assert!(matches!(now(host.get_state()), State::Closed));
     assert!(matches!(
         now(host.send(ClientMessage::ListAgents)),
-        Err(WsError::NotConnected)
+        Err(WsError::NotConnected),
     ));
     assert!(matches!(now(host.recv(0)), Err(WsError::NotConnected)));
     now(host.disconnect());
@@ -159,11 +159,11 @@ fn a_module_bucket_holds_nothing_and_cannot_be_written() {
     let rep = bucket.rep();
     assert!(matches!(
         now(host.get(Resource::new_own(rep), "pkg/model.onnx".to_owned())),
-        Ok(None)
+        Ok(None),
     ));
     assert!(matches!(
         now(host.set(Resource::new_own(rep), "pkg/model.onnx".to_owned(), vec![1])),
-        Err(Error::AccessDenied)
+        Err(Error::AccessDenied),
     ));
     now(HostBucket::drop(&mut host, bucket)).unwrap();
 }
@@ -178,13 +178,13 @@ fn guests_handed_the_same_buckets_read_what_each_other_wrote() {
     let read = open(&mut reader, "agent-1");
     assert_eq!(
         now(reader.get(read, "math1-input.json".to_owned())).unwrap(),
-        Some(vec![7])
+        Some(vec![7]),
     );
     let mut other_board = host();
     let elsewhere = open(&mut other_board, "agent-1");
     assert_eq!(
         now(other_board.get(elsewhere, "math1-input.json".to_owned())).unwrap(),
-        None
+        None,
     );
 }
 
@@ -225,8 +225,8 @@ fn a_bucket_refuses_the_calls_a_board_does_not_implement() {
         [
             "delete not implemented",
             "exists not implemented",
-            "list-keys not implemented"
-        ]
+            "list-keys not implemented",
+        ],
     );
 }
 

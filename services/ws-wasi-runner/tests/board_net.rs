@@ -103,12 +103,12 @@ async fn storage_answers_nothing_stored_and_refuses_a_stranger() {
             assert_eq!(transport.load("nobody", "a b.json").await, Ok(None));
             assert_eq!(
                 transport.store("nobody", "x", vec![1]).await,
-                Err(NetError::Status(404))
+                Err(NetError::Status(404)),
             );
             // Asked of a socket with no websocket open, which the driving task has nothing to do with.
             assert_eq!(
                 transport.send(Frame::Text(String::default())).await,
-                Err(NetError::Closed)
+                Err(NetError::Closed),
             );
             transport.close().await;
         })
@@ -127,7 +127,7 @@ async fn a_hub_that_cannot_be_reached_is_said_to_be() {
             assert!(refused.to_string().starts_with("could not reach the hub: "));
             assert!(matches!(
                 transport.load("bucket", "key").await,
-                Err(NetError::Connect(_))
+                Err(NetError::Connect(_)),
             ));
         })
         .await;
@@ -199,7 +199,7 @@ async fn frames_cross_both_ways_and_a_ping_is_answered() {
             transport.connect().await.unwrap();
             assert_eq!(
                 transport.recv(5000).await,
-                Ok(Some(Frame::Text("split in two".to_owned())))
+                Ok(Some(Frame::Text("split in two".to_owned()))),
             );
             assert_eq!(transport.recv(5000).await, Ok(Some(Frame::Binary(vec![1, 2]))));
             assert_eq!(transport.recv(10).await, Ok(None));
@@ -213,8 +213,8 @@ async fn frames_cross_both_ways_and_a_ping_is_answered() {
                     (0xA, b"hi".to_vec()),
                     (0x1, b"up".to_vec()),
                     (0x2, vec![3]),
-                    (0x8, Vec::new())
-                ]
+                    (0x8, Vec::new()),
+                ],
             );
         })
         .await;

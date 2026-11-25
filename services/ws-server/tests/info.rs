@@ -23,6 +23,6 @@ async fn info_reports_this_build() {
     assert!(
         body.features.iter().any(|feature| feature == "default"),
         "got: {:?}",
-        body.features
+        body.features,
     );
 }

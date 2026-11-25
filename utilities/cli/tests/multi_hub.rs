@@ -254,14 +254,14 @@ fn mise_starts_each_hub_with_its_machine() {
     let tasks = mise_tasks();
     assert_eq!(
         depends(&tasks, "machine-server"),
-        ["math1-trigger", "nats", "openobserve", "rustfs", "ws-server"]
+        ["math1-trigger", "nats", "openobserve", "rustfs", "ws-server"],
     );
     assert_eq!(depends(&tasks, "machine-edge"), ["math1-twin", "ws-server-edge"]);
     assert_eq!(depends(&tasks, "machine-far"), ["wasi-twin"]);
     assert!(!depends(&tasks, "generated-scenario").contains(&"ws-server-edge".to_string()));
     assert_eq!(
         tasks["ws-server-edge"]["description"].as_str(),
-        Some("Run the WebSocket server on edge")
+        Some("Run the WebSocket server on edge"),
     );
 }
 
@@ -305,7 +305,7 @@ fn dekit_waits_on_the_shared_services_on_the_server_only() {
     let tasks = &dekit["tasks"];
     assert_eq!(
         tasks["ws-server"]["deps"],
-        serde_yaml::from_str::<serde_yaml::Value>("[openobserve, nats, rustfs]").unwrap()
+        serde_yaml::from_str::<serde_yaml::Value>("[openobserve, nats, rustfs]").unwrap(),
     );
     assert!(tasks["ws-server-edge"].get("deps").is_none());
     assert_eq!(tasks["ws-server-edge"]["autorestart"], "on-failure");
@@ -314,7 +314,7 @@ fn dekit_waits_on_the_shared_services_on_the_server_only() {
     assert!(tasks["wasi-twin"].get("deps").is_none());
     assert_eq!(
         tasks["nats"]["ready"]["http"],
-        "http://localhost:8222/healthz?js-enabled-only=true"
+        "http://localhost:8222/healthz?js-enabled-only=true",
     );
     assert_eq!(tasks["rustfs"]["stop"]["cmd"][2], "rustfs-hubs");
 }
@@ -331,7 +331,7 @@ fn process_compose_waits_on_the_shared_services_on_the_server_only() {
     assert!(processes["math1-twin"]["depends_on"].get("ws-server-edge").is_some());
     assert_eq!(
         processes["rustfs"]["readiness_probe"]["http_get"]["port"].as_u64(),
-        Some(9_000_u64)
+        Some(9_000_u64),
     );
     assert_eq!(processes["nats"]["shutdown"]["command"], "docker stop nats-hubs");
 }
@@ -351,13 +351,13 @@ fn compose_runs_a_hub_per_machine_profile() {
     assert_eq!(services["ws-server-edge"]["restart"], "on-failure");
     assert_eq!(
         services["ws-server-edge"]["depends_on"]["nats"]["required"].as_bool(),
-        Some(false)
+        Some(false),
     );
     assert!(services["ws-server"]["depends_on"]["rustfs"].get("required").is_none());
     assert!(services["ws-server"].get("volumes").is_none());
     assert_eq!(
         services["hub-image-build"]["profiles"],
-        serde_yaml::from_str::<serde_yaml::Value>("[server, edge]").unwrap()
+        serde_yaml::from_str::<serde_yaml::Value>("[server, edge]").unwrap(),
     );
 }
 
@@ -371,12 +371,12 @@ fn compose_hubs_share_the_servers_services_and_runners_join_their_own_hub() {
     assert_eq!(edge_env["STORAGE_URL"], "s3://et-storage");
     assert_eq!(
         services["math1-twin"]["environment"]["WS_SERVER_URL"].as_str(),
-        Some(hub_ws_url().as_str())
+        Some(hub_ws_url().as_str()),
     );
     assert!(services["math1-twin"]["depends_on"].get("ws-server-edge").is_some());
     assert_eq!(
         services["wasi-twin"]["depends_on"]["ws-server"]["required"].as_bool(),
-        Some(false)
+        Some(false),
     );
 }
 
@@ -401,7 +401,7 @@ fn compose_keeps_the_nats_monitor_on_loopback() {
     assert!(nats.get("network_mode").is_none());
     assert_eq!(
         nats["ports"],
-        serde_yaml::from_str::<serde_yaml::Value>("[\"4222:4222\", \"127.0.0.1:8222:8222\"]").unwrap()
+        serde_yaml::from_str::<serde_yaml::Value>("[\"4222:4222\", \"127.0.0.1:8222:8222\"]").unwrap(),
     );
     assert_eq!(compose["services"]["rustfs"]["network_mode"], "host");
 }
@@ -500,7 +500,7 @@ fn k3s_runs_nats_from_its_own_command_over_a_mounted_config() {
     assert_eq!(mounts, ["/data", "/etc/nats"]);
     assert_eq!(
         k3s_documents(&dir, "ConfigMap")["nats-config"]["data"]["nats-server.conf"],
-        "port: 4222\nmonitor_port: 8222\njetstream {\n  store_dir: /data\n}\n"
+        "port: 4222\nmonitor_port: 8222\njetstream {\n  store_dir: /data\n}\n",
     );
     let readiness = nats.readiness_probe.unwrap().http_get.unwrap();
     assert_eq!(readiness.path.as_deref(), Some("/healthz?js-enabled-only=true"));

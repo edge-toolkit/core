@@ -19,7 +19,7 @@ fn generate_zig_skips_when_openapi2zig_is_absent() {
         let result = et_int_gen::generate_zig();
         assert!(
             result.is_ok(),
-            "generate_zig must succeed by skipping when openapi2zig is absent: {result:?}"
+            "generate_zig must succeed by skipping when openapi2zig is absent: {result:?}",
         );
     });
 }

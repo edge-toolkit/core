@@ -15,8 +15,8 @@ fn records_each_event_level_and_message_in_order() {
         captured,
         [
             (Level::INFO, "first event".to_owned()),
-            (Level::WARN, "second".to_owned())
-        ]
+            (Level::WARN, "second".to_owned()),
+        ],
     );
 }
 

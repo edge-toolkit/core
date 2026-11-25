@@ -91,7 +91,7 @@ pub(crate) fn validate_schedule(agent: &str, schedule: &Schedule) -> Result<(), 
         if !MACROS.contains(&cron) {
             return Err(invalid(format!(
                 "the only shorthands accepted are {}",
-                MACROS.join(", ")
+                MACROS.join(", "),
             )));
         }
     } else {
@@ -99,7 +99,7 @@ pub(crate) fn validate_schedule(agent: &str, schedule: &Schedule) -> Result<(), 
         if fields.len() != WEEKDAY_FIELD + 1 {
             return Err(invalid(format!(
                 "it has {} fields, and a schedule takes exactly five: minute, hour, day of month, month, day of week",
-                fields.len()
+                fields.len(),
             )));
         }
         for (index, field) in fields.iter().enumerate() {

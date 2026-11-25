@@ -168,7 +168,7 @@ impl RegisterError {
     pub const fn is_rejection(&self) -> bool {
         matches!(
             self,
-            Self::Interface | Self::Text(_) | Self::Results | Self::Blocked | Self::Row(_)
+            Self::Interface | Self::Text(_) | Self::Results | Self::Blocked | Self::Row(_),
         )
     }
 }

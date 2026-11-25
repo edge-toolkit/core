@@ -507,7 +507,7 @@ fn boards(cluster: &ClusterInput) -> Vec<Launch<'_>> {
             let host_test = format!(
                 "mise run {}-{}",
                 deployment_types::FIRMWARE_HOST_TEST_TASK,
-                machine.name
+                machine.name,
             );
             Launch::Firmware(firmware(
                 board,

@@ -44,7 +44,7 @@ fn runner_formats() -> impl Iterator<Item = &'static OutputType> {
     OutputType::ALL.iter().filter(|kind| {
         !matches!(
             kind,
-            OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 | OutputType::FirmwarePicoPlus2
+            OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 | OutputType::FirmwarePicoPlus2,
         )
     })
 }
@@ -103,7 +103,7 @@ fn recovery_regeneration_removes_only_stale_non_k3s_launchers() {
     assert_eq!(fs::read(output.join("notes.txt")).unwrap(), b"keep notes");
     assert_eq!(
         fs::read(custom.join("compose.yaml")).unwrap(),
-        b"keep custom deployment"
+        b"keep custom deployment",
     );
     let text = fs::read_to_string(output.join("k3s.yaml")).unwrap();
     assert!(text.contains("recovery-supervisor"));

@@ -23,16 +23,16 @@ fn a_found_module_is_added_and_a_missing_one_warns_that_its_route_will_404() {
     assert_eq!(paths, [PathBuf::from("/opt/stats-gl")]);
     let missing = concat!(
         "npm:@scope/pkg install path not found via `mise where` -- requests to /modules/@scope/pkg/* will 404. ",
-        "Run `mise install npm:@scope/pkg` and verify the install."
+        "Run `mise install npm:@scope/pkg` and verify the install.",
     );
     assert_eq!(
         events,
         [
             (
                 Level::INFO,
-                "Resolved npm:stats-gl modules path: /opt/stats-gl".to_owned()
+                "Resolved npm:stats-gl modules path: /opt/stats-gl".to_owned(),
             ),
             (Level::WARN, missing.to_owned()),
-        ]
+        ],
     );
 }

@@ -104,7 +104,7 @@ fn a_client_message_that_cannot_be_encoded_is_a_decode_error(#[case] message: Wi
 fn a_binary_frame_is_relayed() {
     assert!(matches!(
         server_message(Frame::Binary(vec![7])).unwrap(),
-        ServerMessage::RelayBinary { content } if content == [7]
+        ServerMessage::RelayBinary { content } if content == [7],
     ));
 }
 
@@ -122,7 +122,7 @@ fn a_reconnect_ack_keeps_its_status() {
     };
     assert!(matches!(
         server_message_to_wit(ack).unwrap(),
-        WitServerMessage::ConnectAck(payload) if matches!(payload.status, WitConnectStatus::Reconnected)
+        WitServerMessage::ConnectAck(payload) if matches!(payload.status, WitConnectStatus::Reconnected),
     ));
 }
 
@@ -140,7 +140,7 @@ fn a_disconnected_agent_keeps_its_state() {
     };
     assert!(matches!(
         payload.agents.as_slice(),
-        [agent] if matches!(agent.state, WitAgentConnectionState::Disconnected)
+        [agent] if matches!(agent.state, WitAgentConnectionState::Disconnected),
     ));
 }
 
@@ -164,9 +164,9 @@ fn an_agent_message_carries_its_scope_and_payload(#[case] scope: MessageScope, #
         (
             payload.message_id.as_str(),
             payload.from_agent_id.as_str(),
-            payload.server_received_at.as_str()
+            payload.server_received_at.as_str(),
         ),
-        ("message-1", "agent-2", TIME)
+        ("message-1", "agent-2", TIME),
     );
 }
 
@@ -190,7 +190,7 @@ fn a_message_status_carries_its_status(
     assert_eq!(payload.status, expected);
     assert_eq!(
         (payload.message_id.as_deref(), payload.detail.as_str()),
-        (Some("message-1"), "ok")
+        (Some("message-1"), "ok"),
     );
 }
 
@@ -202,7 +202,7 @@ fn an_invalid_notice_carries_its_detail() {
     };
     assert!(matches!(
         server_message_to_wit(message).unwrap(),
-        WitServerMessage::Invalid(payload) if payload.message_id.is_none() && payload.detail == "unknown type"
+        WitServerMessage::Invalid(payload) if payload.message_id.is_none() && payload.detail == "unknown type",
     ));
 }
 
@@ -213,7 +213,7 @@ fn a_response_carries_its_message() {
     };
     assert!(matches!(
         server_message_to_wit(message).unwrap(),
-        WitServerMessage::Response(payload) if payload.message == "pong"
+        WitServerMessage::Response(payload) if payload.message == "pong",
     ));
 }
 

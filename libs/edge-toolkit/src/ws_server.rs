@@ -265,7 +265,7 @@ where
     if !path.exists() {
         warn!(
             "Registry file {} does not exist, starting with empty registry",
-            path.display()
+            path.display(),
         );
         return Ok(RegistryFile {
             agents: BTreeMap::new(),
@@ -277,7 +277,7 @@ where
         "Loaded {} agents and {} blocked IPs from registry {}",
         file.agents.len(),
         file.blocked_ips.len(),
-        path.display()
+        path.display(),
     );
     Ok(file)
 }

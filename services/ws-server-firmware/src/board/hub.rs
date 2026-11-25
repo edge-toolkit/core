@@ -95,7 +95,7 @@ async fn connection_task(stack: Stack<'static>, hub: &'static Hub<BoardStamps>, 
             warn!(
                 "Connection from {} ended: {}",
                 Debug2Format(&client_ip),
-                Debug2Format(&error)
+                Debug2Format(&error),
             );
         }
     }

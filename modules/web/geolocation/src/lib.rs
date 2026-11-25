@@ -86,7 +86,7 @@ impl GeolocationReading {
 
         info!(
             "Geolocation reading acquired: latitude={} longitude={} accuracy={}m",
-            latitude, longitude, accuracy_meters
+            latitude, longitude, accuracy_meters,
         );
 
         Ok(Self {

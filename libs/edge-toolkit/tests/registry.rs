@@ -40,7 +40,7 @@ fn an_unsafe_id_is_replaced_and_an_unknown_disconnect_is_a_no_op() {
     assert_eq!(
         summaries.len(),
         1,
-        "no record should have been created, got {summaries:?}"
+        "no record should have been created, got {summaries:?}",
     );
     assert_eq!(summaries[0].agent_id, "agent-fresh");
     assert_eq!(summaries[0].state, AgentConnectionState::Connected);
@@ -59,7 +59,7 @@ fn an_unsafe_id_is_replaced_and_an_unknown_disconnect_is_a_no_op() {
     assert_eq!(
         registry.agent_session("agent-fresh"),
         None,
-        "disconnecting must drop the session handle"
+        "disconnecting must drop the session handle",
     );
 }
 
@@ -173,7 +173,7 @@ fn an_agents_address_is_its_last_known_ip() {
     assert_eq!(registry.agent_ip(&agent_id).unwrap(), FIRST_IP);
     assert!(matches!(
         registry.agent_ip("nobody"),
-        Err(RegistryError::UnknownAgent(agent_id)) if agent_id == "nobody"
+        Err(RegistryError::UnknownAgent(agent_id)) if agent_id == "nobody",
     ));
 }
 
@@ -230,7 +230,7 @@ fn latest_per_sender_retention_replaces_the_earlier_message() {
     assert_eq!(queue_two(&registry, MessageRetention::LatestPerSender), ["m2"]);
     assert!(matches!(
         registry.acknowledge_message("recipient", "m1"),
-        Err(AcknowledgeError::NoPendingMessage)
+        Err(AcknowledgeError::NoPendingMessage),
     ));
 }
 
@@ -242,7 +242,7 @@ fn all_retention_keeps_every_message_until_acknowledged() {
     let (acknowledged, sender_session, sender) = registry.acknowledge_message("recipient", "m1").unwrap();
     assert_eq!(
         (acknowledged.as_str(), sender_session.as_deref(), sender.as_str()),
-        ("m1", Some("s"), "sender")
+        ("m1", Some("s"), "sender"),
     );
     let left = registry.pending_messages_for("recipient");
     assert_eq!(left.len(), 1);

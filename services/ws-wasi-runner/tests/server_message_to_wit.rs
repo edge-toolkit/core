@@ -34,7 +34,7 @@ fn list_agents_carries_each_address_family_as_its_own_case() {
         addresses.as_slice(),
         [
             IpAddress::Ipv4((192, 0, 2, 7)),
-            IpAddress::Ipv6((0x2001, 0xdb8, 0, 0, 0, 0, 0, 6))
-        ]
+            IpAddress::Ipv6((0x2001, 0xdb8, 0, 0, 0, 0, 0, 6)),
+        ],
     ));
 }

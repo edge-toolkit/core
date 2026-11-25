@@ -33,7 +33,7 @@ impl VideoCapture {
 
         info!(
             "Video capture granted with {} video track(s)",
-            stream.get_video_tracks().length()
+            stream.get_video_tracks().length(),
         );
 
         Ok(Self { stream })

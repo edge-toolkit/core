@@ -43,7 +43,7 @@ fn find_http_pyodide_install() -> Option<PathBuf> {
             "`mise where http:pyodide` returned no install path. ",
             "Run `mise install http:pyodide` first (~200 MB download). ",
             "The `npm:pyodide` fallback only carries the runtime, not the wheels.",
-        )
+        ),
     )
 }
 

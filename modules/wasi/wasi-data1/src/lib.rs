@@ -55,7 +55,7 @@ impl Guest for Component {
             return Err(EntryError::Runtime(format!(
                 "data mismatch: sent {} bytes, got {} bytes",
                 test_content.len(),
-                fetched.len()
+                fetched.len(),
             )));
         }
         info("VERIFICATION SUCCESS -- keyvalue roundtrip matches");

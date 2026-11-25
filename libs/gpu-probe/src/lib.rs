@@ -216,7 +216,7 @@ const FRAGMENT_HEAD: &str = concat!(
     "#version 300 es\nprecision highp float;\nprecision highp int;\nuniform float probeIn[8];\nout vec4 probeOut;\n\n",
     "void main() {\n",
     glsl_inputs!(),
-    "\n    uint bits = floatBitsToUint("
+    "\n    uint bits = floatBitsToUint(",
 );
 
 /// The part of every fragment probe shader that comes after its expression.
@@ -445,7 +445,7 @@ pub(crate) fn wgsl_compute((enable, word): (&str, &str), inputs: &str, words: &[
     format!(
         "{enable}{SHADER_OPEN}{word}, {}{SHADER_ENTRY}{inputs}{}}}\n",
         words.len(),
-        writes.concat()
+        writes.concat(),
     )
 }
 
@@ -727,7 +727,7 @@ impl Signature {
             .map(|(name, (answer, correct))| match answer {
                 Answer::Bits(bits) => format!(
                     "{name} gpu={bits:08x} correct={correct:08x} ulps={:+}",
-                    i64::from(*bits).saturating_sub(i64::from(correct))
+                    i64::from(*bits).saturating_sub(i64::from(correct)),
                 ),
                 Answer::Refused(reason) => format!("{name} failed: {reason}"),
             })

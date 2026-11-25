@@ -12,7 +12,7 @@ use pretty_assertions::assert_ne;
 /// The fingerprint the probes gave through WebGPU on an Apple M5 Pro.
 const M5_PRO_WEBGPU: &str = concat!(
     "33800000-33800000-40800000-3eaaaaab-00000000-3fddb3d7-3f13cd3a-3dcc7576-",
-    "3f7eb899-3dcd7c43-3f8d763e-3f8c9f54-3f8edd1f-3d087b99-3dcc1ebd-00000000"
+    "3f7eb899-3dcd7c43-3f8d763e-3f8c9f54-3f8edd1f-3d087b99-3dcc1ebd-00000000",
 );
 
 /// A signature in which the device gave the correctly rounded answer to every probe.
@@ -114,7 +114,7 @@ fn the_exact_probes_have_their_strict_answers() {
     // multiply_add rounded twice, fma fused to 2^-24, the sum added in order, 1/3, 2^-127, sqrt(3), and the dot.
     assert_eq!(
         [bits[0], bits[1], bits[2], bits[3], bits[4], bits[5], bits[15]],
-        [0, 0x3380_0000, 0, 0x3eaa_aaab, 0x0040_0000, 0x3fdd_b3d7, 0]
+        [0, 0x3380_0000, 0, 0x3eaa_aaab, 0x0040_0000, 0x3fdd_b3d7, 0],
     );
 }
 
@@ -139,7 +139,7 @@ fn a_device_giving_every_correct_answer_deviates_nowhere() {
     assert_eq!(signature.deviations(), 0);
     assert_eq!(
         signature.traits(),
-        "multiply_add=rounded_twice fma=fused swamped_sum=in_order subnormal_product=kept dot=in_order"
+        "multiply_add=rounded_twice fma=fused swamped_sum=in_order subnormal_product=kept dot=in_order",
     );
 }
 
@@ -170,12 +170,12 @@ fn a_sum_regrouped_part_way_is_a_choice_of_its_own() {
         WEBGPU,
         concat!(
             "33800000-33800000-40000000-3eaaaaab-00000000-3fddb3d7-3f13cd3a-3dcc756a-",
-            "3f7eb898-3dcd7c38-3f8d763d-3f8c9f54-3f8edd1f-3d087ae6-3dcc1eb6-3f800000"
+            "3f7eb898-3dcd7c38-3f8d763d-3f8c9f54-3f8edd1f-3d087ae6-3dcc1eb6-3f800000",
         ),
     );
     assert_eq!(
         signature.traits(),
-        "multiply_add=fused fma=fused swamped_sum=paired subnormal_product=flushed dot=pairwise"
+        "multiply_add=fused fma=fused swamped_sum=paired subnormal_product=flushed dot=pairwise",
     );
 }
 
@@ -209,7 +209,7 @@ fn a_device_that_answered_nothing_fails_every_choice() {
     assert_eq!(signature.completed(), 0);
     assert_eq!(
         signature.traits(),
-        "multiply_add=failed fma=failed swamped_sum=failed subnormal_product=failed dot=failed"
+        "multiply_add=failed fma=failed swamped_sum=failed subnormal_product=failed dot=failed",
     );
     assert_eq!(signature.describe(), Vec::<String>::new());
 }
@@ -233,13 +233,13 @@ fn a_known_signature_can_hold_a_probe_the_device_refused() {
         WEBGL2,
         concat!(
             "33800000-????????-40800000-3eaaaaab-00000000-3fddb3d7-3f13cd3a-3dcc7576-",
-            "3f7eb899-3dcd7c43-3f8d763e-3f8c9f54-3f8edd1f-3d087b99-3dcc1ebc-00000000"
+            "3f7eb899-3dcd7c43-3f8d763e-3f8c9f54-3f8edd1f-3d087b99-3dcc1ebc-00000000",
         ),
     );
     assert_eq!(signature.completed(), 15);
     assert_eq!(
         signature.class(),
-        "Apple silicon GPU through Metal (measured on an Apple M5 Pro)"
+        "Apple silicon GPU through Metal (measured on an Apple M5 Pro)",
     );
 }
 
@@ -249,12 +249,12 @@ fn the_answers_measured_on_an_apple_m5_pro_are_recognised() {
     assert_eq!(signature.fingerprint(), M5_PRO_WEBGPU);
     assert_eq!(
         signature.class(),
-        "Apple silicon GPU through Metal (measured on an Apple M5 Pro)"
+        "Apple silicon GPU through Metal (measured on an Apple M5 Pro)",
     );
     assert_eq!(signature.deviations(), 8);
     assert_eq!(
         signature.traits(),
-        "multiply_add=fused fma=fused swamped_sum=reassociated subnormal_product=flushed dot=in_order"
+        "multiply_add=fused fma=fused swamped_sum=reassociated subnormal_product=flushed dot=in_order",
     );
 }
 
@@ -287,7 +287,7 @@ fn the_registry_has_no_label_for_a_signature_it_has_not_seen() {
 fn the_registry_matches_nothing_to_a_signature_missing_answers() {
     assert_eq!(
         Signature::new(HOST, vec![Answer::Bits(0)]).identify(),
-        Vec::<&str>::new()
+        Vec::<&str>::new(),
     );
     // No answers at all is what an entry kept for a withheld interface holds, and still names nothing.
     assert_eq!(Signature::new(WEBGPU, Vec::new()).identify(), Vec::<&str>::new());

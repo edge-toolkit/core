@@ -113,7 +113,7 @@ impl VideoCapture {
 
         info!(
             "Video capture granted with {} video track(s)",
-            stream.get_video_tracks().length()
+            stream.get_video_tracks().length(),
         );
 
         Ok(Self { stream })
@@ -451,7 +451,7 @@ pub fn face_status_lines(
         lines.push(String::default());
         lines.push(format!(
             "best box: {:.1}, {:.1}, {:.1}, {:.1}",
-            coords[0], coords[1], coords[2], coords[3]
+            coords[0], coords[1], coords[2], coords[3],
         ));
     }
 

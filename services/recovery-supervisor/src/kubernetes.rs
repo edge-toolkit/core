@@ -58,7 +58,7 @@ impl Pod {
         if home_kubeconfig.exists() {
             return Err(RecoveryError::Invalid(format!(
                 "refusing to start: kubectl would use {} rather than the pod's service account",
-                home_kubeconfig.display()
+                home_kubeconfig.display(),
             )));
         }
         Ok(())
@@ -105,7 +105,7 @@ impl Kubernetes {
         if !output.status.success() {
             return Err(RecoveryError::Invalid(format!(
                 "kubectl {arguments:?} failed: {}",
-                String::from_utf8_lossy(&output.stderr)
+                String::from_utf8_lossy(&output.stderr),
             )));
         }
         Ok(output.stdout)

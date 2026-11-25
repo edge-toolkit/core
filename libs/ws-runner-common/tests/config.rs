@@ -98,7 +98,7 @@ fn connect_ack_timeout_none_sentinel_disables() {
             assert_eq!(
                 load_ws().connect_ack_timeout,
                 None,
-                "sentinel {sentinel:?} should disable"
+                "sentinel {sentinel:?} should disable",
             );
         });
     }

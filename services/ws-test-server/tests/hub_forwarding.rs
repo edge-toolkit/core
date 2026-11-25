@@ -35,14 +35,14 @@ async fn unrecognised_text_is_broadcast_verbatim() {
     assert_eq!(
         received_text.as_str(),
         raw,
-        "text payload must be forwarded byte-for-byte"
+        "text payload must be forwarded byte-for-byte",
     );
 
     // Sender should not echo back to itself.
     let echoed = tokio::time::timeout(Duration::from_millis(300), sender.next()).await;
     assert!(
         echoed.is_err() || matches!(&echoed, Ok(Some(Ok(Message::Ping(_) | Message::Pong(_))))),
-        "sender should not receive its own broadcast, got {echoed:?}"
+        "sender should not receive its own broadcast, got {echoed:?}",
     );
 }
 
@@ -65,7 +65,7 @@ async fn unrecognised_binary_is_broadcast_verbatim() {
     assert_eq!(
         &*received_bytes,
         payload.as_slice(),
-        "binary payload must be forwarded byte-for-byte"
+        "binary payload must be forwarded byte-for-byte",
     );
 }
 
@@ -91,7 +91,7 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
     assert_eq!(
         &*received_bytes,
         activations.as_slice(),
-        "frame from unconnected client must be broadcast to peers"
+        "frame from unconnected client must be broadcast to peers",
     );
 
     // Reverse direction: the peer's reply must reach the now auto-registered
@@ -106,7 +106,7 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
     assert_eq!(
         &*reply_bytes,
         grads.as_slice(),
-        "auto-registered client must receive peer broadcasts"
+        "auto-registered client must receive peer broadcasts",
     );
 }
 
@@ -133,6 +133,6 @@ async fn direct_message_to_unknown_agent_is_rejected() {
     };
     assert!(
         detail.contains("unknown target agent") && detail.contains("no-such-agent"),
-        "unexpected invalid detail: {detail}"
+        "unexpected invalid detail: {detail}",
     );
 }

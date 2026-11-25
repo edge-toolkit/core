@@ -465,7 +465,7 @@ pub async fn next_payload(
                         parsed,
                         ServerMessage::ConnectAck { .. }
                             | ServerMessage::MessageStatus { .. }
-                            | ServerMessage::Response { .. }
+                            | ServerMessage::Response { .. },
                     )
                 }) {
                     continue;

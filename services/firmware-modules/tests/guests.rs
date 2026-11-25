@@ -97,7 +97,7 @@ fn a_runner_s_module_is_compiled_for_the_board_and_built_in() {
     assert!(generated.source.contains("[(&str, &[u8]); 1]"));
     assert!(generated.source.contains(&format!(
         "(\"data1\", include_bytes!({:?})),",
-        compiled.display().to_string()
+        compiled.display().to_string(),
     )));
     assert_eq!(generated.files, [data1.join("pkg/et_ws_wasi_data1.wasm")]);
 }
@@ -120,7 +120,7 @@ fn a_runner_of_a_module_not_built_in_is_refused() {
     assert!(matches!(
         refused,
         ModulesError::UnknownGuest { runner, package, names }
-            if runner == "runner-1" && package == "elsewhere" && names == ["guest"]
+            if runner == "runner-1" && package == "elsewhere" && names == ["guest"],
     ));
 }
 
@@ -168,7 +168,7 @@ fn a_runner_s_core_module_is_built_in_as_its_package_holds_it() {
     assert!(!out_dir.path().join("guest-0.cwasm").exists());
     assert!(generated.source.contains(&format!(
         "(\"twin\", include_bytes!({:?})),",
-        module.display().to_string()
+        module.display().to_string(),
     )));
     assert_eq!(generated.files, [module]);
 }
@@ -189,7 +189,7 @@ fn a_core_module_importing_what_the_board_does_not_host_is_refused() {
     let unhosted = ["wasi_snapshot_preview1::fd_write", "et::log", "et::sleep_ms"];
     assert!(matches!(
         refused,
-        ModulesError::Unhosted { runner, imports } if runner == "runner-1" && imports == unhosted
+        ModulesError::Unhosted { runner, imports } if runner == "runner-1" && imports == unhosted,
     ));
 }
 
@@ -206,7 +206,7 @@ fn a_guest_importing_what_the_board_does_not_host_is_refused() {
     let webgpu = "wasi:webgpu/webgpu@0.3.0-rc.2";
     assert!(matches!(
         refused,
-        ModulesError::Unhosted { runner, imports } if runner == "runner-1" && imports == [webgpu]
+        ModulesError::Unhosted { runner, imports } if runner == "runner-1" && imports == [webgpu],
     ));
 }
 
@@ -224,8 +224,8 @@ fn guests_needing_more_memory_than_the_board_holds_are_refused() {
             refused,
             ModulesError::GuestMemory {
                 needed: TWO_PAGES,
-                budget: PAGE
-            }
+                budget: PAGE,
+            },
         ));
         let _fits = one_guest(&path, TWO_PAGES, out_dir.path()).unwrap();
     }

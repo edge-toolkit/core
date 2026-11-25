@@ -27,7 +27,7 @@ fn filters_out_unusable_addresses() {
     );
     assert!(
         ranked.is_empty(),
-        "loopback, link-local, unspecified, and IPv6 must all be dropped"
+        "loopback, link-local, unspecified, and IPv6 must all be dropped",
     );
 }
 
@@ -76,7 +76,7 @@ fn enumeration_order_is_kept_within_a_class() {
     assert_eq!(
         names(&ranked),
         ["en5", "en0"],
-        "sort must be stable: en5 enumerated first stays first"
+        "sort must be stable: en5 enumerated first stays first",
     );
 }
 
@@ -87,7 +87,7 @@ fn missing_log_interface_is_a_startup_error() {
     let message = err.to_string();
     assert!(
         message.contains("no-such-interface0"),
-        "error must name the missing interface: {message}"
+        "error must name the missing interface: {message}",
     );
 }
 

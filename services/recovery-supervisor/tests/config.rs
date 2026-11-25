@@ -72,7 +72,7 @@ fn resilience_configuration_round_trips_and_rejects_invalid_dependency_graphs() 
     let parsed: et_recovery_supervisor::config::EnvConfig = serde_env::from_iter(env).unwrap();
     assert_eq!(
         parsed.recovery.resilience.dependencies,
-        settings.resilience.dependencies
+        settings.resilience.dependencies,
     );
     for dependencies in [vec!["example-worker"], vec!["bad/name"], vec!["storage", "storage"]] {
         let _previous = settings.resilience.dependencies.insert(
@@ -109,7 +109,7 @@ fn typed_in_cluster_settings_match_the_expected_runtime_configuration() {
     actual.validate().unwrap();
     assert_eq!(
         serde_json::to_value(actual).unwrap(),
-        serde_json::to_value(expected).unwrap()
+        serde_json::to_value(expected).unwrap(),
     );
 }
 
@@ -233,7 +233,7 @@ fn readiness_requires_current_generation_and_one_available_updated_replica() {
     let mut value: serde_json::Value = serde_yaml::from_slice(&fs::read(path).unwrap()).unwrap();
     assert_eq!(
         deployment_health(&serde_json::to_vec(&value).unwrap()).unwrap(),
-        Health::Ready
+        Health::Ready,
     );
     for (field, count) in [
         ("replicas", 2_u64),
@@ -247,13 +247,13 @@ fn readiness_requires_current_generation_and_one_available_updated_replica() {
         assert_eq!(
             deployment_health(&serde_json::to_vec(&unready).unwrap()).unwrap(),
             Health::Unready,
-            "{field}={count} must prevent readiness"
+            "{field}={count} must prevent readiness",
         );
     }
     let _status = value.as_object_mut().unwrap().remove("status");
     assert_eq!(
         deployment_health(&serde_json::to_vec(&value).unwrap()).unwrap(),
-        Health::Unready
+        Health::Unready,
     );
     value["spec"]["replicas"] = serde_json::json!(2_u64);
     let _error = deployment_health(&serde_json::to_vec(&value).unwrap()).unwrap_err();

@@ -44,7 +44,7 @@ async fn the_newest_claim_on_an_id_survives_the_displaced_connection_closing() {
     // Direct messages to the id reach the connection that claimed it last.
     assert_eq!(
         relay_to_shared(&mut sender, &mut newest, 1).await,
-        serde_json::json!({"n": 1_u32})
+        serde_json::json!({"n": 1_u32}),
     );
 
     // The displaced connection closes. Reading it to the end waits for the hub to answer the close, after which its
@@ -56,6 +56,6 @@ async fn the_newest_claim_on_an_id_survives_the_displaced_connection_closing() {
     // Taking the id offline here would drop the newest connection's session, and this message would sit queued.
     assert_eq!(
         relay_to_shared(&mut sender, &mut newest, 2).await,
-        serde_json::json!({"n": 2_u32})
+        serde_json::json!({"n": 2_u32}),
     );
 }

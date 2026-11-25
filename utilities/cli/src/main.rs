@@ -33,7 +33,7 @@ fn main() -> Result<(), CliError> {
                     scenario.output_dir.display(),
                     scenario.summary.cluster_name,
                     scenario.summary.agent_templates,
-                    scenario.summary.module_names.join(", ")
+                    scenario.summary.module_names.join(", "),
                 );
             }
             println!("Regenerated {} verification scenario output set(s).", regenerated.len());
@@ -77,15 +77,15 @@ fn generate(input_file: &Path, output_dir: &Path, output_type: OutputType) -> Re
         input_file.display(),
         summary.cluster_name,
         summary.agent_templates,
-        summary.module_names.join(", ")
+        summary.module_names.join(", "),
     );
     println!(
         "Generated: {}",
-        output_dir.join(output_type.output_file_name()).display()
+        output_dir.join(output_type.output_file_name()).display(),
     );
     println!(
         "See the generated README.md in {} for instructions.",
-        output_dir.display()
+        output_dir.display(),
     );
     Ok(())
 }

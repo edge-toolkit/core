@@ -50,8 +50,8 @@ fn an_esp32c6_joins_the_network_and_links_with_esp_hal() {
         directives.unwrap(),
         [
             "cargo:rustc-link-arg-bins=-Tlinkall.x",
-            "cargo:rustc-link-arg-bins=-Tdefmt.x"
-        ]
+            "cargo:rustc-link-arg-bins=-Tdefmt.x",
+        ],
     );
     let wifi = written(out_dir.path(), "wifi.rs");
     assert!(wifi.contains(r#"const WIFI_NETWORK: &str = "home";"#));
@@ -79,7 +79,7 @@ fn a_pico_2_w_also_bakes_in_its_radio_and_its_memory_layout() {
             "cargo:rustc-link-arg-bins=--nmagic".to_owned(),
             "cargo:rustc-link-arg-bins=-Tlink.x".to_owned(),
             "cargo:rustc-link-arg-bins=-Tdefmt.x".to_owned(),
-        ]
+        ],
     );
     assert_eq!(fs::read(out_dir.path().join("memory.x")).unwrap(), MEMORY_X);
     let radio = written(out_dir.path(), "cyw43.rs");
@@ -101,12 +101,12 @@ fn a_build_for_no_board_or_without_what_its_board_needs_is_refused() {
     let (_out, no_password) = built("riscv32", &[("WIFI_NETWORK", "home")]);
     assert_eq!(
         no_password.unwrap_err().to_string(),
-        "a board's firmware needs WIFI_PASSWORD set when it is built"
+        "a board's firmware needs WIFI_PASSWORD set when it is built",
     );
     let (_out, no_blobs) = built("arm", &wifi);
     assert_eq!(
         no_blobs.unwrap_err().to_string(),
-        "a board's firmware needs CYW43_FIRMWARE_DIR set when it is built"
+        "a board's firmware needs CYW43_FIRMWARE_DIR set when it is built",
     );
     let (_out, relative) = built("arm", &[wifi[0], wifi[1], ("CYW43_FIRMWARE_DIR", "relative")]);
     assert!(matches!(relative.unwrap_err(), ModulesError::MissingBlob { .. }));
@@ -115,6 +115,6 @@ fn a_build_for_no_board_or_without_what_its_board_needs_is_refused() {
     let (_out, missing) = built("arm", &[wifi[0], wifi[1], ("CYW43_FIRMWARE_DIR", dir)]);
     assert_eq!(
         missing.unwrap_err().to_string(),
-        "CYW43_FIRMWARE_DIR holds no 43439A0_clm.bin"
+        "CYW43_FIRMWARE_DIR holds no 43439A0_clm.bin",
     );
 }

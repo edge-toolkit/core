@@ -118,7 +118,7 @@ fn client_typed_for_valid_et_message() {
     let msg = ClientMessage::from_text_frame(r#"{"type":"et-list-agents"}"#).unwrap();
     assert!(
         matches!(msg, ClientMessage::ListAgents),
-        "expected ClientMessage::ListAgents, got {msg:?}"
+        "expected ClientMessage::ListAgents, got {msg:?}",
     );
 }
 
@@ -154,7 +154,7 @@ fn a_client_event_carries_its_cloudevent_nested_under_event() {
                 "time": "2026-10-06T00:00:00Z",
                 "type": "et.app.loaded",
             },
-        })
+        }),
     );
     match ClientMessage::from_text_frame(&frame.to_string()).unwrap() {
         ClientMessage::ClientEvent { event: decoded } => assert_eq!(decoded, event),

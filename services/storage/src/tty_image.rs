@@ -67,7 +67,7 @@ pub fn render_bytes(bytes: &[u8]) -> image::ImageResult<()> {
             let _write_result = write!(
                 out,
                 "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m\u{2580}",
-                top[0], top[1], top[2], bottom[0], bottom[1], bottom[2]
+                top[0], top[1], top[2], bottom[0], bottom[1], bottom[2],
             );
         }
         out.push_str("\x1b[0m\n");

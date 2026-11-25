@@ -102,7 +102,7 @@ fn start_logs_connects_and_returns_the_agent_id() {
     assert_eq!(script.calls, [abi::CONNECT, abi::AGENT_ID]);
     assert_eq!(
         script.logged,
-        [(abi::LOG_INFO, "twin".to_owned(), "entered run()".to_owned())]
+        [(abi::LOG_INFO, "twin".to_owned(), "entered run()".to_owned())],
     );
 }
 
@@ -174,7 +174,7 @@ fn get_reads_a_found_value_and_reports_an_absent_one() {
             .get("bucket", "key")
             .unwrap()
             .unwrap(),
-        b"value"
+        b"value",
     );
     assert!(
         Script::new(&[abi::ABSENT], b"")
@@ -185,7 +185,7 @@ fn get_reads_a_found_value_and_reports_an_absent_one() {
     );
     assert!(matches!(
         Script::new(&[abi::STORE], b"").guest().get("bucket", "key"),
-        Err(GuestError::Store)
+        Err(GuestError::Store),
     ));
 }
 
@@ -230,12 +230,12 @@ fn finish_returns_ok_for_success_and_logs_and_codes_a_failure() {
     assert_eq!(guest.finish(Ok(())), abi::SUCCESS);
     assert_eq!(
         guest.finish(Err(GuestError::Runtime("no input".to_owned()))),
-        abi::FAILED
+        abi::FAILED,
     );
     assert_eq!(guest.finish(Err(GuestError::Transport)), abi::TRANSPORT);
     assert_eq!(
         script.logged.first().unwrap(),
-        &(abi::LOG_ERROR, "twin".to_owned(), "no input".to_owned())
+        &(abi::LOG_ERROR, "twin".to_owned(), "no input".to_owned()),
     );
 }
 

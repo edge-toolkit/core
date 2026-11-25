@@ -1,0 +1,54 @@
+id: macro-list-without-trailing-comma
+language: Rust
+# A list in a macro's arguments that spans lines and has no trailing comma after its last item, where one can go.
+# A list is a token tree, and its trailing comma is read from the tree's text: a `,` before the closing delimiter,
+# past any whitespace or `//` comments, and an empty list needs none. The text cannot tell a comment from a `//` in a
+# string, such as `"https://host"`, so a comment is taken to follow whitespace and hold no `"`. A token tree is taken
+# for a list only where a comma cannot change what it is or break it:
+# - `[...]` holding a `;` is a repeat, `[value; count]`, and one after a name, `)`, `]` or `?` is an index.
+# - `(...)` with no comma among its own tokens is a parenthesised expression, which a comma would turn into a tuple.
+# - `{...}` with no comma among its own tokens, or holding a `;`, is a block, and the `{...}` that is the macro's
+#   whole argument, as in `quote! { ... }`, is code rather than a list.
+# - A last item opening with `..` is a struct update or a rest pattern, which no comma may follow.
+# - One after `#` or `$` is an attribute or a repetition, as in `quote!`, and a `macro_rules!` body is left alone,
+#   since a `$(...),*` that expands to nothing would leave a lone comma.
+# - An attribute's arguments, as in `#[expect(..., reason = "...")]`, are rustfmt's to format, and it drops the comma.
+rule:
+  kind: token_tree
+  regex: '^[\[({][\s\S]*\n\s*[\])}]$'
+  not:
+    any:
+      - regex: ',(?:[ \t]*//[^\n"]*|\s)*[\])}]$'
+      - regex: '^[\[({](?:[ \t]*//[^\n"]*|\s)*[\])}]$'
+      - regex: '(^|,|\n)\s*\.\.[^,]*[\])}]$'
+      - follows:
+          regex: '^(#|\$)$'
+      - inside:
+          kind: macro_definition
+          stopBy: end
+      - inside:
+          any:
+            - kind: attribute_item
+            - kind: inner_attribute_item
+          stopBy: end
+  any:
+    - regex: '^\['
+      not:
+        any:
+          - has:
+              regex: "^;$"
+          - follows:
+              regex: '^([A-Za-z0-9_]+|\)|\]|\?)$'
+    - regex: '^\('
+      has:
+        regex: "^,$"
+    - regex: '^\{'
+      has:
+        regex: "^,$"
+      not:
+        any:
+          - has:
+              regex: "^;$"
+          - inside:
+              kind: macro_invocation
+              stopBy: neighbor
