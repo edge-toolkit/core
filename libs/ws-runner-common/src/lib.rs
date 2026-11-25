@@ -20,6 +20,7 @@ use retry_policies::policies::ExponentialBackoff;
 use retry_policies::{RetryDecision, RetryPolicy};
 use thiserror::Error;
 use tokio::net::TcpStream;
+use tokio_tungstenite::tungstenite::http::StatusCode;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite};
 use tracing::{debug, instrument, warn};
 
@@ -103,11 +104,23 @@ pub enum ConnectError {
     /// The connection closed before any `et-connect-ack` arrived.
     #[error("connection closed before et-connect-ack")]
     ConnectionClosed,
+
+    /// The hub answered the upgrade `403 Forbidden`: it refuses this client's address, so retrying cannot help.
+    #[error("the hub refused the connection (403 Forbidden)")]
+    Refused,
 }
 
+/// Only the upgrade handshake can produce an HTTP error, so a `403` here is the hub refusing the client.
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "tungstenite::Error is non_exhaustive; every error but a refused upgrade stays a WebSocket error"
+)]
 impl From<tungstenite::Error> for ConnectError {
     fn from(err: tungstenite::Error) -> Self {
-        Self::WebSocket(Box::new(err))
+        match err {
+            tungstenite::Error::Http(response) if response.status() == StatusCode::FORBIDDEN => Self::Refused,
+            other => Self::WebSocket(Box::new(other)),
+        }
     }
 }
 
@@ -130,7 +143,8 @@ pub const fn connect_status_label(status: &ConnectStatus) -> &'static str {
 /// with exponential backoff until it succeeds or `ack_timeout` elapses, so a
 /// runner started before the ws-server simply waits for it to come up.
 /// `ack_timeout = None` retries forever. The backoff interval is floored so a
-/// small timeout never degrades into a busy-loop.
+/// small timeout never degrades into a busy-loop. A hub that refuses the
+/// client ends the wait at once with [`ConnectError::Refused`].
 pub async fn connect_and_register(
     ws_url: &str,
     requested_agent_id: Option<String>,
@@ -143,6 +157,7 @@ pub async fn connect_and_register(
         let budget = attempt_budget(ack_timeout, started_at);
         match register_once(ws_url, requested_agent_id.clone(), budget).await {
             Ok(registered) => return Ok(registered),
+            Err(err @ ConnectError::Refused) => return Err(err),
             Err(err) => match policy.should_retry(started_at, n_past_retries) {
                 RetryDecision::Retry { execute_after } => {
                     let wait = execute_after.duration_since(SystemTime::now()).unwrap_or_default();

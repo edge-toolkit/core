@@ -235,7 +235,8 @@ contain an `error` description. Checkpoint records retain their operation kind, 
 By default, lost hub connections are retried using Core's existing bounded connect/register backoff. Recovery actions
 are suspended during disconnection. After an initial completed observation cycle, the local health check remains current
 while reconnection is progressing; it does not claim the applications are healthy. Registration alone does not pass
-startup health. Setting `reconnect: false` restores exit-on-disconnection behaviour.
+startup health. Setting `reconnect: false` restores exit-on-disconnection behaviour. A hub that refuses the supervisor's
+address, as it does after an eviction, ends supervision with an error rather than being retried.
 
 Reports retain incident baselines, application instance and sequence checks, consumed budgets, cooldowns and outstanding
 recovery requests across supervisor replacement. State is bound to the complete configuration and job identity;

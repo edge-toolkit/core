@@ -11,6 +11,7 @@ use et_recovery_supervisor::persistence::StateStore;
 use et_recovery_supervisor::policy::{Action, Health, Supervisor};
 use et_recovery_supervisor::runtime::{cycle, hub, load_budget, load_supervisor, run};
 use et_test_recovery::{config, environment, event, report, supervisor};
+use et_ws_runner_common::ConnectError;
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
 use pretty_assertions::assert_eq;
@@ -441,6 +442,25 @@ async fn supervisor_reconnects_to_a_replacement_hub_and_retains_lifecycle_contex
     assert!(saved["observation_gaps"].as_array().unwrap().last().unwrap()["ended_at"].is_number());
     task.abort();
     assert!(task.await.unwrap_err().is_cancelled());
+}
+
+/// A hub that refuses the supervisor's address ends supervision instead of being retried.
+#[test_log::test(tokio::test)]
+async fn a_hub_refusing_the_supervisor_ends_supervision() {
+    let directory = tempfile::tempdir().unwrap();
+    let (port, _requests) = et_test_helpers::http_answering("403 Forbidden");
+    let mut config = config();
+    config.ws_url = format!("ws://127.0.0.1:{port}/ws");
+    config.state_file = directory.path().join("state.json");
+
+    let outcome = tokio::time::timeout(Duration::from_secs(10), run(config, ReadyBackend))
+        .await
+        .unwrap();
+
+    assert!(
+        matches!(outcome, Err(RecoveryError::Connect(ConnectError::Refused))),
+        "got {outcome:?}",
+    );
 }
 
 /// Leave the hub unavailable across bounded registration attempts and observe their persisted gap.

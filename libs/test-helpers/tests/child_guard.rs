@@ -43,6 +43,14 @@ fn wait_for_exit_reports_a_child_that_ends_on_its_own() {
 }
 
 #[test]
+fn exit_status_reports_how_a_child_that_ended_exited() {
+    let mut guard = spawn_probe(0);
+
+    assert!(guard.wait_for_exit(Duration::from_secs(30)));
+    assert!(guard.exit_status().unwrap().success());
+}
+
+#[test]
 fn wait_for_exit_kills_a_child_that_overstays() {
     let mut guard = spawn_probe(600_000);
 

@@ -8,13 +8,15 @@
 //! `tokio::select!`, so Python can push frames whenever (during a
 //! handler, after, or from a background thread).
 
+use std::pin::Pin;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use et_ws_runner_common::{ConnectError, RegisteredSocket};
 use futures_util::{SinkExt as _, StreamExt as _};
-use tokio::net::TcpStream;
+use tokio::sync::futures::Notified;
 use tokio::sync::{Notify, mpsc};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
+use tokio_tungstenite::tungstenite;
 use tracing::{info, warn};
 
 use crate::error::RunnerError;
@@ -47,6 +49,16 @@ pub struct AgentConfig {
     pub requested_agent_id: Option<String>,
     /// How long to wait for `et-connect-ack`; `None` waits forever.
     pub connect_ack_timeout: Option<Duration>,
+    /// How long to keep trying to rejoin a lost hub; `None` keeps trying, and zero does not rejoin.
+    pub reconnect_timeout: Option<Duration>,
+}
+
+/// How a connection that `drive` served came to an end without a socket error.
+enum Ending {
+    /// The runner was asked to shut down.
+    Shutdown,
+    /// The hub closed the connection.
+    Closed,
 }
 
 /// A built-but-not-yet-connected agent: channels, dispatcher, and config.
@@ -128,15 +140,10 @@ pub fn initialize(
     })
 }
 
-/// Connect, register, and drive the agent until the connection closes.
+/// Start the module's workers, serve the hub until the runner stops, then tear the module down.
 ///
-/// Spawns the storage worker and the Python dispatch thread, completes the
-/// `et-connect` handshake, then runs the WS loop. Returns once the socket
-/// closes or `drive` errors.
-#[expect(
-    clippy::cognitive_complexity,
-    reason = "worker start-up, handshake and shutdown, each logged on its own"
-)]
+/// Spawns the storage worker and the Python dispatch thread, then serves the hub. Whichever way that ends,
+/// `on_shutdown` runs before this returns.
 pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), RunnerError> {
     let InitializedAgent {
         config,
@@ -163,23 +170,9 @@ pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), Runne
         .name("pyo3-dispatch".to_owned())
         .spawn(move || python_worker(dispatcher, inbound_rx, outbound_tx))?;
 
-    info!("connecting to {}", config.ws_url);
-    let (mut socket, agent_id, status) = et_ws_runner_common::connect_and_register(
-        &config.ws_url,
-        config.requested_agent_id,
-        config.connect_ack_timeout,
-    )
-    .await?;
-    info!(
-        "registered as agent_id={agent_id} ({})",
-        et_ws_runner_common::connect_status_label(&status),
-    );
-    // Populate the slot before `on_connect` so Python sees a valid
-    // `storage.agent_id` from the first instant it can act.
-    *agent_id_slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(agent_id.clone());
-    let _connect_sent = inbound_tx.send(InboundEvent::Connect(agent_id));
-
-    let result = drive(&mut socket, &inbound_tx, &mut outbound_rx, shutdown).await;
+    let shutdown = shutdown.notified();
+    tokio::pin!(shutdown);
+    let mut served = serve(&config, &agent_id_slot, &inbound_tx, &mut outbound_rx, shutdown).await;
 
     // Queue `on_shutdown` (the worker drains any frames ahead of it first),
     // then drop our sender so the worker's recv loop ends. Join before aborting
@@ -191,12 +184,75 @@ pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), Runne
     // The module has run its last hook, so this is the whole of what coverage can measure.
     #[cfg(feature = "coverage")]
     let finished = crate::coverage::finish();
-    let _close_sent = socket.send(tungstenite::Message::Close(None)).await;
+    if let Ok(Some(socket)) = &mut served {
+        let _close_sent = socket.send(tungstenite::Message::Close(None)).await;
+    }
     storage_task.abort();
-    result?;
+    let _socket = served?;
     #[cfg(feature = "coverage")]
     finished?;
     Ok(())
+}
+
+/// Join the hub and serve it until shutdown, rejoining under the same id whenever the hub is lost.
+///
+/// Returns the socket still open when shutdown came, for `run` to close once `on_shutdown` has run. Frames the module
+/// sends while no hub is connected wait in `outbound_rx` and go out, in order, once one is. A hub refusing the runner
+/// as it rejoins, as one does once eviction has blocked its address, stops the runner cleanly.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "join, serve and rejoin, each logged on its own"
+)]
+async fn serve(
+    config: &AgentConfig,
+    agent_id_slot: &AgentIdSlot,
+    inbound_tx: &mpsc::UnboundedSender<InboundEvent>,
+    outbound_rx: &mut mpsc::UnboundedReceiver<OutboundFrame>,
+    mut shutdown: Pin<&mut Notified<'_>>,
+) -> Result<Option<RegisteredSocket>, RunnerError> {
+    let rejoins = config.reconnect_timeout != Some(Duration::ZERO);
+    let mut joined_as: Option<String> = None;
+    loop {
+        let rejoining = joined_as.is_some();
+        let (requested_agent_id, budget) = if rejoining {
+            (joined_as.clone(), config.reconnect_timeout)
+        } else {
+            (config.requested_agent_id.clone(), config.connect_ack_timeout)
+        };
+        info!("connecting to {}", config.ws_url);
+        let registering = et_ws_runner_common::connect_and_register(&config.ws_url, requested_agent_id, budget);
+        let registered = tokio::select! {
+            biased;
+            () = shutdown.as_mut() => return Ok(None),
+            registered = registering => registered,
+        };
+        let (mut socket, agent_id, status) = match registered {
+            Ok(registered) => registered,
+            Err(ConnectError::Refused) if rejoining => {
+                warn!("the hub refused this runner's address; stopping");
+                return Ok(None);
+            }
+            Err(err) => return Err(err.into()),
+        };
+        info!(
+            "registered as agent_id={agent_id} ({})",
+            et_ws_runner_common::connect_status_label(&status),
+        );
+        // Populate the slot before `on_connect` so Python sees a valid
+        // `storage.agent_id` from the first instant it can act.
+        *agent_id_slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(agent_id.clone());
+        let _connect_sent = inbound_tx.send(InboundEvent::Connect(agent_id.clone()));
+
+        let lost = match drive(&mut socket, inbound_tx, outbound_rx, shutdown.as_mut()).await {
+            Ok(Ending::Shutdown) => return Ok(Some(socket)),
+            Ok(Ending::Closed) if !rejoins => return Ok(None),
+            Err(err) if !rejoins => return Err(err),
+            Ok(Ending::Closed) => "the hub closed the connection".to_owned(),
+            Err(err) => err.to_string(),
+        };
+        warn!("lost the hub ({lost}); rejoining as {agent_id}");
+        joined_as = Some(agent_id);
+    }
 }
 
 /// Run every Python hook on a dedicated OS thread, owning the `Dispatcher`.
@@ -282,7 +338,7 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
     }
 }
 
-/// Drive the socket in both directions.
+/// Drive the socket in both directions until shutdown or the connection ends.
 ///
 /// Inbound frames are forwarded to the Python dispatch worker via `inbound_tx`
 /// (a non-blocking send, so a slow handler never holds up this loop); outbound
@@ -293,25 +349,23 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
     reason = "one select! loop over the socket, the outbound queue and shutdown"
 )]
 async fn drive(
-    socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    socket: &mut RegisteredSocket,
     inbound_tx: &mpsc::UnboundedSender<InboundEvent>,
     outbound_rx: &mut mpsc::UnboundedReceiver<OutboundFrame>,
-    shutdown: &Notify,
-) -> Result<(), RunnerError> {
+    mut shutdown: Pin<&mut Notified<'_>>,
+) -> Result<Ending, RunnerError> {
     // Keepalive: the server closes idle connections and never pings us, so a
     // module that only waits for inbound frames would be timed out. Ping on a
     // cadence well inside the server's timeout to stay registered.
     let mut heartbeat = et_ws_runner_common::heartbeat_interval().await;
-    // Fires when main trips `shutdown` (ctrl_c / RUNNER_TIMEOUT). Created once before the loop so no
-    // notification is lost, and returning here lets `run` fall through to its teardown (queue on_shutdown,
-    // join the worker, close the socket) rather than the run future being dropped mid-flight.
-    let shutdown_requested = shutdown.notified();
-    tokio::pin!(shutdown_requested);
     loop {
         tokio::select! {
-            () = &mut shutdown_requested => {
+            // Fires when main trips `shutdown` (ctrl_c / RUNNER_TIMEOUT). Returning lets `run` fall through to its
+            // teardown (queue on_shutdown, join the worker, close the socket) rather than the run future being
+            // dropped mid-flight.
+            () = shutdown.as_mut() => {
                 info!("shutdown requested; closing connection");
-                return Ok(());
+                return Ok(Ending::Shutdown);
             }
             // Inbound: hand the frame to the dispatch worker and keep looping.
             // The worker emits any reply onto the same outbound queue Python
@@ -325,12 +379,12 @@ async fn drive(
                 }
                 Some(Ok(tungstenite::Message::Close(_))) => {
                     info!("server closed connection");
-                    return Ok(());
+                    return Ok(Ending::Closed);
                 }
                 // Ping / Pong / Frame and any future variant: nothing to do.
                 Some(Ok(_)) => {}
                 Some(Err(e)) => return Err(RunnerError::WebSocket(e)),
-                None => return Ok(()),
+                None => return Ok(Ending::Closed),
             },
             // Outbound: drain anything the worker pushed (Python's WsSender
             // sends or return-value replies).

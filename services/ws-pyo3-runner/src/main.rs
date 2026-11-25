@@ -3,7 +3,7 @@
 //! Configuration is deserialised from the environment by
 //! [`et_ws_pyo3_runner::config::Config`]; see that module for the full variable
 //! list (`RUNNER_MODULE`, `RUNNER_TIMEOUT`, `WS_SERVER_URL`, `PYO3_PYTHONPATH`,
-//! `PYO3_AGENT_ID`).
+//! `PYO3_AGENT_ID`, `PYO3_RECONNECT_TIMEOUT`).
 
 use et_ws_pyo3_runner::agent::{AgentConfig, initialize, resolved_python_path, run as run_agent};
 use et_ws_pyo3_runner::config::Config;
@@ -23,6 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let ws_url = config.ws.server_url.clone();
     let requested_agent_id = config.pyo3.agent_id.clone();
     let connect_ack_timeout = config.ws.connect_ack_timeout;
+    let reconnect_timeout = config.pyo3.reconnect_timeout;
 
     info!("module={module} python_path={python_path:?} ws_url={ws_url}");
 
@@ -44,14 +45,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             ws_url,
             requested_agent_id,
             connect_ack_timeout,
+            reconnect_timeout,
         },
         fetched,
     )?;
 
-    // Graceful shutdown: ctrl_c or the optional RUNNER_TIMEOUT trips `shutdown`, which `run_agent`'s `drive`
-    // loop selects on. That returns the run loop so `run_agent` still executes its teardown (queue on_shutdown,
-    // join the Python worker, close the socket) instead of the run future being dropped mid-flight. The watcher
-    // runs concurrently and is abandoned when `run_agent` returns and the process exits.
+    // Graceful shutdown: ctrl_c or the optional RUNNER_TIMEOUT trips `shutdown`, which `run_agent` selects on while
+    // it connects and while it serves. That ends its loop so `run_agent` still executes its teardown (queue
+    // on_shutdown, join the Python worker, close any open socket) instead of the run future being dropped mid-flight.
+    // The watcher runs concurrently and is abandoned when `run_agent` returns and the process exits.
     let shutdown = std::sync::Arc::new(tokio::sync::Notify::new());
     let limit = config.runner.timeout;
     let _watcher = tokio::spawn({

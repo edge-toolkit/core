@@ -8,9 +8,10 @@
     reason = "test helper: a missing free port or unpiped child stderr should fail the test loudly"
 )]
 
-use std::io::Read as _;
+use std::io::{Read as _, Write as _};
 use std::net::{Ipv4Addr, TcpListener};
-use std::process::Child;
+use std::process::{Child, ExitStatus};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -79,6 +80,28 @@ pub fn free_listener() -> TcpListener {
 #[must_use]
 pub fn reserve_port() -> u16 {
     port_check::free_local_port().unwrap()
+}
+
+/// A loopback HTTP server answering every request with `status` and an empty body, for the rest of the process.
+///
+/// Returns its port and a count of the requests it has read, which is already up to date once a client has its answer.
+/// It is a few bytes down a `TcpStream` rather than an HTTP library, because a test using it only chooses a status.
+#[must_use]
+pub fn http_answering(status: &'static str) -> (u16, Arc<AtomicUsize>) {
+    let listener = free_listener();
+    let port = listener.local_addr().unwrap().port();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&requests);
+    let _server = std::thread::spawn(move || {
+        for mut stream in listener.incoming().flatten() {
+            let mut request = [0_u8; 1024];
+            let _read = stream.read(&mut request);
+            let _previous = counted.fetch_add(1, Ordering::SeqCst);
+            let response = format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            let _written = stream.write_all(response.as_bytes());
+        }
+    });
+    (port, requests)
 }
 
 /// Wait until `port` accepts a TCP connection, polling ~every 100ms for up to ~20s.
@@ -151,6 +174,15 @@ impl ChildGuard {
         }
         self.shutdown();
         false
+    }
+
+    /// The status the child exited with, waiting for it if it is still running.
+    ///
+    /// # Errors
+    ///
+    /// When the child cannot be waited on.
+    pub fn exit_status(&mut self) -> std::io::Result<ExitStatus> {
+        self.child.wait()
     }
 }
 

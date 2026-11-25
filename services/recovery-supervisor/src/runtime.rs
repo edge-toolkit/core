@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant};
 
 use edge_toolkit::ws::{ClientMessage, CloudEvent, MessageScope, ServerMessage};
-use et_ws_runner_common::RegisteredSocket;
+use et_ws_runner_common::{ConnectError, RegisteredSocket};
 use fs_err as fs;
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio::sync::mpsc;
@@ -217,7 +217,9 @@ async fn reconnect(
             tokio::select! {
                 result = &mut attempt => match result {
                     Ok(socket) => return Ok(socket),
-                    Err(error @ RecoveryError::Invalid(_)) => return Err(error),
+                    Err(error @ (RecoveryError::Invalid(_) | RecoveryError::Connect(ConnectError::Refused))) => {
+                        return Err(error);
+                    },
                     Err(error) => {
                         supervisor.transport_lost(supervisor.elapsed(started.elapsed().as_secs()), &error.to_string());
                         store.persist(supervisor.report()).await?;

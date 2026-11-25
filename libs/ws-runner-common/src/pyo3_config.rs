@@ -3,6 +3,7 @@
 //! It lives beside the shared settings rather than in `et-ws-pyo3-runner`, so documenting it needs no Python build.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use serde::Deserialize;
 
@@ -42,6 +43,13 @@ pub struct Pyo3Config {
     /// `PYO3_AGENT_ID` -- request this `agent_id` on connect; unset gets a fresh one.
     #[serde(default)]
     pub agent_id: Option<String>,
+    /// `PYO3_RECONNECT_TIMEOUT` -- how long to keep trying to rejoin a hub the runner has lost (e.g. `30s`, `5m`).
+    ///
+    /// The runner rejoins under the id it held, and exits with an error once this has passed without a hub. Unset keeps
+    /// trying until the hub is back; `0s` does not rejoin, so the runner stops with its connection.
+    #[serde(default, with = "jiff::fmt::serde::unsigned_duration::friendly::compact::optional")]
+    #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
+    pub reconnect_timeout: Option<Duration>,
 }
 
 impl Pyo3Config {

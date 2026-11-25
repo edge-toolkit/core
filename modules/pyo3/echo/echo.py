@@ -7,10 +7,10 @@ optional -- if your module doesn't define it, the runner skips that hook.
 Lifecycle, in order:
 
   init(send, storage)              # once, at startup; `send`/`storage` are host handles
-  on_connect(agent_id)             # once, after et-connect-ack
+  on_connect(agent_id)             # after et-connect-ack, and again each time the runner rejoins a lost hub
   on_text_frame(text)              # per inbound text frame the et hub didn't recognise as a typed et-* message
   on_binary_frame(frame)           # per inbound binary frame
-  on_shutdown()                    # once, after the websocket closes
+  on_shutdown()                    # once, as the runner stops
 
 Two ways to emit outbound frames:
 
@@ -74,5 +74,5 @@ def on_binary_frame(frame: bytes) -> bytes | None:
 
 
 def on_shutdown() -> None:
-    """Log the running echo count as the connection closes."""
+    """Log the running echo count as the runner stops."""
     _logger.info("echo agent shutting down after %d frames", _state["echoed"])

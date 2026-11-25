@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use et_otlp::Telemetered as _;
 use et_ws_runner_common::{pyo3_config, wasi_config, web_config};
@@ -54,4 +55,14 @@ fn pyo3_config_splits_its_python_path_dropping_empty_segments() {
     assert_eq!(config.pyo3.python_path(), [PathBuf::from("/a"), PathBuf::from("/b")]);
     assert_eq!(config.pyo3.agent_id.as_deref(), Some("agent-7"));
     assert!(config.otlp().is_none());
+}
+
+#[test]
+fn pyo3_config_rejoins_without_a_bound_unless_told_how_long() {
+    let unbounded: pyo3_config::Config = serde_env::from_iter([("RUNNER_MODULE", "echo")]).unwrap();
+    let bounded: pyo3_config::Config =
+        serde_env::from_iter([("RUNNER_MODULE", "echo"), ("PYO3_RECONNECT_TIMEOUT", "30s")]).unwrap();
+
+    assert_eq!(unbounded.pyo3.reconnect_timeout, None);
+    assert_eq!(bounded.pyo3.reconnect_timeout, Some(Duration::from_secs(30)));
 }

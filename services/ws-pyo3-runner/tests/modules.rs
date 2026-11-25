@@ -26,6 +26,7 @@ use backon::{ExponentialBuilder, RetryableWithContext as _};
 use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, mise_env_includes, mise_python_site_packages, mise_where};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use et_rest_client::ClientInfo as _;
 use et_test_helpers::ChildGuard;
 use futures_util::{SinkExt as _, StreamExt as _};
 use rstest::rstest;
@@ -54,6 +55,8 @@ const POLL_DRAIN_WINDOW: Duration = Duration::from_millis(250);
 /// How long a runner gets to exit by itself once its hub has stopped, which takes it well under a second.
 const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
 const RUST_LOG: &str = "RUST_LOG";
+/// How long a runner keeps trying to rejoin a hub it has lost.
+const RECONNECT_TIMEOUT: &str = "PYO3_RECONNECT_TIMEOUT";
 
 type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
@@ -218,6 +221,107 @@ async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// A runner whose hub restarts on the same address rejoins it under the id it held, and serves it again.
+#[test_log::test]
+fn rejoins_a_restarted_hub_under_its_id() -> Result<(), Box<dyn Error>> {
+    let port = et_test_helpers::reserve_port();
+    let server = et_ws_test_server::start_on(port);
+    let mut runner = spawn_runner(
+        "echo",
+        &[module_dir("echo")],
+        &server.ws_url,
+        &[(RECONNECT_TIMEOUT, "20s")],
+    );
+    let before = et_ws_test_server::wait_for_connected_agents(&server.ws_url, 1, EXCHANGE_BUDGET);
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    runtime.block_on(server.stop());
+
+    let replacement = et_ws_test_server::start_on(port);
+    let after = et_ws_test_server::wait_for_connected_agents(&replacement.ws_url, 1, EXCHANGE_BUDGET);
+    let echoed = runtime.block_on(async {
+        let (mut control, control_id) = control_client(&replacement.ws_url).await?;
+        wait_for_peer(&mut control, &control_id, EXCHANGE_BUDGET).await?;
+        exchange_text_contains(&mut control, r#"{"after":"restart"}"#, &[]).await
+    });
+
+    let Some([agent_id]) = (after == before).then_some(after.as_slice()) else {
+        return Err(format!("registered as {before:?} before the hub restarted and as {after:?} after").into());
+    };
+    echoed?;
+    runtime.block_on(evict(&replacement, agent_id))?;
+    stops_cleanly(&mut runner)
+}
+
+/// An evicted runner stops cleanly rather than trying to rejoin a hub that now refuses its address.
+#[test_log::test]
+fn stops_once_evicted() -> Result<(), Box<dyn Error>> {
+    let server = et_ws_test_server::start();
+    let mut runner = spawn_runner(
+        "echo",
+        &[module_dir("echo")],
+        &server.ws_url,
+        &[(RECONNECT_TIMEOUT, "10m")],
+    );
+    let agents = et_ws_test_server::wait_for_connected_agents(&server.ws_url, 1, EXCHANGE_BUDGET);
+    let [agent_id] = agents.as_slice() else {
+        return Err(format!("expected the runner alone to register, got {agents:?}").into());
+    };
+
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(evict(&server, agent_id))?;
+    stops_cleanly(&mut runner)
+}
+
+/// A hub refusing the runner's address at its first connect is a failure to start, not a clean stop.
+#[test]
+fn fails_to_start_when_refused() -> Result<(), Box<dyn Error>> {
+    let (port, _requests) = et_test_helpers::http_answering("403 Forbidden");
+    let output = Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
+        .env("RUNNER_MODULE", "echo")
+        .env("PYO3_PYTHONPATH", colon_free(&module_dir("echo")))
+        .env("WS_SERVER_URL", format!("ws://127.0.0.1:{port}/ws"))
+        .env("RUNNER_TIMEOUT", "30s")
+        .env("RUST_LOG", "error")
+        .output()?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if output.status.success() || !stderr.contains("Refused") {
+        return Err(format!(
+            "a refused first connect should fail; got {:?} and stderr: {stderr}",
+            output.status,
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Evict `agent_id` from `server` through its admin API.
+async fn evict(server: &et_ws_test_server::TestServer, agent_id: &str) -> Result<(), Box<dyn Error>> {
+    let _evicted = et_rest_client::Client::new(&server.base_url)
+        .client()
+        .delete(format!("{}/agents/{agent_id}", server.base_url))
+        .bearer_auth(et_ws_test_server::ADMIN_TOKEN)
+        .send()
+        .await?
+        .error_for_status()?;
+    Ok(())
+}
+
+/// Give `runner` [`RUNNER_EXIT_TIMEOUT`] to stop by itself, failing unless it exits successfully.
+fn stops_cleanly(runner: &mut ChildGuard) -> Result<(), Box<dyn Error>> {
+    if !runner.wait_for_exit(RUNNER_EXIT_TIMEOUT) {
+        return Err("the runner did not stop by itself".into());
+    }
+    let status = runner.exit_status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("the runner stopped with {status}").into())
+    }
+}
+
 /// True if `gate` isn't satisfied on this host (emitting a skip note for torch).
 fn skipped(module: &str, gate: &Gate) -> bool {
     match gate {
@@ -238,10 +342,6 @@ fn skipped(module: &str, gate: &Gate) -> bool {
 }
 
 /// Broadcast `send` and require the reply to carry it back plus every `extra` needle.
-#[expect(
-    clippy::single_call_fn,
-    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
-)]
 async fn exchange_text_contains(control: &mut ControlSocket, send: &str, extra: &[&str]) -> Result<(), Box<dyn Error>> {
     control.send(tungstenite::Message::text(send)).await?;
     let reply = drain_text(control).await?;
@@ -508,7 +608,8 @@ fn colon_free(path: &Path) -> PathBuf {
 
 /// Spawn the runner subprocess for `module`, pointed at `ws_url`, with `envs` set beside what every case sets.
 ///
-/// `module_dirs` go on `PYO3_PYTHONPATH` ahead of edge-toolkit's source.
+/// `module_dirs` go on `PYO3_PYTHONPATH` ahead of edge-toolkit's source. The runner does not rejoin a lost hub unless
+/// `envs` sets [`RECONNECT_TIMEOUT`], so it stops with its hub as [`stop_hub`] expects.
 fn spawn_runner(module: &str, module_dirs: &[PathBuf], ws_url: &str, envs: &[(&str, &str)]) -> ChildGuard {
     // Silence the runner unless invoked with --nocapture and RUST_LOG opted in.
     let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
@@ -525,6 +626,7 @@ fn spawn_runner(module: &str, module_dirs: &[PathBuf], ws_url: &str, envs: &[(&s
         .env("PYO3_PYTHONPATH", python_path)
         .env("WS_SERVER_URL", ws_url)
         .env("RUST_LOG", rust_log)
+        .env(RECONNECT_TIMEOUT, "0s")
         .envs(envs.iter().copied())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())

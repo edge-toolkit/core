@@ -53,10 +53,10 @@ Your module may define any of these top-level functions; the runner calls them a
 | Function                 | Called when                                                        |
 | ------------------------ | ------------------------------------------------------------------ |
 | `init(send, storage)`    | once, at startup                                                   |
-| `on_connect(agent_id)`   | once, after the server assigns this agent an id                    |
+| `on_connect(agent_id)`   | after the server assigns this agent an id, and on each rejoin      |
 | `on_text_frame(text)`    | a text message arrived; return a reply (`str`/`bytes`) or `None`   |
 | `on_binary_frame(frame)` | a binary message arrived; return a reply (`bytes`/`str`) or `None` |
-| `on_shutdown()`          | once, as the connection closes                                     |
+| `on_shutdown()`          | once, as the runner stops                                          |
 
 `init` receives two helpers:
 
@@ -67,6 +67,10 @@ Your module may define any of these top-level functions; the runner calls them a
 
 That is the whole interface: a module is "just a Python file with some of those functions." The smallest example
 is `modules/pyo3/echo/echo.py`.
+
+The runner rejoins a hub it loses, so the module's state outlives the outage, and the hub hands it again every direct
+message (`et-agent-message` with `scope: direct`) it has not acknowledged. A module that acts on direct messages sends
+`et-message-ack` for each it has handled, or skips a `message_id` it has seen, so a rejoin does not apply one twice.
 
 ## Persistent workers
 

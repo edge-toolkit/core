@@ -243,6 +243,14 @@ Changelog 1.1.0.
 
 ### Changed
 
+- **Breaking:** `et-ws-pyo3-runner` no longer exits when it loses its hub. It rejoins under the agent id it held, so it
+  keeps its storage bucket and receives the direct messages queued for it, and the module's `on_connect` runs again.
+  `PYO3_RECONNECT_TIMEOUT` bounds how long it keeps trying before exiting with an error, which is until the hub is back
+  when unset; `0s` restores stopping with the connection. Frames the module sends while it is offline wait in memory and
+  go out in order once it has rejoined. A hub refusing its address as it rejoins, as one does after an eviction, stops
+  it cleanly. `et-ws-runner-common`'s `connect_and_register` no longer retries an upgrade the hub answers
+  `403 Forbidden`, returning the new `ConnectError::Refused` at once, and `et-recovery-supervisor` ends supervision on
+  it instead of retrying.
 - **Breaking:** duration settings are read by jiff rather than the unmaintained humantime: `RUNNER_TIMEOUT`,
   `WS_CONNECT_ACK_TIMEOUT`, `WS_CONNECTION_TIMEOUT` and the `HTTP_*` timeouts and keep-alive. `15s`, `500ms` and
   `1m30s` read as before, and an ISO 8601 duration such as `PT15S` is now accepted too. Days, weeks, months and years

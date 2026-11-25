@@ -52,6 +52,15 @@ Prepended before importing the module; empty by default. A directory such as `li
 package at its root importable. On Windows, where a drive letter's colon would split a path in two, write an absolute
 path as a UNC path: `\\localhost\C$\Users\...` for `C:\Users\...`.
 
+### `PYO3_RECONNECT_TIMEOUT`
+
+Type: string.
+
+`PYO3_RECONNECT_TIMEOUT` -- how long to keep trying to rejoin a hub the runner has lost (e.g. `30s`, `5m`).
+
+The runner rejoins under the id it held, and exits with an error once this has passed without a hub. Unset keeps trying
+until the hub is back; `0s` does not rejoin, so the runner stops with its connection.
+
 ### `RUNNER_MODULE`
 
 Type: string. Required.
