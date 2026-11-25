@@ -29,7 +29,7 @@ fn save_load_roundtrip_and_session_lookup() {
     assert_eq!(
         registry.agent_session(&agent_id).as_deref(),
         Some("sess-b"),
-        "reconnect keeps the newest session"
+        "reconnect keeps the newest session",
     );
     assert_eq!(registry.agent_session("nobody"), None, "unknown agent has no session");
 
@@ -80,6 +80,6 @@ fn a_registry_that_is_neither_layout_is_an_error() {
 
     assert!(matches!(
         AgentRegistry::<String>::load(&path),
-        Err(RegistryError::Yaml(_))
+        Err(RegistryError::Yaml(_)),
     ));
 }

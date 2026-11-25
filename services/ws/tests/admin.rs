@@ -177,7 +177,7 @@ async fn a_block_needs_an_address_and_the_admin_token() {
     assert_eq!(ipv6.status(), StatusCode::NO_CONTENT);
     assert_eq!(
         registry.blocklist.ips(),
-        BTreeSet::from(["2001:db8::1".parse().unwrap()])
+        BTreeSet::from(["2001:db8::1".parse().unwrap()]),
     );
 
     let disabled = app(WsAgentRegistry::default(), WsConfig::default()).await;

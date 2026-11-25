@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let log_interface = env.net.log_interface.as_deref();
     info!(
         "Selecting advertised IP with log_interface={}",
-        log_interface.unwrap_or("(unset)")
+        log_interface.unwrap_or("(unset)"),
     );
     let ip_candidates = et_ws_server::net::candidate_ipv4s(log_interface).inspect_err(|e| error!("{e}"))?;
     let network_ip = ip_candidates
@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             return Err(format!(
                 "TLS certificate {} or key {} is missing; this build cannot generate one",
                 cert_filename.display(),
-                key_filename.display()
+                key_filename.display(),
             )
             .into());
         };
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for (interface, addr) in &ip_candidates {
         info!(
             "Reachable via {} at {}://{}:{}",
-            interface, scheme, addr, advertised_port
+            interface, scheme, addr, advertised_port,
         );
     }
     #[cfg(feature = "qr")]
@@ -96,7 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Backplane::Nats(_) => {
             info!(
                 "Sharing agents over the NATS backplane; {} is neither read nor written",
-                env.ws.agent_registry.display()
+                env.ws.agent_registry.display(),
             );
             WsAgentRegistry::default()
         }

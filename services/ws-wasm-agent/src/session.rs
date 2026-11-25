@@ -85,7 +85,7 @@ impl WsClient {
         let Ok(interval_ms) = i32::try_from(self.config.alive_interval_ms) else {
             warn!(
                 "alive_interval_ms ({}) exceeds i32::MAX; skipping interval",
-                self.config.alive_interval_ms
+                self.config.alive_interval_ms,
             );
             return;
         };
@@ -222,14 +222,14 @@ impl WsClient {
             let _dropped: Option<String> = state.offline_queue.pop_front();
             warn!(
                 "Offline websocket queue reached {} messages; dropping oldest entry",
-                MAX_OFFLINE_QUEUE_LEN
+                MAX_OFFLINE_QUEUE_LEN,
             );
         }
         state.offline_queue.push_back(message.to_string());
         info!(
             "Queued websocket message while offline (queue_len={}): {}",
             state.offline_queue.len(),
-            message
+            message,
         );
     }
 

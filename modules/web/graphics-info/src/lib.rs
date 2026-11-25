@@ -75,7 +75,7 @@ impl GraphicsSupport {
 
         info!(
             "Graphics support detected: webgl={} webgl2={} webgpu={} webnn={}",
-            webgl_supported, webgl2_supported, webgpu_supported, webnn_supported
+            webgl_supported, webgl2_supported, webgpu_supported, webnn_supported,
         );
 
         Ok(Self {
@@ -175,7 +175,7 @@ impl WebGpuProbeResult {
         let device_created = !device.is_null() && !device.is_undefined();
         info!(
             "WebGPU probe completed: adapter_found=true device_created={}",
-            device_created
+            device_created,
         );
 
         Ok(Self {
@@ -797,7 +797,7 @@ fn numeric_status(probe: &GpuNumericProbe) -> String {
         probe.signature.class(),
         probe.signature.completed(),
         probe.signature.deviations(),
-        probe.signature.fingerprint()
+        probe.signature.fingerprint(),
     )
 }
 
@@ -811,15 +811,15 @@ fn log_numeric(interface: &str, probe: &GpuNumericProbe) {
         "{interface} numeric probe: class={} answered={} deviations={}",
         probe.signature.class(),
         probe.signature.completed(),
-        probe.signature.deviations()
+        probe.signature.deviations(),
     ));
     log(&format!(
         "{interface} numeric probe: traits: {}",
-        probe.signature.traits()
+        probe.signature.traits(),
     ));
     log(&format!(
         "{interface} numeric probe: fingerprint={}",
-        probe.signature.fingerprint()
+        probe.signature.fingerprint(),
     ));
     for line in probe.signature.describe() {
         log(&format!("{interface} numeric probe: {line}"));
@@ -1074,7 +1074,7 @@ pub async fn run() -> Result<(), JsValue> {
             support.webgl_supported(),
             support.webgl2_supported(),
             support.webgpu_supported(),
-            support.webnn_supported()
+            support.webnn_supported(),
         ));
 
         log("probing WebGPU");
@@ -1082,7 +1082,7 @@ pub async fn run() -> Result<(), JsValue> {
         log(&format!(
             "WebGPU probe: adapter={} device={}",
             probe.adapter_found(),
-            probe.device_created()
+            probe.device_created(),
         ));
 
         log("detecting GPU info");
@@ -1092,7 +1092,7 @@ pub async fn run() -> Result<(), JsValue> {
             gpu.vendor(),
             gpu.renderer(),
             gpu.architecture(),
-            gpu.source()
+            gpu.source(),
         ));
 
         log("running GPU matrix multiply (4x4)");
@@ -1104,7 +1104,7 @@ pub async fn run() -> Result<(), JsValue> {
             } else {
                 log(&format!(
                     "GPU compute: WRONG result C[0][0]={} (expected {expected})",
-                    compute.result_c00()
+                    compute.result_c00(),
                 ));
             }
         } else {
@@ -1171,7 +1171,7 @@ pub async fn run() -> Result<(), JsValue> {
         set_module_status(&format!(
             concat!(
                 "graphics-info: detected\nGPU: {}\nRenderer: {}\nWebGPU: {}\nCompute: {}\n",
-                "WebGPU probe: {}\nWebGL 2 probe: {}"
+                "WebGPU probe: {}\nWebGL 2 probe: {}",
             ),
             gpu.vendor(),
             gpu.renderer(),
@@ -1186,7 +1186,7 @@ pub async fn run() -> Result<(), JsValue> {
                 "skipped".to_string()
             },
             numeric_status(&numeric),
-            numeric_status(&numeric_webgl)
+            numeric_status(&numeric_webgl),
         ))?;
 
         client.disconnect();

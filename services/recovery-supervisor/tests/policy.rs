@@ -42,14 +42,14 @@ fn failed_restart_releases_the_slot_without_bypassing_retry_limits() {
     assert_eq!(policy.report().assessments[&first.deployment].reason, Reason::Cooldown);
     assert_eq!(
         policy.report().assessments[&first.deployment].next_action_at,
-        ObservationTime::Recorded(43)
+        ObservationTime::Recorded(43),
     );
     assert_eq!(policy.observe(&second, Health::Unready, 24).unwrap(), Decision::Restart);
     policy.reserve_restart(&second, 24).unwrap();
     assert_eq!(policy.observe(&first, Health::Unready, 43).unwrap(), Decision::Observe);
     assert_eq!(
         policy.report().assessments[&first.deployment].reason,
-        Reason::ConcurrencyLimit
+        Reason::ConcurrencyLimit,
     );
     assert!(policy.reserve_restart(&first, 43).is_err());
     assert_eq!(policy.budget().restarts[&first.deployment], 1);
@@ -82,14 +82,14 @@ fn failed_retry_preserves_backoff_and_eventual_budget_exhaustion() {
     assert_eq!(policy.report().assessments[&first.deployment].reason, Reason::Cooldown);
     assert_eq!(
         policy.report().assessments[&first.deployment].next_action_at,
-        ObservationTime::Recorded(83)
+        ObservationTime::Recorded(83),
     );
     assert_eq!(policy.observe(&first, Health::Unready, 83).unwrap(), Decision::Restart);
     policy.reserve_restart(&first, 83).unwrap();
     assert_eq!(policy.observe(&first, Health::Unready, 84).unwrap(), Decision::Observe);
     assert_eq!(
         policy.report().assessments[&first.deployment].reason,
-        Reason::BudgetExhausted
+        Reason::BudgetExhausted,
     );
     assert_eq!(policy.budget().restarts[&first.deployment], 3);
 }
@@ -107,11 +107,11 @@ fn readiness_does_not_establish_recovery_but_progress_does() {
         .unwrap();
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 10).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 13).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(supervisor.incidents()[0].status, Status::Detected);
     assert_eq!(supervisor.incidents()[0].detected, ObservationTime::Recorded(13));
@@ -143,14 +143,14 @@ fn unknown_observations_do_not_trigger_actions_or_fake_recovery() {
     let workload = config().workloads.remove(0);
     assert_eq!(
         supervisor.observe(&workload, Health::Unknown, 0).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert!(supervisor.incidents().is_empty());
     let _decision = supervisor.observe(&workload, Health::Unready, 1).unwrap();
     let _decision = supervisor.observe(&workload, Health::Unready, 4).unwrap();
     assert_eq!(
         supervisor.observe(&workload, Health::Unknown, 100).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(supervisor.report().unknown_observations, 2_u64);
     assert_eq!(supervisor.incidents()[0].status, Status::Detected);
@@ -190,19 +190,19 @@ fn assisted_restarts_are_delayed_bounded_and_survive_supervisor_replacement() {
     let _error = supervisor.reserve_restart(&workload, 4).unwrap_err();
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 22).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     for now in [23, 43] {
         assert_eq!(
             supervisor.observe(&workload, Health::Unready, now).unwrap(),
-            Decision::Restart
+            Decision::Restart,
         );
         supervisor.reserve_restart(&workload, now).unwrap();
         supervisor.action_result(&workload, Action::RestartRequested).unwrap();
     }
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 63).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     let _error = supervisor.reserve_restart(&workload, 63).unwrap_err();
     let mut restored_config = config();
@@ -212,7 +212,7 @@ fn assisted_restarts_are_delayed_bounded_and_survive_supervisor_replacement() {
     let _decision = restored.observe(&workload, Health::Unready, 3).unwrap();
     assert_eq!(
         restored.observe(&workload, Health::Unready, 23).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
 }
 
@@ -246,7 +246,7 @@ fn expired_recovery_is_not_a_zero_duration_success() {
     let _decision = supervisor.observe(&workload, Health::Unready, 3).unwrap();
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 240).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(supervisor.incidents()[0].status, Status::Unrecovered);
     let _error = supervisor.reserve_restart(&workload, 260).unwrap_err();
@@ -289,7 +289,7 @@ fn recovery_is_verified_only_before_the_deadline() {
         assert_eq!(supervisor.incidents()[0].status, expected, "observer time {now}");
         assert_eq!(
             supervisor.report().recovered_incidents,
-            usize::from(expected == Status::Recovered)
+            usize::from(expected == Status::Recovered),
         );
     }
 }
@@ -410,7 +410,7 @@ fn report_preserves_typed_checkpoint_measurements_and_distinguishes_pending_time
                 .unwrap()
                 .last()
                 .unwrap()["kind"],
-            kind
+            kind,
         );
     }
     for time in [
@@ -434,7 +434,7 @@ fn classification_distinguishes_explicit_failure_stall_and_missing_observations(
     let _stalled = policy.observe(&worker, Health::Ready, 180).unwrap();
     assert_eq!(
         policy.report().assessments[&worker.deployment].classification,
-        Classification::ProgressStalled
+        Classification::ProgressStalled,
     );
     policy
         .event(&worker.agent_id, &event("failed", 0, 2, "one"), 181)
@@ -442,11 +442,11 @@ fn classification_distinguishes_explicit_failure_stall_and_missing_observations(
     let _failed = policy.observe(&worker, Health::Ready, 182).unwrap();
     assert_eq!(
         policy.report().assessments[&worker.deployment].classification,
-        Classification::ApplicationFailure
+        Classification::ApplicationFailure,
     );
     let _unknown = policy.observe(&worker, Health::Unknown, 183).unwrap();
     assert_eq!(
         policy.report().assessments[&worker.deployment].classification,
-        Classification::ObservationUnknown
+        Classification::ObservationUnknown,
     );
 }

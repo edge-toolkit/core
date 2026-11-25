@@ -50,7 +50,7 @@ fn scenario(twin: &str, rest: &str) -> String {
             "    runner: \"web\"\n",
             "    resources:\n",
             "      - type: \"math1-sender\"\n",
-            "{rest}"
+            "{rest}",
         ),
         rest = rest,
         twin = twin,
@@ -217,7 +217,7 @@ fn cpus_are_a_positive_decimal_of_at_most_three_places() {
     ] {
         assert_eq!(
             limits(&format!("cpus: {raw}")).unwrap().cpus,
-            Some(Cpus::from_millicores(millicores))
+            Some(Cpus::from_millicores(millicores)),
         );
     }
     let rejected = [
@@ -434,7 +434,7 @@ fn k3s_applies_every_limit() {
     // The quota cap, 75000 per 50000, is 1.5 CPUs.
     assert_eq!(
         resources(&dir, "math1-twin"),
-        quantities([["1500m", "1536Mi"], ["100m", "256Mi"]])
+        quantities([["1500m", "1536Mi"], ["100m", "256Mi"]]),
     );
     let expected = BTreeMap::from([
         ("cpu.max.memory-qos.nri.io/math1-twin", "75000 50000"),
@@ -484,7 +484,7 @@ fn k3s_applies_every_limit() {
     assert!(annotations(&dir, "math1-trigger").is_empty());
     assert_eq!(
         resources(&dir, "math1-trigger"),
-        quantities([["2", "2Gi"], ["100m", "128Mi"]])
+        quantities([["2", "2Gi"], ["100m", "128Mi"]]),
     );
 }
 
@@ -506,7 +506,7 @@ fn k3s_runs_the_plugins_and_readies_the_nodes_only_when_a_process_needs_them() {
         [
             "ghcr.io/containers/nri-plugins/nri-memory-qos:v0.14.0",
             "ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0",
-        ]
+        ],
     );
     assert!(
         plugins
@@ -549,7 +549,7 @@ fn the_readme_lists_the_containerd_template_with_k3s_only_when_it_is_written() {
     let readme = read(&dir, "README.md");
     assert!(readme.contains(concat!(
         "Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`, ",
-        "`containerd-config-v3.toml.tmpl`."
+        "`containerd-config-v3.toml.tmpl`.",
     )));
     let sections = ["Mise", "dekit", "process-compose", "Docker Compose", "k3s"]
         .map(|format| readme.find(&format!("\n## Run With {format}\n")).unwrap());
@@ -582,7 +582,7 @@ fn k3s_weights_cpu_shares_by_runc_s_own_conversion() {
         let (_root, dir) = generated(&scenario(&twin_limits(&format!("cpu_shares: {shares}")), ""));
         assert_eq!(
             annotations(&dir, "math1-twin")["cpu.weight.memory-qos.nri.io/math1-twin"],
-            weight
+            weight,
         );
     }
 }

@@ -38,7 +38,7 @@ fn wait_for_exit_reports_a_child_that_ends_on_its_own() {
     // loaded CI runner can take a while to get round to scheduling it.
     assert!(
         guard.wait_for_exit(Duration::from_secs(30)),
-        "a probe asked to sleep for 0ms should exit well inside the timeout"
+        "a probe asked to sleep for 0ms should exit well inside the timeout",
     );
 }
 
@@ -48,7 +48,7 @@ fn wait_for_exit_kills_a_child_that_overstays() {
 
     assert!(
         !guard.wait_for_exit(Duration::from_millis(500)),
-        "a probe asked to sleep for ten minutes should still be running when the timeout passes"
+        "a probe asked to sleep for ten minutes should still be running when the timeout passes",
     );
 }
 
@@ -60,7 +60,7 @@ fn has_exited_reports_a_child_that_has_ended() {
 
     assert!(
         guard.has_exited(),
-        "a probe asked to sleep for 0ms should read as exited well inside the bound"
+        "a probe asked to sleep for 0ms should read as exited well inside the bound",
     );
 }
 
@@ -81,7 +81,7 @@ fn wait_for_exit_credits_a_child_the_loop_never_saw_finish() {
 
     assert!(
         guard.wait_for_exit(Duration::ZERO),
-        "a child that has already exited must read as exited even with no time left to look for it"
+        "a child that has already exited must read as exited even with no time left to look for it",
     );
 }
 
@@ -91,7 +91,7 @@ fn has_exited_leaves_a_live_child_running() {
 
     assert!(
         !guard.has_exited(),
-        "a probe asked to sleep for ten minutes has not exited"
+        "a probe asked to sleep for ten minutes has not exited",
     );
     // Asked twice on purpose: the point of this helper over `wait_for_exit` is that it neither waits the child
     // out nor kills it, so a second look must still find it running.

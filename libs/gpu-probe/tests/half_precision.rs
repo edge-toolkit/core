@@ -93,12 +93,12 @@ fn a_device_computing_f16_as_written_deviates_nowhere() {
     assert_eq!(signature.deviations(), 0);
     assert_eq!(
         signature.traits(),
-        "multiply_add=rounded_twice fma=fused swamped_sum=in_order subnormal_product=kept dot=in_order"
+        "multiply_add=rounded_twice fma=fused swamped_sum=in_order subnormal_product=kept dot=in_order",
     );
     assert_eq!(signature.class(), UNRECOGNISED);
     assert_eq!(
         signature.results().first().unwrap(),
-        &("multiply_add", "00000000".to_owned())
+        &("multiply_add", "00000000".to_owned()),
     );
     let subnormal = "subnormal_product gpu=00000200 correct=00000200 ulps=+0".to_owned();
     assert!(signature.describe().contains(&subnormal));
@@ -120,7 +120,7 @@ fn a_device_widening_f16_to_f32_reads_as_fused_and_regrouped() {
     assert_eq!(widened.deviations(), 4);
     assert_eq!(
         widened.traits(),
-        "multiply_add=fused fma=fused swamped_sum=reassociated subnormal_product=flushed dot=reassociated"
+        "multiply_add=fused fma=fused swamped_sum=reassociated subnormal_product=flushed dot=reassociated",
     );
 }
 

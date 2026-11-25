@@ -421,7 +421,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
         String::from("Device sensor stream"),
         format!(
             "updated: {}",
-            String::from(js_sys::Date::new_0().to_locale_time_string("en-US"))
+            String::from(js_sys::Date::new_0().to_locale_time_string("en-US")),
         ),
         String::default(),
         String::from("orientation"),
@@ -443,19 +443,19 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
             "acceleration: x={} y={} z={}",
             format_number(motion.acceleration_x(), 3),
             format_number(motion.acceleration_y(), 3),
-            format_number(motion.acceleration_z(), 3)
+            format_number(motion.acceleration_z(), 3),
         ));
         lines.push(format!(
             "acceleration including gravity: x={} y={} z={}",
             format_number(motion.acceleration_including_gravity_x(), 3),
             format_number(motion.acceleration_including_gravity_y(), 3),
-            format_number(motion.acceleration_including_gravity_z(), 3)
+            format_number(motion.acceleration_including_gravity_z(), 3),
         ));
         lines.push(format!(
             "rotation rate: alpha={} beta={} gamma={}",
             format_number(motion.rotation_rate_alpha(), 3),
             format_number(motion.rotation_rate_beta(), 3),
-            format_number(motion.rotation_rate_gamma(), 3)
+            format_number(motion.rotation_rate_gamma(), 3),
         ));
         lines.push(format!("interval: {} ms", format_number(motion.interval_ms(), 1)));
     } else {

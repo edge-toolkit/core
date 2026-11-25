@@ -55,7 +55,7 @@ fn webgl1_gives_both_modes_or_says_why_not() {
         given
             .iter()
             .all(|interface| ["webgl1-split", "webgl1-combined"].contains(interface)),
-        "{answer}"
+        "{answer}",
     );
     for signature in answer["signatures"].as_array().unwrap() {
         // GLSL ES 1.00 has neither fma nor tanh, and the rest are answered.
@@ -88,7 +88,7 @@ fn both_canvas_fingerprints_are_taken() {
     for withheld in answer["withheld"].as_array().unwrap() {
         assert!(
             withheld["reason"].as_str().unwrap().starts_with("randomised: "),
-            "{withheld}"
+            "{withheld}",
         );
         taken.push(withheld["interface"].as_str().unwrap());
     }
@@ -107,7 +107,7 @@ fn an_unaltered_browser_gives_the_hashes_its_reads_agree_on() {
         let fingerprint = signature["fingerprint"].as_str().unwrap();
         assert!(
             describe.iter().all(|line| line.as_str().unwrap().contains(fingerprint)),
-            "{signature}"
+            "{signature}",
         );
     }
 }

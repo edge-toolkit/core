@@ -300,7 +300,7 @@ fn create_web_worker_cb(
         if let Err(e) = worker.js_runtime.execute_script("<web-runner-worker-shim>", shim) {
             error!(
                 error = ?e,
-                "worker environment shim failed unexpectedly (it already succeeded on the main thread)"
+                "worker environment shim failed unexpectedly (it already succeeded on the main thread)",
             );
         }
         (worker, handle)

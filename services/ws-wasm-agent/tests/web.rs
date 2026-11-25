@@ -32,7 +32,7 @@ async fn test_websocket_connection() {
     assert_eq!(
         client.get_state(),
         "connected",
-        "Client should be connected to the server"
+        "Client should be connected to the server",
     );
 }
 
@@ -65,7 +65,7 @@ fn websocket_url_derives_the_endpoint_from_the_page() {
 
     assert!(
         url.starts_with("ws://") || url.starts_with("wss://"),
-        "expected a websocket scheme, got {url}"
+        "expected a websocket scheme, got {url}",
     );
     assert!(url.ends_with("/ws"), "expected the /ws endpoint path, got {url}");
 }
@@ -88,11 +88,11 @@ fn describe_js_error_falls_back_to_json() {
 
     assert!(
         described.contains("code"),
-        "expected the stringified key, got {described}"
+        "expected the stringified key, got {described}",
     );
     assert!(
         described.contains('7'),
-        "expected the stringified value, got {described}"
+        "expected the stringified value, got {described}",
     );
 }
 
@@ -106,7 +106,7 @@ fn describe_js_error_falls_back_to_debug_when_json_throws() {
 
     assert!(
         !described.is_empty(),
-        "the Debug fallback must still describe the error"
+        "the Debug fallback must still describe the error",
     );
 }
 
@@ -145,7 +145,7 @@ fn websocket_url_refuses_a_location_without_a_protocol() {
 
     assert_eq!(
         err.as_string().as_deref(),
-        Some("window.location.protocol is unavailable")
+        Some("window.location.protocol is unavailable"),
     );
 }
 
@@ -243,6 +243,6 @@ async fn sleep_ms_on_rejects_when_set_timeout_throws() {
     assert!(
         err.is_instance_of::<js_sys::Error>(),
         "the rejection must carry the thrown error, got {}",
-        describe_js_error(&err)
+        describe_js_error(&err),
     );
 }

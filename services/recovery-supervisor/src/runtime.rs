@@ -222,7 +222,7 @@ async fn reconnect(
                         supervisor.transport_lost(supervisor.elapsed(started.elapsed().as_secs()), &error.to_string());
                         store.persist(supervisor.report()).await?;
                         break;
-                    }
+                    },
                 },
                 _ = interval.tick() => {
                     supervisor.transport_lost(supervisor.elapsed(started.elapsed().as_secs()), "hub registration");
@@ -350,7 +350,7 @@ pub async fn hub(
                     return Err(RecoveryError::Invalid("hub connection closed".into()));
                 }
                 Some(Err(error)) => return Err(error.into()),
-                Some(Ok(_)) => {}
+                Some(Ok(_)) => {},
             }
         }
     }

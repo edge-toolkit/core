@@ -1,0 +1,31 @@
+id: macro-list-trailing-comma-by-hand
+valid:
+  - |
+    assert!(
+        ready,
+        "the first line
+    and the second",
+    );
+  - |
+    assert!(
+        ready,
+        "one line"
+    );
+  - |
+    #[doc = "the first line
+    and the second"
+    ]
+    fn item() {}
+invalid:
+  - |
+    assert!(
+        ready,
+        "the first line
+    and the second"
+    );
+  - |
+    println!("{}", format!(
+        "{}",
+        r#"the first line
+    and the second"#
+    ));

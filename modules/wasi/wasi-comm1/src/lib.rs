@@ -48,7 +48,7 @@ impl Guest for Component {
             .ok_or_else(|| EntryError::Runtime("no list-agents-response within timeout".to_string()))?;
         info(&format!(
             "list-agents-response: {} agent(s) registered",
-            response.agents.len()
+            response.agents.len(),
         ));
 
         let self_listed = response.agents.iter().any(|agent| agent.agent_id == agent_id);

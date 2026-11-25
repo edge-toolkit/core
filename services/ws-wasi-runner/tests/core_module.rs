@@ -221,7 +221,7 @@ async fn a_module_needs_a_run_function_of_its_own() {
     for wasm in [unnamed, memory, imported] {
         assert!(matches!(
             run_on(&wasm, &mut Script::default()).await,
-            Err(CoreError::NoRun)
+            Err(CoreError::NoRun),
         ));
     }
 }

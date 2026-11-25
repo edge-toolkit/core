@@ -186,7 +186,7 @@ const CONTAINERD_TEMPLATE: &str = concat!(
     "{{ template \"base\" . }}\n",
     "\n",
     "[plugins.\"io.containerd.nri.v1.nri\".default_validator]\n",
-    "  enable = true\n"
+    "  enable = true\n",
 );
 
 /// The socket containerd's NRI listens on, which each plugin connects to.
@@ -1198,7 +1198,7 @@ fn hub_env(image: &HubImage<'_>) -> Vec<EnvVar> {
             format!(
                 "http://{}:{}/api/default/v1",
                 COLLECTOR_SERVICE,
-                Services::OtlpCollector.port()
+                Services::OtlpCollector.port(),
             ),
         ),
         env("TLS_CERT_FILE", format!("{HUB_RUNTIME_DIR}/cert.pem")),
@@ -1291,7 +1291,7 @@ fn runner_document(
         image: Some(format!(
             "{}et-ws-{}-runner:{IMAGE_TAG}",
             image_prefix(images),
-            runner.runner
+            runner.runner,
         )),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: runner.name.clone(),

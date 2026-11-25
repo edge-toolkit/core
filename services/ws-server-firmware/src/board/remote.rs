@@ -162,7 +162,7 @@ pub(super) async fn serve(spawner: Spawner, stack: Stack<'static>, _boot: u32) {
             Err(error) => warn!(
                 "Failed to start runner {=str}'s sockets: {}",
                 name,
-                Debug2Format(&error)
+                Debug2Format(&error),
             ),
         }
         spawn_runner(spawner, guest_task(link, name, component, shared.clone()), name);

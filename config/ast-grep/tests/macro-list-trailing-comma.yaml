@@ -1,0 +1,175 @@
+id: macro-list-trailing-comma
+valid:
+  - |
+    assert_eq!(names, ["one", "two"]);
+  - |
+    assert_eq!(
+        names,
+        [
+            "one",
+            "two",
+        ],
+    );
+  - |
+    assert_eq!(
+        names,
+        [
+            "one",
+            "two", // the last
+        ],
+    );
+  - |
+    let empty = vec![
+    ];
+  - |
+    let zeros = vec![
+        0;
+        3
+    ];
+  - |
+    println!("{}", values[
+        index
+    ]);
+  - |
+    let tokens = quote! {
+        #[doc = "the item"
+        ]
+        fn item() {}
+    };
+  - |
+    macro_rules! list {
+        ($($item:expr),*) => {
+            [
+                $($item),*
+            ]
+        };
+    }
+  - |
+    let names = [
+        "one",
+        "two"
+    ];
+  - |
+    assert!(
+        ready
+    );
+  - |
+    assert_eq!(total, (
+        first + second
+    ));
+  - |
+    let tokens = quote! {
+        fn item(first: u8, second: u8) -> u8 {
+            first + second
+        }
+    };
+  - |
+    assert!(matches!(item, Item {
+        name,
+        ..
+    }));
+  - |
+    let config = format!("{}", Config {
+        name: "one".to_owned(),
+        ..Config::default()
+    });
+  - |
+    assert_eq!(found, run(|| {
+        let total = 1;
+        total
+    }));
+  - |
+    let tokens = quote! {
+        let all = [#(
+            #items, #names
+        )*];
+    };
+  - |
+    #[expect(
+        clippy::single_call_fn,
+        reason = "a named step"
+    )]
+    fn step() {}
+  - |
+    #![expect(
+        clippy::exhaustive_enums,
+        reason = "the enum is generated"
+    )]
+  - |
+    assert!(
+        ready,
+        "the first line
+    and the second"
+    );
+  - |
+    assert_eq!(
+        found,
+        Some("https://host:8443/health"),
+    );
+invalid:
+  - |
+    assert_eq!(
+        found,
+        Some("https://host:8443/health")
+    );
+  - |
+    assert!(
+        ready,
+        "see // this"
+    );
+  - |
+    assert_eq!(
+        found,
+        read(path)?
+    );
+  - |
+    assert!(
+        "one line",
+        status
+    );
+  - |
+    assert_eq!(
+        names,
+        [
+            "one",
+            "two"
+        ],
+    );
+  - |
+    assert_eq!(
+        names,
+        [
+            "one",
+            "two" // the last
+        ],
+    );
+  - |
+    let numbers = vec![
+        1,
+        2
+    ];
+  - |
+    let nested = vec![
+        [1, 2],
+        [3, 4]
+    ];
+  - |
+    assert_eq!(
+        found,
+        expected
+    );
+  - |
+    println!("{}", call(
+        first,
+        second
+    ));
+  - |
+    let value = json!({
+        "name": "one",
+        "count": 2
+    });
+  - |
+    assert_eq!(found, Item {
+        name: "one",
+        count: 2
+    });

@@ -41,7 +41,7 @@ async fn an_upgrade_from_a_socket_peer_switches_protocols() {
 
     assert_eq!(
         status_of(upgrade_request().peer_addr(peer)).await,
-        StatusCode::SWITCHING_PROTOCOLS
+        StatusCode::SWITCHING_PROTOCOLS,
     );
 }
 

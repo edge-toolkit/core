@@ -13,7 +13,7 @@ use et_ws_pyo3_runner::python::module_is_importable;
 fn a_stdlib_module_is_importable_with_no_extra_paths() {
     assert!(
         module_is_importable("json", &[]).unwrap(),
-        "the stdlib is always on sys.path"
+        "the stdlib is always on sys.path",
     );
 }
 
@@ -22,7 +22,7 @@ fn a_hub_package_name_is_not_importable() {
     // Hyphens make this un-importable by construction, which is what sends the runner to the hub for it.
     assert!(
         !module_is_importable("et-ws-pyo3-math1", &[]).unwrap(),
-        "a hub package name is not a Python identifier and must not be reported as importable"
+        "a hub package name is not a Python identifier and must not be reported as importable",
     );
 }
 
@@ -30,7 +30,7 @@ fn a_hub_package_name_is_not_importable() {
 fn an_unknown_module_is_not_importable() {
     assert!(
         !module_is_importable("et_no_such_module_anywhere", &[]).unwrap(),
-        "a well-formed name that exists nowhere must still be reported as absent"
+        "a well-formed name that exists nowhere must still be reported as absent",
     );
 }
 
@@ -41,10 +41,10 @@ fn an_extra_path_makes_its_modules_importable() {
     let python_dir = edge_toolkit::config::get_project_root().join("modules/pyo3/echo");
     assert!(
         !module_is_importable("echo", &[]).unwrap(),
-        "echo must not be importable before its directory is added"
+        "echo must not be importable before its directory is added",
     );
     assert!(
         module_is_importable("echo", &[python_dir]).unwrap(),
-        "echo must be importable once its directory is added"
+        "echo must be importable once its directory is added",
     );
 }

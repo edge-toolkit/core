@@ -104,7 +104,7 @@ fn link_mingw_shim() {
     // (both on PATH via the mingw mise env).
     let system32 = format!(
         "{}\\System32",
-        std::env::var(SYSTEM_ROOT).unwrap_or_else(|_| "C:\\Windows".into())
+        std::env::var(SYSTEM_ROOT).unwrap_or_else(|_| "C:\\Windows".into()),
     );
     run(std::process::Command::new("gendef")
         .arg(format!("{system32}\\msvcp140.dll"))

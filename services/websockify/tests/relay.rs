@@ -170,7 +170,7 @@ async fn relay_carries_a_full_http_get() {
     let response = String::from_utf8(recv_bytes(&mut ws, 48).await).unwrap();
     assert!(
         response.starts_with("HTTP/1.1 200 OK"),
-        "unexpected response: {response}"
+        "unexpected response: {response}",
     );
     assert!(response.contains("pong"), "response missing body: {response}");
 }
@@ -200,7 +200,7 @@ async fn relay_closes_when_target_closes() {
 
     assert!(
         closed_within(&mut ws, 10).await,
-        "relay did not close after target closed"
+        "relay did not close after target closed",
     );
 }
 
@@ -215,7 +215,7 @@ async fn relay_closes_when_target_unreachable() {
 
     assert!(
         closed_within(&mut ws, 10).await,
-        "relay did not close when target was unreachable"
+        "relay did not close when target was unreachable",
     );
 }
 
@@ -242,7 +242,7 @@ async fn socks5_connect(port: u16, request: &[u8]) -> (WsStream, Vec<u8>) {
     assert_eq!(
         recv_bytes(&mut ws, 2).await,
         vec![0x05, 0x00],
-        "SOCKS5 method-selection reply"
+        "SOCKS5 method-selection reply",
     );
     ws.send(Message::binary(request.to_vec())).await.unwrap();
     let reply = recv_bytes(&mut ws, 10).await;
@@ -258,7 +258,7 @@ async fn relay_socks5_connect_to_loopback_bridges() {
     assert_eq!(
         reply.get(0..2),
         Some([0x05, 0x00].as_slice()),
-        "expected SOCKS5 success, got {reply:?}"
+        "expected SOCKS5 success, got {reply:?}",
     );
 
     // Tunnel is live -> bytes echo back through the bridged target.
@@ -275,7 +275,7 @@ async fn relay_socks5_refuses_non_loopback_ipv4() {
     assert_eq!(
         reply.get(1),
         Some(&0x02),
-        "expected SOCKS5 refusal (REP=2), got {reply:?}"
+        "expected SOCKS5 refusal (REP=2), got {reply:?}",
     );
 }
 
@@ -291,7 +291,7 @@ async fn relay_socks5_refuses_external_domain() {
     assert_eq!(
         reply.get(1),
         Some(&0x02),
-        "expected SOCKS5 refusal for external domain, got {reply:?}"
+        "expected SOCKS5 refusal for external domain, got {reply:?}",
     );
 }
 

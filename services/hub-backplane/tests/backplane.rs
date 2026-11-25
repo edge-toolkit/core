@@ -51,15 +51,15 @@ fn config_names_local_or_a_nats_url() {
     assert_eq!("local".parse::<BackplaneConfig>().unwrap(), BackplaneConfig::Local);
     assert_eq!(
         "nats://h:4222".parse::<BackplaneConfig>().unwrap(),
-        BackplaneConfig::Nats("nats://h:4222".to_owned())
+        BackplaneConfig::Nats("nats://h:4222".to_owned()),
     );
     assert_eq!(
         "tls://h:4222".parse::<BackplaneConfig>().unwrap(),
-        BackplaneConfig::Nats("tls://h:4222".to_owned())
+        BackplaneConfig::Nats("tls://h:4222".to_owned()),
     );
     assert!(matches!(
         "redis://h".parse::<BackplaneConfig>(),
-        Err(BackplaneError::UnrecognisedConfig(value)) if value == "redis://h"
+        Err(BackplaneError::UnrecognisedConfig(value)) if value == "redis://h",
     ));
     assert_eq!(BackplaneConfig::default(), BackplaneConfig::Local);
 
@@ -98,17 +98,17 @@ fn credentials_never_reach_debug_output_or_error_text() {
     let error = "redis://hub:s3cret@a".parse::<BackplaneConfig>().unwrap_err();
     assert_eq!(
         error.to_string(),
-        r#"backplane "redis://***@a" is neither `local` nor a nats:// or tls:// URL"#
+        r#"backplane "redis://***@a" is neither `local` nor a nats:// or tls:// URL"#,
     );
     let schemeless = "hub:s3cret@a".parse::<BackplaneConfig>().unwrap_err();
     assert_eq!(
         schemeless.to_string(),
-        r#"backplane "***@a" is neither `local` nor a nats:// or tls:// URL"#
+        r#"backplane "***@a" is neither `local` nor a nats:// or tls:// URL"#,
     );
     let plain = "redis://a".parse::<BackplaneConfig>().unwrap_err();
     assert_eq!(
         plain.to_string(),
-        r#"backplane "redis://a" is neither `local` nor a nats:// or tls:// URL"#
+        r#"backplane "redis://a" is neither `local` nor a nats:// or tls:// URL"#,
     );
 }
 
@@ -119,7 +119,7 @@ async fn a_failed_connection_names_the_server_but_not_its_credentials() {
     let error = Backplane::connect(&BackplaneConfig::Nats(url)).await.unwrap_err();
     assert_eq!(
         error.to_string(),
-        format!("failed to connect to NATS at nats://***@127.0.0.1:{port}")
+        format!("failed to connect to NATS at nats://***@127.0.0.1:{port}"),
     );
 }
 
@@ -214,7 +214,7 @@ async fn corrupt_records_are_reported_not_ignored() {
     assert!(matches!(hub.pending_for("bad").await, Err(BackplaneError::Codec(_))));
     assert!(matches!(
         hub.queue("bad", pending("m", "x"), NEWEST).await,
-        Err(BackplaneError::Codec(_))
+        Err(BackplaneError::Codec(_)),
     ));
 }
 
@@ -233,7 +233,7 @@ async fn the_mailbox_keeps_the_newest_message_per_sender_until_acknowledged() {
     assert_eq!(second.acknowledge("r", "m2").await.unwrap(), "alice");
     assert!(matches!(
         first.acknowledge("r", "m2").await,
-        Err(BackplaneError::NoPendingMessage(id)) if id == "m2"
+        Err(BackplaneError::NoPendingMessage(id)) if id == "m2",
     ));
     assert_eq!(ids(first.pending_for("r").await.unwrap()), ["m3"]);
 
@@ -331,8 +331,8 @@ async fn frames_reach_the_named_hub_and_broadcasts_reach_the_others() {
         next_inbound(&mut second_inbox).await,
         Inbound::Direct {
             to_agent_id: "b".to_owned(),
-            frame: text
-        }
+            frame: text,
+        },
     );
 
     let binary = Frame::Binary(Bytes::from_static(&[0, 159, 255]));
@@ -342,16 +342,16 @@ async fn frames_reach_the_named_hub_and_broadcasts_reach_the_others() {
         next_inbound(&mut second_inbox).await,
         Inbound::Broadcast {
             from_agent_id: "a".to_owned(),
-            frame: binary
-        }
+            frame: binary,
+        },
     );
     // The first hub hears the second's broadcast, and never its own.
     assert_eq!(
         next_inbound(&mut first_inbox).await,
         Inbound::Broadcast {
             from_agent_id: "b".to_owned(),
-            frame: Frame::Text("from b".to_owned())
-        }
+            frame: Frame::Text("from b".to_owned()),
+        },
     );
 }
 
@@ -393,8 +393,8 @@ async fn undecodable_messages_are_skipped_and_the_stream_carries_on() {
         next_inbound(&mut inbox).await,
         Inbound::Direct {
             to_agent_id: "b".to_owned(),
-            frame: Frame::Text("valid".to_owned())
-        }
+            frame: Frame::Text("valid".to_owned()),
+        },
     );
 }
 
@@ -433,7 +433,7 @@ async fn a_block_on_one_hub_reaches_every_hub() {
     assert_eq!(second.blocked_ips().await.unwrap(), BTreeSet::from([LOOPBACK, ipv6]));
     assert!(matches!(
         second.agent_ip("ghost").await,
-        Err(BackplaneError::UnknownAgent(agent_id)) if agent_id == "ghost"
+        Err(BackplaneError::UnknownAgent(agent_id)) if agent_id == "ghost",
     ));
 }
 

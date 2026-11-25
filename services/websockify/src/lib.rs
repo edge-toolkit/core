@@ -330,7 +330,7 @@ async fn bridge(mut session: Session, mut stream: AggregatedMessageStream, tcp: 
                 Some(Err(err)) => {
                     debug!("websocket receive error: {err}");
                     break;
-                }
+                },
             },
             outbound = tcp_read.read(&mut buf) => match outbound {
                 // TCP -> browser: 0 bytes means the target closed; anything else is a binary frame.

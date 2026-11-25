@@ -21,7 +21,7 @@ fn manifest_dir_resolves_to_an_existing_root() {
     let root = find_project_root_from_manifest();
     assert!(
         root.is_dir(),
-        "resolved project root {root:?} should be an existing directory"
+        "resolved project root {root:?} should be an existing directory",
     );
 }
 
@@ -68,17 +68,17 @@ fn repo_file_env_directives_name_the_var_the_file_and_both_rerun_triggers() {
     let set_path = directive_path(&set_var, "cargo:rustc-env=ET_PROBE_PATH=");
     assert!(
         Path::new(set_path).is_absolute(),
-        "should be an absolute path: {set_path}"
+        "should be an absolute path: {set_path}",
     );
     assert!(
         set_path.ends_with(relative),
-        "unexpected rustc-env directive: {set_var}"
+        "unexpected rustc-env directive: {set_var}",
     );
     assert_eq!(rerun_build, "cargo:rerun-if-changed=build.rs");
     let rerun_path = directive_path(&rerun_file, "cargo:rerun-if-changed=");
     assert!(
         Path::new(rerun_path).is_absolute(),
-        "should be an absolute path: {rerun_path}"
+        "should be an absolute path: {rerun_path}",
     );
     assert_eq!(rerun_path, set_path, "both directives should name the same file");
 

@@ -79,7 +79,7 @@ fn a_connect_takes_an_id_acks_it_and_joins() {
     assert!(matches!(routing.shared.as_slice(), [Shared::Joined { agent_id }] if agent_id == "id-1"));
     assert!(matches!(
         only_reply(routing),
-        ServerMessage::ConnectAck { agent_id, status: ConnectStatus::Assigned } if agent_id == "id-1"
+        ServerMessage::ConnectAck { agent_id, status: ConnectStatus::Assigned } if agent_id == "id-1",
     ));
 }
 
@@ -99,7 +99,7 @@ fn a_reconnect_receives_what_was_queued_while_it_was_away() {
     assert!(queued.deliveries.is_empty());
     assert_eq!(
         status_of(&only_reply(queued)),
-        (&MessageDeliveryStatus::Queued, "message queued for agent a")
+        (&MessageDeliveryStatus::Queued, "message queued for agent a"),
     );
 
     let mut back = Link::new(CLIENT_IP, "a2".to_owned(), MessageRetention::All);
@@ -137,13 +137,13 @@ fn alive_and_list_are_answered() {
     );
     assert!(matches!(
         only_reply(alive),
-        ServerMessage::Response { message } if message == format!("Alive message received at {NOW}")
+        ServerMessage::Response { message } if message == format!("Alive message received at {NOW}"),
     ));
 
     let listed = link.route(&registry, ClientMessage::ListAgents, &mut stamps);
     assert!(matches!(
         only_reply(listed),
-        ServerMessage::ListAgentsResponse { agents } if agents.len() == 1 && agents[0].agent_id == "a"
+        ServerMessage::ListAgentsResponse { agents } if agents.len() == 1 && agents[0].agent_id == "a",
     ));
 }
 
@@ -167,7 +167,7 @@ fn a_direct_message_is_delivered_to_a_connected_recipient() {
     ));
     assert_eq!(
         status_of(&only_reply(routing)),
-        (&MessageDeliveryStatus::Delivered, "message delivered to agent b")
+        (&MessageDeliveryStatus::Delivered, "message delivered to agent b"),
     );
 }
 
@@ -184,14 +184,14 @@ fn a_direct_message_is_refused_unconnected_to_itself_and_to_a_stranger() {
     let refused = unconnected.route(&registry, send("a"), &mut stamps);
     assert_eq!(
         refusal_of(&only_reply(refused)),
-        "agent must connect before sending messages"
+        "agent must connect before sending messages",
     );
 
     let mut link = connected(&registry, "a", &mut stamps);
     let to_itself = link.route(&registry, send("a"), &mut stamps);
     assert_eq!(
         refusal_of(&only_reply(to_itself)),
-        "agent cannot send a direct message to itself"
+        "agent cannot send a direct message to itself",
     );
     let to_stranger = link.route(&registry, send("nobody"), &mut stamps);
     assert_eq!(refusal_of(&only_reply(to_stranger)), "unknown target agent nobody");
@@ -213,14 +213,14 @@ fn a_broadcast_reaches_every_other_agent_and_every_other_hub() {
     ));
     assert!(matches!(
         routing.shared.as_slice(),
-        [Shared::Broadcast { from_agent_id, frame: SessionMessage::Json(_) }] if from_agent_id == "a"
+        [Shared::Broadcast { from_agent_id, frame: SessionMessage::Json(_) }] if from_agent_id == "a",
     ));
     assert_eq!(
         status_of(&only_reply(routing)),
         (
             &MessageDeliveryStatus::Broadcast,
-            "broadcast sent to 1 connected agents"
-        )
+            "broadcast sent to 1 connected agents",
+        ),
     );
 
     let mut unconnected = Link::new(CLIENT_IP, "u".to_owned(), MessageRetention::All);
@@ -231,7 +231,7 @@ fn a_broadcast_reaches_every_other_agent_and_every_other_hub() {
     );
     assert_eq!(
         refusal_of(&only_reply(refused)),
-        "agent must connect before broadcasting messages"
+        "agent must connect before broadcasting messages",
     );
 }
 
@@ -265,7 +265,7 @@ fn an_acknowledgement_tells_both_ends() {
     ));
     assert_eq!(
         status_of(&only_reply(routing)),
-        (&MessageDeliveryStatus::Acknowledged, "message acknowledged")
+        (&MessageDeliveryStatus::Acknowledged, "message acknowledged"),
     );
 
     let again = recipient.route(&registry, ClientMessage::MessageAck { message_id }, &mut stamps);
@@ -278,7 +278,7 @@ fn an_acknowledgement_tells_both_ends() {
     let refused = unconnected.route(&registry, ack, &mut stamps);
     assert_eq!(
         refusal_of(&only_reply(refused)),
-        "agent must connect before acknowledging messages"
+        "agent must connect before acknowledging messages",
     );
 }
 
@@ -322,7 +322,7 @@ fn a_relay_registers_its_sender_and_reaches_every_other_agent() {
     let relay_id = relay.agent_id().unwrap().to_owned();
     assert!(matches!(
         text.deliveries.as_slice(),
-        [(session, SessionMessage::Text(content))] if session == "a" && content == "raw"
+        [(session, SessionMessage::Text(content))] if session == "a" && content == "raw",
     ));
     assert!(matches!(
         text.shared.as_slice(),
@@ -347,14 +347,14 @@ fn a_binary_relay_reaches_every_other_agent_as_binary() {
     );
     assert!(matches!(
         binary.deliveries.as_slice(),
-        [(session, SessionMessage::Binary(bytes))] if session == "a" && bytes.as_ref() == [1, 2]
+        [(session, SessionMessage::Binary(bytes))] if session == "a" && bytes.as_ref() == [1, 2],
     ));
 
     // Registered by that frame, so the raw binary frame after it joins nothing.
     let raw = relay.route_binary(&registry, Bytes::from_static(&[3]), &mut stamps);
     assert!(matches!(
         raw.deliveries.as_slice(),
-        [(_, SessionMessage::Binary(bytes))] if bytes.as_ref() == [3]
+        [(_, SessionMessage::Binary(bytes))] if bytes.as_ref() == [3],
     ));
     assert!(matches!(raw.shared.as_slice(), [Shared::Broadcast { .. }]));
 }
@@ -382,6 +382,6 @@ fn a_server_message_is_sent_as_json() {
     };
     assert!(matches!(
         SessionMessage::from(message),
-        SessionMessage::Json(ServerMessage::Response { .. })
+        SessionMessage::Json(ServerMessage::Response { .. }),
     ));
 }

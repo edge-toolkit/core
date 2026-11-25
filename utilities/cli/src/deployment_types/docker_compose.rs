@@ -218,7 +218,7 @@ fn shared_services(cluster: &ClusterInput, profiles: &[String]) -> [(String, Com
             format!("{client}:{client}", client = Services::Backplane.port()),
             format!(
                 "127.0.0.1:{monitor}:{monitor}",
-                monitor = Services::BackplaneMonitor.port()
+                monitor = Services::BackplaneMonitor.port(),
             ),
         ],
         volumes: vec![format!("{BACKPLANE_TASK}-data:{DATA_DIR}")],
@@ -232,7 +232,7 @@ fn shared_services(cluster: &ClusterInput, profiles: &[String]) -> [(String, Com
         command: vec![shared_storage_start()],
         healthcheck: Some(curl_healthcheck(&format!(
             "http://localhost:{}{SHARED_STORAGE_HEALTH_PATH}",
-            Services::SharedStorage.port()
+            Services::SharedStorage.port(),
         ))),
         network_mode: Some("host".to_string()),
         // Carries `RUSTFS_SECRET_KEY`, the secret the hubs present as `AWS_SECRET_ACCESS_KEY`.
@@ -261,7 +261,7 @@ fn shared_services(cluster: &ClusterInput, profiles: &[String]) -> [(String, Com
 fn backplane_healthcheck() -> ComposeHealthcheck {
     let probe = format!(
         "printf 'GET {BACKPLANE_HEALTH_PATH} HTTP/1.0\\r\\n\\r\\n' | nc localhost {} | head -1 | grep -q ' 200 '",
-        Services::BackplaneMonitor.port()
+        Services::BackplaneMonitor.port(),
     );
     healthcheck(&["CMD-SHELL", &probe])
 }
@@ -525,7 +525,7 @@ fn openobserve_service() -> ComposeService {
         // needs to talk to it: the ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
         ports: vec![format!(
             "127.0.0.1:{port}:{port}",
-            port = Services::OtlpCollector.port()
+            port = Services::OtlpCollector.port(),
         )],
         // The scenario's own file is the only one, and it carries only the credential. Per-scenario credentials mean
         // two stacks running side by side cannot authenticate against each other's collector.

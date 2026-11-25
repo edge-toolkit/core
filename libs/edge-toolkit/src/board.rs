@@ -129,7 +129,7 @@ impl Guest {
             let payload = payload?;
             if matches!(
                 payload,
-                Payload::ModuleSection { .. } | Payload::ComponentSection { .. }
+                Payload::ModuleSection { .. } | Payload::ComponentSection { .. },
             ) {
                 depth = depth.saturating_add(1);
             } else if matches!(payload, Payload::End(_)) {

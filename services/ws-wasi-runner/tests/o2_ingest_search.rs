@@ -116,7 +116,7 @@ fn openobserve_serves_back_a_span_ingested_over_otlp() {
     assert!(hit_text.contains(MARKER), "trace hit is missing the marker: {hit}");
     assert!(
         hit_text.contains(SERVICE_NAME),
-        "trace hit is missing the service name: {hit}"
+        "trace hit is missing the service name: {hit}",
     );
 }
 

@@ -337,12 +337,12 @@ fn header(counts: &Counts, generated: jiff::civil::Date, links: &[String]) -> Re
     writeln!(
         out,
         "- **Rules:** {} custom local rules, or non-default strict linter settings",
-        counts.rules
+        counts.rules,
     )?;
     writeln!(
         out,
         "- **Meta rules:** {} of those rules are rules about rules\n",
-        counts.meta
+        counts.meta,
     )?;
     out.push_str(&wrap("", "", &format!("**Jump to:** {}", links.join(", "))));
     out.push('\n');
@@ -694,7 +694,7 @@ pub fn pair_repairs(names: &BTreeSet<&str>, passes: &BTreeSet<String>) -> Result
     if !unchecked.is_empty() {
         return Err(Error::UncheckedRepair(format!(
             "`fix` or `fmt` runs {}, which no check pairs with by name: add the check, or take the pass out",
-            unchecked.join(", ")
+            unchecked.join(", "),
         )));
     }
     Ok(repairs)
@@ -1487,7 +1487,7 @@ fn render_rules(rules: &[Rule]) -> Result<String, Error> {
             if !labels.insert(label.clone()) {
                 return Err(Error::DuplicateLinkLabel(format!(
                     "`{}` would share the link label `{label}` with an earlier rule",
-                    rule.name
+                    rule.name,
                 )));
             }
             writeln!(references, "[{label}]: {}", rule.link)?;

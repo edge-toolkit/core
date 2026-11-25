@@ -1,0 +1,16 @@
+id: macro-list-trailing-comma-by-hand
+language: Rust
+severity: error
+message: |
+  A list inside a macro's arguments whose closing `]`, `)` or `}` sits on a line of its own takes a `,` after its
+  last item, as macro-list-trailing-comma says. This list holds a string that spans lines, so add the comma by hand:
+  an autofix would re-indent the string's later lines and change what it holds.
+rule:
+  kind: token_tree
+  all:
+    - matches: macro-list-without-trailing-comma
+    - matches: multi-line-string
+ignores:
+  - generated/**
+  # Written by et-int-gen outside generated/, so a comma here is undone on the next regeneration.
+  - services/ws-wasi-runner/src/bindings.rs

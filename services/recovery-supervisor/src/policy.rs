@@ -368,7 +368,7 @@ impl Supervisor {
         let Ok(downtime) = SystemTime::now().duration_since(snapshot.saved_at) else {
             return Err(RecoveryError::Invalid(format!(
                 "future recovery saved_at {:?}; correct the system clock before retrying",
-                snapshot.saved_at
+                snapshot.saved_at,
             )));
         };
         let downtime = downtime.as_secs();
@@ -546,7 +546,7 @@ impl Supervisor {
         state.advance(incident, health, unhealthy, &self.config.policy, now);
         if matches!(
             incident.status,
-            Status::Recovered | Status::Transient | Status::Unrecovered
+            Status::Recovered | Status::Transient | Status::Unrecovered,
         ) {
             state.in_flight = false;
         }
@@ -835,7 +835,7 @@ impl Supervisor {
     fn next_action_time(&self, workload: &Workload, reason: Reason) -> ObservationTime {
         if !matches!(
             reason,
-            Reason::Cooldown | Reason::RecoveryInProgress | Reason::ActionInterval | Reason::RestartEligible
+            Reason::Cooldown | Reason::RecoveryInProgress | Reason::ActionInterval | Reason::RestartEligible,
         ) {
             return ObservationTime::Pending;
         }

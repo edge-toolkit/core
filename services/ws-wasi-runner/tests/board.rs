@@ -349,8 +349,8 @@ async fn comm1_finds_itself_in_the_roster_and_broadcasts() {
         [
             ClientMessage::Connect { agent_id: None },
             ClientMessage::ListAgents,
-            ClientMessage::BroadcastMessage { .. }
-        ]
+            ClientMessage::BroadcastMessage { .. },
+        ],
     ));
 }
 
@@ -364,12 +364,12 @@ async fn math1_sender_broadcasts_its_pointer_once_a_second_of_the_boards_clock()
     };
     assert!(matches!(
         serde_json::from_str(connect).unwrap(),
-        ClientMessage::Connect { agent_id: None }
+        ClientMessage::Connect { agent_id: None },
     ));
     assert_eq!(pointers.len(), 60);
     assert!(pointers.iter().all(|pointer| matches!(
         pointer,
-        Frame::Text(content) if content.contains(r#""bucket":"board-agent""#)
+        Frame::Text(content) if content.contains(r#""bucket":"board-agent""#),
     )));
 }
 
@@ -551,7 +551,7 @@ async fn supervised(guest: &[u8], hubs: Vec<Hub>) -> (Vec<String>, u64) {
 fn assert_reran_once(reports: &[String], clock: u64) {
     assert!(matches!(
         reports,
-        [failed, finished] if failed.ends_with("; running it again\n") && finished == "runner guest: finished\n"
+        [failed, finished] if failed.ends_with("; running it again\n") && finished == "runner guest: finished\n",
     ));
     assert_eq!(clock, RERUN_DELAY);
 }

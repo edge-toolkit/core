@@ -102,7 +102,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     let spans = runtime.block_on(et_test_otlp::flatten_spans(&mock));
     assert!(
         !spans.is_empty(),
-        "mock OTLP received zero spans -- exporters may not be flushing"
+        "mock OTLP received zero spans -- exporters may not be flushing",
     );
 
     let trace_ids_by_service: std::collections::HashMap<String, HashSet<String>> =
@@ -123,12 +123,12 @@ fn trace_ids_propagate_between_runner_and_server() {
     assert!(
         !server_trace_ids.is_empty(),
         "no spans from `et-ws-test` service. captured: {:#?}",
-        trace_ids_by_service
+        trace_ids_by_service,
     );
     assert!(
         !runner_trace_ids.is_empty(),
         "no spans from `et-ws-wasi-runner` service. captured: {:#?}",
-        trace_ids_by_service
+        trace_ids_by_service,
     );
 
     let shared: Vec<&String> = server_trace_ids.intersection(&runner_trace_ids).collect();
@@ -156,6 +156,6 @@ fn trace_ids_propagate_between_runner_and_server() {
         spans
             .iter()
             .filter(|span| span.service_name == "et-ws-test")
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>(),
     );
 }

@@ -135,7 +135,7 @@ fn a_machine_name_is_declared_once() {
     let error = error_for(&format!(
         "{}{}",
         one_machine("server", "10.0.0.1", ""),
-        one_machine("server", "10.0.0.2", "").replace("machines:\n", "")
+        one_machine("server", "10.0.0.2", "").replace("machines:\n", ""),
     ));
     assert!(error.contains("Machine \"server\" is declared more than once"));
 }
@@ -151,7 +151,7 @@ fn an_agent_runs_on_one_machine() {
     let error = error_for(&format!(
         "{}{}",
         one_machine("server", "10.0.0.1", "\"math1-twin\""),
-        one_machine("edge", "10.0.0.2", "\"math1-twin\"").replace("machines:\n", "")
+        one_machine("edge", "10.0.0.2", "\"math1-twin\"").replace("machines:\n", ""),
     ));
     assert!(error.contains("\"math1-twin\" is listed on both machine \"server\" and machine \"edge\""));
 }
@@ -208,7 +208,7 @@ fn compose_gives_each_machine_a_profile() {
     assert_eq!(twin["profiles"][0], "edge");
     assert_eq!(
         twin["environment"]["WS_SERVER_URL"].as_str(),
-        Some(hub_ws_url_at("10.0.0.1").as_str())
+        Some(hub_ws_url_at("10.0.0.1").as_str()),
     );
     assert_eq!(twin["restart"], "on-failure");
     assert_eq!(twin["depends_on"]["ws-server"]["required"].as_bool(), Some(false));
@@ -217,7 +217,7 @@ fn compose_gives_each_machine_a_profile() {
     let trigger = &services["math1-trigger"];
     assert_eq!(
         trigger["environment"]["WS_SERVER_URL"].as_str(),
-        Some(hub_ws_url().as_str())
+        Some(hub_ws_url().as_str()),
     );
     assert!(trigger["restart"].is_null());
     assert!(trigger["depends_on"]["ws-server"]["required"].is_null());
@@ -243,18 +243,18 @@ fn mise_starts_each_machine_share_from_its_own_task() {
 
     assert_eq!(
         depends("machine-server"),
-        ["math1-trigger", "openobserve", "wasi-twin", "ws-server"]
+        ["math1-trigger", "openobserve", "wasi-twin", "ws-server"],
     );
     assert_eq!(depends("machine-edge"), ["math1-twin"]);
     // Everything on one host stays available alongside them.
     assert_eq!(depends("generated-scenario").len(), 5);
     assert_eq!(
         tasks["math1-twin"]["env"]["WS_SERVER_URL"].as_str(),
-        Some(hub_ws_url_at("10.0.0.1").as_str())
+        Some(hub_ws_url_at("10.0.0.1").as_str()),
     );
     assert_eq!(
         tasks["math1-trigger"]["env"]["WS_SERVER_URL"].as_str(),
-        Some(hub_ws_url().as_str())
+        Some(hub_ws_url().as_str()),
     );
 
     let (_root, dir) = generated(AGENTS);
@@ -296,7 +296,7 @@ fn the_readme_says_how_to_run_each_machine_share() {
     ];
     assert_eq!(
         readme.matches("### Run Across Machines With").count(),
-        OutputType::ALL.len() - boards.len()
+        OutputType::ALL.len() - boards.len(),
     );
     for board in boards {
         assert!(!dir.join(board.output_file_name()).exists());

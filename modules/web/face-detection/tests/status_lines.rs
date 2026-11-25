@@ -17,12 +17,12 @@ fn includes_a_separated_best_box_section_when_a_detection_exists() {
     );
     assert!(
         lines.contains(&String::default()),
-        "missing the blank separator: {lines:?}"
+        "missing the blank separator: {lines:?}",
     );
     assert_eq!(lines.last().unwrap(), "best box: 1.0, 2.0, 3.0, 4.0");
     assert!(
         lines.contains(&String::from("detections: 2")),
-        "missing the count: {lines:?}"
+        "missing the count: {lines:?}",
     );
 }
 

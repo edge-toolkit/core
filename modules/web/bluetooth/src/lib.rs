@@ -40,7 +40,7 @@ impl BluetoothAccess {
             js_sys::Reflect::get(&device, &JsValue::from_str("name"))
                 .ok()
                 .and_then(|value| value.as_string())
-                .unwrap_or_else(|| "unknown".to_string())
+                .unwrap_or_else(|| "unknown".to_string()),
         );
 
         Ok(Self { device })

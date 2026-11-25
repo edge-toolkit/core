@@ -34,7 +34,7 @@ use web_sys::Event;
 const HAR_MODEL_PATH: &str = concat!(
     "/modules/",
     et_org::npm_scope!(),
-    "et-model-har-motion1/har-motion1.onnx"
+    "et-model-har-motion1/har-motion1.onnx",
 );
 const HAR_SEQUENCE_LENGTH: usize = 150;
 const HAR_FEATURE_COUNT: usize = 8;
@@ -494,7 +494,7 @@ impl SampleWindow {
             log(&format!(
                 "buffering HAR samples: {}/{}",
                 self.samples.len(),
-                HAR_SEQUENCE_LENGTH
+                HAR_SEQUENCE_LENGTH,
             ));
         }
         if self.samples.len() < HAR_SEQUENCE_LENGTH {
@@ -550,11 +550,11 @@ impl ClassChanges {
             "class change {} of 3: {} -> {}",
             self.count,
             self.last_label.as_deref().unwrap_or("none"),
-            prediction.best_label
+            prediction.best_label,
         ));
         set_har_status(&format!(
             "har1: inference running\nlatest class: {}\nclass changes: {}/3\nbuffered samples: {}",
-            prediction.best_label, self.count, buffered
+            prediction.best_label, self.count, buffered,
         ))?;
         self.last_label = Some(prediction.best_label);
         Ok(())
@@ -586,7 +586,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
         String::from("Device sensor stream"),
         format!(
             "updated: {}",
-            String::from(js_sys::Date::new_0().to_locale_time_string("en-US"))
+            String::from(js_sys::Date::new_0().to_locale_time_string("en-US")),
         ),
     ];
     push_section(&mut lines, "orientation");
@@ -606,19 +606,19 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
             "acceleration: x={} y={} z={}",
             format_number(motion.acceleration_x(), 3),
             format_number(motion.acceleration_y(), 3),
-            format_number(motion.acceleration_z(), 3)
+            format_number(motion.acceleration_z(), 3),
         ));
         lines.push(format!(
             "acceleration including gravity: x={} y={} z={}",
             format_number(motion.acceleration_including_gravity_x(), 3),
             format_number(motion.acceleration_including_gravity_y(), 3),
-            format_number(motion.acceleration_including_gravity_z(), 3)
+            format_number(motion.acceleration_including_gravity_z(), 3),
         ));
         lines.push(format!(
             "rotation rate: alpha={} beta={} gamma={}",
             format_number(motion.rotation_rate_alpha(), 3),
             format_number(motion.rotation_rate_beta(), 3),
-            format_number(motion.rotation_rate_gamma(), 3)
+            format_number(motion.rotation_rate_gamma(), 3),
         ));
         lines.push(format!("interval: {} ms", format_number(motion.interval_ms(), 1)));
     } else {

@@ -246,7 +246,7 @@ async fn get_and_head_expose_etag_and_head_reports_size() {
     assert_eq!(put_resp.status(), StatusCode::OK);
     assert!(
         put_resp.headers().contains_key(header::ETAG),
-        "PUT should return an ETag"
+        "PUT should return an ETag",
     );
 
     assert_eq!(get_resp.status(), StatusCode::OK);
@@ -257,7 +257,7 @@ async fn get_and_head_expose_etag_and_head_reports_size() {
     assert_eq!(
         head_resp.headers().get(header::ETAG).cloned(),
         get_etag,
-        "HEAD ETag should match GET"
+        "HEAD ETag should match GET",
     );
     assert_eq!(
         head_resp
@@ -265,7 +265,7 @@ async fn get_and_head_expose_etag_and_head_reports_size() {
             .get(header::CONTENT_LENGTH)
             .and_then(|value| value.to_str().ok()),
         Some(body.len().to_string().as_str()),
-        "HEAD should report the object size as Content-Length"
+        "HEAD should report the object size as Content-Length",
     );
 }
 

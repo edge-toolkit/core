@@ -151,7 +151,7 @@ fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
     let richer = known_seen_with(&[("device", "a laptop"), ("browser_version", "157")]);
     assert_eq!(
         registry.register(&richer).unwrap(),
-        Outcome::Sighted("Known GPU".to_owned())
+        Outcome::Sighted("Known GPU".to_owned()),
     );
     let after = text(&registry);
     assert!(after.contains("        device: \"a laptop\"\n"));
@@ -160,7 +160,7 @@ fn a_row_the_registry_holds_with_more_fields_already_records_a_sighting() {
     let partial = known_seen_with(&[("device", "a laptop")]);
     assert_eq!(
         registry.register(&partial).unwrap(),
-        Outcome::Present("Known GPU".to_owned())
+        Outcome::Present("Known GPU".to_owned()),
     );
     assert_eq!(text(&registry), after);
 }
@@ -174,7 +174,7 @@ fn a_later_day_or_run_is_the_sighting_already_on_record() {
         registry
             .register(&seen_on("2026-11-12", "https://example.test/runs/1"))
             .unwrap(),
-        Outcome::Sighted("Known GPU".to_owned())
+        Outcome::Sighted("Known GPU".to_owned()),
     );
     let recorded = text(&registry);
     for (date, source) in [
@@ -183,7 +183,7 @@ fn a_later_day_or_run_is_the_sighting_already_on_record() {
     ] {
         assert_eq!(
             registry.register(&seen_on(date, source)).unwrap(),
-            Outcome::Present("Known GPU".to_owned())
+            Outcome::Present("Known GPU".to_owned()),
         );
     }
     assert_eq!(text(&registry), recorded);
@@ -191,7 +191,7 @@ fn a_later_day_or_run_is_the_sighting_already_on_record() {
     let elsewhere = known_seen_with(&[("device", "a desktop"), ("date", "2026-11-24")]);
     assert_eq!(
         registry.register(&elsewhere).unwrap(),
-        Outcome::Sighted("Known GPU".to_owned())
+        Outcome::Sighted("Known GPU".to_owned()),
     );
 }
 
@@ -201,21 +201,21 @@ fn a_browser_version_is_matched_by_its_major_version() {
     let at_version = |version: &str| known_seen_with(&[("browser_version", version)]);
     assert_eq!(
         registry.register(&at_version("157.0.8103.79")).unwrap(),
-        Outcome::Sighted("Known GPU".to_owned())
+        Outcome::Sighted("Known GPU".to_owned()),
     );
     let recorded = text(&registry);
     // A point release of the same major version is the sighting on record already, whichever way it is written.
     for point in ["157.0.8103.80", "157", "157.1"] {
         assert_eq!(
             registry.register(&at_version(point)).unwrap(),
-            Outcome::Present("Known GPU".to_owned())
+            Outcome::Present("Known GPU".to_owned()),
         );
     }
     assert_eq!(text(&registry), recorded);
     // The next major version is a sighting of its own.
     assert_eq!(
         registry.register(&at_version("158.0.8127.37")).unwrap(),
-        Outcome::Sighted("Known GPU".to_owned())
+        Outcome::Sighted("Known GPU".to_owned()),
     );
 }
 
@@ -229,12 +229,12 @@ fn a_repeat_of_a_known_row_changes_nothing() {
     );
     assert_eq!(
         registry.register(&first).unwrap(),
-        Outcome::Sighted("Known GPU".to_owned())
+        Outcome::Sighted("Known GPU".to_owned()),
     );
     let after_first = text(&registry);
     assert_eq!(
         registry.register(&first).unwrap(),
-        Outcome::Present("Known GPU".to_owned())
+        Outcome::Present("Known GPU".to_owned()),
     );
     assert_eq!(text(&registry), after_first);
 }
@@ -243,11 +243,11 @@ fn a_repeat_of_a_known_row_changes_nothing() {
 fn a_known_withheld_interface_seen_somewhere_new_gains_a_row_before_blocked() {
     let (_dir, registry) = registry(REGISTRY);
     let blocked = submission(json!({
-        "interface": "webgpu", "label": "Tor Browser", "blocked": true, "reason": "absent", "seen": row("firefox")
+        "interface": "webgpu", "label": "Tor Browser", "blocked": true, "reason": "absent", "seen": row("firefox"),
     }));
     assert_eq!(
         registry.register(&blocked).unwrap(),
-        Outcome::Sighted("Tor Browser".to_owned())
+        Outcome::Sighted("Tor Browser".to_owned()),
     );
     let updated = text(&registry);
     assert!(updated.find("      - browser: firefox\n").unwrap() < updated.find("    blocked: true\n").unwrap());
@@ -257,7 +257,7 @@ fn a_known_withheld_interface_seen_somewhere_new_gains_a_row_before_blocked() {
 fn a_new_withheld_interface_is_appended_with_its_reason() {
     let (_dir, registry) = registry(REGISTRY.trim_end());
     let blocked = submission(json!({
-        "interface": "webgl2", "label": "Say \"no\"", "blocked": true, "reason": "a \\ b", "seen": row("firefox")
+        "interface": "webgl2", "label": "Say \"no\"", "blocked": true, "reason": "a \\ b", "seen": row("firefox"),
     }));
     assert_eq!(registry.register(&blocked).unwrap(), Outcome::Added(3));
     let updated = text(&registry);
@@ -304,15 +304,15 @@ fn a_signature_with_missing_or_unplain_results_is_refused() {
 #[test]
 fn a_withheld_interface_takes_a_reason_and_a_signature_none() {
     let with_results = submission(json!({
-        "interface": "webgpu", "label": "L", "blocked": true, "reason": "r", "results": {"a": "1"}, "seen": row("x")
+        "interface": "webgpu", "label": "L", "blocked": true, "reason": "r", "results": {"a": "1"}, "seen": row("x"),
     }));
     assert!(matches!(refusal(&with_results), RegisterError::Blocked));
     let with_reason = submission(json!({
-        "interface": "webgpu", "label": "L", "reason": "r", "results": {"a": "1"}, "seen": row("x")
+        "interface": "webgpu", "label": "L", "reason": "r", "results": {"a": "1"}, "seen": row("x"),
     }));
     assert!(matches!(refusal(&with_reason), RegisterError::Blocked));
     let without_reason = submission(json!({
-        "interface": "webgpu", "label": "L", "blocked": true, "seen": row("firefox")
+        "interface": "webgpu", "label": "L", "blocked": true, "seen": row("firefox"),
     }));
     assert!(matches!(refusal(&without_reason), RegisterError::Text(field) if field == "reason"));
 }
@@ -324,7 +324,7 @@ fn a_value_the_registry_has_no_name_for_is_written_quoted_and_reads_back() {
     seen["os"] = json!("null");
     seen["gpu"] = json!("vendor: new");
     let new = submission(json!({
-        "interface": "webgpu-clear", "label": "L", "results": {"a": "1"}, "seen": seen
+        "interface": "webgpu-clear", "label": "L", "results": {"a": "1"}, "seen": seen,
     }));
     assert_eq!(registry.register(&new).unwrap(), Outcome::Added(3));
     let written = text(&registry);
@@ -341,18 +341,18 @@ fn a_row_the_registry_cannot_read_or_quote_is_refused() {
     let mut stray = row("firefox");
     stray["colour"] = json!("blue");
     let unknown = submission(json!({
-        "interface": "webgpu", "label": "L", "results": {"a": "1"}, "seen": stray
+        "interface": "webgpu", "label": "L", "results": {"a": "1"}, "seen": stray,
     }));
     assert!(matches!(refusal(&unknown), RegisterError::Row(_)));
     let mut multiline = row("firefox");
     multiline["device"] = json!("one\ntwo");
     let refused = refusal(&submission(json!({
-        "interface": "webgpu", "label": "L", "results": {"a": "1"}, "seen": multiline
+        "interface": "webgpu", "label": "L", "results": {"a": "1"}, "seen": multiline,
     })));
     assert!(matches!(&refused, RegisterError::Text(field) if field == "device"));
     assert_eq!(
         refused.to_string(),
-        "device must be 1 to 200 characters with no control characters"
+        "device must be 1 to 200 characters with no control characters",
     );
 }
 
@@ -385,7 +385,7 @@ fn a_registry_that_cannot_be_read_parsed_or_laid_out_is_not_the_submissions_faul
     let (_dir, unparsable) = registry("signatures: [\n");
     assert!(matches!(
         unparsable.register(&new).unwrap_err(),
-        RegisterError::Parse(_)
+        RegisterError::Parse(_),
     ));
 
     let flow = "signatures:\n  - {interface: webgpu-clear, label: F, results: {a: \"1\"}, seen: []}\n";
@@ -410,7 +410,7 @@ fn a_seen_list_another_entry_aliases_is_not_added_to() {
     let new = signature("webgpu-clear", r#"{"a": "1"}"#, "firefox");
     assert!(matches!(
         aliased.register(&new).unwrap_err(),
-        RegisterError::Unwritable(0)
+        RegisterError::Unwritable(0),
     ));
     assert_eq!(text(&aliased), shared);
 }
@@ -422,7 +422,7 @@ fn an_empty_list_the_text_cannot_be_added_to_leaves_the_registry_as_it_was() {
     let (_dir, empty) = registry("signatures: []\n");
     assert!(matches!(
         empty.register(&new).unwrap_err(),
-        RegisterError::Unwritable(0)
+        RegisterError::Unwritable(0),
     ));
     assert_eq!(text(&empty), "signatures: []\n");
 
@@ -450,7 +450,7 @@ fn text_past_ascii_is_written_escaped_and_reads_back_the_same() {
     // A second sighting finds the entry and names it by its label as read back from the file.
     assert_eq!(
         registry.register(&new("chrome")).unwrap(),
-        Outcome::Sighted(label.to_owned())
+        Outcome::Sighted(label.to_owned()),
     );
 }
 
@@ -462,7 +462,7 @@ fn long_text_is_folded_within_the_line_width_and_reads_back_the_same() {
     let mut seen = row("firefox");
     seen["device"] = json!("phone ".repeat(30).trim_end());
     let new = submission(json!({
-        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": seen
+        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": seen,
     }));
     assert_eq!(registry.register(&new).unwrap(), Outcome::Added(3));
     let written = text(&registry);
@@ -474,7 +474,7 @@ fn long_text_is_folded_within_the_line_width_and_reads_back_the_same() {
     assert_eq!(added.lines().count(), 16);
     assert!(added.contains("word  two spaces"));
     let resubmitted = submission(json!({
-        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": row("chrome")
+        "interface": "webgl2", "label": label, "blocked": true, "reason": reason, "seen": row("chrome"),
     }));
     assert_eq!(registry.register(&resubmitted).unwrap(), Outcome::Sighted(label));
 }
@@ -504,7 +504,7 @@ fn writers_that_share_no_registry_value_lose_none_of_each_others_rows() {
     for writer in 0_u32..8 {
         assert!(
             after.contains(&format!("browser_version: \"{writer}\"")),
-            "row {writer} was lost"
+            "row {writer} was lost",
         );
     }
 }

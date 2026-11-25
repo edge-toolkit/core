@@ -66,7 +66,7 @@ pub async fn run() -> Result<(), JsValue> {
 
     let msg = format!(
         "comm1: found connected peer agent {}; sending broadcast",
-        target_agent.agent_id
+        target_agent.agent_id,
     );
     log(&msg);
     set_module_status(&msg)?;
@@ -74,7 +74,7 @@ pub async fn run() -> Result<(), JsValue> {
         "module": "comm1",
         "step": "broadcast",
         "from_agent_id": agent_id,
-        "message": "comm1 broadcast to all other connected agents"
+        "message": "comm1 broadcast to all other connected agents",
     }))?;
 
     sleep_ms(MESSAGE_PAUSE_MS).await?;
@@ -88,7 +88,7 @@ pub async fn run() -> Result<(), JsValue> {
             "module": "comm1",
             "step": "direct",
             "from_agent_id": agent_id,
-            "message": "comm1 direct message"
+            "message": "comm1 direct message",
         }),
     )?;
 

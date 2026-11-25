@@ -53,12 +53,12 @@ fn the_dev_collector_account_is_the_one_generated_deployments_use() {
     assert_eq!(
         o2_env_value("ZO_ROOT_USER_EMAIL"),
         COLLECTOR_USERNAME,
-        "the collector this repository starts must use the account the generated deployments name"
+        "the collector this repository starts must use the account the generated deployments name",
     );
     assert_eq!(
         ws_server_env_value("OTLP_AUTH_USERNAME"),
         COLLECTOR_USERNAME,
-        "and the server that exports to it must present that same account"
+        "and the server that exports to it must present that same account",
     );
 }
 
@@ -70,6 +70,6 @@ fn the_dev_collector_password_matches_on_both_sides() {
     assert_eq!(
         ws_server_env_value("OTLP_AUTH_PASSWORD"),
         o2_env_value("ZO_ROOT_USER_PASSWORD"),
-        "the server authenticates as the collector's root user, so the two passwords are one value"
+        "the server authenticates as the collector's root user, so the two passwords are one value",
     );
 }

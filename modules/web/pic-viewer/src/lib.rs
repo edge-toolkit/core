@@ -156,7 +156,7 @@ async fn view_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
         idle_polls = 0;
         set_module_status(&format!(
             "pic-viewer\npictures shown: {shown}\nshowing: {}\nfrom agent: {}",
-            notification.filename, notification.from_agent_id
+            notification.filename, notification.from_agent_id,
         ))?;
         client.send_client_event(
             et_org::served_npm_module_path!(),
@@ -171,7 +171,7 @@ async fn view_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
         )?;
         log(&format!(
             "displayed {} from agent {}",
-            notification.url, notification.from_agent_id
+            notification.url, notification.from_agent_id,
         ));
     }
 

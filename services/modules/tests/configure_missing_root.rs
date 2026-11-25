@@ -33,7 +33,7 @@ async fn an_unset_root_serves_the_module_routes_and_nothing_at_the_root() {
     assert_eq!(
         listing.status(),
         StatusCode::OK,
-        "the module listing is the whole surface"
+        "the module listing is the whole surface",
     );
 
     // Nothing is mounted at `/`, so the request falls through to actix's own default rather than an index

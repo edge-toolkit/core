@@ -615,10 +615,6 @@ checksum = "sha256:ca7daae4f218a11fab82cc2857f0ea518ec3f46acec60490485347a4c22c6
 [[tools."aqua:rui314/mold"]]
 version = "3.0.0"
 backend = "aqua:rui314/mold"
-unsupported_platforms = [
-    "macos-arm64",
-    "macos-x64",
-]
 
 [tools."aqua:rui314/mold"."platforms.linux-arm64"]
 checksum = "sha256:52c759d3689babaea4c42af2f31062a74ab83e17ffb5a8090232534c67b70577"

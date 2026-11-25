@@ -72,7 +72,7 @@ fn site_packages_lookup_is_empty_when_mise_is_missing() {
     assert!(!available, "an empty PATH must hide mise from the availability probe");
     assert!(
         found.is_empty(),
-        "expected no site-packages paths when mise is unavailable, got {found:?}"
+        "expected no site-packages paths when mise is unavailable, got {found:?}",
     );
 }
 
@@ -136,11 +136,11 @@ fn a_failing_tool_list_query_yields_no_paths() {
     // and reporting success for a path it never reached.
     assert!(
         available,
-        "the stand-in must answer --version, or this asserts the wrong branch"
+        "the stand-in must answer --version, or this asserts the wrong branch",
     );
     assert!(
         found.is_empty(),
-        "a failing `mise ls` must yield no paths, got {found:?}"
+        "a failing `mise ls` must yield no paths, got {found:?}",
     );
 }
 
@@ -151,11 +151,11 @@ fn a_tool_list_that_is_not_json_yields_no_paths() {
     // start, so the interpreter still boots and only the mise-managed imports are missing.
     assert_eq!(
         edge_toolkit::config::site_packages_from_tool_list(b"mise: not a tool list"),
-        Vec::<std::path::PathBuf>::new()
+        Vec::<std::path::PathBuf>::new(),
     );
     assert!(
         edge_toolkit::config::site_packages_from_tool_list(b"").is_empty(),
-        "an empty body is not valid JSON either"
+        "an empty body is not valid JSON either",
     );
 }
 
@@ -180,7 +180,7 @@ fn only_pipx_tools_with_a_venv_contribute_paths() {
     assert_eq!(
         found,
         vec![site_packages],
-        "expected only the pipx install that has a venv"
+        "expected only the pipx install that has a venv",
     );
 }
 

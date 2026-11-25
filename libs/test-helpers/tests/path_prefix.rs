@@ -43,7 +43,7 @@ fn a_prefixed_directory_resolves_bare_names_inside_the_closure() {
 
     assert!(
         et_test_helpers::with_path_prefix(dir.path(), probe_resolves),
-        "a directory put in front of PATH must make its executables resolve by bare name"
+        "a directory put in front of PATH must make its executables resolve by bare name",
     );
 }
 
@@ -55,11 +55,11 @@ fn the_prefix_is_gone_once_the_closure_returns() {
     // the check below passes trivially if the directory was never on PATH to begin with.
     assert!(
         et_test_helpers::with_path_prefix(dir.path(), probe_resolves),
-        "the probe must resolve inside the closure, or the restoration check below proves nothing"
+        "the probe must resolve inside the closure, or the restoration check below proves nothing",
     );
     assert!(
         !probe_resolves(),
-        "PATH must be restored when the closure returns, so the prefixed directory stops resolving"
+        "PATH must be restored when the closure returns, so the prefixed directory stops resolving",
     );
 }
 

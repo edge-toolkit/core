@@ -186,7 +186,7 @@ pub(crate) fn run() -> Result<usize, Error> {
     let _removed: Result<(), std::io::Error> = fs::remove_file(SCRATCH);
     println!(
         "repo-check typos-ignores: {unneeded} of {} entries suppress nothing",
-        all.len()
+        all.len(),
     );
     Ok(unneeded)
 }

@@ -102,8 +102,8 @@ fn generates_valid_supervisor_settings_and_scoped_in_cluster_credentials() {
         role["rules"],
         json!([{
             "apiGroups": ["apps"], "resources": ["deployments"],
-            "resourceNames": ["example-worker"], "verbs": ["get"]
-        }])
+            "resourceNames": ["example-worker"], "verbs": ["get"],
+        }]),
     );
     let binding = object(&objects, "RoleBinding", "recovery-supervisor");
     assert_eq!(binding["roleRef"]["kind"], "Role");
@@ -129,7 +129,7 @@ fn generates_valid_supervisor_settings_and_scoped_in_cluster_credentials() {
             .iter()
             .map(|item| item["mountPath"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        ["/app/state", "/app/runtime"]
+        ["/app/state", "/app/runtime"],
     );
     assert!(
         !objects
@@ -157,7 +157,7 @@ fn dependency_observation_permissions_do_not_authorize_dependency_restarts() {
         serde_env::from_iter(environment(object(&objects, "Deployment", "recovery-supervisor"))).unwrap();
     assert_eq!(
         settings.recovery.resilience.dependencies["example-worker"],
-        vec!["ws-server"]
+        vec!["ws-server"],
     );
     assert_eq!(settings.recovery.resilience.max_concurrent_recoveries, 1);
 }
@@ -175,11 +175,11 @@ fn budgets_persist_and_replacements_do_not_overlap_during_rollouts() {
     assert_eq!(pod["securityContext"]["fsGroup"], 10_001_i64);
     assert_eq!(
         pod["containers"][0]["securityContext"]["readOnlyRootFilesystem"].as_bool(),
-        Some(true)
+        Some(true),
     );
     assert_eq!(
         pod["volumes"][0]["persistentVolumeClaim"]["claimName"],
-        "recovery-state"
+        "recovery-state",
     );
     let _claim = object(&objects, "PersistentVolumeClaim", "recovery-state");
     let worker = object(&objects, "Deployment", "example-worker");
@@ -213,7 +213,7 @@ fn startup_probe_budget_scales_with_workload_settings_and_rejects_unrepresentabl
     let deployment = object(&objects, "Deployment", "recovery-supervisor");
     assert_eq!(
         deployment["spec"]["template"]["spec"]["containers"][0]["startupProbe"]["failureThreshold"],
-        85_i32
+        85_i32,
     );
     input["recovery"]["poll_seconds"] = json!(u64::MAX);
     assert!(
@@ -235,7 +235,7 @@ fn intervention_permissions_are_opt_in_and_other_agents_remain_unchanged() {
     let (_root, objects) = generate(&input);
     assert_eq!(
         object(&objects, "Role", "recovery-supervisor")["rules"][0]["verbs"],
-        json!(["get", "patch"])
+        json!(["get", "patch"]),
     );
     let other = object(&objects, "Deployment", "other-worker");
     assert!(other["spec"]["strategy"].is_null());
@@ -270,7 +270,7 @@ fn scheduled_non_supervised_runners_keep_their_cronjob_without_recovery_bindings
     );
     assert_eq!(
         object(&objects, "Deployment", "example-worker")["spec"]["strategy"]["type"],
-        "Recreate"
+        "Recreate",
     );
     assert!(
         environment(object(&objects, "Deployment", "auxiliary-worker"))
@@ -315,11 +315,11 @@ fn runtime_settings_preserve_scenario_policy_and_reject_invalid_namespaces() {
     assert_eq!(config.command_timeout_seconds, settings.command_timeout_seconds);
     assert_eq!(
         serde_json::to_value(&config.policy).unwrap(),
-        serde_json::to_value(&settings.policy).unwrap()
+        serde_json::to_value(&settings.policy).unwrap(),
     );
     assert_eq!(
         serde_json::to_value(&config.workloads).unwrap(),
-        serde_json::to_value(&settings.workloads).unwrap()
+        serde_json::to_value(&settings.workloads).unwrap(),
     );
     assert!(
         settings
@@ -332,7 +332,7 @@ fn runtime_settings_preserve_scenario_policy_and_reject_invalid_namespaces() {
     invalid.poll_seconds = 0;
     assert!(matches!(
         invalid.config("custom-namespace"),
-        Err(et_cli::CliError::RecoveryConfig(_))
+        Err(et_cli::CliError::RecoveryConfig(_)),
     ));
 }
 
@@ -348,7 +348,7 @@ fn omitted_recovery_emits_no_supervisor_and_published_recovery_uses_released_ima
     let (root, objects) = generate(&input);
     assert_eq!(
         object(&objects, "Deployment", "recovery-supervisor")["spec"]["template"]["spec"]["containers"][0]["image"],
-        "ghcr.io/edge-toolkit/core/et-recovery-supervisor:latest"
+        "ghcr.io/edge-toolkit/core/et-recovery-supervisor:latest",
     );
     let readme = fs::read_to_string(root.path().join("output/README.md")).unwrap();
     assert!(readme.contains("et-recovery-supervisor:latest"));
@@ -450,7 +450,7 @@ fn multi_machine_instructions_include_the_supervisor_image_on_the_server() {
     let mut input = scenario();
     input["machines"] = json!([
         {"name":"server", "address":"192.168.1.10"},
-        {"name":"worker", "address":"192.168.1.11", "agents":["example-worker"]}
+        {"name":"worker", "address":"192.168.1.11", "agents":["example-worker"]},
     ]);
     let (root, objects) = generate(&input);
     let readme = fs::read_to_string(root.path().join("output/README.md")).unwrap();
@@ -466,16 +466,16 @@ fn one_supervisor_binds_multiple_workloads_and_defaults_to_observation() {
     let mut input = scenario();
     let _mode = input["recovery"].as_object_mut().unwrap().remove("mode");
     input["agents"].as_array_mut().unwrap().push(json!({
-        "name":"second-worker", "runner":"pyo3", "resources":[{"type":"pyo3-math1"}]
+        "name":"second-worker", "runner":"pyo3", "resources":[{"type":"pyo3-math1"}],
     }));
     input["recovery"]["workloads"].as_array_mut().unwrap().push(json!({
-        "deployment":"second-worker", "agent_id":"second-client", "source":"/modules/second"
+        "deployment":"second-worker", "agent_id":"second-client", "source":"/modules/second",
     }));
     let (_root, objects) = generate(&input);
     let role = object(&objects, "Role", "recovery-supervisor");
     assert_eq!(
         role["rules"][0]["resourceNames"],
-        json!(["example-worker", "second-worker"])
+        json!(["example-worker", "second-worker"]),
     );
     let config: EnvConfig =
         serde_env::from_iter(environment(object(&objects, "Deployment", "recovery-supervisor"))).unwrap();

@@ -53,7 +53,7 @@ pub(crate) async fn execute(client: &Client, request: Request) -> reqwest::Resul
 async fn run(client: &Client, request: Request, limits: Limits) -> reqwest::Result<Response> {
     if !matches!(
         *request.method(),
-        Method::GET | Method::HEAD | Method::PUT | Method::DELETE | Method::OPTIONS
+        Method::GET | Method::HEAD | Method::PUT | Method::DELETE | Method::OPTIONS,
     ) {
         return client.execute(request).await;
     }
@@ -81,7 +81,7 @@ async fn run(client: &Client, request: Request, limits: Limits) -> reqwest::Resu
             http_status,
             attempt = attempts,
             retry_after_seconds,
-            "retrying replayable REST request"
+            "retrying replayable REST request",
         );
         tokio::time::sleep(wait).await;
         if Instant::now() >= deadline {

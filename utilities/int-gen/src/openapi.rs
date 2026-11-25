@@ -236,7 +236,7 @@ fn inject_wasm_baseurl_fallback(body: &str) -> String {
 "#;
     assert!(
         body.contains(needle),
-        "progenitor's Client::new prologue moved; update inject_wasm_baseurl_fallback's needle"
+        "progenitor's Client::new prologue moved; update inject_wasm_baseurl_fallback's needle",
     );
     body.replacen(needle, replacement, 1)
 }
@@ -267,7 +267,7 @@ impl ClientHooks<()> for &Client {
 }"#;
     assert!(
         body.contains(needle),
-        "progenitor's empty `impl ClientHooks` moved; update inject_retry_exec's needle"
+        "progenitor's empty `impl ClientHooks` moved; update inject_retry_exec's needle",
     );
     body.replacen(needle, replacement, 1)
 }

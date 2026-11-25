@@ -228,7 +228,7 @@ impl WsClient {
                             ServerMessage::ConnectAck { agent_id, status } => {
                                 info!(
                                     "Server connect acknowledgement: agent_id={} status={:?}",
-                                    agent_id, status
+                                    agent_id, status,
                                 );
                                 *retained_agent_id.borrow_mut() = Some(agent_id.clone());
                                 // An ephemeral-identity client must not clobber the page's shared retained
@@ -260,7 +260,7 @@ impl WsClient {
                             } => {
                                 info!(
                                     "Received {:?} agent message {} from {} at {}",
-                                    scope, message_id, from_agent_id, server_received_at
+                                    scope, message_id, from_agent_id, server_received_at,
                                 );
                             }
                             ServerMessage::MessageStatus {

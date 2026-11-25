@@ -64,7 +64,7 @@ void main() {
 /// The part of a GLSL ES 3.00 batch before its probes.
 const ES300_HEAD: &str = concat!(
     "#version 300 es\nprecision highp float;\nprecision highp int;\nuniform float probeIn[8];\nout vec4 probeOut;\n\n",
-    batch_main!()
+    batch_main!(),
 );
 
 /// The part of a GLSL ES 3.00 batch after its probes, writing the bits of the pixel's result lowest byte first.
@@ -125,7 +125,7 @@ vec4 packFloatBits(float value) {
 }
 
 ",
-    batch_main!()
+    batch_main!(),
 );
 
 /// The part of a GLSL ES 1.00 batch after its probes, writing the bits of the pixel's result lowest byte first.

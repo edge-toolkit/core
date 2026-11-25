@@ -103,7 +103,7 @@ fn warn_if_stale(cert: &rustls::pki_types::CertificateDer<'_>, names: &[String],
             "TLS certificate {} does not cover {}; delete it and {} to have one generated that does",
             cert_filename.display(),
             missing.join(", "),
-            key.display()
+            key.display(),
         );
     }
 }
@@ -129,7 +129,7 @@ pub fn load_or_generate_tls_certs(cert_filename: &Path, key_filename: &Path, nam
     let report = format!(
         "{done} TLS certificate {} and key {}",
         cert_filename.display(),
-        key_filename.display()
+        key_filename.display(),
     );
     info!("{report}");
     pair

@@ -84,14 +84,14 @@ fn an_srgb_code_decodes_through_both_parts_of_the_curve_and_encodes_back() {
 fn a_small_float_decodes_its_subnormals_normals_and_infinity() {
     assert_eq!(
         Format::Rgba16Float.decode(0x0010).to_bits(),
-        (1.0_f64 / 1_048_576.0).to_bits()
+        (1.0_f64 / 1_048_576.0).to_bits(),
     );
     assert_eq!(Format::Rgba16Float.decode(0x3c00).to_bits(), 1.0_f64.to_bits());
     assert_eq!(Format::Rgba16Float.decode(0x7bff).to_bits(), 65_504.0_f64.to_bits());
     assert!(Format::Rgba16Float.decode(0x7c00).is_infinite());
     assert_eq!(
         Format::Rg11b10Ufloat.decode(0x3c1).to_bits(),
-        (1.0_f64 + 1.0 / 64.0).to_bits()
+        (1.0_f64 + 1.0 / 64.0).to_bits(),
     );
     assert!(Format::Rg11b10Ufloat.decode(0x7c0).is_infinite());
 }
@@ -126,8 +126,8 @@ fn a_device_converting_every_clear_correctly_names_its_choices() {
         signature.traits(),
         concat!(
             "unorm8_three_quarters=rounded unorm10_three_quarters=rounded ufloat11_rounding=rounded ",
-            "half_rounding=rounded half_subnormal=kept half_overflow=infinity"
-        )
+            "half_rounding=rounded half_subnormal=kept half_overflow=infinity",
+        ),
     );
     assert_eq!(signature.class(), et_gpu_probe::UNRECOGNISED);
 }
@@ -147,8 +147,8 @@ fn a_device_that_truncates_and_flushes_is_told_apart() {
         signature.traits(),
         concat!(
             "unorm8_three_quarters=truncated unorm10_three_quarters=truncated ufloat11_rounding=truncated ",
-            "half_rounding=truncated half_subnormal=flushed half_overflow=clamped"
-        )
+            "half_rounding=truncated half_subnormal=flushed half_overflow=clamped",
+        ),
     );
     assert!(
         signature
@@ -186,14 +186,14 @@ fn a_device_computing_every_fixed_function_probe_exactly_names_its_choices() {
         signature.traits(),
         concat!(
             "blend_half_float=rounded raster_right_edge_fine=exact raster_left_edge_fine=exact ",
-            "raster_right_edge_coarse=exact"
-        )
+            "raster_right_edge_coarse=exact",
+        ),
     );
     let lines = signature.describe();
     assert_eq!(lines.len(), FIXED_FUNCTION_COUNT);
     assert_eq!(
         lines.first().unwrap(),
-        "blend_multiply gpu=00000032 correct=00000032 ulps=+0"
+        "blend_multiply gpu=00000032 correct=00000032 ulps=+0",
     );
 }
 
@@ -207,8 +207,8 @@ fn a_rasterizer_that_snaps_to_eight_bits_is_told_apart() {
         signature.traits(),
         concat!(
             "blend_half_float=rounded raster_right_edge_fine=snapped raster_left_edge_fine=snapped ",
-            "raster_right_edge_coarse=exact"
-        )
+            "raster_right_edge_coarse=exact",
+        ),
     );
 }
 
@@ -223,7 +223,7 @@ fn every_blend_shader_draws_its_source_over_the_whole_target() {
     }
     assert_eq!(
         BLENDS.map(|blend| blend.operation),
-        [Operation::Multiply, Operation::Add, Operation::Add]
+        [Operation::Multiply, Operation::Add, Operation::Add],
     );
 }
 
@@ -293,7 +293,7 @@ fn every_raster_puts_the_same_corners_in_glsl() {
             "vec2({across}, {}), vec2({across}, {}), vec2({far}, {})",
             glsl_literal(-3.0),
             glsl_literal(3.0),
-            glsl_literal(0.0)
+            glsl_literal(0.0),
         );
         assert!(program[0].contains(&corners));
         assert!(
@@ -373,7 +373,7 @@ fn exact_clear_results() -> serde_json::Value {
         "unorm8_quarter": "0000000a", "unorm8_half": "0000000a", "unorm8_three_quarters": "0000000b",
         "unorm10_three_quarters": "00000065", "srgb8_mid": "000000bc", "srgb8_dark": "00000007",
         "ufloat11_rounding": "000003c1", "half_rounding": "00003c01", "half_subnormal": "00000010",
-        "half_overflow": "00007c00"
+        "half_overflow": "00007c00",
     })
 }
 
@@ -383,7 +383,7 @@ fn galaxy_s10_row(gpu_version: &str, backend: &str) -> serde_json::Value {
     serde_json::json!({
         "browser": "chrome", "browser_version": "157.0.8103.80", "os": "android", "os_version": "12.0.0",
         "cpu_arch": "unknown", "gpu": "arm", "gpu_version": gpu_version, "backend": backend, "device": "SM-G973F",
-        "window": "normal"
+        "window": "normal",
     })
 }
 
@@ -408,7 +408,7 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
             "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)", "driver": "Intel open-source Mesa driver",
             "driver_version": "26.1.6", "api_version": "Vulkan 1.4.354", "backend": "vulkan",
             "device": "ASUS TUF H370-PRO GAMING", "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
-            "environment": environment, "window": "none", "date": "2026-11-24"
+            "environment": environment, "window": "none", "date": "2026-11-24",
         })
     };
     let webgpu_entry = serde_json::json!({
@@ -424,17 +424,17 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
                 "browser": "chromium", "browser_version": "158.0.8127.36", "os": "linux",
                 "os_version": "Pop!_OS 24.04", "cpu_arch": "x86_64", "gpu": "intel", "gpu_version": "gen-9",
                 "backend": "vulkan", "device": "ASUS TUF H370-PRO GAMING", "environment": "EGL_PLATFORM=wayland",
-                "window": "normal"
-            }
+                "window": "normal",
+            },
         ],
-        "results": exact_clear_results()
+        "results": exact_clear_results(),
     });
     assert_eq!(entries_labelled(WEBGPU_CLEAR, &through_webgpu), [webgpu_entry]);
     let webgl2_entry = serde_json::json!({
         "interface": WEBGL2_CLEAR,
         "label": mali,
         "seen": [galaxy_s10_row("Mali-G76", "opengl-es")],
-        "results": exact_clear_results()
+        "results": exact_clear_results(),
     });
     assert_eq!(entries_labelled(WEBGL2_CLEAR, &through_webgl2), [webgl2_entry]);
 }

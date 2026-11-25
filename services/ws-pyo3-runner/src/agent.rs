@@ -172,7 +172,7 @@ pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), Runne
     .await?;
     info!(
         "registered as agent_id={agent_id} ({})",
-        et_ws_runner_common::connect_status_label(&status)
+        et_ws_runner_common::connect_status_label(&status),
     );
     // Populate the slot before `on_connect` so Python sees a valid
     // `storage.agent_id` from the first instant it can act.

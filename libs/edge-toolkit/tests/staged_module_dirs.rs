@@ -24,11 +24,11 @@ fn a_tool_list_that_is_not_json_yields_no_directories() {
     // rather than fail to start, so it serves what it can and says what is missing.
     assert_eq!(
         staged_module_dirs_from_tool_list(b"mise: not a tool list"),
-        Vec::<std::path::PathBuf>::new()
+        Vec::<std::path::PathBuf>::new(),
     );
     assert!(
         staged_module_dirs_from_tool_list(b"").is_empty(),
-        "an empty body is not valid JSON either"
+        "an empty body is not valid JSON either",
     );
 }
 
@@ -38,11 +38,11 @@ fn a_listing_that_is_not_an_object_yields_no_directories() {
     // this does not know how to read.
     assert_eq!(
         staged_module_dirs_from_tool_list(b"[]"),
-        Vec::<std::path::PathBuf>::new()
+        Vec::<std::path::PathBuf>::new(),
     );
     assert_eq!(
         staged_module_dirs_from_tool_list(b"\"a string\""),
-        Vec::<std::path::PathBuf>::new()
+        Vec::<std::path::PathBuf>::new(),
     );
 }
 
@@ -78,7 +78,7 @@ fn a_scoped_package_resolves_to_its_own_directory() {
 
     assert_eq!(
         found,
-        vec![install.join("node_modules").join("@edge-toolkit/et-ws-math1")]
+        vec![install.join("node_modules").join("@edge-toolkit/et-ws-math1")],
     );
 }
 
@@ -93,7 +93,7 @@ fn an_entry_with_no_version_or_no_install_path_is_skipped() {
 
     assert_eq!(
         staged_module_dirs_from_tool_list(&serde_json::to_vec(&tool_list).unwrap()),
-        Vec::<std::path::PathBuf>::new()
+        Vec::<std::path::PathBuf>::new(),
     );
 }
 
@@ -104,6 +104,6 @@ fn no_mise_to_ask_contributes_no_directories() {
     // binary from the spawn, and `with_empty_path` puts PATH back so sibling tests in this binary still find it.
     assert_eq!(
         et_test_helpers::with_empty_path(mise_staged_module_dirs),
-        Vec::<std::path::PathBuf>::new()
+        Vec::<std::path::PathBuf>::new(),
     );
 }

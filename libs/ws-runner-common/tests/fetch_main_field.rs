@@ -96,7 +96,7 @@ async fn fetch_main_field_gives_up_once_the_wait_window_is_spent() {
     // arguments as single path segments and a module name carries the scope it publishes under.
     assert!(
         matches!(&error, BootstrapError::Stream(_)),
-        "expected the last fetch failure to be reported, got: {error:?}"
+        "expected the last fetch failure to be reported, got: {error:?}",
     );
 }
 
@@ -110,7 +110,7 @@ async fn fetch_main_field_rejects_a_package_json_without_a_main_field() {
 
     assert!(
         matches!(&error, BootstrapError::PackageJsonMissingMain { module } if module == "et-ws-math1"),
-        "expected PackageJsonMissingMain, got: {error:?}"
+        "expected PackageJsonMissingMain, got: {error:?}",
     );
     hub.join().unwrap();
 }

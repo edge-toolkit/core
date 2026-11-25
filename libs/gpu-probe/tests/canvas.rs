@@ -34,7 +34,7 @@ fn a_faithful_read_is_unaltered() {
     let unaltered = alteration(&scene, &scene).unwrap();
     assert_eq!(
         (unaltered.changed, unaltered.total, unaltered.pattern.as_str()),
-        (0, scene.len(), "")
+        (0, scene.len(), ""),
     );
 }
 
@@ -75,7 +75,7 @@ fn nothing_hashes_to_the_seeds() {
 fn one_block_folds_once() {
     assert_eq!(
         pixel_hash(&sequence(64)),
-        [0x71b1_e1c5, 0x09e0_6c13, 0xb3d5_03be, 0x9a5a_42af]
+        [0x71b1_e1c5, 0x09e0_6c13, 0xb3d5_03be, 0x9a5a_42af],
     );
 }
 
@@ -83,7 +83,7 @@ fn one_block_folds_once() {
 fn a_partial_block_after_several_whole_ones_is_taken_in() {
     assert_eq!(
         pixel_hash(&sequence(300)),
-        [0xe5e7_e389, 0x4e56_3baf, 0x7e05_84bb, 0x34e9_227b]
+        [0xe5e7_e389, 0x4e56_3baf, 0x7e05_84bb, 0x34e9_227b],
     );
 }
 

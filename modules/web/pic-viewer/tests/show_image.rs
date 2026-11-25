@@ -108,7 +108,7 @@ async fn a_failed_image_load_reports_an_error_and_leaves_the_canvas_hidden() {
     let outcome = show_image(&url).await;
     assert!(
         outcome.is_err(),
-        "a dead URL must surface as an error, not a silent no-op"
+        "a dead URL must surface as an error, not a silent no-op",
     );
     assert!(canvas.hidden(), "the canvas must stay hidden when nothing was drawn");
 }

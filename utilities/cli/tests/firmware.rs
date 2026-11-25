@@ -140,7 +140,7 @@ fn an_esp32c6_is_built_from_the_same_package_and_loaded_with_espflash() {
     let image = "target/riscv32imac-unknown-none-elf/release/et-ws-server-firmware";
     assert_eq!(
         esp.tasks.flash.run,
-        format!("espflash flash --monitor --log-format defmt {image}")
+        format!("espflash flash --monitor --log-format defmt {image}"),
     );
     assert!(readme.contains("## Run As ESP32-C6 Firmware"));
     assert!(readme.contains("MISE_ENV=firmware-esp32c6 mise run firmware-flash"));
@@ -202,7 +202,7 @@ fn a_pico_plus_2_w_starts_each_wasi_runner_beside_its_hub() {
     let build = &config.tasks.build;
     assert_eq!(
         build.env["RUNNER_GUESTS"],
-        "math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender, wasi-math1-twin=@edge-toolkit/et-ws-wasi-math1"
+        "math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender, wasi-math1-twin=@edge-toolkit/et-ws-wasi-math1",
     );
     for module in ["modules/wasi/wasi-math1", "modules/wasi/wasi-math1-sender"] {
         assert!(build.run.contains(&format!("$PWD/{module}")));
@@ -280,11 +280,11 @@ fn verification_renders_it_only_for_a_scenario_the_board_can_run() {
     for format in OutputType::ALL {
         let delivered = matches!(
             format,
-            OutputType::Mise | OutputType::Dekit | OutputType::ProcessCompose
+            OutputType::Mise | OutputType::Dekit | OutputType::ProcessCompose,
         );
         assert_eq!(
             output.join("mixed").join(format.output_file_name()).is_file(),
-            delivered
+            delivered,
         );
     }
 }
@@ -306,12 +306,12 @@ fn a_board_as_the_server_runs_the_hub_and_its_guests_as_firmware() {
             "machine-edge",
             "machine-hub-board",
             "pyo3-math1-twin",
-        ]
+        ],
     );
     let build = &tasks["firmware-build-hub-board"];
     assert_eq!(
         build["env"]["RUNNER_GUESTS"].as_str(),
-        Some("math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender")
+        Some("math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender"),
     );
     let run = build["run"].as_str().unwrap();
     assert!(run.contains("mise -E rust run build-firmware-pico-plus2w"));
@@ -320,11 +320,11 @@ fn a_board_as_the_server_runs_the_hub_and_its_guests_as_firmware() {
     let flash = toml::Value::from("firmware-flash-hub-board");
     assert_eq!(
         tasks["machine-hub-board"]["depends"].as_array().unwrap(),
-        std::slice::from_ref(&flash)
+        std::slice::from_ref(&flash),
     );
     assert_eq!(
         tasks["pyo3-math1-twin"]["env"]["WS_SERVER_URL"].as_str(),
-        Some("ws://et-hub-board.local:8080/ws")
+        Some("ws://et-hub-board.local:8080/ws"),
     );
     let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
     assert!(readme.contains("## Load The Hub Onto `hub-board`"));
@@ -356,8 +356,8 @@ fn a_format_that_ships_images_is_refused_a_device() {
             outcome,
             format!(
                 r#"Machine "hub-board" names a device, which {} cannot deliver; only mise-task formats can"#,
-                format.name()
-            )
+                format.name(),
+            ),
         );
     }
 }
@@ -381,12 +381,12 @@ fn a_board_off_the_hub_s_machine_runs_its_runners_against_that_hub() {
     assert_eq!(build["env"]["HUB_ADDRESS"].as_str(), Some("et-hub-board.local:8080"));
     assert_eq!(
         build["env"]["CARGO_TARGET_DIR"].as_str(),
-        Some("target/firmware/runner-board")
+        Some("target/firmware/runner-board"),
     );
     assert_eq!(build["env"]["MODULES_ROOT"].as_str(), Some(""));
     assert_eq!(
         build["env"]["RUNNER_GUESTS"].as_str(),
-        Some("math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender")
+        Some("math1-trigger=@edge-toolkit/et-ws-wasi-math1-sender"),
     );
     // Only the runner's own module is built in, since the board serves nothing.
     let run = build["run"].as_str().unwrap();
@@ -411,8 +411,8 @@ fn a_board_off_the_hub_s_machine_with_no_runner_is_refused() {
         outcome,
         concat!(
             r#"Machine "edge" is a Raspberry Pi Pico 2 W with no runner placed on it, "#,
-            "and off the hub's machine it runs only those"
-        )
+            "and off the hub's machine it runs only those",
+        ),
     );
     assert!(!output_dir.join("mise.toml").exists());
 }

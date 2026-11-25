@@ -228,7 +228,7 @@ async fn streaming_put_is_sent_once_without_retrying_http_408() -> Result<(), Te
         .build()?;
     assert!(
         request.try_clone().is_none(),
-        "the fixture must exercise a non-replayable body"
+        "the fixture must exercise a non-replayable body",
     );
     let response = run(&client, request, limits(4)).await?;
     assert_eq!(response.status(), reqwest::StatusCode::REQUEST_TIMEOUT);

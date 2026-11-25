@@ -163,7 +163,7 @@ async fn a_binary_relay_sent_as_text_reaches_peers_as_binary() {
 
     assert_eq!(
         next_payload(&mut peer).await,
-        Message::Binary(Bytes::from_static(&[1, 2, 3]))
+        Message::Binary(Bytes::from_static(&[1, 2, 3])),
     );
 }
 

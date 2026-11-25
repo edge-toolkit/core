@@ -42,7 +42,7 @@ impl Diagnostics {
     fn record(&self, message: impl std::fmt::Display) {
         eprintln!(
             "[kubectl-fixture +{:.3}s] {message}",
-            self.started.elapsed().as_secs_f64()
+            self.started.elapsed().as_secs_f64(),
         );
     }
 
@@ -52,7 +52,7 @@ impl Diagnostics {
             panic!(
                 "kubectl {stage} failed after {:.3}s; fixture_finished={}: {error}",
                 self.started.elapsed().as_secs_f64(),
-                fixture.is_finished()
+                fixture.is_finished(),
             );
         });
         self.record(format_args!("kubectl {stage} completed"));
@@ -71,16 +71,16 @@ fn response(path: &str) -> Value {
         "/api/v1" => json!({"kind":"APIResourceList", "apiVersion":"v1", "groupVersion":"v1", "resources":[]}),
         "/apis" => json!({"kind":"APIGroupList", "apiVersion":"v1", "groups":[{
             "name":"apps", "versions":[{"groupVersion":"apps/v1", "version":"v1"}],
-            "preferredVersion":{"groupVersion":"apps/v1", "version":"v1"}
+            "preferredVersion":{"groupVersion":"apps/v1", "version":"v1"},
         }]}),
         "/apis/apps/v1" => json!({"kind":"APIResourceList", "apiVersion":"v1", "groupVersion":"apps/v1",
             "resources":[{"name":"deployments", "singularName":"deployment", "namespaced":true,
-                "kind":"Deployment", "verbs":["get","patch"]}]
+                "kind":"Deployment", "verbs":["get","patch"]}],
         }),
         "/apis/apps/v1/namespaces/example/deployments/example-worker" => deployment("example-worker", 1),
         "/apis/apps/v1/namespaces/example/deployments/storage-forbidden" => json!({
             "kind": "Status", "apiVersion": "v1", "status": "Failure", "reason": "Forbidden", "code": 403_u32,
-            "message": "fixture permission denied"
+            "message": "fixture permission denied",
         }),
         path if path.starts_with("/apis/apps/v1/namespaces/example/deployments/storage") => {
             dependency_deployment(path.rsplit('/').next().unwrap())
@@ -200,7 +200,7 @@ async fn serve(listener: TcpListener, seen: tokio::sync::mpsc::UnboundedSender<S
         };
         let headers = format!(
             "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
-            body.len()
+            body.len(),
         );
         let reply = format!("{headers}Connection: close\r\n\r\n{body}");
         seen.send(text).unwrap();
@@ -238,7 +238,7 @@ fn kubectl_queries_and_restarts_only_the_configured_namespace_and_deployment() {
                 config.command_timeout_seconds = 60;
                 diagnostics.record(format_args!(
                     "starting kubectl health command; deadline={}s",
-                    config.command_timeout_seconds
+                    config.command_timeout_seconds,
                 ));
                 let workload = config.workloads[0].clone();
                 let _previous = config.resilience.dependencies.insert(
@@ -252,7 +252,7 @@ fn kubectl_queries_and_restarts_only_the_configured_namespace_and_deployment() {
                 let mut backend = Kubernetes::new(config).unwrap();
                 assert_eq!(
                     diagnostics.command("health", backend.health(&workload).await, &task),
-                    Health::Ready
+                    Health::Ready,
                 );
                 assert_dependency_access(&mut backend, &workload, &DEPENDENCY_HEALTH, diagnostics, &task).await;
                 diagnostics.record("starting kubectl restart command");
@@ -261,7 +261,7 @@ fn kubectl_queries_and_restarts_only_the_configured_namespace_and_deployment() {
                 task.abort();
                 assert!(
                     task.await.unwrap_err().is_cancelled(),
-                    "API fixture panicked before teardown"
+                    "API fixture panicked before teardown",
                 );
             });
         },
@@ -287,7 +287,7 @@ async fn assert_dependency_access(
         dependency.source.clear();
         assert_eq!(
             diagnostics.command(name, backend.health(&dependency).await, task),
-            expected
+            expected,
         );
         let restart = backend.restart(&dependency).await.unwrap_err();
         let other_read = backend.execute(&dependency, &["get", "-o", "yaml"]).await.unwrap_err();
@@ -328,7 +328,7 @@ fn kubeconfig(directory: &Path, endpoint: &str) -> PathBuf {
     let document = json!({"apiVersion":"v1", "kind":"Config", "current-context":"k3d-example",
         "clusters":[{"name":"fixture", "cluster":{"server":endpoint}}],
         "contexts":[{"name":"k3d-example", "context":{"cluster":"fixture", "user":"fixture"}}],
-        "users":[{"name":"fixture", "user":{}}]
+        "users":[{"name":"fixture", "user":{}}],
     });
     fs::write(&path, serde_json::to_vec(&document).unwrap()).unwrap();
     path

@@ -294,7 +294,7 @@ where
     let request = format!(
         concat!(
             "GET {path} HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n",
-            "Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+            "Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAA==\r\nSec-WebSocket-Version: 13\r\n\r\n",
         ),
         path = WS_PATH,
         host = host,
@@ -495,7 +495,7 @@ where
         "{method} /storage/{}/{} HTTP/1.1\r\nHost: {host}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         encoded(bucket),
         encoded(key),
-        body.len()
+        body.len(),
     );
     socket.write_all(head.as_bytes()).await.map_net_err()?;
     socket.write_all(body).await.map_net_err()?;

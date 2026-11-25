@@ -111,7 +111,7 @@ fn an_unset_worker_count_is_the_machines_available_parallelism() {
 
     assert_eq!(
         HttpServerConfig::default().workers.into_inner(),
-        parallelism.min(MAX_WORKERS)
+        parallelism.min(MAX_WORKERS),
     );
     let config: HttpServerConfig = serde_env::from_iter_with_prefix([("HTTP_BACKLOG", "8")], "HTTP").unwrap();
     assert_eq!(config.workers, Workers::default());

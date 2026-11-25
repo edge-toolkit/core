@@ -54,7 +54,7 @@ pub fn environment() -> BTreeMap<String, String> {
     let ws_url = plaintext_ws_url(format_args!("127.0.0.1:{hub_port}"));
     let _previous = env.insert("RECOVERY_WS_URL".into(), ws_url);
     let workloads = serde_json::json!([{
-        "deployment": "example-worker", "agent_id": "example-worker", "source": "/modules/example-worker"
+        "deployment": "example-worker", "agent_id": "example-worker", "source": "/modules/example-worker",
     }]);
     let _previous = env.insert("RECOVERY_WORKLOADS".into(), workloads.to_string());
     env

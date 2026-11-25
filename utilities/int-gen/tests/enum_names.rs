@@ -20,12 +20,12 @@ fn wit_cases_that_collide_are_not_faithful() {
 fn dart_members_that_collide_are_an_error_naming_both_values() {
     assert_eq!(
         dart_variant_names("Status", &["assigned", "1.0"]).unwrap(),
-        ["assigned", "v1_0"]
+        ["assigned", "v1_0"],
     );
     let message = dart_variant_names("Version", &["1.0", "1-0"]).unwrap_err().to_string();
     assert_eq!(
         message,
-        "enum `Version`: values `1.0` and `1-0` both name the Dart member `v1_0`"
+        "enum `Version`: values `1.0` and `1-0` both name the Dart member `v1_0`",
     );
 }
 

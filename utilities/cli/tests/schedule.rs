@@ -199,7 +199,7 @@ fn mise_and_dekit_refuse_a_scheduled_agent_and_write_nothing() {
         let (_root, output_dir, outcome) = generate(&scenario(&every("* * * * *", "")), output_type);
         let refused = format!(
             "\"math1-trigger\" sets a schedule, which {} cannot run",
-            output_type.name()
+            output_type.name(),
         );
         assert!(outcome.contains(&refused));
         assert!(outcome.ends_with("use k3s, docker-compose or process-compose"));
@@ -298,11 +298,11 @@ fn the_compose_scheduler_declares_each_job_as_its_own_labels() {
     assert_eq!(labels["ofelia.enabled"], "true");
     assert_eq!(
         labels["ofelia.job-run.math1-trigger.schedule"],
-        "CRON_TZ=Australia/Perth */10 * * * *"
+        "CRON_TZ=Australia/Perth */10 * * * *",
     );
     assert_eq!(
         labels["ofelia.job-run.math1-trigger.container"],
-        "et-timed-math1-trigger"
+        "et-timed-math1-trigger",
     );
     assert_eq!(labels["ofelia.job-run.math1-trigger.no-overlap"], "true");
     assert!(scheduler["profiles"].is_null());
@@ -318,7 +318,7 @@ fn compose_runs_a_scheduler_on_each_machine_with_a_scheduled_runner() {
     assert_eq!(scheduler["profiles"][0], "edge");
     assert_eq!(
         scheduler["labels"]["ofelia.job-run.math1-trigger.schedule"],
-        "* * * * *"
+        "* * * * *",
     );
     // A remote runner is otherwise restarted until the hub answers; a scheduled one waits for its next tick instead.
     assert!(services["math1-trigger"]["restart"].is_null());
@@ -354,16 +354,16 @@ fn process_compose_starts_each_process_once_what_it_talks_to_is_ready() {
     let processes = &yaml(&dir, "process-compose.yaml")["processes"];
     assert_eq!(
         processes["ws-server"]["depends_on"]["openobserve"]["condition"],
-        "process_healthy"
+        "process_healthy",
     );
     assert_eq!(
         processes["math1-twin"]["depends_on"]["ws-server"]["condition"],
-        "process_healthy"
+        "process_healthy",
     );
     assert_eq!(processes["ws-server"]["readiness_probe"]["http_get"]["port"], 8080_u16);
     assert_eq!(
         processes["openobserve"]["shutdown"]["command"],
-        "docker stop openobserve-timed"
+        "docker stop openobserve-timed",
     );
     assert_eq!(processes["math1-twin"]["shutdown"]["signal"], 2_u8);
     let disabled = processes

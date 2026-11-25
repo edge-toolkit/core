@@ -17,11 +17,11 @@ fn detected_supervisor() -> (Supervisor, Workload) {
     let mut supervisor = Supervisor::new(config, budget).unwrap();
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 0).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     assert_eq!(
         supervisor.observe(&workload, Health::Unready, 3).unwrap(),
-        Decision::Observe
+        Decision::Observe,
     );
     (supervisor, workload)
 }
@@ -80,7 +80,7 @@ fn unknown_workload_has_no_promised_action_time() {
     workload.deployment = "unconfigured-worker".into();
     assert_eq!(
         supervisor.next_action_time(&workload, Reason::RestartEligible),
-        ObservationTime::Pending
+        ObservationTime::Pending,
     );
 }
 
@@ -91,7 +91,7 @@ fn healthy_workload_has_no_promised_action_time() {
     let healthy = Supervisor::new(supervisor.config, supervisor.budget).unwrap();
     assert_eq!(
         healthy.next_action_time(&workload, Reason::Cooldown),
-        ObservationTime::Pending
+        ObservationTime::Pending,
     );
 }
 
@@ -101,12 +101,12 @@ fn missing_incident_has_no_promised_action_time() {
     let (mut supervisor, workload) = detected_supervisor();
     assert_eq!(
         supervisor.next_action_time(&workload, Reason::RestartEligible),
-        ObservationTime::Recorded(23)
+        ObservationTime::Recorded(23),
     );
     supervisor.incidents.clear();
     assert_eq!(
         supervisor.next_action_time(&workload, Reason::RestartEligible),
-        ObservationTime::Pending
+        ObservationTime::Pending,
     );
 }
 

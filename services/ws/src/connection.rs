@@ -245,7 +245,7 @@ impl Connection {
         }
         info!(
             "Direct message {} queued for disconnected agent {to_agent_id}",
-            pending.message_id
+            pending.message_id,
         );
         self.send_json(&hub::status(
             Some(pending.message_id),
@@ -382,7 +382,7 @@ impl Connection {
             warn!(
                 "Failed to forward binary to {}: {:?}",
                 self.link.current_agent_id(),
-                err
+                err,
             );
         }
     }
@@ -397,7 +397,7 @@ impl Connection {
         info!(
             "Received message from client {}: {:?}",
             self.link.current_agent_id(),
-            text
+            text,
         );
         let message = match ClientMessage::from_text_frame(text) {
             Ok(message) => message,
@@ -405,7 +405,7 @@ impl Connection {
                 warn!(
                     "Decode error for et-* frame from {}: {}",
                     self.link.current_agent_id(),
-                    err
+                    err,
                 );
                 return;
             }
@@ -442,7 +442,7 @@ impl Connection {
                 info!(
                     "WebSocket close request from client: {} reason: {:?}",
                     self.link.current_agent_id(),
-                    reason
+                    reason,
                 );
                 let _span = HubSpan::start("ws.disconnect");
                 let _closed: Result<(), actix_ws::Closed> = self.session.clone().close(reason).await;
@@ -465,7 +465,7 @@ impl Connection {
         warn!(
             "WebSocket connection timed out for client {} after {:?} of inactivity",
             self.link.current_agent_id(),
-            idle_for
+            idle_for,
         );
         let reason = CloseReason {
             code: CloseCode::Policy,
@@ -483,7 +483,7 @@ impl Connection {
         warn!(
             "Closing WebSocket connection for client {} from blocked IP {}",
             self.link.current_agent_id(),
-            self.link.client_ip()
+            self.link.client_ip(),
         );
         let reason = CloseReason {
             code: CloseCode::Policy,
@@ -508,7 +508,7 @@ impl Connection {
             info!(
                 "WebSocket connection established for client IP {} with agent {}",
                 self.link.client_ip(),
-                self.link.current_agent_id()
+                self.link.current_agent_id(),
             );
         }
         telemetry::connections_changed(1);
@@ -570,7 +570,7 @@ impl Connection {
         let Some(agent_id) = self.link.agent_id() else {
             info!(
                 "WebSocket connection closed before agent assignment for client IP {}",
-                self.link.client_ip()
+                self.link.client_ip(),
             );
             return;
         };
@@ -592,7 +592,7 @@ impl Connection {
         info!(
             "Agent {} disconnected; last known IP {}",
             agent_id,
-            self.link.client_ip()
+            self.link.client_ip(),
         );
     }
 }

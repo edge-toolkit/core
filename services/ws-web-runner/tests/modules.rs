@@ -99,7 +99,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
         println!(
             "skipping {module}: requires the `{}` mise env, not loaded",
-            language.as_str()
+            language.as_str(),
         );
         return;
     }
@@ -169,7 +169,7 @@ fn deno_crates() -> String {
     format!(
         "deno_runtime {}, deno_webgpu {}",
         version_of("deno_runtime"),
-        version_of("deno_webgpu")
+        version_of("deno_webgpu"),
     )
 }
 
@@ -248,7 +248,7 @@ fn adapter_submissions(
     let row = machine.row(row);
     let label = format!(
         "{name} through {DENO_BACKEND} on {} -- WebGPU on Deno, {deno}",
-        machine.named(system, arch)
+        machine.named(system, arch),
     );
     sets["signatures"]
         .as_array()
@@ -286,7 +286,7 @@ async fn math1_module_stores_verified_model(#[case] module: &str, #[case] langua
     if !mise_env_includes(language) {
         println!(
             "skipping {module}: requires the `{}` mise env, not loaded",
-            language.as_str()
+            language.as_str(),
         );
         return;
     }
@@ -475,7 +475,7 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
         println!(
             "skipping {module}: requires the `{}` mise env, not loaded",
-            language.as_str()
+            language.as_str(),
         );
         return;
     }
@@ -535,7 +535,7 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
     if !mise_env_includes(language) {
         println!(
             "skipping {module}: requires the `{}` mise env, not loaded",
-            language.as_str()
+            language.as_str(),
         );
         return;
     }
@@ -582,7 +582,7 @@ fn r_module_load_fails(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
         println!(
             "skipping {module}: requires the `{}` mise env, not loaded",
-            language.as_str()
+            language.as_str(),
         );
         return;
     }

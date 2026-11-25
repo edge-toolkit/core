@@ -54,7 +54,7 @@ async fn server_close_is_a_protocol_error() {
         .unwrap_err();
     assert!(
         err.to_string().contains("socket closed"),
-        "expected the socket-closed protocol error, got: {err}"
+        "expected the socket-closed protocol error, got: {err}",
     );
 }
 
@@ -99,7 +99,7 @@ async fn times_out_when_no_module_answers() {
         .unwrap_err();
     assert!(
         err.to_string().contains("timed out"),
-        "expected the timeout protocol error, got: {err}"
+        "expected the timeout protocol error, got: {err}",
     );
 }
 

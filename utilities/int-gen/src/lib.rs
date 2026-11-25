@@ -95,7 +95,7 @@ pub fn check_help() -> Result<(), Error> {
             stale.push(format!(
                 "{}: {}",
                 path.display(),
-                first_difference(&committed, &rendered)
+                first_difference(&committed, &rendered),
             ));
         }
     }
@@ -104,7 +104,7 @@ pub fn check_help() -> Result<(), Error> {
     } else {
         Err(Error::HelpStale(format!(
             "out of date with the clap command trees and env configs; run `mise run gen-help-all`\n{}",
-            stale.join("\n")
+            stale.join("\n"),
         )))
     }
 }

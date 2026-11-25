@@ -159,7 +159,7 @@ async fn metrics_endpoint_decodes_json_protobuf_and_flattens_every_shape() {
     assert_eq!(gauge.value, 9, "Gauge sums its integer data points");
     assert_eq!(
         gauge.data_points, 2,
-        "the float point is counted even though it adds nothing to the value"
+        "the float point is counted even though it adds nothing to the value",
     );
 
     let hist = flat.iter().find(|rec| rec.name == "hist.metric").unwrap();
@@ -170,6 +170,6 @@ async fn metrics_endpoint_decodes_json_protobuf_and_flattens_every_shape() {
     assert_eq!(
         (none.value, none.data_points),
         (0, 0),
-        "a data-less metric flattens to zero"
+        "a data-less metric flattens to zero",
     );
 }

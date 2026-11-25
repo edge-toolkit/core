@@ -48,7 +48,7 @@ async fn wait_for_initial_poll(config: &Config, child: &mut Child) {
         while et_recovery_supervisor::health::check(config).is_err() {
             assert!(
                 child.try_wait().unwrap().is_none(),
-                "supervisor exited before its initial poll"
+                "supervisor exited before its initial poll",
             );
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
@@ -136,7 +136,7 @@ async fn sigterm_saves_the_final_report_before_a_successful_exit() {
         .unwrap();
     assert!(
         status.success(),
-        "supervisor terminated without a graceful exit: {status}"
+        "supervisor terminated without a graceful exit: {status}",
     );
     let after: serde_json::Value = serde_json::from_slice(&fs::read(&config.state_file).unwrap()).unwrap();
     assert_eq!(after["checkpoint_measurements"][0]["progress"], 3_u64);

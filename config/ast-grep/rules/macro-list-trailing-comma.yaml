@@ -1,0 +1,31 @@
+id: macro-list-trailing-comma
+language: Rust
+severity: error
+message: |
+  A list inside a macro's arguments whose closing `]`, `)` or `}` sits on a line of its own takes a `,` after its
+  last item, as rustfmt writes every vertical list outside a macro. That covers the macro's own argument list, an
+  array, a call's arguments, a tuple, and the fields of a struct or a `json!` object. rustfmt adds no comma inside a
+  macro invocation, because a comma can change what a macro means, so without this rule those lists are left as
+  the author typed them; it keeps one that is there. The autofix adds the comma.
+# The fix rewrites the whole list, and ast-grep re-indents each line of a replacement to the line it starts on.
+# Every line of a formatted list is indented at least that far, except the later lines of a string spanning them, so a
+# list holding one is left to macro-list-trailing-comma-by-hand. A list nested in another flagged list is reported
+# once the outer one has its comma, so the fix may need a second run.
+rule:
+  # `$TT` binds the matched token tree for the fix's transform; `kind` gives ast-grep the node to start from.
+  pattern: $TT
+  kind: token_tree
+  matches: macro-list-without-trailing-comma
+  not:
+    matches: multi-line-string
+transform:
+  WITH_COMMA:
+    replace:
+      source: $TT
+      replace: '(\S)((?:[ \t]+//[^\n"]*|\s)*[\])}]$)'
+      by: "$1,$2"
+fix: $WITH_COMMA
+ignores:
+  - generated/**
+  # Written by et-int-gen outside generated/, so a comma here is undone on the next regeneration.
+  - services/ws-wasi-runner/src/bindings.rs

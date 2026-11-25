@@ -197,7 +197,7 @@ fn validate_workload(
         if runner.env.get(&name).is_some_and(|value| *value != expected) {
             return Err(CliError::Recovery(format!(
                 "{} conflicts with generated {name}",
-                runner.name
+                runner.name,
             )));
         }
     }

@@ -67,14 +67,14 @@ where
             out,
             "{} on {}: {outcome}",
             submission.interface,
-            signature_label(&submission.label)
+            signature_label(&submission.label),
         )?;
         added |= !matches!(outcome, Outcome::Present(_));
     }
     if added {
         writeln!(
             out,
-            "run `mise run gen:gpu-probe-signatures` to refresh the JSON the et-gpu-probe crate embeds"
+            "run `mise run gen:gpu-probe-signatures` to refresh the JSON the et-gpu-probe crate embeds",
         )?;
     }
     passed_over(skipped)
@@ -180,7 +180,7 @@ fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Vec<(&'static str, Result<Sub
         "{} through {} on {} -- wgpu, no browser",
         info.name,
         gpu.backend(),
-        machine.named(system, arch)
+        machine.named(system, arch),
     );
     block_on(gpu.every_set())
         .into_iter()
