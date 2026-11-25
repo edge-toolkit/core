@@ -3,46 +3,47 @@ machine:
   os: macos
   host: x86_64-apple-darwin
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
-  recorded: "2026-11-16"
+  recorded: "2026-11-25"
 gpu:
   backend: metal
   computes: true
   gpu_version: Apple Paravirtual device
   name: Apple Paravirtual device (metal)
+  versions: {}
   id: apple-paravirtual-device-metal
 benchmarks:
   gpus/clear_signature:
     latency:
-      value: 1.178129803e+07
-      lower_value: 1.107171662e+07
-      upper_value: 1.240400447e+07
+      value: 8.21296032e+06
+      lower_value: 7.12766996e+06
+      upper_value: 9.33726864e+06
   gpus/combined_signature:
     latency:
-      value: 6.65289671e+06
-      lower_value: 5.90137702e+06
-      upper_value: 7.5121126e+06
+      value: 8.28396848e+06
+      lower_value: 7.95550587e+06
+      upper_value: 8.59258561e+06
   gpus/f16_combined_signature:
     latency:
-      value: 8.93431557e+06
-      lower_value: 8.81029476e+06
-      upper_value: 9.05785823e+06
+      value: 7.28254721e+06
+      lower_value: 6.22459442e+06
+      upper_value: 8.21980573e+06
   gpus/f16_signature:
     latency:
-      value: 1.348097159e+07
-      lower_value: 1.320758938e+07
-      upper_value: 1.376726654e+07
+      value: 1.051627865e+07
+      lower_value: 1.019340621e+07
+      upper_value: 1.087660531e+07
   gpus/fixed_function_signature:
     latency:
-      value: 2.473206023e+07
-      lower_value: 2.424448679e+07
-      upper_value: 2.519488612e+07
+      value: 1.534783149e+07
+      lower_value: 1.460882249e+07
+      upper_value: 1.60194285e+07
   gpus/report:
     latency:
-      value: 34861.44
-      lower_value: 32404.32
-      upper_value: 37592.18
+      value: 17778.18
+      lower_value: 17546.12
+      upper_value: 17988.62
   gpus/signature:
     latency:
-      value: 1.154477276e+07
-      lower_value: 1.119262964e+07
-      upper_value: 1.191548094e+07
+      value: 1.010978819e+07
+      lower_value: 9.63995239e+06
+      upper_value: 1.062196878e+07

@@ -3,46 +3,50 @@ machine:
   os: linux
   host: aarch64-unknown-linux-gnu
   rustc: rustc 1.100.0 (0ef1bc386 2026-11-09)
-  recorded: "2026-11-16"
+  recorded: "2026-11-25"
 gpu:
   backend: vulkan
   computes: true
   gpu_version: llvmpipe (LLVM 20.1.2, 128 bits)
   name: llvmpipe (LLVM 20.1.2, 128 bits) (vulkan)
+  versions:
+    api_version: Vulkan 1.4.318
+    driver: llvmpipe
+    driver_version: 25.2.8
   id: llvmpipe-llvm-20-1-2-128-bits-vulkan
 benchmarks:
   gpus/clear_signature:
     latency:
-      value: 821483.22
-      lower_value: 817608.67
-      upper_value: 825085.11
+      value: 760268.68
+      lower_value: 756271.68
+      upper_value: 763899.28
   gpus/combined_signature:
     latency:
-      value: 117658.81
-      lower_value: 115953.97
-      upper_value: 119570.19
+      value: 105911.7
+      lower_value: 104774.86
+      upper_value: 107104.4
   gpus/f16_combined_signature:
     latency:
-      value: 118613.2
-      lower_value: 116842.43
-      upper_value: 120348.35
+      value: 105555.99
+      lower_value: 104944.15
+      upper_value: 106130.06
   gpus/f16_signature:
     latency:
-      value: 948870.87
-      lower_value: 944788.11
-      upper_value: 954605.66
+      value: 871066.52
+      lower_value: 869613.15
+      upper_value: 872597.15
   gpus/fixed_function_signature:
     latency:
-      value: 9.32459761e+06
-      lower_value: 9.23863864e+06
-      upper_value: 9.41612221e+06
+      value: 8.79031419e+06
+      lower_value: 8.72918889e+06
+      upper_value: 8.84268743e+06
   gpus/report:
     latency:
-      value: 5919.67
-      lower_value: 5917.34
-      upper_value: 5922.49
+      value: 6045.44
+      lower_value: 6037.99
+      upper_value: 6054.24
   gpus/signature:
     latency:
-      value: 887508.38
-      lower_value: 882451.16
-      upper_value: 893070.86
+      value: 865856.89
+      lower_value: 862024.68
+      upper_value: 869067.67
