@@ -745,6 +745,12 @@ no_opt = ""
 cargo_ws_excludes = ""
 # The targets and scope cargo-clippy-check lints and cargo-clippy-fix rewrites, which must be the same set.
 clippy_scope = "--keep-going --workspace --all-targets"
+# Workspace crates with a `cuda` feature, which the clippy tasks turn on where `nvidia-smi` lists an NVIDIA GPU.
+# The driver's own tool is the test because a GPU is a fact of the host, which no mise tool can stand in for. The
+# `cuda` code only ever runs on such a host, so it is linted wherever it can run; CI's runners have no GPU.
+cuda_crates = "et-gpu-probe-server et-ws-wasi-runner"
+# The `--features <crate>/cuda` flags turning `cuda` on for every crate in `cuda_crates`.
+cuda_features = "{% for crate in vars.cuda_crates | split(pat=' ') %}--features {{ crate }}/cuda {% endfor %}"
 # Flags for cargo-hack-check's feature powerset.
 # `cuda` is left out because it downloads a CUDA build of ONNX Runtime that exists only for some host triples.
 # `docs` only renders the feature list into rustdoc, which cargo-doc-check builds, so it would double every run.
@@ -1372,7 +1378,14 @@ wait_for = ["gen-specs"]
 
 [tasks.cargo-clippy-check]
 alias = ["cargo-clippy", "clippy", "clippy-check"]
-run = "cargo clippy {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }}"
+run = """
+set --
+if nvidia-smi -L >/dev/null 2>&1; then
+  set -- {{ vars.cuda_features }}
+fi
+cargo clippy {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }} "$@"
+"""
+shell = "{{ vars.task_shell }}"
 
 # Lints the wasm crates on the targets they actually build for, which cargo-clippy-check's host build never sees.
 # The crate sets come from `cargo metadata`, by what each crate binds to, so a new module joins without an edit:
@@ -1421,9 +1434,16 @@ description = "cargo clippy on one or more workspace packages (narrow inner-loop
 # "--package <SPEC> not found" error.
 run = """
 set --
+gpu=""
+if nvidia-smi -L >/dev/null 2>&1; then
+  gpu=yes
+fi
 # shellcheck disable=SC2086 # $usage_package is a space-joined package list, split by design.
 for package in $usage_package; do
   set -- "$@" -p "$package"
+  case "$gpu: {{ vars.cuda_crates }} " in
+    "yes:"*" $package "*) set -- "$@" --features "$package/cuda" ;;
+  esac
 done
 cargo clippy --keep-going --all-targets --no-deps "$@"
 """
@@ -1467,7 +1487,14 @@ cargo "+$tc" doc $flags $features {{ vars.cargo_ws_excludes }}
 shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }}"
+run = """
+set --
+if nvidia-smi -L >/dev/null 2>&1; then
+  set -- {{ vars.cuda_features }}
+fi
+cargo clippy --fix --allow-dirty --allow-staged {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }} "$@"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.taplo-fmt]
 alias = "toml-fmt"

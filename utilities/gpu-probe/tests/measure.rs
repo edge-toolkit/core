@@ -5,6 +5,7 @@
 use std::io::{self, Write};
 
 use et_gpu_probe::native::{Gpu, NativeError};
+use et_gpu_probe::{DRAWING_SETS, EVERY_SET};
 use et_gpu_probe_server::machine::Machine;
 use et_gpu_probe_server::measure::{MeasureError, measure, propose_measured};
 use et_gpu_probe_server::registry::RegistryTree;
@@ -132,17 +133,12 @@ fn a_device_without_compute_shaders_has_each_shader_set_said_and_counted() {
     let adapter = block_on(instance(wgpu::Backends::NOOP).request_adapter(&wgpu::RequestAdapterOptions::default()));
     let gpu = block_on(Gpu::open_without_compute(adapter.unwrap()));
     let (out, outcome) = measured(&registry, vec![gpu]);
-    for set in [
-        "webgpu-split",
-        "webgpu-combined",
-        "webgpu-f16-split",
-        "webgpu-f16-combined",
-    ] {
+    for set in EVERY_SET.iter().filter(|set| !DRAWING_SETS.contains(set)) {
         let said = format!("{set} on noop wgpu backend was not measured: the device runs no compute shaders: ");
         assert!(out.contains(&said), "{set}: {out}");
     }
-    // The clears and the fixed-function probes draw rather than compute, so they are still recorded.
-    for set in ["webgpu-clear", "webgpu-fixed-function"] {
+    // The sets that draw rather than compute are still recorded.
+    for set in DRAWING_SETS {
         assert!(
             out.contains(&format!("{set} on noop wgpu backend: added")),
             "{set}: {out}",

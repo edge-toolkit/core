@@ -199,7 +199,7 @@ jobs:
 
   # The probes through a runtime the workspace hosts, built on each image that can build it -- ubuntu-slim cannot.
   # `wasi-nn` puts the probe set as ONNX operators behind wasi:nn, and ONNX Runtime publishes a build for every target
-  # here. `deno` puts the six WebGPU sets through Deno's WebGPU as the graphics-info module does in et-ws-web-runner.
+  # here. `deno` puts every WebGPU set through Deno's WebGPU as the graphics-info module does in et-ws-web-runner.
   # The runner's V8 has no working prebuilt for Windows' default gnullvm target, which is why config.windows.toml
   # excludes the runner, so on Windows it is built under the msvc target env instead, as test.yaml's
   # `override (msvc)` lane builds it: against rusty_v8's native msvc prebuilt, with the portable MSVC toolchain.

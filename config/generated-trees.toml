@@ -50,6 +50,7 @@ required_in = [
   "config/ast-grep/rules/const-at-top.yaml",
   "config/ast-grep/rules/derive-attribute-order.yaml",
   "config/ast-grep/rules/doc-summary-ends-with-period.yaml",
+  "config/ast-grep/rules/gpu-probe-sets-from-every-set.yaml",
   "config/ast-grep/rules/inherent-impl-first.yaml",
   "config/ast-grep/rules/js-no-function-declaration-in-script.yaml",
   "config/ast-grep/rules/macro-list-trailing-comma-by-hand.yaml",

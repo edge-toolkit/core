@@ -23,19 +23,23 @@ use std::time::Duration;
 
 #[cfg(target_vendor = "apple")]
 use objc2_metal::MTLDevice as _;
-#[cfg(windows)]
-use windows::core::Interface as _;
 
+use crate::r#unsafe;
 use crate::{
-    Answer, BLENDS, Blend, CLEARS, Clear, F16_INPUTS, FILTERS, Filter, Format, INPUTS, Operation, PROBE_COUNT,
-    RASTER_FORMAT, RASTER_WIDTH, RASTERS, Raster, Signature, WEBGPU, WEBGPU_CLEAR, WEBGPU_COMBINED, WEBGPU_F16,
-    WEBGPU_F16_COMBINED, WEBGPU_FIXED_FUNCTION, combined_shader, coverage, f16_combined_shader, f16_shaders, shaders,
+    Accumulator, Answer, BLENDS, Blend, CLEARS, Clear, EVERY_SET, F16_INPUTS, FILTERS, Filter, Format, INPUTS,
+    MATRIX_PROBES, MatrixProbe, Operation, PROBE_COUNT, RASTER_FORMAT, RASTER_WIDTH, RASTERS, Raster, Shape, Signature,
+    TRIG_INPUTS, WEBGPU, WEBGPU_CLEAR, WEBGPU_COMBINED, WEBGPU_F16, WEBGPU_F16_COMBINED, WEBGPU_FIXED_FUNCTION,
+    WEBGPU_TRIG, WGPU_COOPERATIVE_MATRIX, combined_shader, coverage, f16_combined_shader, f16_shaders, matrix_shaders,
+    shaders, trig_shaders,
 };
 
 /// The optional features the device is asked for whenever the adapter has them.
 ///
-/// Rendering to `rg11b10ufloat` is one clear's target, and `shader-f16` is what the `f16` probe set compiles with.
-const OPTIONAL_FEATURES: wgpu::Features = wgpu::Features::RG11B10UFLOAT_RENDERABLE.union(wgpu::Features::SHADER_F16);
+/// Rendering to `rg11b10ufloat` is one clear's target, `shader-f16` is what the `f16` probe set compiles with, and
+/// cooperative matrices are what the matrix probes run on.
+const OPTIONAL_FEATURES: wgpu::Features = wgpu::Features::RG11B10UFLOAT_RENDERABLE
+    .union(wgpu::Features::SHADER_F16)
+    .union(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX);
 
 /// How long the probe waits for the GPU to finish a submission before reporting it unfinished.
 ///
@@ -179,8 +183,12 @@ struct Compute {
     f16_combined: Probe,
     /// The `f16` probe set, in output order.
     f16_probes: Vec<Probe>,
+    /// The matrix probes, in output order.
+    matrix_probes: Vec<Probe>,
     /// The probe set, in output order.
     probes: Vec<Probe>,
+    /// The `sin` and `cos` probes, in output order.
+    trig_probes: Vec<Probe>,
 }
 
 /// How a probe drawn into a target reads its answer from the bytes of the target it copied back.
@@ -282,13 +290,20 @@ impl Gpu {
 
     /// Open a device on `adapter`, compiling the shader probe sets for it unless `compute` gives the reason not to.
     async fn open_device(adapter: wgpu::Adapter, compute: Result<(), NoCompute>) -> Result<Self, NativeError> {
+        let required_features = adapter.features() & OPTIONAL_FEATURES;
+        let experimental_features = if required_features.contains(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX) {
+            r#unsafe::experimental_features()
+        } else {
+            wgpu::ExperimentalFeatures::disabled()
+        };
         let descriptor = wgpu::DeviceDescriptor {
-            required_features: adapter.features() & OPTIONAL_FEATURES,
+            required_features,
+            experimental_features,
             ..wgpu::DeviceDescriptor::default()
         };
         let (device, queue) = adapter.request_device(&descriptor).await?;
         let compute = match compute {
-            Ok(()) => Ok(Compute::compile(&device).await),
+            Ok(()) => Ok(Compute::compile(&device, &adapter.cooperative_matrix_properties()).await),
             Err(reason) => Err(reason),
         };
         Ok(Self {
@@ -360,6 +375,21 @@ impl Gpu {
         Ok(Signature::new(WEBGPU_F16_COMBINED, answers))
     }
 
+    /// What the matrix probes answer on this GPU, each in a shader of its own.
+    pub async fn matrix_signature(&self) -> Result<Signature, NativeError> {
+        let stages: Vec<(&Probe, u64)> = self.compute()?.matrix_probes.iter().map(|probe| (probe, 1)).collect();
+        Ok(Signature::new(
+            WGPU_COOPERATIVE_MATRIX,
+            self.answers(&stages, &INPUTS).await?,
+        ))
+    }
+
+    /// What the `sin` and `cos` probes answer on this GPU, each in a shader of its own.
+    pub async fn trig_signature(&self) -> Result<Signature, NativeError> {
+        let stages: Vec<(&Probe, u64)> = self.compute()?.trig_probes.iter().map(|probe| (probe, 1)).collect();
+        Ok(Signature::new(WEBGPU_TRIG, self.answers(&stages, &TRIG_INPUTS).await?))
+    }
+
     /// What this GPU answers to the clears.
     pub async fn clear_signature(&self) -> Result<Signature, NativeError> {
         let mut passes = Vec::new();
@@ -384,19 +414,30 @@ impl Gpu {
         Ok(Signature::new(WEBGPU_FIXED_FUNCTION, self.pass_answers(&passes).await?))
     }
 
-    /// What every probe set answers on this GPU, each beside the interface the registry files a measurement under.
+    /// What every set in [`EVERY_SET`] answers on this GPU, each beside the interface the registry files it under.
     ///
-    /// The sets are the shader probes, each in a shader of its own and all in one, the clears, the fixed-function
-    /// probes, and the `f16` shader probes both ways. Each is measured on its own, so one that fails -- the device lost
-    /// at its readback, say -- leaves the sets before it answered.
-    pub async fn every_set(&self) -> [(&'static str, Result<Signature, NativeError>); 6] {
+    /// Each is measured on its own, so one that fails -- the device lost at its readback, say -- leaves the sets
+    /// before it answered. A set added to [`EVERY_SET`] fails to compile here until it is measured.
+    pub async fn every_set(&self) -> [(&'static str, Result<Signature, NativeError>); EVERY_SET.len()] {
+        let [
+            split,
+            combined,
+            clear,
+            fixed_function,
+            f16_split,
+            f16_combined,
+            trig_split,
+            matrix,
+        ] = EVERY_SET;
         [
-            ("webgpu-split", self.signature().await),
-            ("webgpu-combined", self.combined_signature().await),
-            ("webgpu-clear", self.clear_signature().await),
-            ("webgpu-fixed-function", self.fixed_function_signature().await),
-            ("webgpu-f16-split", self.f16_signature().await),
-            ("webgpu-f16-combined", self.f16_combined_signature().await),
+            (split, self.signature().await),
+            (combined, self.combined_signature().await),
+            (clear, self.clear_signature().await),
+            (fixed_function, self.fixed_function_signature().await),
+            (f16_split, self.f16_signature().await),
+            (f16_combined, self.f16_combined_signature().await),
+            (trig_split, self.trig_signature().await),
+            (matrix, self.matrix_signature().await),
         ]
     }
 
@@ -813,8 +854,16 @@ const fn blend_component(operation: Operation) -> wgpu::BlendComponent {
 }
 
 impl Compute {
-    /// Every shader probe set, compiled for `device`.
-    async fn compile(device: &wgpu::Device) -> Self {
+    /// Every shader probe set, compiled for `device`, whose adapter offers the cooperative matrices `offered`.
+    ///
+    /// A matrix probe of a shape and types the adapter does not offer is refused without being compiled. Compiled
+    /// anyway, it can run and answer nonsense rather than be refused: NVIDIA's Vulkan driver, which offers no 8x8x8
+    /// `f32` configuration, answered 0 to every such probe on a GB10 and an RTX A1000, even with C = 1. Or it fails as
+    /// an internal error, which no validation scope catches, so wgpu panics: Metal did for a 16x16 probe on an Apple M5
+    /// Pro, with
+    ///
+    ///     Internal error: Metal: program_source:30:8: error: no type named 'simdgroup_half16x16' in namespace 'metal'
+    async fn compile(device: &wgpu::Device, offered: &[wgpu::CooperativeMatrixProperties]) -> Self {
         let mut probes = Vec::new();
         for shader in shaders() {
             probes.push(compile(device, &shader.1).await);
@@ -823,13 +872,56 @@ impl Compute {
         for shader in f16_shaders() {
             f16_probes.push(compile(device, &shader.1).await);
         }
+        let mut trig_probes = Vec::new();
+        for shader in trig_shaders() {
+            trig_probes.push(compile(device, &shader.1).await);
+        }
+        let mut matrix_probes = Vec::new();
+        for (probe, shader) in MATRIX_PROBES.iter().zip(matrix_shaders()) {
+            let compiled = match ensure_offered(probe, offered) {
+                Ok(()) => compile(device, &shader.1).await,
+                Err(refusal) => Err(refusal),
+            };
+            matrix_probes.push(compiled);
+        }
         Self {
             combined: compile(device, &combined_shader()).await,
             f16_combined: compile(device, &f16_combined_shader()).await,
             f16_probes,
+            matrix_probes,
             probes,
+            trig_probes,
         }
     }
+}
+
+/// Refuse `probe` where no configuration in `offered` has its shape and types.
+fn ensure_offered(probe: &MatrixProbe, offered: &[wgpu::CooperativeMatrixProperties]) -> Result<(), wgpu::Error> {
+    let size = match probe.shape {
+        Shape::F16x16 => 16,
+        Shape::F32x8 => 8,
+    };
+    let operand = match probe.shape {
+        Shape::F16x16 => wgpu::CooperativeScalarType::F16,
+        Shape::F32x8 => wgpu::CooperativeScalarType::F32,
+    };
+    let accumulator = match probe.accumulator {
+        Accumulator::F16 => wgpu::CooperativeScalarType::F16,
+        Accumulator::F32 => wgpu::CooperativeScalarType::F32,
+    };
+    let fits = |properties: &wgpu::CooperativeMatrixProperties| {
+        [properties.m_size, properties.n_size, properties.k_size] == [size; 3]
+            && properties.ab_type == operand
+            && properties.cr_type == accumulator
+    };
+    if offered.iter().any(fits) {
+        return Ok(());
+    }
+    let description = format!("no {size}x{size}x{size} cooperative matrix of {operand:?} into {accumulator:?} offered");
+    Err(wgpu::Error::Validation {
+        source: Box::new(std::io::Error::other(description.clone())),
+        description,
+    })
 }
 
 /// The pipeline on `device` that runs the shader `wgsl` holds.
@@ -932,17 +1024,13 @@ pub fn vulkan_api_version(version: u32) -> String {
 ///
 /// wgpu builds its Vulkan backend everywhere but on Apple's platforms and in a page.
 #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
-#[expect(
-    unsafe_code,
-    reason = "wgpu hands out the Vulkan adapter beneath it only through an unsafe call"
-)]
 fn vulkan_report(adapter: &wgpu::Adapter, report: &mut Report) {
-    // SAFETY: the Vulkan adapter is only read from, and is not kept past this function.
-    let hal = unsafe { adapter.as_hal::<wgpu::hal::api::Vulkan>() };
     // An adapter opened through another API has no Vulkan side, and adds nothing here: a Direct3D 12 one on Windows,
     // and on every platform one on wgpu's no-op backend.
-    let Some(vulkan) = hal else { return };
-    let properties = vulkan.physical_device_capabilities().properties();
+    let Ok(properties) = r#unsafe::with_vulkan(adapter, |vulkan| vulkan.physical_device_capabilities().properties())
+    else {
+        return;
+    };
     let limits = properties.limits;
     let uuid = properties
         .pipeline_cache_uuid
@@ -1080,26 +1168,11 @@ pub fn gl_report_of(vendor: &str, version: &str) -> Report {
 
 /// Add what OpenGL itself says to `report`, for an adapter opened through it.
 #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
-#[expect(
-    unsafe_code,
-    reason = "wgpu hands out the OpenGL context beneath it, and glow reads it, only through unsafe calls"
-)]
 fn gl_report(adapter: &wgpu::Adapter, report: &mut Report) {
-    use glow::HasContext as _;
-    // SAFETY: the OpenGL adapter is only read from, and is not kept past this function.
-    let hal = unsafe { adapter.as_hal::<wgpu::hal::api::Gles>() };
     // An adapter opened through another API has no OpenGL side, and adds nothing here. Reading the side of one that
-    // does takes a real OpenGL driver, which no CI runner has, so the closure only reads the two strings: what they say
-    // is made into the report by `gl_report_of`, which the tests drive with the strings real drivers give.
-    let said = hal.map_or_default(|opengl| {
-        let context = opengl.adapter_context().lock();
-        // SAFETY: the call reads a string the context holds, made current on this thread by the lock around it.
-        let vendor = unsafe { context.get_parameter_string(glow::VENDOR) };
-        // SAFETY: as for the vendor, under the same lock.
-        let version = unsafe { context.get_parameter_string(glow::VERSION) };
-        drop(context);
-        gl_report_of(&vendor, &version)
-    });
+    // does takes a real OpenGL driver, which no CI runner has, so only the two strings are read: what they say is made
+    // into the report by `gl_report_of`, which the tests drive with the strings real drivers give.
+    let said = r#unsafe::gl_strings(adapter).map_or_default(|(vendor, version)| gl_report_of(&vendor, &version));
     report.lines.extend(said.lines);
     report.versions.extend(said.versions);
 }
@@ -1116,57 +1189,41 @@ pub fn metal_architecture_name(architecture: Option<&objc2_metal::MTLArchitectur
 
 /// Add to `report` what Metal says the GPU is, when `device` was opened through Metal.
 #[cfg(target_vendor = "apple")]
-#[expect(
-    unsafe_code,
-    reason = "wgpu hands out the Metal device beneath it only through an unsafe call"
-)]
 fn metal_report(device: &wgpu::Device, report: &mut Report) {
-    // SAFETY: the Metal device is only read from, and is not kept past this function.
-    let hal = unsafe { device.as_hal::<wgpu::hal::api::Metal>() };
     // A device opened through another API has no Metal side: on Apple's platforms, only one on wgpu's no-op backend.
-    let Some(metal) = hal else { return };
-    let raw = metal.raw_device();
+    let Ok(lines) = r#unsafe::with_metal(device, |metal| metal_lines(metal.raw_device())) else {
+        return;
+    };
+    report.lines.extend(lines);
+}
+
+/// What the Metal device `raw` says it is, one `name: value` line each.
+#[cfg(target_vendor = "apple")]
+fn metal_lines(raw: &objc2::runtime::ProtocolObject<dyn objc2_metal::MTLDevice>) -> Vec<String> {
     let families: Vec<&str> = METAL_FAMILIES
         .iter()
         .filter(|family| raw.supportsFamily(family.0))
         .map(|family| family.1)
         .collect();
-    // objc2-metal types `architecture` as never nil, but an Intel Mac's device answers nil, which its binding turns
-    // into a panic: unexpected NULL returned from -[MTLIGAccelDevice architecture] Sending the message directly lets
-    // the nil arrive as `None`. SAFETY: `architecture` takes no arguments and returns an `MTLArchitecture` or nil, as
-    // the type says.
-    let architecture: Option<objc2::rc::Retained<objc2_metal::MTLArchitecture>> =
-        unsafe { objc2::msg_send![raw, architecture] };
-    report.lines.extend([
+    let architecture = r#unsafe::with_metal_architecture(raw, metal_architecture_name);
+    vec![
         format!("metal device name: {}", raw.name()),
-        format!(
-            "metal architecture: {}",
-            metal_architecture_name(architecture.as_deref()),
-        ),
+        format!("metal architecture: {architecture}"),
         format!("metal registry id: {:#x}", raw.registryID()),
         format!("metal location: {:?}", raw.location()),
         format!("metal recommended working set: {}", raw.recommendedMaxWorkingSetSize()),
         format!("metal families: {}", families.join(" ")),
-    ]);
+    ]
 }
 
 /// Add to `report` what DXGI says the GPU is, when `adapter` was opened through Direct3D 12.
 ///
 /// The user-mode driver version is the one Windows shows for the display driver, four fields of 16 bits each.
 #[cfg(windows)]
-#[expect(
-    unsafe_code,
-    reason = "wgpu hands out the DXGI adapter beneath it only through an unsafe call, and DXGI's calls are unsafe"
-)]
 fn dx12_report(adapter: &wgpu::Adapter, report: &mut Report) {
-    // SAFETY: the DXGI adapter is only read from, and is not kept past this function.
-    let hal = unsafe { adapter.as_hal::<wgpu::hal::api::Dx12>() };
-    let Some(dx12) = hal else { return };
-    let raw = dx12.raw_adapter();
-    // SAFETY: the call only fills in the description it returns, from an adapter that outlives it.
-    let description = unsafe { raw.GetDesc2() };
-    // SAFETY: the call only fills in the version it returns, from an adapter that outlives it.
-    let driver = unsafe { raw.CheckInterfaceSupport(&windows::Win32::Graphics::Dxgi::IDXGIDevice::IID) };
+    let Ok((description, driver)) = r#unsafe::dxgi_adapter(adapter) else {
+        return;
+    };
     // A version DXGI would not give is left out of `versions`, whose values a registry row records as fact.
     match driver {
         Ok(version) => {

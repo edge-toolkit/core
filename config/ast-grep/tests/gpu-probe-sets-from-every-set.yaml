@@ -1,0 +1,38 @@
+id: gpu-probe-sets-from-every-set
+valid:
+  - |
+    fn sets() -> Vec<&'static str> {
+        EVERY_SET.iter().filter(|set| !DRAWING_SETS.contains(set)).copied().collect()
+    }
+  - |
+    fn row() -> &'static str {
+        "webgpu-split"
+    }
+  - |
+    fn names() -> [&'static str; 2] {
+        ["webgl1-split", "webgl1-combined"]
+    }
+  - |
+    fn draws(interface: &str) -> bool {
+        matches!(interface, "webgpu-clear")
+    }
+invalid:
+  - |
+    fn sets() -> [&'static str; 2] {
+        ["webgpu-split", "webgpu-combined"]
+    }
+  - |
+    fn sets() -> [(&'static str, bool); 2] {
+        [("webgpu-split", false), ("wgpu-cooperative-matrix", true)]
+    }
+  - |
+    fn draws(interface: &str) -> bool {
+        matches!(interface, "webgpu-clear" | "webgpu-fixed-function")
+    }
+  - |
+    fn draws(interface: &str) -> bool {
+        match interface {
+            "webgpu-clear" | "webgpu-fixed-function" => true,
+            _ => false,
+        }
+    }

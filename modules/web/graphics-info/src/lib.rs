@@ -22,7 +22,7 @@ const STORAGE: u32 = 0x0080;
 /// Bytes for a 4x4 f32 matrix.
 const MATRIX_BYTES: f64 = 64.0;
 
-/// The file of the agent's storage the six WebGPU probe sets' answers are written to, for a run's record.
+/// The file of the agent's storage every WebGPU probe set's answers are written to, for a run's record.
 const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
 
 /// WGSL compute shader: 4x4 matrix multiply.
@@ -215,7 +215,7 @@ pub struct GpuComputeResult {
     result_c00: f32,
 }
 
-/// What each of the six WebGPU probe sets answers on each GPU this runtime's WebGPU offers, as the run's JSON.
+/// What every WebGPU probe set answers on each GPU this runtime's WebGPU offers, as the run's JSON.
 ///
 /// A runtime offers its GPUs only one for each power preference, as a browser does, so an adapter is asked for with
 /// each; one that gives an adapter already measured, as a machine with a single GPU does, adds nothing. A preference
@@ -248,7 +248,7 @@ async fn probe_sets() -> serde_json::Value {
     json!({ "adapters": adapters, "problems": problems })
 }
 
-/// What each of the six WebGPU probe sets answers on `gpu`, reached by asking for the `power` preference.
+/// What every WebGPU probe set answers on `gpu`, reached by asking for the `power` preference.
 ///
 /// The sets are measured through `et-gpu-probe` on wgpu, as the probe page measures them, beside the adapter's own
 /// description and the versions the API gives. A set that does not answer is given as a problem beside the others.
@@ -1123,7 +1123,7 @@ pub async fn run() -> Result<(), JsValue> {
         let environment = browser_environment(&window)?;
         log(&format!("environment: {environment}"));
 
-        log("measuring the six WebGPU probe sets on each GPU");
+        log("measuring every WebGPU probe set on each GPU");
         let sets = probe_sets().await;
         log(&format!("WebGPU probe sets: {sets}"));
         let agent_id = client.get_agent_id();

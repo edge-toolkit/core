@@ -132,7 +132,7 @@ Name the machine the same way in every step, by its make and model, so its rows 
    MISE_ENV=rust,cuda mise exec -- cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture
    ```
 
-4. **Deno.** The graphics-info module puts the six WebGPU probe sets to each adapter Deno's WebGPU gives, under
+4. **Deno.** The graphics-info module puts every WebGPU probe set to each adapter Deno's WebGPU gives, under
    `et-ws-web-runner`, and proposes them the same way:
 
    ```bash

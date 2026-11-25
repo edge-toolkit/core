@@ -394,7 +394,10 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
     // exact clear answers through it, as the Galaxy S10's Mali-G76 does. Every entry and row holding them is listed in
     // full: one that joins them, or a field that changes, fails here until it has been looked at and added.
     let through_webgpu = answered(WEBGPU_CLEAR, &CLEAR_CODES).identify();
-    let bifrost = "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome";
+    let bifrost = concat!(
+        "ARM Mali-G76 (bifrost) on a Galaxy S10 and Intel UHD Graphics 630 on Linux, through Vulkan -- ",
+        "wgpu alone and WebGPU on Chrome and Chromium",
+    );
     assert_eq!(through_webgpu, [bifrost]);
     let through_webgl2 = answered(WEBGL2_CLEAR, &CLEAR_CODES).identify();
     let mali = "Mali-G76 through opengl-es on android, SM-G973F -- WebGL 2 on chrome";
@@ -411,6 +414,14 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
             "environment": environment, "window": "none", "date": "2026-11-24",
         })
     };
+    // A later run of the same machine, with nothing set in its environment.
+    let mut unset_row = wgpu_row(String::default());
+    let unset = unset_row.as_object_mut().unwrap();
+    assert_eq!(unset.remove("environment"), Some("".into()));
+    assert_eq!(
+        unset.insert("date".to_owned(), "2026-11-25".into()),
+        Some("2026-11-24".into())
+    );
     let webgpu_entry = serde_json::json!({
         "interface": WEBGPU_CLEAR,
         "label": bifrost,
@@ -426,6 +437,7 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
                 "backend": "vulkan", "device": "ASUS TUF H370-PRO GAMING", "environment": "EGL_PLATFORM=wayland",
                 "window": "normal",
             },
+            unset_row,
         ],
         "results": exact_clear_results(),
     });

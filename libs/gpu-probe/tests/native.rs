@@ -12,7 +12,9 @@ use std::sync::LazyLock;
 use et_gpu_probe::native::{
     Gpu, NativeError, NoCompute, backend_name, compute_shaders, gl_report_of, gl_versions, named_driver, runs_compute,
 };
-use et_gpu_probe::{Answer, BLENDS, CLEARS, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host};
+use et_gpu_probe::{
+    Answer, BLENDS, CLEARS, DRAWING_SETS, EVERY_SET, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host,
+};
 use futures_executor::block_on;
 use pretty_assertions::assert_eq;
 use pretty_assertions::assert_ne;
@@ -92,17 +94,15 @@ fn this_gpu_answers_every_fixed_function_probe_the_same_way_twice() {
 fn every_set_is_each_set_beside_the_interface_it_is_filed_under() {
     let sets = block_on(GPU.every_set());
     let interfaces: Vec<&str> = sets.iter().map(|(interface, _)| *interface).collect();
-    assert_eq!(
-        interfaces,
-        [
-            "webgpu-split",
-            "webgpu-combined",
-            "webgpu-clear",
-            "webgpu-fixed-function",
-            "webgpu-f16-split",
-            "webgpu-f16-combined",
-        ],
-    );
+    assert_eq!(interfaces, EVERY_SET);
+    // Each set is filed under the interface its signature was measured through, or that with `-split` after it.
+    for (filed, outcome) in &sets {
+        let measured = outcome.as_ref().unwrap().interface();
+        assert!(
+            *filed == measured || *filed == format!("{measured}-split"),
+            "{filed} holds {measured}",
+        );
+    }
     let split = sets[0].1.as_ref().unwrap();
     assert_eq!(split.fingerprint(), block_on(GPU.signature()).unwrap().fingerprint());
     let fixed = sets[3].1.as_ref().unwrap();
@@ -213,7 +213,7 @@ fn a_context_without_compute_shaders_names_its_backend_and_version() {
 fn a_device_opened_without_compute_shaders_says_so_and_still_draws() {
     let gpu = block_on(Gpu::open_without_compute(noop_adapter())).unwrap();
     for (interface, outcome) in block_on(gpu.every_set()) {
-        let computes = !matches!(interface, "webgpu-clear" | "webgpu-fixed-function");
+        let computes = !DRAWING_SETS.contains(&interface);
         match outcome {
             Err(NativeError::Compute(reason)) => {
                 assert!(computes, "{interface}");

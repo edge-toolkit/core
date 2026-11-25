@@ -363,6 +363,17 @@ signatures:
         runtime: "Rust f32, built for aarch64-unknown-linux-gnu"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: none
+        backend: none
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "Rust f32, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
     results:
       multiply_add: "00000000"
       fma: "33800000"

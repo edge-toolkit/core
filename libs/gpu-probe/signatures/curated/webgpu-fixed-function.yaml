@@ -1,6 +1,7 @@
 signatures:
   - interface: webgpu-fixed-function
-    label: "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser"
+    label: "Intel Iris Xe Graphics (ADL GT2) and UHD Graphics 630, and the Apple Paravirtual device, through Vulkan and
+      Metal on Linux and macOS -- wgpu alone and WebGPU on Chrome, Chromium, Brave and Deno"
     seen:
       - browser: none
         os: macos
@@ -230,6 +231,36 @@ signatures:
         device: "ASUS TUF H370-PRO GAMING"
         environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
         window: normal
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: intel
+        gpu_version: "Intel(R) Iris(R) Xe Graphics (ADL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: intel
+        gpu_version: "Intel(R) UHD Graphics 630 (CFL GT2)"
+        driver: "Intel open-source Mesa driver"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -437,6 +468,66 @@ signatures:
         runtime: "wgpu 29.0.4, built for aarch64-unknown-linux-gnu"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU"
+        driver: "NVIDIA"
+        driver_version: "595.104.2.0"
+        api_version: "Vulkan 1.4.329"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: nvidia
+        gpu_version: "NVIDIA RTX A1000 Laptop GPU/PCIe/SSE2"
+        driver: "NVIDIA Corporation"
+        driver_version: "NVIDIA 595.104.02"
+        api_version: "OpenGL 3.3.0"
+        backend: opengl
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: nvidia
+        gpu_version: "Quadro M2000/PCIe/SSE2"
+        driver: "NVIDIA Corporation"
+        driver_version: "NVIDIA 580.178.04"
+        api_version: "OpenGL 3.3.0"
+        backend: opengl
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -678,6 +769,36 @@ signatures:
           __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json"
         window: none
         date: "2026-11-24"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "12th Gen Intel(R) Core(TM) i7-12800H"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "Dell Precision 5570"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: mesa
+        gpu_version: "llvmpipe (LLVM 20.1.2, 256 bits)"
+        driver: "llvmpipe"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -887,7 +1008,8 @@ signatures:
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
   - interface: webgpu-fixed-function
-    label: "AMD Radeon Pro 5300M through metal on macos x86_64 -- wgpu, no browser"
+    label: "AMD Radeon Pro 5300M, Radeon RX 580 and Radeon (TM) Graphics through Metal, Vulkan and Direct3D 12 on
+      macOS, Linux and Windows -- wgpu alone and WebGPU on Chrome, Chromium, Edge, Firefox, Safari and Deno"
     seen:
       - browser: none
         os: macos
@@ -1135,6 +1257,65 @@ signatures:
         device: "ASUS TUF H370-PRO GAMING"
         environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
         window: normal
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz"
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series (RADV POLARIS10)"
+        driver: "radv"
+        driver_version: "26.1.6"
+        api_version: "Vulkan 1.4.354"
+        backend: vulkan
+        device: "ASUS TUF H370-PRO GAMING"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver: "AMD proprietary driver"
+        driver_version: "2.0.279"
+        api_version: "Vulkan 1.3.260"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver: "31.0.21925.1001"
+        driver_version: "31.0.21925.1001"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-25"
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        driver: "ATI Technologies Inc."
+        driver_version: "Compatibility Profile Context 23.19.260413"
+        api_version: "OpenGL 4.6.0"
+        backend: opengl
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-25"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -1331,6 +1512,20 @@ signatures:
         device: "HP EliteBook 645 G10"
         reported: "adapter info blanked"
         window: private
+      - browser: none
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: microsoft
+        gpu_version: "Microsoft Basic Render Driver"
+        driver: "10.0.26100.9711"
+        driver_version: "10.0.26100.9711"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
+        window: none
+        date: "2026-11-25"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"

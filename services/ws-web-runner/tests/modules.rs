@@ -59,7 +59,7 @@ use fs_err as fs;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-/// The file of an agent's storage `et-ws-graphics-info` writes the six WebGPU probe sets' answers to.
+/// The file of an agent's storage `et-ws-graphics-info` writes every WebGPU probe set's answers to.
 const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
 
 /// The graphics backend Deno's WebGPU, which is wgpu, puts a device's work through on this operating system.
@@ -124,7 +124,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     collect_module_coverage(&server);
 }
 
-/// Propose what the graphics-info module stored of the six WebGPU probe sets, found under the hub's `storage` root.
+/// Propose what the graphics-info module stored of every WebGPU probe set, found under the hub's `storage` root.
 ///
 /// Each set that answered becomes a submission seen at a row of this machine, running Deno through this runner, and is
 /// written where `GPU_PROBE_INTO` names a directory, as every GPU probe measurement in CI is. The file must have been
