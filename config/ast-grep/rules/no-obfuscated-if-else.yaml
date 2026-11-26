@@ -1,0 +1,14 @@
+id: no-obfuscated-if-else
+language: Rust
+severity: error
+message: |
+  A `bool` turned into an `Option` only to unwrap it again, as `cond.then(a).unwrap_or_else(b)`, is an `if`/`else`
+  spelled backwards. Write `if cond { a } else { b }`, or where one side asks for nothing, find the form that needs no
+  choice at all. This mirrors `DeepSource RS-W1120`; clippy's `obfuscated_if_else` catches only some of these forms.
+# Check-only: `then` takes a function or a closure, whose body a single template cannot lift into an `if` branch.
+rule:
+  any:
+    - pattern: $COND.then($A).unwrap_or($B)
+    - pattern: $COND.then($A).unwrap_or_else($B)
+    - pattern: $COND.then_some($A).unwrap_or($B)
+    - pattern: $COND.then_some($A).unwrap_or_else($B)

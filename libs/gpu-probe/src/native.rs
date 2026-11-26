@@ -308,13 +308,9 @@ impl Gpu {
         let mut wanted = OPTIONAL_FEATURES;
         wanted.set(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX, runs_matrices);
         let required_features = adapter.features() & wanted;
-        let experimental_features = required_features
-            .contains(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX)
-            .then(r#unsafe::experimental_features)
-            .unwrap_or_else(wgpu::ExperimentalFeatures::disabled);
         let descriptor = wgpu::DeviceDescriptor {
             required_features,
-            experimental_features,
+            experimental_features: r#unsafe::experimental_features(),
             ..wgpu::DeviceDescriptor::default()
         };
         let (device, queue) = adapter.request_device(&descriptor).await?;

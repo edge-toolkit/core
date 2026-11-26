@@ -21,10 +21,14 @@ use windows::core::Interface as _;
 #[derive(Debug)]
 pub(crate) struct OtherApi;
 
-/// The experimental features a device is opened with when the matrix probes are to run: cooperative matrices.
+/// The experimental features every device is opened with, which lets a device be asked for cooperative matrices.
+///
+/// Letting it asks for nothing: a device gets an experimental feature only when it is named among the required ones,
+/// which cooperative matrices are only where a matrix probe would run on them. So every device is opened with this,
+/// rather than a branch choosing between it and none.
 pub(crate) const fn experimental_features() -> wgpu::ExperimentalFeatures {
-    // SAFETY: the one experimental feature asked for is cooperative matrices, which only the matrix probes use; each
-    // runs in a shader of its own, and a probe the device mishandles answers with its refusal.
+    // SAFETY: the one experimental feature ever asked for is cooperative matrices, which only the matrix probes use;
+    // each runs in a shader of its own, and a probe the device mishandles answers with its refusal.
     unsafe { wgpu::ExperimentalFeatures::enabled() }
 }
 
