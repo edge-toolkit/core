@@ -26,6 +26,14 @@ const CLEAR_CODES: [u32; CLEAR_COUNT] = [10, 10, 11, 101, 188, 7, 0x3c1, 0x3c01,
 const FIXED_FUNCTION_ANSWERS: [u32; FIXED_FUNCTION_COUNT] =
     [50, 0x3c01, 225, 0x3eaa_aaac, 0x3a83_1200, 0x3ddd_0a89, 0x0f, 0xf0, 0x0f];
 
+/// The first Chrome version a Galaxy S10 gave its rows through.
+#[cfg(feature = "registry")]
+const CHROME_157: &str = "157.0.8103.80";
+
+/// The later Chrome version a Galaxy S10 gave the same answers through.
+#[cfg(feature = "registry")]
+const CHROME_158: &str = "158.0.8127.44";
+
 /// A signature through `interface` answering every probe with `answers`.
 fn answered(interface: &'static str, answers: &[u32]) -> Signature {
     Signature::new(interface, answers.iter().copied().map(Answer::Bits).collect())
@@ -377,11 +385,11 @@ fn exact_clear_results() -> serde_json::Value {
     })
 }
 
-/// The row a Galaxy S10 gave through Chrome 157, on the GPU named `gpu_version` through `backend`.
+/// The row a Galaxy S10 gave through Chrome `chrome`, on the GPU named `gpu_version` through `backend`.
 #[cfg(feature = "registry")]
-fn galaxy_s10_row(gpu_version: &str, backend: &str) -> serde_json::Value {
+fn galaxy_s10_row(chrome: &str, gpu_version: &str, backend: &str) -> serde_json::Value {
     serde_json::json!({
-        "browser": "chrome", "browser_version": "157.0.8103.80", "os": "android", "os_version": "12.0.0",
+        "browser": "chrome", "browser_version": chrome, "os": "android", "os_version": "12.0.0",
         "cpu_arch": "unknown", "gpu": "arm", "gpu_version": gpu_version, "backend": backend, "device": "SM-G973F",
         "window": "normal",
     })
@@ -426,7 +434,7 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
         "interface": WEBGPU_CLEAR,
         "label": bifrost,
         "seen": [
-            galaxy_s10_row("bifrost", "vulkan"),
+            galaxy_s10_row(CHROME_157, "bifrost", "vulkan"),
             wgpu_row("EGL_PLATFORM=wayland".to_owned()),
             wgpu_row(format!("EGL_PLATFORM=wayland {mesa}")),
             wgpu_row(format!("DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland {mesa}")),
@@ -438,6 +446,7 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
                 "window": "normal",
             },
             unset_row,
+            galaxy_s10_row(CHROME_158, "bifrost", "vulkan"),
         ],
         "results": exact_clear_results(),
     });
@@ -445,7 +454,10 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
     let webgl2_entry = serde_json::json!({
         "interface": WEBGL2_CLEAR,
         "label": mali,
-        "seen": [galaxy_s10_row("Mali-G76", "opengl-es")],
+        "seen": [
+            galaxy_s10_row(CHROME_157, "Mali-G76", "opengl-es"),
+            galaxy_s10_row(CHROME_158, "Mali-G76", "opengl-es"),
+        ],
         "results": exact_clear_results(),
     });
     assert_eq!(entries_labelled(WEBGL2_CLEAR, &through_webgl2), [webgl2_entry]);
