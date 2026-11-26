@@ -52,6 +52,12 @@ pub enum WebGl2Error {
     /// A target of the format named cannot be drawn into, or read back exactly.
     #[error("the browser cannot draw into and read back {0} exactly")]
     Target(&'static str),
+    /// The browser threw when asked to make a texture for the target named, with what it threw.
+    #[error("the browser would not make {0}: {1}")]
+    Upload(&'static str, String),
+    /// A framebuffer with the target named attached is not complete, by the status WebGL gives it.
+    #[error("the browser cannot draw into {0}: its framebuffer has status {1:#06x}")]
+    Incomplete(&'static str, u32),
     /// The browser lost the WebGL context while the probe ran, so nothing it read back was drawn.
     #[error("the browser lost the WebGL context")]
     Lost,
@@ -71,7 +77,7 @@ impl From<JsValue> for WebGl2Error {
 }
 
 /// What the browser threw, as its own text where it threw a string.
-fn thrown_text(thrown: &JsValue) -> String {
+pub(crate) fn thrown_text(thrown: &JsValue) -> String {
     thrown.as_string().unwrap_or_else(|| format!("{thrown:?}"))
 }
 

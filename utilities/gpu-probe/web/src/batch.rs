@@ -15,8 +15,11 @@ use web_sys::WebGl2RenderingContext as Context;
 use crate::targets::{Layout, attach, read, texture};
 use crate::webgl2::{WebGl2Error, link, settled};
 
-/// What names the target in a refusal to draw into or read it.
-const TARGET: &str = "the probes' target";
+/// What names the target in a refusal to draw into or read it, where the result leaves the shader as a float.
+const FLOAT_TARGET: &str = "the probes' float target";
+
+/// What names the target in a refusal to draw into or read it, where the result is packed into four bytes.
+const BYTE_TARGET: &str = "the probes' 8-bit target";
 
 impl From<WebGl2Error> for Batch<WebGl2Error> {
     /// A shader the browser would not compile or link refuses the batch; anything else ends the measurement.
@@ -31,6 +34,8 @@ impl From<WebGl2Error> for Batch<WebGl2Error> {
             | WebGl2Error::Object(_)
             | WebGl2Error::Read(_)
             | WebGl2Error::Target(_)
+            | WebGl2Error::Upload(..)
+            | WebGl2Error::Incomplete(..)
             | WebGl2Error::Lost
             | WebGl2Error::Unsupported(_)
             | WebGl2Error::WebGl(_)) => Self::Failed(other),
@@ -52,6 +57,18 @@ pub fn layout(glsl: Glsl) -> Layout {
     }
 }
 
+/// The texels wide and high of the target a batch of `width` probes draws into, a square a power of two on each side.
+///
+/// Only the first `width` texels of its bottom row are read back. A pixel takes its probe from its column alone, so
+/// every row draws the same, and a pixel past the last probe draws nothing a probe gives. The Imagination SGX 543 in
+/// an iPad 3 takes a target one texel square and refuses one a texel high and wider than that, 15 or 16 texels, float
+/// or 8-bit, failing webgl1-combined there with `the browser cannot draw into the probes' 8-bit target: its framebuffer
+/// has status 0x8cdd`.
+pub fn size(width: u32) -> [u32; 2] {
+    let side = width.checked_next_power_of_two().unwrap_or(width);
+    [side, side]
+}
+
 /// Draw `fragment`, a batch of `width` probes in `glsl`, and read back the bits each pixel holds, in order.
 ///
 /// # Errors
@@ -61,8 +78,13 @@ pub fn layout(glsl: Glsl) -> Layout {
 pub fn draw(context: &Context, glsl: Glsl, fragment: &str, width: usize) -> Result<Vec<u32>, Batch<WebGl2Error>> {
     let program = link(context, glsl.vertex_shader(), fragment)?;
     let width = u32::try_from(width).unwrap_or(u32::MAX);
-    let target = texture(context, layout(glsl), TARGET, width, None)?;
-    attach(context, &target, TARGET, width)?;
+    let name = if glsl == Glsl::Es100Float {
+        FLOAT_TARGET
+    } else {
+        BYTE_TARGET
+    };
+    let target = texture(context, layout(glsl), name, size(width), None)?;
+    attach(context, &target, name, size(width))?;
     context.use_program(Some(&program));
     // GLSL ES 1.00 has no gl_VertexID, so its triangle's corners come from an attribute; GLSL ES 3.00 names none.
     if let Ok(corner) = u32::try_from(context.get_attrib_location(&program, "aPos")) {

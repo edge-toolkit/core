@@ -225,8 +225,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "3f800000"
   - interface: webgl2-combined
-    label: "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100,
-      Firefox and Safari"
+    label: "Apple M5 Pro GPU and an iPhone 17's A19 GPU, Metal, macOS, the iOS Simulator and iOS -- WebGL 2 on
+      Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari, and Chrome 158 on the iPhone 17"
     seen:
       - browser: chromium
         os: macos
@@ -353,6 +353,16 @@ signatures:
         gpu_version: "Apple GPU"
         backend: unknown
         device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "Apple A19 GPU"
+        backend: unknown
+        device: "iPhone 17"
+        reported: "Apple GPU"
         window: normal
     results:
       multiply_add: "33800000"
@@ -997,3 +1007,42 @@ signatures:
       atan2: "3d087ae6"
       tanh: "3dcc1eb6"
       dot: "3f800000"
+  - interface: webgl2-combined
+    label: "Qualcomm Adreno (TM) 530 through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 2 on Chrome 133 and Firefox 160"
+    seen:
+      - browser: chrome
+        browser_version: "133.0.6943.137"
+        os: android
+        os_version: "8.0.0"
+        cpu_arch: unknown
+        gpu: qualcomm
+        gpu_version: "Adreno (TM) 530"
+        backend: opengl-es
+        device: "F8331"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: android
+        cpu_arch: unknown
+        gpu: qualcomm
+        backend: opengl-es
+        device: "F8331"
+        reported: "Adreno (TM) 540, or similar"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc758b"
+      cos: "3f7eb898"
+      tan: "3dcd7c58"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"

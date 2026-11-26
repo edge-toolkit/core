@@ -98,7 +98,8 @@ signatures:
       tanh: "3dcc1ebd"
       dot: "00000000"
   - interface: webgpu-split
-    label: "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari"
+    label: "Apple M5 Pro GPU through Metal on macOS, and an iPhone 17's Apple GPU on iOS -- WebGPU on Safari, and
+      Chrome 158 on the iPhone 17"
     seen:
       - browser: safari
         os: macos
@@ -107,6 +108,15 @@ signatures:
         gpu: apple
         gpu_version: "Apple M5 Pro GPU"
         backend: metal
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "iPhone 17"
         window: normal
     results:
       multiply_add: "33800000"

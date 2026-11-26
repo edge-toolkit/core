@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "/load_probes.js": ["./load_probes.js"],
+      "/pkg-legacy/et_int_gpu_probe_web.js": ["../../../target/gpu-probe-legacy/pkg/et_int_gpu_probe_web.js"],
+      "/probe.js": ["../static/probe.js"],
+      "/propose.js": ["../src/propose.mjs"],
+      "/register.js": ["../src/register.mjs"]
+    }
+  }
+}

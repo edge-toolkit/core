@@ -1911,3 +1911,32 @@ signatures:
       atan2: "00002843"
       tanh: "00002e61"
       dot: "00004000"
+  - interface: webgpu-f16-combined
+    label: "Apple GPU through Metal on iOS, iPhone 17 -- WebGPU on Chrome 158"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "iPhone 17"
+        window: normal
+    results:
+      multiply_add: "00001000"
+      fma: "00001000"
+      swamped_sum: "00000000"
+      divide: "00003555"
+      subnormal_product: "00000200"
+      sqrt: "00003eee"
+      inverse_sqrt: "0000389e"
+      sin: "00002e63"
+      cos: "00003bf6"
+      tan: "00002e6b"
+      exp: "00003c6c"
+      log: "00003c65"
+      pow: "00003c77"
+      atan2: "00002843"
+      tanh: "00002e61"
+      dot: "00004000"

@@ -1774,3 +1774,25 @@ signatures:
       raster_right_edge_fine: "0000000f"
       raster_left_edge_fine: "000000f0"
       raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-fixed-function
+    label: "Apple GPU through Metal on iOS, iPhone 17 -- WebGPU on Chrome 158"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "iPhone 17"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0a0a"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0dd1"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"

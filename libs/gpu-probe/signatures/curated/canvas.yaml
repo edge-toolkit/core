@@ -845,3 +845,52 @@ signatures:
         window: normal
     blocked: true
     reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Chrome 158.0.8127.35 on iOS, iPhone 17 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iPhone 17"
+        window: normal
+    results:
+      lane0: "98539d98"
+      lane1: "2c0fce46"
+      lane2: "132ca39b"
+      lane3: "ef986d6d"
+  - interface: canvas
+    label: "Chrome 133.0.6943.137 on Android, Sony Xperia XZ (F8331) -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "133.0.6943.137"
+        os: android
+        os_version: "8.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "F8331"
+        window: normal
+    results:
+      lane0: "cb0cffef"
+      lane1: "e6caa331"
+      lane2: "6bb3a134"
+      lane3: "096f4dcf"
+  - interface: canvas
+    label: "Firefox 160.0 on Android, Sony Xperia XZ (F8331) -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: android
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "F8331"
+        window: normal
+    results:
+      lane0: "5422c49e"
+      lane1: "fe49b498"
+      lane2: "c169bef1"
+      lane3: "22f0e5b2"

@@ -88,7 +88,8 @@ signatures:
       tanh: "3dcc1ebe"
       dot: "3f800000"
   - interface: webgl2-split
-    label: "Qualcomm Adreno on Android -- WebGL 2 on Chrome: Oppo (Adreno 610), Samsung Galaxy S22 Ultra (Adreno 730)"
+    label: "Qualcomm Adreno on Android -- WebGL 2 on Chrome: Oppo (Adreno 610), Samsung Galaxy S22 Ultra (Adreno 730),
+      Sony Xperia XZ (F8331, Adreno 530 through OpenGL ES, Chrome 133 and Firefox 160)"
     seen:
       - browser: chrome
         os: android
@@ -105,6 +106,25 @@ signatures:
         gpu_version: "Adreno 730"
         backend: opengl-es
         device: "Samsung Galaxy S22 Ultra"
+        window: normal
+      - browser: chrome
+        browser_version: "133.0.6943.137"
+        os: android
+        os_version: "8.0.0"
+        cpu_arch: unknown
+        gpu: qualcomm
+        gpu_version: "Adreno (TM) 530"
+        backend: opengl-es
+        device: "F8331"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: android
+        cpu_arch: unknown
+        gpu: qualcomm
+        backend: opengl-es
+        device: "F8331"
+        reported: "Adreno (TM) 540, or similar"
         window: normal
     results:
       multiply_add: "00000000"
@@ -171,8 +191,8 @@ signatures:
       tanh: "3dcc1ebc"
       dot: "40000000"
   - interface: webgl2-split
-    label: "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Safari,
-      Brave 1.100 and Firefox"
+    label: "Apple M5 Pro GPU and an iPhone 17's A19 GPU, Metal, macOS, the iOS Simulator and iOS -- WebGL 2 on
+      Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox, and Chrome 158 on the iPhone 17"
     seen:
       - browser: chromium
         os: macos
@@ -313,6 +333,16 @@ signatures:
         gpu_version: "Apple GPU"
         backend: unknown
         device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "Apple A19 GPU"
+        backend: unknown
+        device: "iPhone 17"
+        reported: "Apple GPU"
         window: normal
     results:
       multiply_add: "33800000"

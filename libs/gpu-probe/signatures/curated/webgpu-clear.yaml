@@ -797,7 +797,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007bff"
   - interface: webgpu-clear
-    label: "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari"
+    label: "Apple M5 Pro GPU and an iPhone 17's Apple GPU, Metal, macOS and iOS -- wgpu alone and WebGPU on Chrome, Edge,
+      Brave 1.100, Firefox and Safari, and Chrome 158 on the iPhone 17"
     seen:
       - browser: none
         os: macos
@@ -916,6 +917,15 @@ signatures:
         runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
         window: none
         date: "2026-11-24"
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "iPhone 17"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000b"

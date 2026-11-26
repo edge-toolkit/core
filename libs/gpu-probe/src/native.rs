@@ -297,8 +297,18 @@ impl Gpu {
     /// <https://github.com/edge-toolkit/core/actions/runs/45729965729/job/139623710473>.
     async fn open_device(adapter: wgpu::Adapter, compute: Result<(), NoCompute>) -> Result<Self, NativeError> {
         let info = adapter.get_info();
+        // Metal reports 4..=64 for every device whatever its simdgroups are. The only Metal GPUs offering a
+        // cooperative matrix are Apple's own, whose simdgroups are 32 lanes, so there 32 is taken as what they are.
+        let lanes = match info.backend {
+            wgpu::Backend::Metal => [32, 32],
+            wgpu::Backend::Noop
+            | wgpu::Backend::Vulkan
+            | wgpu::Backend::Dx12
+            | wgpu::Backend::Gl
+            | wgpu::Backend::BrowserWebGpu => [info.subgroup_min_size, info.subgroup_max_size],
+        };
         let matrices = Matrices {
-            lanes: [info.subgroup_min_size, info.subgroup_max_size],
+            lanes,
             offered: adapter.cooperative_matrix_properties(),
         };
         // Values rather than branches, as in `ensure_offered`, which says why.
@@ -922,12 +932,12 @@ fn refusal(description: String) -> wgpu::Error {
     }
 }
 
-/// Refuse `probe` where no subgroup can be 32 lanes, or no configuration offered has its shape and types.
+/// Refuse `probe` where the subgroups are not all 32 lanes, or no configuration offered has its shape and types.
 ///
 /// Every matrix shader is one workgroup of 32 invocations sharing one matrix, so it is one subgroup only where the
 /// device's subgroups are 32 lanes wide. Narrower, several subgroups would each store the same tile; wider, Vulkan
 /// leaves a subgroup-scope cooperative matrix in a workgroup that is not a multiple of the subgroup undefined. A range
-/// that merely includes 32 is let through, because Metal reports 4..=64 for every Apple GPU, whose simdgroups are 32.
+/// that merely includes 32, such as 16..=32, could run either, so it is refused too.
 fn ensure_offered(probe: &MatrixProbe, matrices: &Matrices) -> Result<(), wgpu::Error> {
     let [fewest, most] = matrices.lanes;
     let size = match probe.shape {
@@ -949,7 +959,7 @@ fn ensure_offered(probe: &MatrixProbe, matrices: &Matrices) -> Result<(), wgpu::
         let offered = [properties.m_size, properties.n_size, properties.k_size];
         (offered, properties.ab_type, properties.cr_type) == wanted
     };
-    let narrow = (!(fewest..=most).contains(&32))
+    let narrow = ([fewest, most] != [32, 32])
         .then(|| format!("subgroups of {fewest}..={most} lanes, where a matrix probe needs 32"));
     let unoffered = (!matrices.offered.iter().any(fits))
         .then(|| format!("no {size}x{size}x{size} cooperative matrix of {operand:?} into {accumulator:?} offered"));

@@ -32,6 +32,8 @@ exclude_path = [
   '\.local\.[^/]+$',
   '^(\./)?data/',
   '^(\./)?generated/',
+  '^(\./)?utilities/gpu-probe/static/legacy/',
+  '^(\./)?utilities/gpu-probe/static/pkg-compat/',
   '^(\./)?utilities/gpu-probe/static/pkg/',
 ]
 

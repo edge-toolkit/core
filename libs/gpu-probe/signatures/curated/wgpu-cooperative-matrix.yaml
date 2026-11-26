@@ -39,7 +39,8 @@ signatures:
       and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell
       Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver
       and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76
-      (bifrost) through Vulkan on Android, SM-G973F -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno"
+      (bifrost) through Vulkan on Android, SM-G973F; and an iPhone 17's Apple GPU through Metal on iOS -- wgpu alone and
+      WebGPU on Chrome, Edge, Firefox and Deno"
     seen:
       - browser: none
         os: linux
@@ -343,6 +344,15 @@ signatures:
         gpu_version: "bifrost"
         backend: vulkan
         device: "SM-G973F"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "iPhone 17"
         window: normal
     results:
       c1_16_quarter_ulps: "????????"

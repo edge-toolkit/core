@@ -166,6 +166,12 @@ ripgrep = "latest"
 "github:kucherenko/jscpd" = "latest"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
+# The tools build-gpu-probe-page-legacy makes the probe page with for browsers with no WebAssembly or ES modules.
+# binaryen's wasm2js turns the probes' WebAssembly into JavaScript, esbuild bundles it with the page's script into one
+# file, and swc lowers that file to ES5.
+"github:WebAssembly/binaryen" = { version = "latest", version_prefix = "version_", strip_components = 1 }
+"github:swc-project/swc" = { version = "latest", rename_exe = "swc" }
+"npm:esbuild" = "latest"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -3374,9 +3380,8 @@ shell = "{{ vars.task_shell }}"
 #   --experimental-wasm-reftypes @+42
 # Leaving them out of the crate's flags is not enough: the std Rust ships for wasm32 has them compiled in, and
 # wasm-bindgen then fails with "failed to find the `__wbindgen_externref_table_dealloc` function". So std is rebuilt
-# with the same flags, which only nightly can do, and which takes long enough that only the LAN server, the one old
-# phones reach, builds it; the hosted site goes without. RUSTFLAGS, not the CARGO_TARGET_* variable the workspace
-# sets, because it wins over that one. `rust_nightly` predates the workspace `rust-version`, hence
+# with the same flags, which only nightly can do. RUSTFLAGS, not the CARGO_TARGET_* variable the workspace sets,
+# because it wins over that one. `rust_nightly` predates the workspace `rust-version`, hence
 # --ignore-rust-version. A target directory of its own keeps the two builds from discarding each other's artifacts.
 [tasks.build-gpu-probe-page-compat]
 description = "Build the GPU probe WASM without reference types into utilities/gpu-probe/static/pkg-compat"
@@ -3392,10 +3397,48 @@ wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- -
 """
 shell = "{{ vars.task_shell }}"
 
+# The probe page's script for a browser with no ES modules or no WebAssembly, which index.html loads for one.
+# Safari 9 on an iPad 3 with iOS 9.3.6 has neither, and left the page at "Loading the probes..." with
+#   The probes could not run: the page's script never started, as in a browser too old for it
+#   user agent: Mozilla/5.0 (iPad; CPU OS 9_3_6 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0
+# It starts from the compat build's WebAssembly, which has nothing past the first WebAssembly release: wasm-bindgen
+# gives it glue for a bundler, wasm2js turns it into JavaScript under the name the glue imports it by, esbuild bundles
+# that with the page's script and the polyfills such a browser needs, and swc lowers the bundle to ES5.
+[tasks.build-gpu-probe-page-legacy]
+depends = ["build-gpu-probe-page-compat"]
+description = "Build the GPU probe page's script as ES5, with no WebAssembly, into utilities/gpu-probe/static/legacy"
+run = """
+name=et_int_gpu_probe_web
+stage=target/gpu-probe-legacy
+legacy=utilities/gpu-probe/legacy
+out=utilities/gpu-probe/static/legacy
+coreutils rm -rf "$stage"
+coreutils mkdir -p "$stage/pkg" "$out"
+wasm-bindgen --target bundler --out-dir "$stage/pkg" "target/gpu-probe-compat/wasm32-unknown-unknown/release/$name.wasm"
+# Each of the glue's views of memory is renewed whenever memory has a different buffer.
+# The glue renews one only once the buffer under it is detached, which WebAssembly does when memory grows, but wasm2js
+# grows it into a new buffer and leaves the old one whole, so a view would go on using the old one: a string the
+# probes return past its end comes back empty, failing the page with
+#   The probes could not run: SyntaxError: Unexpected end of JSON input
+# and a pointer read back wrongly is freed, which Rust's allocator answers with an `abort` panic. The glue already
+# compares buffers for its DataView, but only where `detached` is unknown.
+glue="$stage/pkg/${name}_bg.js"
+stale='(cached\\w+Memory0)(?:\\.byteLength === 0|\\.buffer\\.detached === true)'
+rg --passthru --no-line-number -r '$1.buffer !== wasm.memory.buffer' "$stale" "$glue" >"$glue.renewed"
+coreutils mv -f "$glue.renewed" "$glue"
+wasm2js "$stage/pkg/${name}_bg.wasm" -O2 -o "$stage/pkg/${name}_bg.js.wasm"
+coreutils mv -f "$stage/pkg/${name}_bg.js.wasm" "$stage/pkg/${name}_bg.wasm"
+bundle="--bundle --format=iife --loader:.wasm=js --tsconfig=$legacy/tsconfig.json"
+# shellcheck disable=SC2086 # $bundle is several flags, split by design.
+esbuild "$legacy/entry.js" $bundle --outfile="$stage/bundle.js"
+swc compile "$stage/bundle.js" --config-file "$legacy/swc.jsonc" --out-file "$out/probe.js"
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.build-gpu-probe-site]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Assemble the GPU probe page as a static site in target/gpu-probe-site, to deploy to a host like Vercel"
-# The site is the page, its WASM, the files the server builds in and serves beside it, and the registry.
+# The site is the page, its WASM in both builds, its legacy script, the server's files beside it, and the registry.
 # The page holds what it measured against the registry, so that it proposes only what the registry does not record.
 # The registry is the committed JSON, not a regenerated one: a Vercel deploy installs no yq, failing a regeneration
 #   [gen:gpu-probe-signatures] /vercel/path0/.mise/task-shell.sh: line 56: yq: command not found
@@ -3406,9 +3449,12 @@ description = "Assemble the GPU probe page as a static site in target/gpu-probe-
 run = """
 site=target/gpu-probe-site
 coreutils rm -rf "$site"
-coreutils mkdir -p "$site/pkg"
-coreutils cp utilities/gpu-probe/static/index.html "$site/"
-coreutils cp utilities/gpu-probe/static/pkg/*.js utilities/gpu-probe/static/pkg/*.wasm "$site/pkg/"
+static=utilities/gpu-probe/static
+coreutils mkdir -p "$site/pkg" "$site/pkg-compat" "$site/legacy"
+coreutils cp "$static/index.html" "$static"/*.js "$site/"
+coreutils cp "$static"/pkg/*.js "$static"/pkg/*.wasm "$site/pkg/"
+coreutils cp "$static"/pkg-compat/*.js "$static"/pkg-compat/*.wasm "$site/pkg-compat/"
+coreutils cp "$static/legacy/probe.js" "$site/legacy/probe.js"
 coreutils cp utilities/gpu-probe/src/probe.css "$site/probe.css"
 coreutils cp utilities/gpu-probe/src/register.mjs "$site/register.js"
 coreutils cp utilities/gpu-probe/src/propose.mjs "$site/propose.js"
@@ -3764,7 +3810,7 @@ description = "Collect GPU probe signatures into libs/gpu-probe/signatures over 
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 
 [tasks.gpu-probe-server-lan]
-depends = ["build-gpu-probe-page", "build-gpu-probe-page-compat"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Collect GPU probe signatures over HTTPS from other devices on the LAN, listening on 0.0.0.0:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --bind {{ vars.lan_bind }}"
 
@@ -4393,17 +4439,21 @@ shell = "{{ vars.task_shell_plain }}"
 # Everything build-gpu-probe-site needs, and nothing more, for a host that builds only the site.
 # The Vercel deploy's install command runs this after installing mise, so what the site needs is decided here, not in
 # Vercel's settings. mise must be on PATH, as for any task that runs it, so once mise is installed the command goes
-# on with `export PATH="$HOME/.local/bin:$PATH" && mise trust --all && mise run install-gpu-probe-site-tools`. Its
-# stable Rust is named outright, as a bare `rust` would bring the nightly toolchain too. A Rust build links its build
-# scripts with the host's C compiler, which no mise tool supplies and Vercel's image lacks, so a host with none is
-# given gcc by its package manager; Vercel's image is Amazon Linux, whose manager is dnf.
+# on with `export PATH="$HOME/.local/bin:$PATH" && mise trust --all && mise run install-gpu-probe-site-tools`. A bare
+# `rust` brings both toolchains, stable for the usual build and nightly with rust-src for the compat build's std. node
+# is there because esbuild's npm package runs its binary through a node script. A Rust build links its build scripts
+# with the host's C compiler, which no mise tool supplies and Vercel's image lacks, so a host with none is given gcc by
+# its package manager; Vercel's image is Amazon Linux, whose manager is dnf.
 [tasks.install-gpu-probe-site-tools]
 description = "Install the tools build-gpu-probe-site needs, for a host such as Vercel that builds only the site"
 run = """
 if ! command -v cc >/dev/null; then
   dnf install -y gcc
 fi
-mise install rust@stable aqua:rustwasm/wasm-pack github:uutils/coreutils
+tools="rust aqua:rustwasm/wasm-pack github:uutils/coreutils github:wasm-bindgen/wasm-bindgen"
+tools="$tools github:WebAssembly/binaryen github:swc-project/swc node npm:esbuild ripgrep"
+# shellcheck disable=SC2086 # $tools is several tool names, split by design.
+mise install $tools
 """
 shell = "{{ vars.task_shell }}"
 
