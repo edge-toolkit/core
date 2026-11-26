@@ -219,7 +219,9 @@ signatures:
       cos_10_47: "bf0070d9"
       cos_11_21: "3e59e66e"
   - interface: webgpu-trig-split
-    label: "AMD Radeon RX 580 (RADV POLARIS10) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING -- wgpu alone"
+    label: "AMD Radeon RX 580 (RADV POLARIS10) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING, and AMD Radeon
+      (TM) Graphics (rdna-2) through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu
+      alone and WebGPU on Chrome, Edge, Firefox and Deno"
     seen:
       - browser: none
         os: linux

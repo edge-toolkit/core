@@ -549,7 +549,7 @@ signatures:
         os: windows
         os_version: "11"
         cpu_arch: x86_64
-        gpu: "ati technologies inc."
+        gpu: amd
         gpu_version: "AMD Radeon (TM) Graphics"
         backend: opengl
         device: "HP EliteBook 645 G10"
@@ -627,7 +627,7 @@ signatures:
         os: android
         os_version: "10.0.0"
         cpu_arch: unknown
-        gpu: "imagination technologies"
+        gpu: imgtec
         gpu_version: "PowerVR Rogue GE8300"
         backend: opengl-es
         device: "MID_1089IPSA100"

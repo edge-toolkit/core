@@ -257,21 +257,23 @@
       [/Metal/, "metal"],
     ];
 
-    // The GPU WebGL reports, where the browser unmasks it: its vendor, its name, and the API the browser drives it
-    // through. ANGLE gives them as "ANGLE (vendor, model, API)" over OpenGL, and as
-    // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan, and as
-    // "ANGLE (vendor, vendor model (0xid) Direct3D11 vs_5_0 ps_5_0, D3D11)" over Direct3D on Windows.
-    // Firefox names a stand-in GPU of the same vendor and API instead, followed by ", or similar": its vendor and API
-    // are still the GPU's, but its model is not, so the string is kept only as what was reported.
-    // The registry's GPU vendor for each name an Android OpenGL ES driver gives its vendor by.
-    const driverVendors = {
+    // The registry's GPU vendor for each name a driver gives its vendor by, as ANGLE passes it on or WebGL reports it,
+    // lowercased; a name the registry already uses maps to itself.
+    const vendorNames = {
       arm: "arm",
+      "ati technologies inc.": "amd",
       "imagination technologies": "imgtec",
       nvidia: "nvidia",
       "nvidia corporation": "nvidia",
       qualcomm: "qualcomm",
     };
 
+    // The GPU WebGL reports, where the browser unmasks it: its vendor, its name, and the API the browser drives it
+    // through. ANGLE gives them as "ANGLE (vendor, model, API)" over OpenGL, and as
+    // "ANGLE (vendor, Vulkan 1.4 (vendor model (0xid)), driver)" over Vulkan, and as
+    // "ANGLE (vendor, vendor model (0xid) Direct3D11 vs_5_0 ps_5_0, D3D11)" over Direct3D on Windows.
+    // Firefox names a stand-in GPU of the same vendor and API instead, followed by ", or similar": its vendor and API
+    // are still the GPU's, but its model is not, so the string is kept only as what was reported.
     const webglGpu = (kind) => {
       const context = document.createElement("canvas").getContext(kind);
       const debug = context?.getExtension("WEBGL_debug_renderer_info");
@@ -289,7 +291,9 @@
           ? String(context.getParameter(debug.UNMASKED_VENDOR_WEBGL))
             .toLowerCase()
           : "";
-        const vendor = driverVendors[driverVendor] ?? "";
+        const vendor = Object.hasOwn(vendorNames, driverVendor)
+          ? driverVendor
+          : "";
         const backend = android ? "opengl-es" : "unknown";
         return similar
           ? { vendor, model: "", backend, reported: renderer }
@@ -379,8 +383,13 @@
     };
 
     // The registry takes a vendor it has no name for as the name the browser gives, so only a vendor the browser
-    // does not name at all is unknown.
-    const vendorOf = (name) => name.trim().toLowerCase() || "unknown";
+    // does not name at all is unknown. A driver's long name for a vendor the registry names is taken as that name.
+    const vendorOf = (name) => {
+      const given = name.trim().toLowerCase();
+      return Object.hasOwn(vendorNames, given)
+        ? vendorNames[given]
+        : given || "unknown";
+    };
 
     // What the page was opened with: `device` names the machine and `os_version` the system's version, in place of
     // what the browser says of either, `defence` the privacy setting the browser has in force, `environment` the driver

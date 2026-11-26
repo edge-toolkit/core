@@ -37,7 +37,9 @@ signatures:
   - interface: wgpu-cooperative-matrix
     label: "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630,
       and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell
-      Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone"
+      Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver
+      and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76
+      (bifrost) through Vulkan on Android, SM-G973F -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno"
     seen:
       - browser: none
         os: linux

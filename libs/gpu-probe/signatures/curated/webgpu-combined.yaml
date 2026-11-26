@@ -1714,7 +1714,8 @@ signatures:
       tanh: "3dcc1eb6"
       dot: "40000000"
   - interface: webgpu-combined
-    label: "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno"
+    label: "AMD Radeon (TM) Graphics through Vulkan and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and
+      WebGPU on Deno"
     seen:
       - browser: none
         os: windows

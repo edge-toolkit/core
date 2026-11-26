@@ -1226,7 +1226,7 @@
     },
     {
       "interface": "canvas-browserleaks",
-      "label": "Chrome 95.0.4638.74 on Android, SM-N9005 -- canvas 2D",
+      "label": "Chrome 95.0.4638.74 on Android, Samsung Galaxy Note 3 (SM-N9005) -- canvas 2D",
       "seen": [
         {
           "browser": "chrome",
@@ -2358,7 +2358,7 @@
     },
     {
       "interface": "canvas",
-      "label": "Chrome 95.0.4638.74 on Android, SM-N9005 -- canvas 2D",
+      "label": "Chrome 95.0.4638.74 on Android, Samsung Galaxy Note 3 (SM-N9005) -- canvas 2D",
       "seen": [
         {
           "browser": "chrome",
@@ -4155,7 +4155,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -4315,7 +4315,7 @@
           "os": "android",
           "os_version": "10.0.0",
           "cpu_arch": "unknown",
-          "gpu": "imagination technologies",
+          "gpu": "imgtec",
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "MID_1089IPSA100",
@@ -4343,7 +4343,7 @@
     },
     {
       "interface": "webgl1-combined",
-      "label": "Adreno (TM) 330 through opengl-es on android, SM-N9005 -- WebGL 1 on chrome",
+      "label": "Qualcomm Adreno (TM) 330 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) -- WebGL 1 on Chrome 95",
       "seen": [
         {
           "browser": "chrome",
@@ -5253,7 +5253,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -5413,7 +5413,7 @@
           "os": "android",
           "os_version": "10.0.0",
           "cpu_arch": "unknown",
-          "gpu": "imagination technologies",
+          "gpu": "imgtec",
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "MID_1089IPSA100",
@@ -5441,7 +5441,7 @@
     },
     {
       "interface": "webgl1-split",
-      "label": "Adreno (TM) 330 through opengl-es on android, SM-N9005 -- WebGL 1 on chrome",
+      "label": "Qualcomm Adreno (TM) 330 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) -- WebGL 1 on Chrome 95",
       "seen": [
         {
           "browser": "chrome",
@@ -6177,7 +6177,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -6273,7 +6273,7 @@
           "os": "android",
           "os_version": "10.0.0",
           "cpu_arch": "unknown",
-          "gpu": "imagination technologies",
+          "gpu": "imgtec",
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "MID_1089IPSA100",
@@ -6762,7 +6762,7 @@
           "os": "android",
           "os_version": "10.0.0",
           "cpu_arch": "unknown",
-          "gpu": "imagination technologies",
+          "gpu": "imgtec",
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "MID_1089IPSA100",
@@ -7337,7 +7337,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -7892,7 +7892,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -8211,7 +8211,7 @@
           "os": "android",
           "os_version": "10.0.0",
           "cpu_arch": "unknown",
-          "gpu": "imagination technologies",
+          "gpu": "imgtec",
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "MID_1089IPSA100",
@@ -8845,7 +8845,7 @@
           "os": "android",
           "os_version": "10.0.0",
           "cpu_arch": "unknown",
-          "gpu": "imagination technologies",
+          "gpu": "imgtec",
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "MID_1089IPSA100",
@@ -9330,7 +9330,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -11404,7 +11404,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "AMD Radeon (TM) Graphics through Vulkan and Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
+      "label": "AMD Radeon (TM) Graphics through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
       "seen": [
         {
           "browser": "none",
@@ -13603,7 +13603,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
+      "label": "AMD Radeon (TM) Graphics through Vulkan and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -22816,7 +22816,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
+      "label": "AMD Radeon (TM) Graphics through Vulkan and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -23646,7 +23646,7 @@
     },
     {
       "interface": "webgpu-trig-split",
-      "label": "AMD Radeon RX 580 (RADV POLARIS10) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING -- wgpu alone",
+      "label": "AMD Radeon RX 580 (RADV POLARIS10) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING, and AMD Radeon (TM) Graphics (rdna-2) through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
       "seen": [
         {
           "browser": "none",
@@ -24163,7 +24163,7 @@
     },
     {
       "interface": "wgpu-cooperative-matrix",
-      "label": "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630, and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone",
+      "label": "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630, and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76 (bifrost) through Vulkan on Android, SM-G973F -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
       "seen": [
         {
           "browser": "none",

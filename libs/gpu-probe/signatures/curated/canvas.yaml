@@ -832,7 +832,7 @@ signatures:
       lane2: "101c7254"
       lane3: "3aa81160"
   - interface: canvas
-    label: "Chrome 95.0.4638.74 on Android, SM-N9005 -- canvas 2D"
+    label: "Chrome 95.0.4638.74 on Android, Samsung Galaxy Note 3 (SM-N9005) -- canvas 2D"
     seen:
       - browser: chrome
         browser_version: "95.0.4638.74"

@@ -1628,7 +1628,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007bff"
   - interface: webgpu-clear
-    label: "AMD Radeon (TM) Graphics through Vulkan and Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno"
+    label: "AMD Radeon (TM) Graphics through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10 --
+      wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno"
     seen:
       - browser: none
         os: windows

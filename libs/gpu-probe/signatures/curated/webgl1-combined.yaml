@@ -732,7 +732,7 @@ signatures:
         os: windows
         os_version: "11"
         cpu_arch: x86_64
-        gpu: "ati technologies inc."
+        gpu: amd
         gpu_version: "AMD Radeon (TM) Graphics"
         backend: opengl
         device: "HP EliteBook 645 G10"
@@ -868,7 +868,7 @@ signatures:
         os: android
         os_version: "10.0.0"
         cpu_arch: unknown
-        gpu: "imagination technologies"
+        gpu: imgtec
         gpu_version: "PowerVR Rogue GE8300"
         backend: opengl-es
         device: "MID_1089IPSA100"
@@ -891,7 +891,7 @@ signatures:
       tanh: "????????"
       dot: "3f800000"
   - interface: webgl1-combined
-    label: "Adreno (TM) 330 through opengl-es on android, SM-N9005 -- WebGL 1 on chrome"
+    label: "Qualcomm Adreno (TM) 330 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) -- WebGL 1 on Chrome 95"
     seen:
       - browser: chrome
         browser_version: "95.0.4638.74"

@@ -831,7 +831,7 @@ fn report_targets(out: &mut StdoutLock<'_>, ctx: &Arc<Context>, stream: &Arc<Str
                 .iter()
                 .filter(|case| case.products.len() <= kind.depth())
                 .map(|case| run::<u32, u32>(ctx, stream, &ptx, &mma_input(kind, case), 1, 32))
-                .map(|answer| answer.map(|words| u64::from(words.first().copied().unwrap_or_default())))
+                .map(|answer| answer.map(|words| u64::from(kind.answer(words.first().copied().unwrap_or_default()))))
                 .collect();
             match answers {
                 Ok(words) => write!(line, " {arch}:{:016x}", fnv(&words))?,
