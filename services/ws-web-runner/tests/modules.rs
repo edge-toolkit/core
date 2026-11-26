@@ -68,19 +68,34 @@ const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
 /// started with it as `DENO_WEBGPU_BACKEND`, which wgpu takes the registry's names in, because left to itself wgpu
 /// picks Vulkan wherever a Vulkan driver is installed, Windows included, and nothing the page sees says which it chose.
 fn deno_backend() -> String {
-    std::env::var("DENO_WEBGPU_BACKEND")
-        .ok()
-        .filter(|backend| !backend.is_empty())
-        .unwrap_or_else(|| {
-            if cfg!(target_os = "macos") {
-                "metal"
-            } else if cfg!(target_os = "windows") {
-                "d3d12"
-            } else {
-                "vulkan"
-            }
-            .to_owned()
-        })
+    let env: DenoEnv = serde_env::from_env().expect("the environment is readable");
+    if !env.deno.webgpu_backend.is_empty() {
+        return env.deno.webgpu_backend;
+    }
+    if cfg!(target_os = "macos") {
+        "metal"
+    } else if cfg!(target_os = "windows") {
+        "d3d12"
+    } else {
+        "vulkan"
+    }
+    .to_owned()
+}
+
+/// The variables [`deno_backend`] reads, each empty where it is not set.
+#[derive(Default, serde::Deserialize)]
+struct DenoEnv {
+    /// The `DENO_*` variables.
+    #[serde(default)]
+    deno: Deno,
+}
+
+/// The `DENO_*` variables [`deno_backend`] reads.
+#[derive(Default, serde::Deserialize)]
+struct Deno {
+    /// `DENO_WEBGPU_BACKEND`: the graphics backend wgpu is made to use, by the registry's name.
+    #[serde(default)]
+    webgpu_backend: String,
 }
 
 /// The name the hub serves one of this project's modules under, which is the name it publishes under.

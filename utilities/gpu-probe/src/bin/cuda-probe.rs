@@ -4,7 +4,7 @@
 //! without it refuses that probe alone. The driver compiles every module for the device it is loaded on, whatever
 //! architecture the module names, so the answers are always that device's own; the last table shows as much. An
 //! elementwise probe answers 32 inputs, one per thread, each in a 64-bit slot of which it uses the low bytes, and is
-//! scored in ulps against the host's correctly rounded answer. A tensor-core probe runs one warp-wide `mma` per case.
+//! scored in ulps against the host's f64 answer rounded to f32. A tensor-core probe runs one warp-wide `mma` per case.
 
 use core::ffi::c_void;
 use core::fmt::Write as _;
@@ -571,7 +571,7 @@ fn placed(placements: &[(usize, (f32, f32))]) -> Vec<(f32, f32)> {
 #[expect(
     clippy::as_conversions,
     clippy::cast_possible_truncation,
-    reason = "rounding the host's f64 answer to f32 gives the correctly rounded f32 answer, which is the point"
+    reason = "rounding the host's f64 answer to f32 is the point: the reference each probe is scored against"
 )]
 const fn narrow(value: f64) -> f32 {
     value as f32

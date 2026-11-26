@@ -226,8 +226,8 @@ pub struct GpuComputeResult {
 /// adapter's sets.
 ///
 /// They are measured before anything else opens a device. Deno keeps every device it opened until the runtime exits,
-/// and on Vulkan each holds a block of wgpu's of 128 MiB of device-local memory. The AMD Radeon (TM) Graphics of a Ryzen
-/// 7 7730U has 256 MiB of it, so a second device on that GPU fails, with this error:
+/// and on Vulkan each holds a block of wgpu's of 128 MiB of device-local memory. The AMD Radeon (TM) Graphics of a
+/// Ryzen 7 7730U has 256 MiB of it, so a second device on that GPU fails, with this error:
 /// `OperationError: Not enough memory left.` The sets have to be on the first.
 async fn probe_sets() -> serde_json::Value {
     let preferences = [

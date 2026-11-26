@@ -175,8 +175,9 @@ pub const WEBGL2_FIXED_FUNCTION: &str = "webgl2-fixed-function";
 
 /// Every probe set a WebGPU device is measured with, by the interface the registry files it under.
 ///
-/// They are in the order `native::Gpu::every_set` answers them. Every other list of the sets is made from this one, so a set added here reaches them all. A set measured with each
-/// probe in a shader of its own is filed under its interface with `-split` after it.
+/// They are in the order `native::Gpu::every_set` answers them. Every other list of the sets is made from this one,
+/// so a set added here reaches them all. A set measured with each probe in a shader of its own is filed under its
+/// interface with `-split` after it.
 pub const EVERY_SET: [&str; 8] = [
     "webgpu-split",
     WEBGPU_COMBINED,

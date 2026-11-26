@@ -105,6 +105,11 @@ max_line_length = 200
 [libs/gpu-probe/signatures.json]
 max_line_length = unset
 
+# The curated signatures' labels each name every device, browser and backend a signature was seen on, so a label on
+# a widely shared signature outgrows the line length, and gpu-probe-fold writes each one as a single string.
+[libs/gpu-probe/signatures/curated/*.yaml]
+max_line_length = unset
+
 # pnpm writes each package's `resolution: {integrity: sha512-...}` on one line, which exceeds the line length.
 [**/pnpm-lock.yaml]
 max_line_length = unset

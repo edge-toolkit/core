@@ -7111,6 +7111,8 @@ dependencies = [
  "pretty_assertions",
  "reqwest",
  "rstest",
+ "serde",
+ "serde-env",
  "serde_json",
  "sys_traits",
  "test-log",
