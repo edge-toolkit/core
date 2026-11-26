@@ -59,17 +59,44 @@ use fs_err as fs;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-/// The file of an agent's storage `et-ws-graphics-info` writes the six WebGPU probe sets' answers to.
+/// The file of an agent's storage `et-ws-graphics-info` writes every WebGPU probe set's answers to.
 const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
 
-/// The graphics backend Deno's WebGPU, which is wgpu, puts a device's work through on this operating system.
-const DENO_BACKEND: &str = if cfg!(target_os = "macos") {
-    "metal"
-} else if cfg!(target_os = "windows") {
-    "d3d12"
-} else {
-    "vulkan"
-};
+/// The graphics backend Deno's WebGPU, which is wgpu, is made to put a device's work through, by the registry's name.
+///
+/// It is `DENO_WEBGPU_BACKEND` where that names one, and this operating system's own API otherwise. Every runner is
+/// started with it as `DENO_WEBGPU_BACKEND`, which wgpu takes the registry's names in, because left to itself wgpu
+/// picks Vulkan wherever a Vulkan driver is installed, Windows included, and nothing the page sees says which it chose.
+fn deno_backend() -> String {
+    let env: DenoEnv = serde_env::from_env().unwrap();
+    if !env.deno.webgpu_backend.is_empty() {
+        return env.deno.webgpu_backend;
+    }
+    if cfg!(target_os = "macos") {
+        "metal"
+    } else if cfg!(target_os = "windows") {
+        "d3d12"
+    } else {
+        "vulkan"
+    }
+    .to_owned()
+}
+
+/// The variables [`deno_backend`] reads, each empty where it is not set.
+#[derive(Default, serde::Deserialize)]
+struct DenoEnv {
+    /// The `DENO_*` variables.
+    #[serde(default)]
+    deno: Deno,
+}
+
+/// The `DENO_*` variables [`deno_backend`] reads.
+#[derive(Default, serde::Deserialize)]
+struct Deno {
+    /// `DENO_WEBGPU_BACKEND`: the graphics backend wgpu is made to use, by the registry's name.
+    #[serde(default)]
+    webgpu_backend: String,
+}
 
 /// The name the hub serves one of this project's modules under, which is the name it publishes under.
 ///
@@ -124,7 +151,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     collect_module_coverage(&server);
 }
 
-/// Propose what the graphics-info module stored of the six WebGPU probe sets, found under the hub's `storage` root.
+/// Propose what the graphics-info module stored of every WebGPU probe set, found under the hub's `storage` root.
 ///
 /// Each set that answered becomes a submission seen at a row of this machine, running Deno through this runner, and is
 /// written where `GPU_PROBE_INTO` names a directory, as every GPU probe measurement in CI is. The file must have been
@@ -227,6 +254,7 @@ fn adapter_submissions(
     let vendor = adapter_vendor(adapter, &name);
     let deno = deno_crates();
     let runtime = format!("et-ws-web-runner {}", env!("CARGO_PKG_VERSION"));
+    let backend = deno_backend();
     let mut row: std::collections::BTreeMap<String, String> = [
         ("browser", "deno"),
         ("browser_version", deno.as_str()),
@@ -234,7 +262,7 @@ fn adapter_submissions(
         ("cpu_arch", arch),
         ("gpu", vendor.name()),
         ("gpu_version", name.as_str()),
-        ("backend", DENO_BACKEND),
+        ("backend", backend.as_str()),
         ("runtime", runtime.as_str()),
         ("window", "none"),
     ]
@@ -247,7 +275,7 @@ fn adapter_submissions(
     }
     let row = machine.row(row);
     let label = format!(
-        "{name} through {DENO_BACKEND} on {} -- WebGPU on Deno, {deno}",
+        "{name} through {backend} on {} -- WebGPU on Deno, {deno}",
         machine.named(system, arch),
     );
     sets["signatures"]
@@ -618,6 +646,7 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
         .env("RUNNER_MODULE", served(module))
         .env("WS_SERVER_URL", ws_url)
         .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
+        .env("DENO_WEBGPU_BACKEND", deno_backend())
         .output()
         .unwrap()
 }

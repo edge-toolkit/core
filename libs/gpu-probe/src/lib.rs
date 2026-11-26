@@ -84,6 +84,7 @@ macro_rules! glsl_write_bits {
 mod batch;
 mod canvas;
 mod clear;
+mod cooperative;
 mod fixed;
 mod format;
 mod half_precision;
@@ -93,6 +94,9 @@ pub mod native;
 mod registry;
 #[cfg(feature = "registry")]
 mod sighting;
+mod trig;
+#[cfg(feature = "native")]
+mod r#unsafe;
 
 pub use self::batch::{Batch, Glsl, NO_GLSL_BUILTIN, TRIANGLE, WEBGL1, WEBGL1_COMBINED, WEBGL2_COMBINED, batched};
 pub use self::canvas::{
@@ -100,6 +104,10 @@ pub use self::canvas::{
     ReadLength, alteration, known_colour, known_scene, pixel_hash,
 };
 pub use self::clear::{CLEAR_COUNT, CLEARS, Clear, clear_reference};
+pub use self::cooperative::{
+    Accumulator, MATRIX_COUNT, MATRIX_PROBES, MatrixProbe, Shape, WGPU_COOPERATIVE_MATRIX, matrix_reference,
+    matrix_shaders,
+};
 pub use self::fixed::{
     BLENDS, Blend, FILTERS, FIXED_FUNCTION_COUNT, Filter, Operation, RASTER_FORMAT, RASTER_WIDTH, RASTERS, Raster,
     Side, coverage, fixed_function_reference,
@@ -112,6 +120,7 @@ pub use self::half_precision::{
 pub use self::registry::every_sighting;
 #[cfg(feature = "registry")]
 pub use self::sighting::{Backend, Browser, GpuVendor, Named, RowError, Sighting, Window};
+pub use self::trig::{TRIG_COUNT, TRIG_INPUTS, WEBGPU_TRIG, WEBGPU_TRIG_SPLIT, trig_reference, trig_shaders};
 
 /// How many expressions the probe set evaluates.
 pub const PROBE_COUNT: usize = 16;
@@ -163,6 +172,25 @@ pub const WEBGL2_CLEAR: &str = "webgl2-clear";
 
 /// The interface a signature of the fixed-function probes was measured through, each drawn on WebGL 2.
 pub const WEBGL2_FIXED_FUNCTION: &str = "webgl2-fixed-function";
+
+/// Every probe set a WebGPU device is measured with, by the interface the registry files it under.
+///
+/// They are in the order `native::Gpu::every_set` answers them. Every other list of the sets is made from this one,
+/// so a set added here reaches them all. A set measured with each probe in a shader of its own is filed under its
+/// interface with `-split` after it.
+pub const EVERY_SET: [&str; 8] = [
+    "webgpu-split",
+    WEBGPU_COMBINED,
+    WEBGPU_CLEAR,
+    WEBGPU_FIXED_FUNCTION,
+    "webgpu-f16-split",
+    WEBGPU_F16_COMBINED,
+    WEBGPU_TRIG_SPLIT,
+    WGPU_COOPERATIVE_MATRIX,
+];
+
+/// The sets in [`EVERY_SET`] that draw rather than compute, so a device without compute shaders still measures them.
+pub const DRAWING_SETS: [&str; 2] = [WEBGPU_CLEAR, WEBGPU_FIXED_FUNCTION];
 
 /// Each probe's name, the WGSL expression it evaluates, and the same expression in GLSL ES 3.00, in output order.
 ///
@@ -372,6 +400,16 @@ impl ProbeSet {
                 names: fixed::names(),
                 reference: fixed_function_reference(),
                 choices: &fixed::CHOICES,
+            },
+            WEBGPU_TRIG | WEBGPU_TRIG_SPLIT => Self {
+                names: trig::names(),
+                reference: trig_reference(),
+                choices: &[],
+            },
+            WGPU_COOPERATIVE_MATRIX => Self {
+                names: cooperative::names(),
+                reference: matrix_reference(),
+                choices: &cooperative::CHOICES,
             },
             WEBGPU_F16 | WEBGPU_F16_COMBINED => Self {
                 names: PROBES.iter().map(|probe| probe.0).collect(),

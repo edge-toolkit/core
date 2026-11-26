@@ -1,0 +1,26 @@
+id: gpu-probe-sets-from-every-set
+language: Rust
+severity: error
+message: |
+  This is a list of WebGPU probe sets written out by hand. Make it from `et_gpu_probe::EVERY_SET`, or from
+  `DRAWING_SETS` for the sets that draw rather than compute, filtering either one as the list needs. A hand-written
+  copy misses the next set added to the library, and the measurement it checks goes on looking complete.
+# Matches an array, an or-pattern or a `matches!` naming two or more WebGPU set names as string literals.
+# That is how a copy of the list is written; one name alone is a fixture, which the rule leaves alone. Each set name
+# is `webgpu-` or `wgpu-` and then lower-case words, as in `webgpu-split` and `wgpu-cooperative-matrix`.
+rule:
+  any:
+    - kind: array_expression
+    - kind: or_pattern
+    - all:
+        - kind: token_tree
+        - inside:
+            kind: macro_invocation
+            has:
+              field: macro
+              regex: ^matches$
+  regex: '"w(?:eb)?gpu-[a-z0-9]+(?:-[a-z0-9]+)*"[\s\S]*"w(?:eb)?gpu-[a-z0-9]+(?:-[a-z0-9]+)*"'
+ignores:
+  - generated/**
+  # Where the list is defined.
+  - libs/gpu-probe/src/lib.rs

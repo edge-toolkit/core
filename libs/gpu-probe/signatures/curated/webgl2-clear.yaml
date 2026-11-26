@@ -318,6 +318,16 @@ signatures:
         backend: opengl-es
         device: "SM-G973F"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -539,7 +549,7 @@ signatures:
         os: windows
         os_version: "11"
         cpu_arch: x86_64
-        gpu: "ati technologies inc."
+        gpu: amd
         gpu_version: "AMD Radeon (TM) Graphics"
         backend: opengl
         device: "HP EliteBook 645 G10"
@@ -609,3 +619,27 @@ signatures:
       half_rounding: "00003c00"
       half_subnormal: "00000010"
       half_overflow: "00007bff"
+  - interface: webgl2-clear
+    label: "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.48"
+        os: android
+        os_version: "10.0.0"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "MID_1089IPSA100"
+        window: normal
+    results:
+      unorm8_quarter: "0000000a"
+      unorm8_half: "0000000b"
+      unorm8_three_quarters: "0000000b"
+      unorm10_three_quarters: "00000065"
+      srgb8_mid: "000000bc"
+      srgb8_dark: "00000007"
+      ufloat11_rounding: "000003c0"
+      half_rounding: "00003c01"
+      half_subnormal: "00000010"
+      half_overflow: "00007c00"

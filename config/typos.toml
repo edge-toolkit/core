@@ -21,7 +21,14 @@ locale = "en-au"
 # phrase so the misspelling is still caught in prose we write.
 # `std.compress.flate` is the Zig standard library's DEFLATE module, not a misspelling of "flat". Scoped to that path
 # so bare "flate" is still flagged.
-extend-ignore-re = ["Functionality is equivelant to", "lod-(min|max)-clamp", "std\\.compress\\.flate"]
+# `setp.eq` and the like are PTX's set-predicate instruction, in cuda-probe's hand-written PTX, not a misspelling of
+# "step". Anchored to the instruction's `.` and comparison so bare "setp" is still flagged.
+extend-ignore-re = [
+  "Functionality is equivelant to",
+  "lod-(min|max)-clamp",
+  "setp\\.(eq|ne|lt|le|gt|ge)\\b",
+  "std\\.compress\\.flate",
+]
 
 # ser2net is the serial-to-network bridge daemon, whose "ser" is short for serial rather than a misspelling of "set".
 [default.extend-identifiers]

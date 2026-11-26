@@ -502,6 +502,16 @@ signatures:
         backend: opengl-es
         device: "Laser tablet"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.48"
+        os: android
+        os_version: "10.0.0"
+        cpu_arch: unknown
+        gpu: imgtec
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "MID_1089IPSA100"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "????????"
@@ -533,6 +543,16 @@ signatures:
         window: normal
       - browser: chrome
         browser_version: "157.0.8103.80"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
         os: android
         os_version: "12.0.0"
         cpu_arch: unknown
@@ -893,7 +913,7 @@ signatures:
         os: windows
         os_version: "11"
         cpu_arch: x86_64
-        gpu: "ati technologies inc."
+        gpu: amd
         gpu_version: "AMD Radeon (TM) Graphics"
         backend: opengl
         device: "HP EliteBook 645 G10"

@@ -10,7 +10,12 @@
 # sandboxed frame; its md5 result is the signature that site shows. webgpu-clear and webgpu-fixed-function are the
 # probe sets no shader compiler decides: render passes clearing a target to a value, and draws whose answer comes
 # from the blend unit, texture unit or rasterizer; webgl2-clear and webgl2-fixed-function are the same sets on WebGL
-# 2, a clearBufferfv taking the place of a render pass's clear. A new mechanism brings its own interface name.
+# 2, a clearBufferfv taking the place of a render pass's clear. wgpu-cooperative-matrix is native wgpu alone: each
+# probe one cooperative-matrix multiply-add, 16x16x16 of f16 operands (NVIDIA's tensor cores, through Vulkan) or 8x8x8
+# in f32 (Apple's simdgroup matrices, through Metal), so it tells apart how the matrix hardware aligns, chunks and
+# normalises a sum. webgpu-trig-split is sin and cos of eight angles from 4.55 to 11.21 radians, each in a WGSL
+# shader of its own, where the hardware's own reduction of the angle shows: NVIDIA's Maxwell answers otherwise than
+# its later generations. A new mechanism brings its own interface name.
 # The entries are kept beside this file, one file per interface under curated/, named for the interface, each a
 # "signatures" list. submitted/ holds sightings proposed from the hosted probe page, in plain-text files, until
 # gpu-probe-fold files them under curated/.

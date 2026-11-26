@@ -22,7 +22,7 @@ const STORAGE: u32 = 0x0080;
 /// Bytes for a 4x4 f32 matrix.
 const MATRIX_BYTES: f64 = 64.0;
 
-/// The file of the agent's storage the six WebGPU probe sets' answers are written to, for a run's record.
+/// The file of the agent's storage every WebGPU probe set's answers are written to, for a run's record.
 const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
 
 /// WGSL compute shader: 4x4 matrix multiply.
@@ -166,11 +166,8 @@ impl WebGpuProbeResult {
             });
         }
 
-        let request_device = js_sys::Reflect::get(&adapter, &JsValue::from_str("requestDevice"))?
-            .into_function("adapter.requestDevice")?;
-
-        let device_promise = request_device.call0(&adapter)?.into_promise("requestDevice")?;
-        let device = JsFuture::from(device_promise).await?;
+        // The device the later probes are run on, so that none of them opens another.
+        let device = gpu_device_or_null(&window, "WebGPU probe").await;
 
         let device_created = !device.is_null() && !device.is_undefined();
         info!(
@@ -215,11 +212,17 @@ pub struct GpuComputeResult {
     result_c00: f32,
 }
 
-/// What each of the six WebGPU probe sets answers on each GPU this runtime's WebGPU offers, as the run's JSON.
+/// What every WebGPU probe set answers on each GPU this runtime's WebGPU offers, as the run's JSON.
 ///
 /// A runtime offers its GPUs only one for each power preference, as a browser does, so an adapter is asked for with
-/// each; one that gives an adapter already measured, as a machine with a single GPU does, adds nothing. A preference
-/// that gives no adapter is a problem of the run beside those of each adapter's sets.
+/// each; one that gives an adapter already measured, as a machine with a single GPU does, is not opened again. A
+/// preference that gives no adapter, or an adapter that opens no device, is a problem of the run beside those of each
+/// adapter's sets.
+///
+/// They are measured before anything else opens a device. Deno keeps every device it opened until the runtime exits,
+/// and on Vulkan each holds a block of wgpu's of 128 MiB of device-local memory. The AMD Radeon (TM) Graphics of a
+/// Ryzen 7 7730U has 256 MiB of it, so a second device on that GPU fails, with this error:
+/// `OperationError: Not enough memory left.` The sets have to be on the first.
 async fn probe_sets() -> serde_json::Value {
     let preferences = [
         (wgpu::PowerPreference::HighPerformance, "high-performance"),
@@ -228,27 +231,35 @@ async fn probe_sets() -> serde_json::Value {
     let mut measured: Vec<(String, u32, u32, String)> = Vec::new();
     let mut adapters = Vec::new();
     let mut problems = Vec::new();
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
     for (power_preference, power) in preferences {
         let options = wgpu::RequestAdapterOptions {
             power_preference,
             ..wgpu::RequestAdapterOptions::default()
         };
-        match et_gpu_probe::native::Gpu::open_with(&options).await {
-            Ok(gpu) => {
-                let info = gpu.info();
-                let identity = (info.name, info.vendor, info.device, info.driver);
-                if !measured.contains(&identity) {
-                    measured.push(identity);
-                    adapters.push(adapter_sets(&gpu, power).await);
-                }
+        let adapter = match instance.request_adapter(&options).await {
+            Ok(adapter) => adapter,
+            Err(problem) => {
+                problems.push(format!("WebGPU {power}: {problem}"));
+                continue;
             }
+        };
+        // An adapter already measured is not opened again, so no second device is asked of the same GPU.
+        let info = adapter.get_info();
+        let identity = (info.name, info.vendor, info.device, info.driver);
+        if measured.contains(&identity) {
+            continue;
+        }
+        measured.push(identity);
+        match et_gpu_probe::native::Gpu::open_adapter(adapter).await {
+            Ok(gpu) => adapters.push(adapter_sets(&gpu, power).await),
             Err(problem) => problems.push(format!("WebGPU {power}: {problem}")),
         }
     }
     json!({ "adapters": adapters, "problems": problems })
 }
 
-/// What each of the six WebGPU probe sets answers on `gpu`, reached by asking for the `power` preference.
+/// What every WebGPU probe set answers on `gpu`, reached by asking for the `power` preference.
 ///
 /// The sets are measured through `et-gpu-probe` on wgpu, as the probe page measures them, beside the adapter's own
 /// description and the versions the API gives. A set that does not answer is given as a problem beside the others.
@@ -301,10 +312,25 @@ fn descriptor(entries: &[(&str, &JsValue)]) -> Result<JsValue, JsValue> {
     Ok(object.into())
 }
 
-/// Request the default WebGPU device.
+thread_local! {
+    /// The WebGPU device the module opened, which every later request is given.
+    static GPU_DEVICE: std::cell::RefCell<Option<JsValue>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Request the default WebGPU device, opening it only the first time.
+///
+/// Every caller shares one device, as few devices as possible being opened: Deno gives back none of a device's memory
+/// until the runtime exits, not when it is dropped, destroyed or collected. See [`probe_sets`].
 ///
 /// The answer is `null` or `undefined` where the browser has no WebGPU, no adapter, or no device to give.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the request itself, kept apart from how a failed one is logged"
+)]
 async fn request_gpu_device(window: &web_sys::Window) -> Result<JsValue, JsValue> {
+    if let Some(device) = GPU_DEVICE.with_borrow(Clone::clone) {
+        return Ok(device);
+    }
     let gpu = js_sys::Reflect::get(&window.navigator(), &JsValue::from_str("gpu"))?;
     if gpu.is_null() || gpu.is_undefined() {
         return Ok(gpu);
@@ -313,7 +339,22 @@ async fn request_gpu_device(window: &web_sys::Window) -> Result<JsValue, JsValue
     if adapter.is_null() || adapter.is_undefined() {
         return Ok(adapter);
     }
-    await_method(&adapter, "requestDevice", &[]).await
+    let device = await_method(&adapter, "requestDevice", &[]).await?;
+    if !device.is_null() && !device.is_undefined() {
+        GPU_DEVICE.set(Some(device.clone()));
+    }
+    Ok(device)
+}
+
+/// The device [`request_gpu_device`] gives, or `null` where the request fails, which is logged as `probe`'s.
+async fn gpu_device_or_null(window: &web_sys::Window, probe: &str) -> JsValue {
+    match request_gpu_device(window).await {
+        Ok(device) => device,
+        Err(error) => {
+            info!("{probe}: no device: {}", describe_js_error(&error));
+            JsValue::NULL
+        }
+    }
 }
 
 /// Build a `GPUBuffer` of `size` bytes with the given `usage` flags.
@@ -510,7 +551,7 @@ impl GpuComputeResult {
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
-        let device = request_gpu_device(&window).await?;
+        let device = gpu_device_or_null(&window, "GPU compute").await;
         if device.is_null() || device.is_undefined() {
             return Ok(Self {
                 success: false,
@@ -683,13 +724,7 @@ impl GpuNumericProbe {
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
-        let device = match request_gpu_device(&window).await {
-            Ok(device) => device,
-            Err(error) => {
-                info!("GPU numeric probe: no device: {}", describe_js_error(&error));
-                JsValue::NULL
-            }
-        };
+        let device = gpu_device_or_null(&window, "GPU numeric probe").await;
         if device.is_null() || device.is_undefined() {
             return Ok(Self {
                 signature: et_gpu_probe::Signature::new(et_gpu_probe::WEBGPU, Vec::new()),
@@ -1077,6 +1112,19 @@ pub async fn run() -> Result<(), JsValue> {
             support.webnn_supported(),
         ));
 
+        // First, while no device is open: see `probe_sets`.
+        log("measuring every WebGPU probe set on each GPU");
+        let sets = probe_sets().await;
+        log(&format!("WebGPU probe sets: {sets}"));
+        let agent_id = client.get_agent_id();
+        let stored = et_rest_client::Client::new("")
+            .put_file(&agent_id, PROBE_SETS_FILENAME, sets.to_string())
+            .await;
+        match stored {
+            Ok(_stored) => log(&format!("stored them to /storage/{agent_id}/{PROBE_SETS_FILENAME}")),
+            Err(problem) => log(&format!("could not store them: {problem}")),
+        }
+
         log("probing WebGPU");
         let probe = WebGpuProbeResult::test().await?;
         log(&format!(
@@ -1108,7 +1156,7 @@ pub async fn run() -> Result<(), JsValue> {
                 ));
             }
         } else {
-            log("GPU compute: skipped (WebGPU unavailable)");
+            log("GPU compute: skipped (no WebGPU device)");
         }
 
         log("running numeric probe through WebGPU");
@@ -1122,18 +1170,6 @@ pub async fn run() -> Result<(), JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let environment = browser_environment(&window)?;
         log(&format!("environment: {environment}"));
-
-        log("measuring the six WebGPU probe sets on each GPU");
-        let sets = probe_sets().await;
-        log(&format!("WebGPU probe sets: {sets}"));
-        let agent_id = client.get_agent_id();
-        let stored = et_rest_client::Client::new("")
-            .put_file(&agent_id, PROBE_SETS_FILENAME, sets.to_string())
-            .await;
-        match stored {
-            Ok(_stored) => log(&format!("stored them to /storage/{agent_id}/{PROBE_SETS_FILENAME}")),
-            Err(problem) => log(&format!("could not store them: {problem}")),
-        }
 
         client.send_client_event(
             et_org::served_npm_module_path!(),

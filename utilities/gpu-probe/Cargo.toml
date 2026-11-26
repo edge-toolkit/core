@@ -17,6 +17,13 @@ doctest = false
 
 [[bin]]
 doctest = false
+name = "cuda-probe"
+path = "src/bin/cuda-probe.rs"
+required-features = ["cuda"]
+test = false
+
+[[bin]]
+doctest = false
 name = "et-gpu-probe-server"
 path = "src/bin/et-gpu-probe-server.rs"
 test = false
@@ -34,6 +41,9 @@ path = "src/bin/gpu-probe-fold.rs"
 test = false
 
 [features]
+## Builds `cuda-probe`, which puts hand-written PTX probes to every CUDA device through NVIDIA's driver API.
+## Building it needs a CUDA 13 toolkit's headers, found through `CUDA_HOME`, and libclang.
+cuda = ["dep:cuda-core", "dep:half"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 ## Internal: derives JSON Schema for the crate's environment config, which et-int-gen renders into HELP.md.
@@ -43,12 +53,14 @@ env-schema = ["dep:schemars"]
 actix-files.workspace = true
 actix-web = { workspace = true, features = ["macros", "rustls-0_23"] }
 clap.workspace = true
+cuda-core = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
 edge-toolkit = { workspace = true, features = ["std"] }
 et-gpu-probe = { workspace = true, features = ["native", "registry"] }
 et-https-listener = { workspace = true, features = ["tls-self-signed"] }
 fs-err.workspace = true
 futures-executor.workspace = true
+half = { workspace = true, optional = true }
 jiff.workspace = true
 schemars = { workspace = true, optional = true }
 serde = { workspace = true, features = ["std"] }

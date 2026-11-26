@@ -17,6 +17,9 @@ strict = true
 "../.github/workflows/*.yaml" = ["empty-values"]
 # The generated Kubernetes manifests carry the hub's module list as one env scalar, which has no way to wrap.
 "../verification/**/k3s.yaml" = ["line-length"]
+# A curated signature's label is one string naming every device, browser and backend it was seen on.
+# So the label of a signature seen on many devices outgrows the line length.
+"../libs/gpu-probe/signatures/curated/*.yaml" = ["line-length"]
 # Benchmark results, every machine's and OS's, record each time as measured, in nanoseconds.
 # yq writes the millisecond ones as floats in scientific notation, and rounding them to dodge that would discard data.
 "../libs/*/benches/results/*.yaml" = ["float-values"]

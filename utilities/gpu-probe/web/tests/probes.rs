@@ -9,6 +9,7 @@
 )]
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
+use et_gpu_probe::EVERY_SET;
 use et_int_gpu_probe_web::{probe_canvas, probe_webgl1, probe_webgl2, probe_webgpu};
 use pretty_assertions::assert_eq;
 use serde_json::Value;
@@ -75,7 +76,7 @@ async fn webgpu_gives_every_set_or_says_why_not() {
         let answer = parsed(&probe_webgpu(power, fallback).await.unwrap());
         let given = interfaces(&answer);
         let problems = answer["problems"].as_array().unwrap();
-        assert!(given.len() == 4 || !problems.is_empty(), "{answer}");
+        assert!(given.len() == EVERY_SET.len() || !problems.is_empty(), "{answer}");
         assert!(answer["report"].is_array(), "{answer}");
     }
 }

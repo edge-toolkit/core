@@ -1,0 +1,19 @@
+id: no-obfuscated-if-else
+valid:
+  - |
+    let features = if wanted { enabled() } else { disabled() };
+  - |
+    let name = option.map(str::trim).unwrap_or("none");
+  - |
+    let order = left.cmp(&right).then(first.cmp(&second));
+  - |
+    let refusal = narrow.then(|| reason()).or(unoffered);
+invalid:
+  - |
+    let features = wanted.then(enabled).unwrap_or_else(disabled);
+  - |
+    let features = wanted.then(|| enabled()).unwrap_or(none);
+  - |
+    let size = wide.then_some(16).unwrap_or(8);
+  - |
+    let size = wide.then_some(16).unwrap_or_else(narrow);

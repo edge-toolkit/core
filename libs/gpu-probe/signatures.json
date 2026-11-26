@@ -332,6 +332,17 @@
           "backend": "unknown",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -1194,6 +1205,45 @@
       }
     },
     {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 157.0.8103.48 on Android, MID_1089IPSA100 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "4d8d07921d501b4f3a721367bb8a1586"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 95.0.4638.74 on Android, Samsung Galaxy Note 3 (SM-N9005) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same canvas differed (per-read noise)"
+    },
+    {
       "interface": "canvas",
       "label": "Apple M5 Pro, macOS -- canvas 2D on Chromium",
       "seen": [
@@ -1453,6 +1503,17 @@
           "backend": "unknown",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -1525,6 +1586,17 @@
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "unknown",
           "device": "Laser tablet",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MID_1089IPSA100",
           "window": "normal"
         }
       ],
@@ -2285,6 +2357,25 @@
       }
     },
     {
+      "interface": "canvas",
+      "label": "Chrome 95.0.4638.74 on Android, Samsung Galaxy Note 3 (SM-N9005) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same scene differed (per-read noise)"
+    },
+    {
       "interface": "host",
       "label": "Rust f32 on the CPU, every probe correctly rounded: macOS arm64, Linux arm64 and x86_64, Windows x64",
       "seen": [
@@ -2709,6 +2800,19 @@
           "runtime": "Rust f32, built for aarch64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "none",
+          "backend": "none",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "Rust f32, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -3415,6 +3519,18 @@
           "backend": "opengl-es",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4039,7 +4155,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -4187,6 +4303,78 @@
         "atan2": "3d087ae6",
         "tanh": "????????",
         "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddc000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc8000",
+        "cos": "3f7ec000",
+        "tan": "3dcd8000",
+        "exp": "3f8d8000",
+        "log": "3f8ca000",
+        "pow": "3f8ee000",
+        "atan2": "3d088000",
+        "tanh": "????????",
+        "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "Qualcomm Adreno (TM) 330 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) -- WebGL 1 on Chrome 95",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 330",
+          "backend": "opengl-es",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fdda000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc6000",
+        "cos": "3f7ea000",
+        "tan": "3dcd6000",
+        "exp": "3f8d6000",
+        "log": "3f8c8000",
+        "pow": "3f8ec000",
+        "atan2": "3d086000",
+        "tanh": "????????",
+        "dot": "00000000"
       }
     },
     {
@@ -4421,6 +4609,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -5053,7 +5253,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -5201,6 +5401,78 @@
         "atan2": "3d087ae6",
         "tanh": "????????",
         "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddc000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc8000",
+        "cos": "3f7ec000",
+        "tan": "3dcd8000",
+        "exp": "3f8d8000",
+        "log": "3f8ca000",
+        "pow": "3f8ee000",
+        "atan2": "3d088000",
+        "tanh": "????????",
+        "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Qualcomm Adreno (TM) 330 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) -- WebGL 1 on Chrome 95",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 330",
+          "backend": "opengl-es",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40000000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fdda000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc6000",
+        "cos": "3f7ea000",
+        "tan": "3dcd6000",
+        "exp": "3f8d6000",
+        "log": "3f8c8000",
+        "pow": "3f8ec000",
+        "atan2": "3d086000",
+        "tanh": "????????",
+        "dot": "00000000"
       }
     },
     {
@@ -5624,6 +5896,18 @@
           "backend": "opengl-es",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5893,7 +6177,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -5980,6 +6264,36 @@
       }
     },
     {
+      "interface": "webgl2-clear",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000b",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c0",
+        "half_rounding": "00003c01",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007c00"
+      }
+    },
+    {
       "interface": "webgl2-combined",
       "label": "ARM Mali-G76, OpenGL ES, Galaxy S10 -- WebGL 2 on Chrome 157, Samsung Internet 31, Brave 1.99, Firefox 159",
       "seen": [
@@ -6034,6 +6348,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -6428,6 +6754,18 @@
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "Laser tablet",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
           "window": "normal"
         }
       ],
@@ -6999,7 +7337,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -7470,6 +7808,18 @@
           "backend": "opengl-es",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -7542,7 +7892,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -7849,6 +8199,35 @@
         "raster_right_edge_fine": "00000007",
         "raster_left_edge_fine": "000000f8",
         "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
+      "interface": "webgl2-fixed-function",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000032",
+        "blend_half_float": "00003c00",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0aa1",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd1000",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "00000007"
       }
     },
     {
@@ -8459,6 +8838,18 @@
           "backend": "opengl-es",
           "device": "Laser tablet",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
         }
       ],
       "results": {
@@ -8498,6 +8889,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -8927,7 +9330,7 @@
           "os": "windows",
           "os_version": "11",
           "cpu_arch": "x86_64",
-          "gpu": "ati technologies inc.",
+          "gpu": "amd",
           "gpu_version": "AMD Radeon (TM) Graphics",
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
@@ -9594,6 +9997,91 @@
           "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU/PCIe/SSE2",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 595.104.02",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000/PCIe/SSE2",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 580.178.04",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -9894,6 +10382,40 @@
           "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -10199,7 +10721,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "label": "ARM Mali-G76 (bifrost) on a Galaxy S10 and Intel UHD Graphics 630 on Linux, through Vulkan -- wgpu alone and WebGPU on Chrome and Chromium",
       "seen": [
         {
           "browser": "chrome",
@@ -10296,6 +10818,35 @@
           "backend": "vulkan",
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland",
+          "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
           "window": "normal"
         }
       ],
@@ -10500,6 +11051,22 @@
           "device": "HP EliteBook 645 G10",
           "reported": "adapter info blanked",
           "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -10583,6 +11150,23 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -10820,7 +11404,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
       "seen": [
         {
           "browser": "none",
@@ -10926,6 +11510,86 @@
           "device": "HP EliteBook 645 G10",
           "reported": "adapter info blanked",
           "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -10984,6 +11648,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -11963,6 +12639,22 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -12283,6 +12975,23 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -12306,7 +13015,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "NVIDIA RTX A1000 Laptop GPU and Quadro M2000 through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -12428,6 +13137,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -12590,6 +13333,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -12826,7 +13603,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -12843,6 +13620,55 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -12866,7 +13692,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -12882,6 +13708,37 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -13158,6 +14015,23 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -13316,6 +14190,23 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -13399,6 +14290,23 @@
           "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -13595,6 +14503,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -13618,7 +14560,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "ampere through vulkan on linux -- WebGPU on chrome",
+      "label": "No shader-f16: NVIDIA RTX A1000 (ampere) on Chrome, Chromium and Brave, Quadro M2000, AMD Radeon RX 580, Radeon (TM) Graphics, Intel Iris Xe and UHD Graphics 630 through OpenGL, llvmpipe through OpenGL, SwiftShader, and Microsoft Basic Render Driver, on Linux and Windows",
       "seen": [
         {
           "browser": "none",
@@ -14121,6 +15063,104 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -14658,6 +15698,18 @@
           "backend": "vulkan",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -14893,7 +15945,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "Intel Iris Xe Graphics (ADL GT2) and UHD Graphics 630 (CFL GT2) through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Chrome, Chromium and Deno",
       "seen": [
         {
           "browser": "none",
@@ -15052,6 +16104,40 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -15122,7 +16208,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -15139,6 +16225,38 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -15370,6 +16488,23 @@
           "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -15566,6 +16701,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -15589,7 +16758,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "ampere through vulkan on linux -- WebGPU on chrome",
+      "label": "No shader-f16: NVIDIA RTX A1000 (ampere) on Chrome, Chromium and Brave, Quadro M2000, AMD Radeon RX 580, Radeon (TM) Graphics, Intel Iris Xe and UHD Graphics 630 through OpenGL, llvmpipe through OpenGL, SwiftShader, and Microsoft Basic Render Driver, on Linux and Windows",
       "seen": [
         {
           "browser": "none",
@@ -16092,6 +17261,104 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -16629,6 +17896,18 @@
           "backend": "vulkan",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -16864,7 +18143,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "Intel Iris Xe Graphics (ADL GT2) and UHD Graphics 630 (CFL GT2) through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Chrome, Chromium and Deno",
       "seen": [
         {
           "browser": "none",
@@ -17023,6 +18302,40 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -17093,7 +18406,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -17110,6 +18423,38 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -17281,7 +18626,7 @@
     },
     {
       "interface": "webgpu-fixed-function",
-      "label": "Intel(R) Iris(R) Xe Graphics (ADL GT2) through vulkan on linux x86_64 -- wgpu, no browser",
+      "label": "Intel Iris Xe Graphics (ADL GT2) and UHD Graphics 630, and the Apple Paravirtual device, through Vulkan and Metal on Linux and macOS -- wgpu alone and WebGPU on Chrome, Chromium, Brave and Deno",
       "seen": [
         {
           "browser": "none",
@@ -17543,6 +18888,40 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -17778,6 +19157,74 @@
           "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU/PCIe/SSE2",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 595.104.02",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000/PCIe/SSE2",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 580.178.04",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -18049,6 +19496,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -18301,7 +19782,7 @@
     },
     {
       "interface": "webgpu-fixed-function",
-      "label": "AMD Radeon Pro 5300M through metal on macos x86_64 -- wgpu, no browser",
+      "label": "AMD Radeon Pro 5300M, Radeon RX 580 and Radeon (TM) Graphics through Metal, Vulkan and Direct3D 12 on macOS, Linux and Windows -- wgpu alone and WebGPU on Chrome, Chromium, Edge, Firefox, Safari and Deno",
       "seen": [
         {
           "browser": "none",
@@ -18585,6 +20066,103 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -18709,6 +20287,18 @@
           "backend": "vulkan",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -18815,6 +20405,22 @@
           "device": "HP EliteBook 645 G10",
           "reported": "adapter info blanked",
           "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -19658,6 +21264,18 @@
           "backend": "vulkan",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -20117,6 +21735,22 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -20554,6 +22188,23 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -20577,7 +22228,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "NVIDIA RTX A1000 Laptop GPU through vulkan on linux Pop!_OS 24.04 x86_64, Dell Precision 5570 -- wgpu, no browser",
+      "label": "NVIDIA RTX A1000 Laptop GPU and Quadro M2000 through Vulkan on Linux x86_64, Dell Precision 5570 and ASUS TUF H370-PRO GAMING -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -20699,6 +22350,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -20861,6 +22546,40 @@
           "environment": "DRI_PRIME=pci-0000_00_02_0 EGL_PLATFORM=wayland INTEL_DEBUG=nofc __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -21097,7 +22816,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -21114,6 +22833,55 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -21137,7 +22905,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -21153,6 +22921,37 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -21379,6 +23178,23 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -21537,6 +23353,23 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -21556,6 +23389,645 @@
         "atan2": "3d087ae5",
         "tanh": "3dcc1ebe",
         "dot": "40000000"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "Apple M5 Pro through Metal on macOS arm64, MacBook Pro (M5 Pro, 2026) -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1ce",
+        "sin_5_66": "bf15686f",
+        "sin_6_40": "3deeb166",
+        "sin_7_14": "3f417984",
+        "sin_7_88": "3f7fe9d1",
+        "sin_9_36": "3d8492bd",
+        "sin_10_47": "bf5d7301",
+        "sin_11_21": "bf7a2325",
+        "cos_4_55": "be258e67",
+        "cos_5_66": "3f4fe0c5",
+        "cos_6_40": "3f7e415e",
+        "cos_7_14": "3f27a422",
+        "cos_7_88": "bcd51e8e",
+        "cos_9_36": "bf7f768c",
+        "cos_10_47": "bf00700b",
+        "cos_11_21": "3e59e4ac"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "Intel Iris Xe Graphics (ADL GT2) through Vulkan on Linux x86_64, Dell Precision 5570 -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1cd",
+        "sin_5_66": "bf156871",
+        "sin_6_40": "3deeb15f",
+        "sin_7_14": "3f417984",
+        "sin_7_88": "3f7fe852",
+        "sin_9_36": "3d8492c2",
+        "sin_10_47": "bf5d7301",
+        "sin_11_21": "bf7a2325",
+        "cos_4_55": "be258e68",
+        "cos_5_66": "3f4fe0c5",
+        "cos_6_40": "3f7e415e",
+        "cos_7_14": "3f27a422",
+        "cos_7_88": "bcd51e97",
+        "cos_9_36": "bf7f768c",
+        "cos_10_47": "bf00700a",
+        "cos_11_21": "3e59e4b0"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "NVIDIA RTX A1000 Laptop GPU and NVIDIA GB10 through Vulkan on Linux x86_64 and arm64, Dell Precision 5570 and NVIDIA DGX Spark -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1cb",
+        "sin_5_66": "bf156874",
+        "sin_6_40": "3deeb0eb",
+        "sin_7_14": "3f417979",
+        "sin_7_88": "3f7fe9d2",
+        "sin_9_36": "3d84930f",
+        "sin_10_47": "bf5d72fa",
+        "sin_11_21": "bf7a2328",
+        "cos_4_55": "be258e76",
+        "cos_5_66": "3f4fe0bf",
+        "cos_6_40": "3f7e4160",
+        "cos_7_14": "3f27a42b",
+        "cos_7_88": "bcd51cf7",
+        "cos_9_36": "bf7f768a",
+        "cos_10_47": "bf007016",
+        "cos_11_21": "3e59e466"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "llvmpipe (LLVM 20.1.2, 128 and 256 bits) through Vulkan on Linux x86_64 and arm64, Dell Precision 5570, NVIDIA DGX Spark and ASUS TUF H370-PRO GAMING -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1cd",
+        "sin_5_66": "bf15686f",
+        "sin_6_40": "3deeb166",
+        "sin_7_14": "3f417984",
+        "sin_7_88": "3f7fe9d2",
+        "sin_9_36": "3d8492be",
+        "sin_10_47": "bf5d7301",
+        "sin_11_21": "bf7a2325",
+        "cos_4_55": "be258e66",
+        "cos_5_66": "3f4fe0c5",
+        "cos_6_40": "3f7e415e",
+        "cos_7_14": "3f27a422",
+        "cos_7_88": "bcd51e8d",
+        "cos_9_36": "bf7f768c",
+        "cos_10_47": "bf00700b",
+        "cos_11_21": "3e59e4ac"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "Intel UHD Graphics 630 (CFL GT2) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1e0",
+        "sin_5_66": "bf156a3e",
+        "sin_6_40": "3deeb233",
+        "sin_7_14": "3f417b9e",
+        "sin_7_88": "3f7fecd1",
+        "sin_9_36": "3d8492ce",
+        "sin_10_47": "bf5d75c2",
+        "sin_11_21": "bf7a25b1",
+        "cos_4_55": "be258ecf",
+        "cos_5_66": "3f4fe221",
+        "cos_6_40": "3f7e4161",
+        "cos_7_14": "3f27a563",
+        "cos_7_88": "bcd51fc7",
+        "cos_9_36": "bf7f7723",
+        "cos_10_47": "bf0070d9",
+        "cos_11_21": "3e59e66e"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "AMD Radeon RX 580 (RADV POLARIS10) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING, and AMD Radeon (TM) Graphics (rdna-2) through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1cc",
+        "sin_5_66": "bf156872",
+        "sin_6_40": "3deeb15f",
+        "sin_7_14": "3f417982",
+        "sin_7_88": "3f7fe9d1",
+        "sin_9_36": "3d8492d2",
+        "sin_10_47": "bf5d7300",
+        "sin_11_21": "bf7a2324",
+        "cos_4_55": "be258e6b",
+        "cos_5_66": "3f4fe0c3",
+        "cos_6_40": "3f7e415d",
+        "cos_7_14": "3f27a423",
+        "cos_7_88": "bcd51e9f",
+        "cos_9_36": "bf7f768b",
+        "cos_10_47": "bf00700c",
+        "cos_11_21": "3e59e49a"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "NVIDIA Quadro M2000 (Maxwell) through Vulkan on Linux x86_64, ASUS TUF H370-PRO GAMING -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1cc",
+        "sin_5_66": "bf156871",
+        "sin_6_40": "3deeb11d",
+        "sin_7_14": "3f41797f",
+        "sin_7_88": "3f7fe9d2",
+        "sin_9_36": "3d8492dd",
+        "sin_10_47": "bf5d72fd",
+        "sin_11_21": "bf7a2327",
+        "cos_4_55": "be258e6a",
+        "cos_5_66": "3f4fe0c1",
+        "cos_6_40": "3f7e4160",
+        "cos_7_14": "3f27a424",
+        "cos_7_88": "bcd51dc0",
+        "cos_9_36": "bf7f768b",
+        "cos_10_47": "bf007011",
+        "cos_11_21": "3e59e47e"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "Microsoft Basic Render Driver through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Firefox",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1cc",
+        "sin_5_66": "bf156879",
+        "sin_6_40": "3deeb147",
+        "sin_7_14": "3f417982",
+        "sin_7_88": "3f7fe9d2",
+        "sin_9_36": "3d8492fe",
+        "sin_10_47": "bf5d7303",
+        "sin_11_21": "bf7a2325",
+        "cos_4_55": "be258e70",
+        "cos_5_66": "3f4fe0bc",
+        "cos_6_40": "3f7e415e",
+        "cos_7_14": "3f27a424",
+        "cos_7_88": "bcd51eb0",
+        "cos_9_36": "bf7f768b",
+        "cos_10_47": "bf00700a",
+        "cos_11_21": "3e59e4a0"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "SwiftShader (software renderer) through Direct3D 12 on Windows, HP EliteBook 645 G10 -- WebGPU on Chrome and Edge",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7c956a",
+        "sin_5_66": "bf1569bc",
+        "sin_6_40": "3deea966",
+        "sin_7_14": "3f417c88",
+        "sin_7_88": "3f7fe5c1",
+        "sin_9_36": "3d848e31",
+        "sin_10_47": "bf5d730e",
+        "sin_11_21": "bf7a173f",
+        "cos_4_55": "be25893e",
+        "cos_5_66": "3f4fe302",
+        "cos_6_40": "3f7e35dc",
+        "cos_7_14": "3f27a681",
+        "cos_7_88": "bcd51702",
+        "cos_9_36": "bf7f6e2e",
+        "cos_10_47": "bf007014",
+        "cos_11_21": "3e59de78"
+      }
+    },
+    {
+      "interface": "webgpu-trig-split",
+      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1e1",
+        "sin_5_66": "bf1568cd",
+        "sin_6_40": "3deeb1df",
+        "sin_7_14": "3f41795f",
+        "sin_7_88": "3f7fe9d1",
+        "sin_9_36": "3d848fa2",
+        "sin_10_47": "bf5d72c7",
+        "sin_11_21": "bf7a2322",
+        "cos_4_55": "be258cc1",
+        "cos_5_66": "3f4fe085",
+        "cos_6_40": "3f7e415c",
+        "cos_7_14": "3f27a44e",
+        "cos_7_88": "bcd52440",
+        "cos_9_36": "bf7f7695",
+        "cos_10_47": "bf007076",
+        "cos_11_21": "3e59e4d8"
       }
     },
     {
@@ -21647,6 +24119,501 @@
       ],
       "blocked": true,
       "reason": "WebGPU is unavailable (navigator.gpu is absent; the browser does not expose it)"
+    },
+    {
+      "interface": "wgpu-cooperative-matrix",
+      "label": "NVIDIA GB10 through Vulkan on Linux arm64, NVIDIA DGX Spark -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GB10",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "c1_16_quarter_ulps": "3f800004",
+        "c1_8_quarter_ulps": "3f800002",
+        "c1_4_quarter_ulps": "3f800001",
+        "one_k0_half_ulps_k1_k8": "3f800001",
+        "one_k0_half_ulps_k7_k8": "3f800001",
+        "c1_half_ulps_k0_k8": "3f800001",
+        "cancel_k0_k1_small_k8": "00000000",
+        "f16_cancel_k0_k8_one_k15": "00003c00",
+        "f16_cancel_k0_k1_small_k8": "00000000",
+        "f32x8_c1_8_quarter_ulps": "????????",
+        "f32x8_c1_4_quarter_ulps": "????????",
+        "f32x8_one_k0_half_ulps_k3_k4": "????????",
+        "f32x8_c1_half_ulps_k0_k4": "????????",
+        "f32x8_cancel_k0_k1_small_k4": "????????",
+        "f32x8_unrounded_product": "????????",
+        "f32x8_half_ulps_then_one": "????????"
+      }
+    },
+    {
+      "interface": "wgpu-cooperative-matrix",
+      "label": "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630, and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76 (bifrost) through Vulkan on Android, SM-G973F -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Ubuntu 24.04",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Cortex-A725",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 128 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "25.2.8",
+          "api_version": "Vulkan 1.4.318",
+          "backend": "vulkan",
+          "device": "NVIDIA DGX Spark",
+          "runtime": "wgpu 29.0.4, built for aarch64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) UHD Graphics 630 (CFL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series (RADV POLARIS10)",
+          "driver": "radv",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "nvidia",
+          "gpu_version": "Quadro M2000",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "ASUS TUF H370-PRO GAMING",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "intel",
+          "gpu_version": "Intel(R) Iris(R) Xe Graphics (ADL GT2)",
+          "driver": "Intel open-source Mesa driver",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "mesa",
+          "gpu_version": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "driver": "llvmpipe",
+          "driver_version": "26.1.6",
+          "api_version": "Vulkan 1.4.354",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "AMD proprietary driver",
+          "driver_version": "2.0.279",
+          "api_version": "Vulkan 1.3.260",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "31.0.21925.1001",
+          "driver_version": "31.0.21925.1001",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "driver": "10.0.26100.9711",
+          "driver_version": "10.0.26100.9711",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "driver": "ATI Technologies Inc.",
+          "driver_version": "Compatibility Profile Context 23.19.260413",
+          "api_version": "OpenGL 4.6.0",
+          "backend": "opengl",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "amd",
+          "gpu_version": "rdna-2",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.37",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "edge",
+          "browser_version": "158.0.4370.33",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "x86_64",
+          "gpu": "google",
+          "gpu_version": "SwiftShader (software renderer)",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "windows",
+          "os_version": "11",
+          "cpu_arch": "unknown",
+          "gpu": "microsoft",
+          "gpu_version": "Microsoft Basic Render Driver",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "reported": "adapter info blanked",
+          "window": "private"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "c1_16_quarter_ulps": "????????",
+        "c1_8_quarter_ulps": "????????",
+        "c1_4_quarter_ulps": "????????",
+        "one_k0_half_ulps_k1_k8": "????????",
+        "one_k0_half_ulps_k7_k8": "????????",
+        "c1_half_ulps_k0_k8": "????????",
+        "cancel_k0_k1_small_k8": "????????",
+        "f16_cancel_k0_k8_one_k15": "????????",
+        "f16_cancel_k0_k1_small_k8": "????????",
+        "f32x8_c1_8_quarter_ulps": "????????",
+        "f32x8_c1_4_quarter_ulps": "????????",
+        "f32x8_one_k0_half_ulps_k3_k4": "????????",
+        "f32x8_c1_half_ulps_k0_k4": "????????",
+        "f32x8_cancel_k0_k1_small_k4": "????????",
+        "f32x8_unrounded_product": "????????",
+        "f32x8_half_ulps_then_one": "????????"
+      }
+    },
+    {
+      "interface": "wgpu-cooperative-matrix",
+      "label": "Apple M5 Pro through Metal on macOS arm64, 8x8 f32 alone, MacBook Pro (M5 Pro, 2026) -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "macos",
+          "os_version": "27.2.1",
+          "cpu_arch": "aarch64",
+          "cpu_version": "Apple M5 Pro",
+          "gpu": "apple",
+          "gpu_version": "Apple M5 Pro",
+          "backend": "metal",
+          "device": "MacBook Pro (M5 Pro, 2026)",
+          "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "c1_16_quarter_ulps": "????????",
+        "c1_8_quarter_ulps": "????????",
+        "c1_4_quarter_ulps": "????????",
+        "one_k0_half_ulps_k1_k8": "????????",
+        "one_k0_half_ulps_k7_k8": "????????",
+        "c1_half_ulps_k0_k8": "????????",
+        "cancel_k0_k1_small_k8": "????????",
+        "f16_cancel_k0_k8_one_k15": "????????",
+        "f16_cancel_k0_k1_small_k8": "????????",
+        "f32x8_c1_8_quarter_ulps": "3f800000",
+        "f32x8_c1_4_quarter_ulps": "3f800000",
+        "f32x8_one_k0_half_ulps_k3_k4": "3f800000",
+        "f32x8_c1_half_ulps_k0_k4": "3f800000",
+        "f32x8_cancel_k0_k1_small_k4": "3a800000",
+        "f32x8_unrounded_product": "33800000",
+        "f32x8_half_ulps_then_one": "3f800002"
+      }
+    },
+    {
+      "interface": "wgpu-cooperative-matrix",
+      "label": "NVIDIA RTX A1000 Laptop GPU through Vulkan on Linux x86_64, Dell Precision 5570 -- wgpu alone",
+      "seen": [
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "12th Gen Intel(R) Core(TM) i7-12800H",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA RTX A1000 Laptop GPU",
+          "driver": "NVIDIA",
+          "driver_version": "595.104.2.0",
+          "api_version": "Vulkan 1.4.329",
+          "backend": "vulkan",
+          "device": "Dell Precision 5570",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "window": "none",
+          "date": "2026-11-25"
+        }
+      ],
+      "results": {
+        "c1_16_quarter_ulps": "3f800000",
+        "c1_8_quarter_ulps": "3f800000",
+        "c1_4_quarter_ulps": "3f800000",
+        "one_k0_half_ulps_k1_k8": "3f800000",
+        "one_k0_half_ulps_k7_k8": "3f800000",
+        "c1_half_ulps_k0_k8": "3f800000",
+        "cancel_k0_k1_small_k8": "3a800000",
+        "f16_cancel_k0_k8_one_k15": "00007c00",
+        "f16_cancel_k0_k1_small_k8": "00001400",
+        "f32x8_c1_8_quarter_ulps": "????????",
+        "f32x8_c1_4_quarter_ulps": "????????",
+        "f32x8_one_k0_half_ulps_k3_k4": "????????",
+        "f32x8_c1_half_ulps_k0_k4": "????????",
+        "f32x8_cancel_k0_k1_small_k4": "????????",
+        "f32x8_unrounded_product": "????????",
+        "f32x8_half_ulps_then_one": "????????"
+      }
     }
   ]
 }

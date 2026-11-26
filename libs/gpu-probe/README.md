@@ -132,7 +132,7 @@ Name the machine the same way in every step, by its make and model, so its rows 
    MISE_ENV=rust,cuda mise exec -- cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture
    ```
 
-4. **Deno.** The graphics-info module puts the six WebGPU probe sets to each adapter Deno's WebGPU gives, under
+4. **Deno.** The graphics-info module puts every WebGPU probe set to each adapter Deno's WebGPU gives, under
    `et-ws-web-runner`, and proposes them the same way:
 
    ```bash
@@ -144,9 +144,12 @@ Name the machine the same way in every step, by its make and model, so its rows 
    On Windows, run both under `MISE_ENV=rust,msvc`, after `mise run prefetch:msvc` stages the portable MSVC
    toolchain: the default gnullvm target has no V8 prebuilt, and `MISE_ENV=mingw`'s gnu link of the msvc one stops
    on v8 150.4.0 with `undefined symbol: v8__V8__EnableWebAssemblyTrapHandler`. A clone that has moved since it was
-   staged needs the task run again, as `target/msvc/msvc.env` names the toolchain by its absolute path. On an HP
-   EliteBook 645 G10's AMD Radeon (TM) Graphics, Deno's WebGPU refuses the module's second `requestDevice` with
-   `OperationError: Not enough memory left.`, so no set is measured there yet.
+   staged needs the task run again, as `target/msvc/msvc.env` names the toolchain by its absolute path.
+
+   It measures through the operating system's own API, so run it once more for each other backend the machine has,
+   naming it by the registry's name: `DENO_WEBGPU_BACKEND=vulkan` on Windows, say. On an integrated GPU short of
+   memory, the module's later WebGPU probes may report having no device; the probe sets are measured first, and the
+   run still passes.
 
 5. **File and commit.** File what was proposed into `curated/` and regenerate the JSON the crate embeds, then check
    the rows -- a browser that blanks or masks its GPU, as Firefox does, is recorded as the GPU it ran on, with what it

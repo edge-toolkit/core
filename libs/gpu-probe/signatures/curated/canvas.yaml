@@ -198,6 +198,15 @@ signatures:
         backend: unknown
         device: "SM-G973F"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-G973F"
+        window: normal
     results:
       lane0: "c1161ae6"
       lane1: "4f61a1f8"
@@ -252,6 +261,15 @@ signatures:
         gpu_version: "PowerVR Rogue GE8300"
         backend: unknown
         device: "Laser tablet"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.48"
+        os: android
+        os_version: "10.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MID_1089IPSA100"
         window: normal
     results:
       lane0: "0d2dacc4"
@@ -813,3 +831,17 @@ signatures:
       lane1: "b692dd54"
       lane2: "101c7254"
       lane3: "3aa81160"
+  - interface: canvas
+    label: "Chrome 95.0.4638.74 on Android, Samsung Galaxy Note 3 (SM-N9005) -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "95.0.4638.74"
+        os: android
+        os_version: "5.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-N9005"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"

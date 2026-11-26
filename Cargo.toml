@@ -109,6 +109,8 @@ cpu-time = "1"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 critical-section = "1"
 croner = "4"
+# NVIDIA's CUDA driver API; building it needs a CUDA 13 toolkit's headers, so every consumer takes it behind a feature.
+cuda-core = "0.5"
 cyw43 = "0.7"
 cyw43-pio = "0.10"
 defmt = "1"

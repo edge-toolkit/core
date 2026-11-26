@@ -7,7 +7,7 @@ loopback one as insecure over plain HTTP; `--http` serves plain HTTP on a loopba
 ## The probe page
 
 `static/index.html` loads the probe sets built as WASM from `web/` and runs every one the browser can: the shader,
-clear and fixed-function sets through WebGL 2, and all four WebGPU sets on each adapter WebGPU gives -- the
+clear and fixed-function sets through WebGL 2, and every WebGPU set on each adapter WebGPU gives -- the
 high-performance one, the low-power one and the software fallback. It shows each signature with a button that submits
 it to the registry, under the GPU it ran on. The row it is seen at is filled in from what the browser reports, and can
 be corrected before submitting. A Chromium browser on Android gives the phone's model code, such as `SM-G973F`, as the
