@@ -1447,6 +1447,16 @@ signatures:
         backend: vulkan
         device: "SM-G973F"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"

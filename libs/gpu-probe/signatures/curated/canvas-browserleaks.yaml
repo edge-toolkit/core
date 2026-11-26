@@ -236,6 +236,15 @@ signatures:
         backend: unknown
         device: "SM-G973F"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-G973F"
+        window: normal
     results:
       md5: "4c81aa73c8242612fb06a19569ae875a"
   - interface: canvas-browserleaks
@@ -857,3 +866,31 @@ signatures:
         window: normal
     results:
       md5: "398df3de3612e14b8a95dabf6679081b"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.8103.48 on Android, MID_1089IPSA100 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.48"
+        os: android
+        os_version: "10.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "MID_1089IPSA100"
+        window: normal
+    results:
+      md5: "4d8d07921d501b4f3a721367bb8a1586"
+  - interface: canvas-browserleaks
+    label: "Chrome 95.0.4638.74 on Android, SM-N9005 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "95.0.4638.74"
+        os: android
+        os_version: "5.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "SM-N9005"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same canvas differed (per-read noise)"

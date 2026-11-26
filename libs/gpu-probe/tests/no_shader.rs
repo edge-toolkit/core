@@ -420,7 +420,7 @@ fn the_registry_holds_the_exact_clear_answers_only_in_the_entries_reviewed() {
     assert_eq!(unset.remove("environment"), Some("".into()));
     assert_eq!(
         unset.insert("date".to_owned(), "2026-11-25".into()),
-        Some("2026-11-24".into())
+        Some("2026-11-24".into()),
     );
     let webgpu_entry = serde_json::json!({
         "interface": WEBGPU_CLEAR,

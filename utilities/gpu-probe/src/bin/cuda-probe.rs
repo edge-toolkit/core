@@ -22,6 +22,11 @@ const PROLOGUE: &str = "  ld.param.u64 %rd1, [pin];
   cvta.to.global.u64 %rd2, %rd2;
   mov.u32 %r1, %tid.x;";
 
+/// The word a refused case adds to a hash in place of an answer, which no 32-bit answer can be.
+///
+/// So a case refused in one run and answered in another changes the hash, and so does which case was refused.
+const REFUSED: u64 = u64::MAX;
+
 /// Every elementwise probe: the approximate instructions, and two correctly rounded ones that check the harness.
 const OPS: [Probe; 16] = [
     op(
@@ -678,10 +683,6 @@ fn ordered(bits: u64, sign: u64) -> i128 {
         0_i128.saturating_sub(magnitude)
     }
 }
-
-/// The word a refused case adds to a hash in place of an answer: no 32-bit answer can be it, so a case refused in one
-/// run and answered in another changes the hash, and so does which case was refused.
-const REFUSED: u64 = u64::MAX;
 
 /// FNV-1a over `words`, to compare a probe's answers at a glance.
 fn fnv(words: &[u64]) -> u64 {

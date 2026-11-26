@@ -289,13 +289,29 @@ impl Gpu {
     }
 
     /// Open a device on `adapter`, compiling the shader probe sets for it unless `compute` gives the reason not to.
+    ///
+    /// Cooperative matrices are asked for only where a matrix probe would run on them. Asked for anyway, a driver can
+    /// offer them and then refuse the device: lavapipe from Mesa 26.0.8 on arm64 Ubuntu 26.04 did, and wgpu panicked
+    /// with `wgpu-hal invariant was violated (usage error): Requested feature is not available on this device`, on
+    /// <https://github.com/edge-toolkit/core/commit/a17610dd94f476d2b53b8660751d5ab058041e57> at
+    /// <https://github.com/edge-toolkit/core/actions/runs/45729965729/job/139623710473>.
     async fn open_device(adapter: wgpu::Adapter, compute: Result<(), NoCompute>) -> Result<Self, NativeError> {
-        let required_features = adapter.features() & OPTIONAL_FEATURES;
-        let experimental_features = if required_features.contains(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX) {
-            r#unsafe::experimental_features()
-        } else {
-            wgpu::ExperimentalFeatures::disabled()
+        let info = adapter.get_info();
+        let matrices = Matrices {
+            lanes: [info.subgroup_min_size, info.subgroup_max_size],
+            offered: adapter.cooperative_matrix_properties(),
         };
+        // Values rather than branches, as in `ensure_offered`, which says why.
+        let runs_matrices = MATRIX_PROBES
+            .iter()
+            .any(|probe| ensure_offered(probe, &matrices).is_ok());
+        let mut wanted = OPTIONAL_FEATURES;
+        wanted.set(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX, runs_matrices);
+        let required_features = adapter.features() & wanted;
+        let experimental_features = required_features
+            .contains(wgpu::Features::EXPERIMENTAL_COOPERATIVE_MATRIX)
+            .then(r#unsafe::experimental_features)
+            .unwrap_or_else(wgpu::ExperimentalFeatures::disabled);
         let descriptor = wgpu::DeviceDescriptor {
             required_features,
             experimental_features,
@@ -303,14 +319,7 @@ impl Gpu {
         };
         let (device, queue) = adapter.request_device(&descriptor).await?;
         let compute = match compute {
-            Ok(()) => {
-                let info = adapter.get_info();
-                let matrices = Matrices {
-                    lanes: [info.subgroup_min_size, info.subgroup_max_size],
-                    offered: adapter.cooperative_matrix_properties(),
-                };
-                Ok(Compute::compile(&device, &matrices).await)
-            }
+            Ok(()) => Ok(Compute::compile(&device, &matrices).await),
             Err(reason) => Err(reason),
         };
         Ok(Self {
@@ -864,13 +873,11 @@ impl Compute {
     /// Every shader probe set, compiled for `device`, whose adapter's cooperative matrices are `matrices`.
     ///
     /// A matrix probe of a shape and types the adapter does not offer, or where no subgroup can be 32 lanes, is refused
-    /// without being compiled. Compiled
-    /// anyway, it can run and answer nonsense rather than be refused: NVIDIA's Vulkan driver, which offers no 8x8x8
-    /// `f32` configuration, answered 0 to every such probe on a GB10 and an RTX A1000, even with C = 1. Or it fails as
-    /// an internal error, which no validation scope catches, so wgpu panics: Metal did for a 16x16 probe on an Apple M5
-    /// Pro, with
-    ///
-    ///     Internal error: Metal: program_source:30:8: error: no type named 'simdgroup_half16x16' in namespace 'metal'
+    /// without being compiled. Compiled anyway, it can run and answer nonsense rather than be refused: NVIDIA's Vulkan
+    /// driver, which offers no 8x8x8 `f32` configuration, answered 0 to every such probe on a GB10 and an RTX A1000,
+    /// even with C = 1. Or it fails as an internal error, which no validation scope catches, so wgpu panics: Metal did
+    /// for a 16x16 probe on an Apple M5 Pro, with
+    /// `Internal error: Metal: program_source:30:8: error: no type named 'simdgroup_half16x16' in namespace 'metal'`.
     async fn compile(device: &wgpu::Device, matrices: &Matrices) -> Self {
         let mut probes = Vec::new();
         for shader in shaders() {
@@ -927,9 +934,6 @@ fn refusal(description: String) -> wgpu::Error {
 /// that merely includes 32 is let through, because Metal reports 4..=64 for every Apple GPU, whose simdgroups are 32.
 fn ensure_offered(probe: &MatrixProbe, matrices: &Matrices) -> Result<(), wgpu::Error> {
     let [fewest, most] = matrices.lanes;
-    if !(fewest..=most).contains(&32) {
-        return Err(refusal(format!("subgroups of {fewest}..={most} lanes, where a matrix probe needs 32")));
-    }
     let size = match probe.shape {
         Shape::F16x16 => 16,
         Shape::F32x8 => 8,
@@ -942,17 +946,20 @@ fn ensure_offered(probe: &MatrixProbe, matrices: &Matrices) -> Result<(), wgpu::
         Accumulator::F16 => wgpu::CooperativeScalarType::F16,
         Accumulator::F32 => wgpu::CooperativeScalarType::F32,
     };
+    // The checks are values rather than branches: the runners that measure coverage offer cooperative matrices only
+    // on subgroups narrower than 32, so no branch that lets a probe through could be taken there.
+    let wanted = ([size; 3], operand, accumulator);
     let fits = |properties: &wgpu::CooperativeMatrixProperties| {
-        [properties.m_size, properties.n_size, properties.k_size] == [size; 3]
-            && properties.ab_type == operand
-            && properties.cr_type == accumulator
+        let offered = [properties.m_size, properties.n_size, properties.k_size];
+        (offered, properties.ab_type, properties.cr_type) == wanted
     };
-    if matrices.offered.iter().any(fits) {
-        return Ok(());
-    }
-    Err(refusal(format!(
-        "no {size}x{size}x{size} cooperative matrix of {operand:?} into {accumulator:?} offered"
-    )))
+    let narrow = (!(fewest..=most).contains(&32))
+        .then(|| format!("subgroups of {fewest}..={most} lanes, where a matrix probe needs 32"));
+    let unoffered = (!matrices.offered.iter().any(fits))
+        .then(|| format!("no {size}x{size}x{size} cooperative matrix of {operand:?} into {accumulator:?} offered"));
+    narrow
+        .or(unoffered)
+        .map_or(Ok(()), |description| Err(refusal(description)))
 }
 
 /// The pipeline on `device` that runs the shader `wgsl` holds.

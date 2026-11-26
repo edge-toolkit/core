@@ -167,13 +167,7 @@ impl WebGpuProbeResult {
         }
 
         // The device the later probes are run on, so that none of them opens another.
-        let device = match request_gpu_device(&window).await {
-            Ok(device) => device,
-            Err(error) => {
-                info!("WebGPU probe: no device: {}", describe_js_error(&error));
-                JsValue::NULL
-            }
-        };
+        let device = gpu_device_or_null(&window, "WebGPU probe").await;
 
         let device_created = !device.is_null() && !device.is_undefined();
         info!(
@@ -329,6 +323,10 @@ thread_local! {
 /// until the runtime exits, not when it is dropped, destroyed or collected. See [`probe_sets`].
 ///
 /// The answer is `null` or `undefined` where the browser has no WebGPU, no adapter, or no device to give.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the request itself, kept apart from how a failed one is logged"
+)]
 async fn request_gpu_device(window: &web_sys::Window) -> Result<JsValue, JsValue> {
     if let Some(device) = GPU_DEVICE.with_borrow(Clone::clone) {
         return Ok(device);
@@ -346,6 +344,17 @@ async fn request_gpu_device(window: &web_sys::Window) -> Result<JsValue, JsValue
         GPU_DEVICE.set(Some(device.clone()));
     }
     Ok(device)
+}
+
+/// The device [`request_gpu_device`] gives, or `null` where the request fails, which is logged as `probe`'s.
+async fn gpu_device_or_null(window: &web_sys::Window, probe: &str) -> JsValue {
+    match request_gpu_device(window).await {
+        Ok(device) => device,
+        Err(error) => {
+            info!("{probe}: no device: {}", describe_js_error(&error));
+            JsValue::NULL
+        }
+    }
 }
 
 /// Build a `GPUBuffer` of `size` bytes with the given `usage` flags.
@@ -542,13 +551,7 @@ impl GpuComputeResult {
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
-        let device = match request_gpu_device(&window).await {
-            Ok(device) => device,
-            Err(error) => {
-                info!("GPU compute: no device: {}", describe_js_error(&error));
-                JsValue::NULL
-            }
-        };
+        let device = gpu_device_or_null(&window, "GPU compute").await;
         if device.is_null() || device.is_undefined() {
             return Ok(Self {
                 success: false,
@@ -721,13 +724,7 @@ impl GpuNumericProbe {
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
-        let device = match request_gpu_device(&window).await {
-            Ok(device) => device,
-            Err(error) => {
-                info!("GPU numeric probe: no device: {}", describe_js_error(&error));
-                JsValue::NULL
-            }
-        };
+        let device = gpu_device_or_null(&window, "GPU numeric probe").await;
         if device.is_null() || device.is_undefined() {
             return Ok(Self {
                 signature: et_gpu_probe::Signature::new(et_gpu_probe::WEBGPU, Vec::new()),

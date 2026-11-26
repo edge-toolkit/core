@@ -332,6 +332,16 @@ signatures:
         runtime: "et-ws-web-runner 0.3.0"
         window: none
         date: "2026-11-25"
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
     results:
       c1_16_quarter_ulps: "????????"
       c1_8_quarter_ulps: "????????"

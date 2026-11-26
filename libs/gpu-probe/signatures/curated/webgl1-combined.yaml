@@ -200,6 +200,16 @@ signatures:
         backend: opengl-es
         device: "SM-G973F"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "????????"
@@ -850,3 +860,63 @@ signatures:
       atan2: "3d087ae6"
       tanh: "????????"
       dot: "3f800000"
+  - interface: webgl1-combined
+    label: "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 1 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.48"
+        os: android
+        os_version: "10.0.0"
+        cpu_arch: unknown
+        gpu: "imagination technologies"
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "MID_1089IPSA100"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "40800000"
+      divide: "3eaaa000"
+      subnormal_product: "00000000"
+      sqrt: "3fddc000"
+      inverse_sqrt: "3f13c000"
+      sin: "3dcc8000"
+      cos: "3f7ec000"
+      tan: "3dcd8000"
+      exp: "3f8d8000"
+      log: "3f8ca000"
+      pow: "3f8ee000"
+      atan2: "3d088000"
+      tanh: "????????"
+      dot: "3f800000"
+  - interface: webgl1-combined
+    label: "Adreno (TM) 330 through opengl-es on android, SM-N9005 -- WebGL 1 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "95.0.4638.74"
+        os: android
+        os_version: "5.0.0"
+        cpu_arch: unknown
+        gpu: qualcomm
+        gpu_version: "Adreno (TM) 330"
+        backend: opengl-es
+        device: "SM-N9005"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "????????"
+      swamped_sum: "00000000"
+      divide: "3eaaa000"
+      subnormal_product: "00000000"
+      sqrt: "3fdda000"
+      inverse_sqrt: "3f13c000"
+      sin: "3dcc6000"
+      cos: "3f7ea000"
+      tan: "3dcd6000"
+      exp: "3f8d6000"
+      log: "3f8c8000"
+      pow: "3f8ec000"
+      atan2: "3d086000"
+      tanh: "????????"
+      dot: "00000000"

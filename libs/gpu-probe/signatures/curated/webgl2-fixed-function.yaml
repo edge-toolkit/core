@@ -265,6 +265,16 @@ signatures:
         backend: opengl-es
         device: "SM-G973F"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "Mali-G76"
+        backend: opengl-es
+        device: "SM-G973F"
+        window: normal
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -577,3 +587,26 @@ signatures:
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"
+  - interface: webgl2-fixed-function
+    label: "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 2 on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.48"
+        os: android
+        os_version: "10.0.0"
+        cpu_arch: unknown
+        gpu: "imagination technologies"
+        gpu_version: "PowerVR Rogue GE8300"
+        backend: opengl-es
+        device: "MID_1089IPSA100"
+        window: normal
+    results:
+      blend_multiply: "00000032"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0aa1"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd1000"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "00000007"

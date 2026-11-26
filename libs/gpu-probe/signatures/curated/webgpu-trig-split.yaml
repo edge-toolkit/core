@@ -516,3 +516,33 @@ signatures:
       cos_9_36: "bf7f6e2e"
       cos_10_47: "bf007014"
       cos_11_21: "3e59de78"
+  - interface: webgpu-trig-split
+    label: "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
+    results:
+      sin_4_55: "bf7ca1e1"
+      sin_5_66: "bf1568cd"
+      sin_6_40: "3deeb1df"
+      sin_7_14: "3f41795f"
+      sin_7_88: "3f7fe9d1"
+      sin_9_36: "3d848fa2"
+      sin_10_47: "bf5d72c7"
+      sin_11_21: "bf7a2322"
+      cos_4_55: "be258cc1"
+      cos_5_66: "3f4fe085"
+      cos_6_40: "3f7e415c"
+      cos_7_14: "3f27a44e"
+      cos_7_88: "bcd52440"
+      cos_9_36: "bf7f7695"
+      cos_10_47: "bf007076"
+      cos_11_21: "3e59e4d8"

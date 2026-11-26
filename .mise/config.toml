@@ -683,7 +683,9 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # libpython3.13.dylib on macOS via its @rpath install name). Points at the exact `3.x.y` install dir (the
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.18/lib"
-wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
+# The wasm flags without reference types, for a build that must run where WebAssembly has none.
+a_wasm_mvp_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
+wasm_rustflags = "{{ vars.a_wasm_mvp_rustflags }},+reference-types"
 # Instrumentation flags (leaf var) shared by the wasm coverage builds.
 # The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
 # mise's alphabetical [vars] render defines it before wasm_cov_rustflags uses it.
@@ -3366,6 +3368,30 @@ wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- -
 """
 shell = "{{ vars.task_shell }}"
 
+# The same WASM for browsers whose WebAssembly has no reference types, which the page loads where the other fails.
+# Chrome turned them on in 96, a version Android 5 never got, and Chrome 95 on a Galaxy Note 3 refused the page with
+#   CompileError: WebAssembly.instantiateStreaming(): invalid value type 'externref', enable with
+#   --experimental-wasm-reftypes @+42
+# Leaving them out of the crate's flags is not enough: the std Rust ships for wasm32 has them compiled in, and
+# wasm-bindgen then fails with "failed to find the `__wbindgen_externref_table_dealloc` function". So std is rebuilt
+# with the same flags, which only nightly can do, and which takes long enough that only the LAN server, the one old
+# phones reach, builds it; the hosted site goes without. RUSTFLAGS, not the CARGO_TARGET_* variable the workspace
+# sets, because it wins over that one. `rust_nightly` predates the workspace `rust-version`, hence
+# --ignore-rust-version. A target directory of its own keeps the two builds from discarding each other's artifacts.
+[tasks.build-gpu-probe-page-compat]
+description = "Build the GPU probe WASM without reference types into utilities/gpu-probe/static/pkg-compat"
+dir = "utilities/gpu-probe/web"
+run = """
+pkg="../static/pkg-compat"
+export RUSTUP_TOOLCHAIN="{{ vars.rust_nightly }}"
+export RUSTFLAGS="{{ vars.a_wasm_mvp_rustflags }}"
+export CARGO_TARGET_DIR="{{ config_root }}/target/gpu-probe-compat"
+std="-Z build-std=std,panic_abort --ignore-rust-version"
+# shellcheck disable=SC2086 # $std is two flags, split by design.
+wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- --target wasm32-unknown-unknown $std
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.build-gpu-probe-site]
 depends = ["build-gpu-probe-page"]
 description = "Assemble the GPU probe page as a static site in target/gpu-probe-site, to deploy to a host like Vercel"
@@ -3738,7 +3764,7 @@ description = "Collect GPU probe signatures into libs/gpu-probe/signatures over 
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 
 [tasks.gpu-probe-server-lan]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-compat"]
 description = "Collect GPU probe signatures over HTTPS from other devices on the LAN, listening on 0.0.0.0:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --bind {{ vars.lan_bind }}"
 

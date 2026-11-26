@@ -47,6 +47,35 @@ macro_rules! quarter_ulps {
     };
 }
 
+/// A 16x16x16 probe of `f16` operands into `accumulator`.
+///
+/// A macro rather than a `const fn`, which only ever runs while the table is evaluated at compile time, so coverage
+/// would count it as never run.
+macro_rules! half {
+    ($name:expr, $accumulator:expr, $products:expr, $addend:expr $(,)?) => {
+        MatrixProbe {
+            name: $name,
+            shape: Shape::F16x16,
+            accumulator: $accumulator,
+            products: $products,
+            addend: $addend,
+        }
+    };
+}
+
+/// An 8x8x8 probe in `f32` throughout, a macro for the reason [`half!`] is.
+macro_rules! single {
+    ($name:expr, $products:expr, $addend:expr $(,)?) => {
+        MatrixProbe {
+            name: $name,
+            shape: Shape::F32x8,
+            accumulator: Accumulator::F32,
+            products: $products,
+            addend: $addend,
+        }
+    };
+}
+
 /// Every matrix probe, in output order.
 ///
 /// The first three of the 16x16x16 probes add quarter-ulps to C = 1: a device that keeps one bit below the last place
@@ -61,70 +90,70 @@ macro_rules! quarter_ulps {
 /// product is rounded to `f32` before it is added, which cancelling the square of `1 + 2^-12` against its rounded value
 /// shows, and how three half-ulps summed before a 1 are rounded once it arrives.
 pub const MATRIX_PROBES: [MatrixProbe; MATRIX_COUNT] = [
-    half(
+    half!(
         "c1_16_quarter_ulps",
         Accumulator::F32,
         quarter_ulps!(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15),
         1.0,
     ),
-    half(
+    half!(
         "c1_8_quarter_ulps",
         Accumulator::F32,
         quarter_ulps!(0 1 2 3 4 5 6 7),
         1.0,
     ),
-    half("c1_4_quarter_ulps", Accumulator::F32, quarter_ulps!(0 1 2 3), 1.0),
-    half(
+    half!("c1_4_quarter_ulps", Accumulator::F32, quarter_ulps!(0 1 2 3), 1.0),
+    half!(
         "one_k0_half_ulps_k1_k8",
         Accumulator::F32,
         &[(0, 1.0, 1.0), (1, TINY, TINY), (8, TINY, TINY)],
         0.0,
     ),
-    half(
+    half!(
         "one_k0_half_ulps_k7_k8",
         Accumulator::F32,
         &[(0, 1.0, 1.0), (7, TINY, TINY), (8, TINY, TINY)],
         0.0,
     ),
-    half(
+    half!(
         "c1_half_ulps_k0_k8",
         Accumulator::F32,
         &[(0, TINY, TINY), (8, TINY, TINY)],
         1.0,
     ),
-    half(
+    half!(
         "cancel_k0_k1_small_k8",
         Accumulator::F32,
         &[(0, 4096.0, 4096.0), (1, -4096.0, 4096.0), (8, 0.031_25, 0.031_25)],
         0.0,
     ),
-    half(
+    half!(
         "f16_cancel_k0_k8_one_k15",
         Accumulator::F16,
         &[(0, 4096.0, 4096.0), (8, -4096.0, 4096.0), (15, 1.0, 1.0)],
         0.0,
     ),
-    half(
+    half!(
         "f16_cancel_k0_k1_small_k8",
         Accumulator::F16,
         &[(0, 4096.0, 4096.0), (1, -4096.0, 4096.0), (8, 0.031_25, 0.031_25)],
         0.0,
     ),
-    single("f32x8_c1_8_quarter_ulps", quarter_ulps!(0 1 2 3 4 5 6 7), 1.0),
-    single("f32x8_c1_4_quarter_ulps", quarter_ulps!(0 1 2 3), 1.0),
-    single(
+    single!("f32x8_c1_8_quarter_ulps", quarter_ulps!(0 1 2 3 4 5 6 7), 1.0),
+    single!("f32x8_c1_4_quarter_ulps", quarter_ulps!(0 1 2 3), 1.0),
+    single!(
         "f32x8_one_k0_half_ulps_k3_k4",
         &[(0, 1.0, 1.0), (3, TINY, TINY), (4, TINY, TINY)],
         0.0,
     ),
-    single("f32x8_c1_half_ulps_k0_k4", &[(0, TINY, TINY), (4, TINY, TINY)], 1.0),
-    single(
+    single!("f32x8_c1_half_ulps_k0_k4", &[(0, TINY, TINY), (4, TINY, TINY)], 1.0),
+    single!(
         "f32x8_cancel_k0_k1_small_k4",
         &[(0, 4096.0, 4096.0), (1, -4096.0, 4096.0), (4, 0.031_25, 0.031_25)],
         0.0,
     ),
-    single("f32x8_unrounded_product", &[(0, ULP_BASE, ULP_BASE)], NEGATED_SQUARE),
-    single(
+    single!("f32x8_unrounded_product", &[(0, ULP_BASE, ULP_BASE)], NEGATED_SQUARE),
+    single!(
         "f32x8_half_ulps_then_one",
         &[(0, TINY, TINY), (1, TINY, TINY), (2, TINY, TINY), (7, 1.0, 1.0)],
         0.0,
@@ -225,33 +254,6 @@ pub struct MatrixProbe {
     pub addend: f32,
 }
 
-/// A 16x16x16 probe of `f16` operands into `accumulator`.
-const fn half(
-    name: &'static str,
-    accumulator: Accumulator,
-    products: &'static [(usize, f32, f32)],
-    addend: f32,
-) -> MatrixProbe {
-    MatrixProbe {
-        name,
-        shape: Shape::F16x16,
-        accumulator,
-        products,
-        addend,
-    }
-}
-
-/// An 8x8x8 probe in `f32` throughout.
-const fn single(name: &'static str, products: &'static [(usize, f32, f32)], addend: f32) -> MatrixProbe {
-    MatrixProbe {
-        name,
-        shape: Shape::F32x8,
-        accumulator: Accumulator::F32,
-        products,
-        addend,
-    }
-}
-
 /// Each matrix probe's name.
 pub(crate) fn names() -> Vec<&'static str> {
     MATRIX_PROBES.iter().map(|probe| probe.name).collect()
@@ -264,7 +266,7 @@ fn operands(probe: &MatrixProbe) -> (Vec<f32>, Vec<f32>) {
             probe
                 .products
                 .iter()
-                .find(|&&(position, _, _)| position == depth)
+                .find(|&&(position, ..)| position == depth)
                 .map_or((0.0, 0.0), |&(_, in_a, in_b)| (in_a, in_b))
         })
         .unzip()

@@ -68,7 +68,7 @@ const PROBE_SETS_FILENAME: &str = "gpu-probe-sets.json";
 /// started with it as `DENO_WEBGPU_BACKEND`, which wgpu takes the registry's names in, because left to itself wgpu
 /// picks Vulkan wherever a Vulkan driver is installed, Windows included, and nothing the page sees says which it chose.
 fn deno_backend() -> String {
-    let env: DenoEnv = serde_env::from_env().expect("the environment is readable");
+    let env: DenoEnv = serde_env::from_env().unwrap();
     if !env.deno.webgpu_backend.is_empty() {
         return env.deno.webgpu_backend;
     }

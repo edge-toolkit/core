@@ -332,6 +332,17 @@
           "backend": "unknown",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -1194,6 +1205,45 @@
       }
     },
     {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 157.0.8103.48 on Android, MID_1089IPSA100 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "4d8d07921d501b4f3a721367bb8a1586"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 95.0.4638.74 on Android, SM-N9005 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same canvas differed (per-read noise)"
+    },
+    {
       "interface": "canvas",
       "label": "Apple M5 Pro, macOS -- canvas 2D on Chromium",
       "seen": [
@@ -1453,6 +1503,17 @@
           "backend": "unknown",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -1525,6 +1586,17 @@
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "unknown",
           "device": "Laser tablet",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "MID_1089IPSA100",
           "window": "normal"
         }
       ],
@@ -2283,6 +2355,25 @@
         "lane2": "101c7254",
         "lane3": "3aa81160"
       }
+    },
+    {
+      "interface": "canvas",
+      "label": "Chrome 95.0.4638.74 on Android, SM-N9005 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "blocked": true,
+      "reason": "randomised: two reads of the same scene differed (per-read noise)"
     },
     {
       "interface": "host",
@@ -3428,6 +3519,18 @@
           "backend": "opengl-es",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -4203,6 +4306,78 @@
       }
     },
     {
+      "interface": "webgl1-combined",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imagination technologies",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddc000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc8000",
+        "cos": "3f7ec000",
+        "tan": "3dcd8000",
+        "exp": "3f8d8000",
+        "log": "3f8ca000",
+        "pow": "3f8ee000",
+        "atan2": "3d088000",
+        "tanh": "????????",
+        "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-combined",
+      "label": "Adreno (TM) 330 through opengl-es on android, SM-N9005 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 330",
+          "backend": "opengl-es",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fdda000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc6000",
+        "cos": "3f7ea000",
+        "tan": "3dcd6000",
+        "exp": "3f8d6000",
+        "log": "3f8c8000",
+        "pow": "3f8ec000",
+        "atan2": "3d086000",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
       "interface": "webgl1-split",
       "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2)",
       "seen": [
@@ -4434,6 +4609,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -5214,6 +5401,78 @@
         "atan2": "3d087ae6",
         "tanh": "????????",
         "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imagination technologies",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40800000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddc000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc8000",
+        "cos": "3f7ec000",
+        "tan": "3dcd8000",
+        "exp": "3f8d8000",
+        "log": "3f8ca000",
+        "pow": "3f8ee000",
+        "atan2": "3d088000",
+        "tanh": "????????",
+        "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Adreno (TM) 330 through opengl-es on android, SM-N9005 -- WebGL 1 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "95.0.4638.74",
+          "os": "android",
+          "os_version": "5.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 330",
+          "backend": "opengl-es",
+          "device": "SM-N9005",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "40000000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fdda000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc6000",
+        "cos": "3f7ea000",
+        "tan": "3dcd6000",
+        "exp": "3f8d6000",
+        "log": "3f8c8000",
+        "pow": "3f8ec000",
+        "atan2": "3d086000",
+        "tanh": "????????",
+        "dot": "00000000"
       }
     },
     {
@@ -5637,6 +5896,18 @@
           "backend": "opengl-es",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -5993,6 +6264,36 @@
       }
     },
     {
+      "interface": "webgl2-clear",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imagination technologies",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "unorm8_quarter": "0000000a",
+        "unorm8_half": "0000000b",
+        "unorm8_three_quarters": "0000000b",
+        "unorm10_three_quarters": "00000065",
+        "srgb8_mid": "000000bc",
+        "srgb8_dark": "00000007",
+        "ufloat11_rounding": "000003c0",
+        "half_rounding": "00003c01",
+        "half_subnormal": "00000010",
+        "half_overflow": "00007c00"
+      }
+    },
+    {
       "interface": "webgl2-combined",
       "label": "ARM Mali-G76, OpenGL ES, Galaxy S10 -- WebGL 2 on Chrome 157, Samsung Internet 31, Brave 1.99, Firefox 159",
       "seen": [
@@ -6047,6 +6348,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -6441,6 +6754,18 @@
           "gpu_version": "PowerVR Rogue GE8300",
           "backend": "opengl-es",
           "device": "Laser tablet",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imagination technologies",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
           "window": "normal"
         }
       ],
@@ -7483,6 +7808,18 @@
           "backend": "opengl-es",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -7862,6 +8199,35 @@
         "raster_right_edge_fine": "00000007",
         "raster_left_edge_fine": "000000f8",
         "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
+      "interface": "webgl2-fixed-function",
+      "label": "PowerVR Rogue GE8300 through opengl-es on android, MID_1089IPSA100 -- WebGL 2 on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imagination technologies",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000032",
+        "blend_half_float": "00003c00",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0aa1",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd1000",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "00000007"
       }
     },
     {
@@ -8472,6 +8838,18 @@
           "backend": "opengl-es",
           "device": "Laser tablet",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "157.0.8103.48",
+          "os": "android",
+          "os_version": "10.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "imagination technologies",
+          "gpu_version": "PowerVR Rogue GE8300",
+          "backend": "opengl-es",
+          "device": "MID_1089IPSA100",
+          "window": "normal"
         }
       ],
       "results": {
@@ -8511,6 +8889,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "Mali-G76",
+          "backend": "opengl-es",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -10446,6 +10836,18 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -11246,6 +11648,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -15284,6 +15698,18 @@
           "backend": "vulkan",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -17462,6 +17888,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -19849,6 +20287,18 @@
           "backend": "vulkan",
           "device": "SM-G973F",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {
@@ -20806,6 +21256,18 @@
         {
           "browser": "chrome",
           "browser_version": "157.0.8103.80",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
           "os": "android",
           "os_version": "12.0.0",
           "cpu_arch": "unknown",
@@ -23533,6 +23995,42 @@
       }
     },
     {
+      "interface": "webgpu-trig-split",
+      "label": "bifrost through vulkan on android, SM-G973F -- WebGPU on chrome",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "sin_4_55": "bf7ca1e1",
+        "sin_5_66": "bf1568cd",
+        "sin_6_40": "3deeb1df",
+        "sin_7_14": "3f41795f",
+        "sin_7_88": "3f7fe9d1",
+        "sin_9_36": "3d848fa2",
+        "sin_10_47": "bf5d72c7",
+        "sin_11_21": "bf7a2322",
+        "cos_4_55": "be258cc1",
+        "cos_5_66": "3f4fe085",
+        "cos_6_40": "3f7e415c",
+        "cos_7_14": "3f27a44e",
+        "cos_7_88": "bcd52440",
+        "cos_9_36": "bf7f7695",
+        "cos_10_47": "bf007076",
+        "cos_11_21": "3e59e4d8"
+      }
+    },
+    {
       "interface": "webgpu",
       "label": "Tor Browser on macOS, Apple M5 Pro: reporting itself as Firefox 153.0.0, and 16.0.1 in a private window",
       "seen": [
@@ -24005,6 +24503,18 @@
           "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.44",
+          "os": "android",
+          "os_version": "12.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "arm",
+          "gpu_version": "bifrost",
+          "backend": "vulkan",
+          "device": "SM-G973F",
+          "window": "normal"
         }
       ],
       "results": {

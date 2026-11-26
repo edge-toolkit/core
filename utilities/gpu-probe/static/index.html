@@ -121,12 +121,25 @@
     <script type="module">
     import { judged, proposals } from "/propose.js";
     import { register } from "/register.js";
-    import init, {
-      probe_canvas,
-      probe_webgl1,
-      probe_webgl2,
-      probe_webgpu,
-    } from "./pkg/et_int_gpu_probe_web.js";
+
+    // The probes' WASM, started: the usual build, or where the browser's WebAssembly refuses it, as one with no
+    // reference types does, the build made for such browsers. Only the LAN server builds that one, for the old phones
+    // that reach it; where there is none, the usual build's refusal stands.
+    const loadProbes = async () => {
+      const name = "et_int_gpu_probe_web.js";
+      const usual = await import(`./pkg/${name}`);
+      try {
+        await usual.default();
+        return usual;
+      } catch (error) {
+        if (!(error instanceof WebAssembly.CompileError)) throw error;
+        const compat = await import(`./pkg-compat/${name}`).catch(() => null);
+        if (!compat) throw error;
+        await compat.default();
+        return compat;
+      }
+    };
+    let probe_canvas, probe_webgl1, probe_webgl2, probe_webgpu;
 
     const field = (id) => document.getElementById(id);
     const status = field("status");
@@ -142,21 +155,29 @@
     // Tell a driver how a run went: in the console, one line per line of the status, each opening `gpu-probe: `,
     // and to the server, which logs them. A browser with no WebDriver is read from whichever of the two reaches it.
     // A post the server never takes, or does not answer within a few seconds, leaves the console lines standing, and
-    // is no failure of the probes themselves.
+    // is no failure of the probes themselves. It answers whether the server took them. The wait is an
+    // AbortController's rather than `AbortSignal.timeout`, which Chrome lacks before 103: there the post threw, so an
+    // old phone's failure never reached the server.
     const statusWait = 5000;
     const tell = async (text) => {
       const lines = text.split("\n");
       for (const line of lines) console.log(`gpu-probe: ${line}`);
-      if (!served) return;
+      if (!served) return false;
+      const waited = new AbortController();
+      const timer = setTimeout(() => waited.abort(), statusWait);
       try {
-        await fetch("/status", {
+        const response = await fetch("/status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: lines }),
-          signal: AbortSignal.timeout(statusWait),
+          signal: waited.signal,
         });
+        return response.ok;
       } catch (error) {
         console.log(`gpu-probe: the server was not told: ${error}`);
+        return false;
+      } finally {
+        clearTimeout(timer);
       }
     };
 
@@ -242,6 +263,15 @@
     // "ANGLE (vendor, vendor model (0xid) Direct3D11 vs_5_0 ps_5_0, D3D11)" over Direct3D on Windows.
     // Firefox names a stand-in GPU of the same vendor and API instead, followed by ", or similar": its vendor and API
     // are still the GPU's, but its model is not, so the string is kept only as what was reported.
+    // The registry's GPU vendor for each name an Android OpenGL ES driver gives its vendor by.
+    const driverVendors = {
+      arm: "arm",
+      "imagination technologies": "imgtec",
+      nvidia: "nvidia",
+      "nvidia corporation": "nvidia",
+      qualcomm: "qualcomm",
+    };
+
     const webglGpu = (kind) => {
       const context = document.createElement("canvas").getContext(kind);
       const debug = context?.getExtension("WEBGL_debug_renderer_info");
@@ -251,9 +281,19 @@
       const similar = renderer.match(/^(.*), or similar$/);
       const angle = (similar ? similar[1] : renderer).match(/^ANGLE \((.*)\)$/);
       if (!angle) {
+        // A renderer ANGLE does not wrap is the driver's own. On Android that driver is OpenGL ES, which Chrome before
+        // ANGLE reached it, such as Chrome 95 on Android 5, drew through alone, and WebGL gives the driver's vendor
+        // beside it, by the driver's name for it: only those the registry names a GPU vendor by are taken.
+        const android = renderer && field("os").value === "android";
+        const driverVendor = debug && android
+          ? String(context.getParameter(debug.UNMASKED_VENDOR_WEBGL))
+            .toLowerCase()
+          : "";
+        const vendor = driverVendors[driverVendor] ?? "";
+        const backend = android ? "opengl-es" : "unknown";
         return similar
-          ? { vendor: "", model: "", backend: "unknown", reported: renderer }
-          : { vendor: "", model: renderer, backend: "unknown" };
+          ? { vendor, model: "", backend, reported: renderer }
+          : { vendor, model: renderer, backend };
       }
       const [vendor, named = "", ...rest] = topLevel(angle[1]);
       const api = apis.find(([pattern]) =>
@@ -663,7 +703,8 @@
     };
 
     try {
-      await init();
+      ({ probe_canvas, probe_webgl1, probe_webgl2, probe_webgpu } =
+        await loadProbes());
       await fillShared();
       status.textContent = "Running the probes...";
       const submitters = [];
@@ -794,30 +835,62 @@
           `Probed. Check each row, then propose the results on GitHub.${missing}`;
         await tell(status.textContent);
       } else {
+        // Every set is submitted in turn, the button off meanwhile so a second press cannot send them twice, and how
+        // each went is written to the status. It opens "Submitted." only when every set went in or was there already,
+        // and there was one to send: that is what a driver reading it is told the run succeeded by.
         const submitAll = async () => {
+          const button = field("submit-all");
+          button.disabled = true;
+          status.className = "";
           const outcomes = [];
-          for (const shown of submitters) outcomes.push(await shown.submit());
-          return outcomes;
-        };
-        field("submit-all").disabled = submitters.length === 0;
-        field("submit-all").addEventListener("click", submitAll);
-        status.textContent = `Probed. Check each row, then submit.${missing}`;
-        if (query.has("submit")) {
-          // The status opens "Submitted." only when every set went in or was there already, and there was one to
-          // send: that is what a driver reading it is told the run succeeded by.
-          const outcomes = await submitAll();
+          for (const shown of submitters) {
+            status.textContent = `Submitting ${
+              outcomes.length + 1
+            } of ${submitters.length} probe sets...`;
+            outcomes.push(await shown.submit());
+          }
           const lines = outcomes.map((outcome) => outcome.line).join("\n");
           const taken = outcomes.length > 0 &&
             outcomes.every((outcome) => outcome.kind !== "bad");
           const verdict = taken ? "Submitted." : "Not submitted.";
+          status.className = taken ? "" : "bad";
           status.textContent = `${verdict}${missing}\n${lines}`;
+          button.disabled = false;
           await tell(status.textContent);
-        }
+        };
+        // The button stays off until every probe set has been measured, which is only now.
+        field("submit-all").disabled = submitters.length === 0;
+        field("submit-all").addEventListener("click", submitAll);
+        status.textContent = `Probed. Check each row, then submit.${missing}`;
+        if (query.has("submit")) await submitAll();
       }
     } catch (error) {
       status.className = "bad";
       status.textContent = `The probes could not run: ${error}`;
-      await tell(status.textContent);
+      // The server is told the browser and where the error arose too, since that is what finding its cause needs, and
+      // a button sends it again, saying whether it arrived, for a phone whose first post was lost.
+      const report = [
+        status.textContent,
+        `user agent: ${navigator.userAgent}`,
+        ...(error && error.stack ? [`stack: ${error.stack}`] : []),
+      ]
+        .join("\n");
+      const told = await tell(report);
+      if (served) {
+        const button = document.createElement("button");
+        button.textContent = "Send this error to the server";
+        const outcome = document.createElement("p");
+        outcome.textContent = told ? "The server has been told." : "";
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          outcome.textContent = "Sending...";
+          outcome.textContent = (await tell(report))
+            ? "Sent: the server has logged it."
+            : "Not sent: the server did not answer.";
+          button.disabled = false;
+        });
+        status.after(button, outcome);
+      }
     }
     </script>
   </body>

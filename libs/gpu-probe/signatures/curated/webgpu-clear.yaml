@@ -1143,6 +1143,16 @@ signatures:
         runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
         window: none
         date: "2026-11-25"
+      - browser: chrome
+        browser_version: "158.0.8127.44"
+        os: android
+        os_version: "12.0.0"
+        cpu_arch: unknown
+        gpu: arm
+        gpu_version: "bifrost"
+        backend: vulkan
+        device: "SM-G973F"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
