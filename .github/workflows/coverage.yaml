@@ -339,12 +339,19 @@ jobs:
           flags: python,${{ matrix.os_flag }}
           fail_ci_if_error: true
 
+      # Skipped on a pull request from a fork, which GitHub never issues an OIDC token to.
+      # That holds whatever `id-token` says, and the DeepSource CLI has no tokenless fallback, so the upload fails with
+      #   DeepSource | Error | Failed to get DSN using OIDC: failed to fetch "ACTIONS_ID_TOKEN_REQUEST_TOKEN" and
+      #   "ACTIONS_ID_TOKEN_REQUEST_URL" from environment variables.
+      # on commit https://github.com/edge-toolkit/core/commit/efe87f1d601362babbe5a9fcc4b357717100e0a3 at
+      # https://github.com/edge-toolkit/core/actions/runs/45622652706/job/139234787022.
+      # Codecov's action falls back to a tokenless upload there instead, so `codecov/patch` still gates the fork.
       - name: Upload Rust coverage to DeepSource (OIDC)
-        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && hashFiles('lcov.info') != '' && !github.event.pull_request.head.repo.fork }}
         run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
 
       - name: Upload Python coverage to DeepSource (OIDC)
-        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' && !github.event.pull_request.head.repo.fork }}
         run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.
