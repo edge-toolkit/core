@@ -1316,6 +1316,32 @@ signatures:
         runtime: "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm"
         window: none
         date: "2026-11-25"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-25"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-25"
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"

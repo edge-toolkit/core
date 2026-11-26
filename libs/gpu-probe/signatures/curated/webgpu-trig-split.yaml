@@ -342,6 +342,32 @@ signatures:
         device: "HP EliteBook 645 G10"
         reported: "adapter info blanked"
         window: private
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: vulkan
+        device: "HP EliteBook 645 G10"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-25"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: windows
+        os_version: "11 (26200)"
+        cpu_arch: x86_64
+        cpu_version: "AMD Ryzen 7 7730U with Radeon Graphics"
+        gpu: amd
+        gpu_version: "AMD Radeon (TM) Graphics"
+        backend: d3d12
+        device: "HP EliteBook 645 G10"
+        runtime: "et-ws-web-runner 0.3.0"
+        window: none
+        date: "2026-11-25"
     results:
       sin_4_55: "bf7ca1cc"
       sin_5_66: "bf156872"
@@ -395,8 +421,7 @@ signatures:
       cos_10_47: "bf007011"
       cos_11_21: "3e59e47e"
   - interface: webgpu-trig-split
-    label: "Microsoft Basic Render Driver through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no
-      browser"
+    label: "Microsoft Basic Render Driver through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Firefox"
     seen:
       - browser: none
         os: windows

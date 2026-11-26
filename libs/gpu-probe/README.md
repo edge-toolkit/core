@@ -144,9 +144,18 @@ Name the machine the same way in every step, by its make and model, so its rows 
    On Windows, run both under `MISE_ENV=rust,msvc`, after `mise run prefetch:msvc` stages the portable MSVC
    toolchain: the default gnullvm target has no V8 prebuilt, and `MISE_ENV=mingw`'s gnu link of the msvc one stops
    on v8 150.4.0 with `undefined symbol: v8__V8__EnableWebAssemblyTrapHandler`. A clone that has moved since it was
-   staged needs the task run again, as `target/msvc/msvc.env` names the toolchain by its absolute path. On an HP
-   EliteBook 645 G10's AMD Radeon (TM) Graphics, Deno's WebGPU refuses the module's second `requestDevice` with
-   `OperationError: Not enough memory left.`, so no set is measured there yet.
+   staged needs the task run again, as `target/msvc/msvc.env` names the toolchain by its absolute path.
+
+   The test starts the runner with `DENO_WEBGPU_BACKEND` set to the backend it records: Metal on macOS, Direct3D 12
+   on Windows and Vulkan elsewhere, or the backend `DENO_WEBGPU_BACKEND` names, by the registry's name. Left to
+   itself, wgpu picks Vulkan wherever a Vulkan driver is installed, Windows included. So run it once more for each
+   other backend the machine has, `DENO_WEBGPU_BACKEND=vulkan` on Windows, say.
+
+   Deno keeps every device it opens until the runtime exits. On Vulkan each one holds a 128 MiB block of
+   device-local memory, and an integrated GPU may have little more: the AMD Radeon (TM) Graphics of an HP EliteBook
+   645 G10 has 256 MiB, so a second device fails with `OperationError: Not enough memory left.` The module measures
+   the probe sets first, on the first device, and opens one device for its other WebGPU probes. Those report having
+   no device where this one is full, and the run still passes.
 
 5. **File and commit.** File what was proposed into `curated/` and regenerate the JSON the crate embeds, then check
    the rows -- a browser that blanks or masks its GPU, as Firefox does, is recorded as the GPU it ran on, with what it

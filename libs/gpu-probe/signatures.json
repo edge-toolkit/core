@@ -11002,7 +11002,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan and Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
       "seen": [
         {
           "browser": "none",
@@ -11156,6 +11156,36 @@
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
         }
@@ -13159,7 +13189,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -13210,6 +13240,21 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -13233,7 +13278,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -13263,6 +13308,21 @@
           "backend": "d3d12",
           "device": "HP EliteBook 645 G10",
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
         }
@@ -14672,6 +14732,21 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -15707,7 +15782,7 @@
     },
     {
       "interface": "webgpu-f16-combined",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -15739,6 +15814,21 @@
           "backend": "vulkan",
           "device": "HP EliteBook 645 G10",
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
         }
@@ -16828,6 +16918,21 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -17863,7 +17968,7 @@
     },
     {
       "interface": "webgpu-f16-split",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -17895,6 +18000,21 @@
           "backend": "vulkan",
           "device": "HP EliteBook 645 G10",
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
         }
@@ -19573,6 +19693,36 @@
           "backend": "opengl",
           "device": "HP EliteBook 645 G10",
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
         }
@@ -22204,7 +22354,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "AMD Radeon (TM) Graphics through vulkan on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Vulkan on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -22255,6 +22405,21 @@
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -22278,7 +22443,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "AMD Radeon (TM) Graphics through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "AMD Radeon (TM) Graphics through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Deno",
       "seen": [
         {
           "browser": "none",
@@ -22308,6 +22473,21 @@
           "backend": "d3d12",
           "device": "HP EliteBook 645 G10",
           "runtime": "wgpu 29.0.4, built for x86_64-pc-windows-gnullvm",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
         }
@@ -23146,6 +23326,36 @@
           "device": "HP EliteBook 645 G10",
           "reported": "adapter info blanked",
           "window": "private"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
@@ -23210,7 +23420,7 @@
     },
     {
       "interface": "webgpu-trig-split",
-      "label": "Microsoft Basic Render Driver through d3d12 on windows 11 (26200) x86_64, HP EliteBook 645 G10 -- wgpu, no browser",
+      "label": "Microsoft Basic Render Driver through Direct3D 12 on Windows x86_64, HP EliteBook 645 G10 -- wgpu alone and WebGPU on Firefox",
       "seen": [
         {
           "browser": "none",
@@ -23765,6 +23975,36 @@
           "device": "HP EliteBook 645 G10",
           "reported": "adapter info blanked",
           "window": "private"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "vulkan",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "windows",
+          "os_version": "11 (26200)",
+          "cpu_arch": "x86_64",
+          "cpu_version": "AMD Ryzen 7 7730U with Radeon Graphics",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon (TM) Graphics",
+          "backend": "d3d12",
+          "device": "HP EliteBook 645 G10",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "window": "none",
+          "date": "2026-11-25"
         }
       ],
       "results": {
