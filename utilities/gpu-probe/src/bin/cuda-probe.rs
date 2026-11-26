@@ -679,6 +679,10 @@ fn ordered(bits: u64, sign: u64) -> i128 {
     }
 }
 
+/// The word a refused case adds to a hash in place of an answer: no 32-bit answer can be it, so a case refused in one
+/// run and answered in another changes the hash, and so does which case was refused.
+const REFUSED: u64 = u64::MAX;
+
 /// FNV-1a over `words`, to compare a probe's answers at a glance.
 fn fnv(words: &[u64]) -> u64 {
     words.iter().fold(0xcbf2_9ce4_8422_2325, |hash, word| {
@@ -782,7 +786,10 @@ fn report_mma(out: &mut StdoutLock<'_>, ctx: &Arc<Context>, stream: &Arc<Stream>
                         "    {name:<30} got={got:08x} round-to-nearest={nearest:08x} {mark}",
                     )?;
                 }
-                Err(error) => writeln!(out, "    {name:<30} refused: {error}")?,
+                Err(error) => {
+                    words.push(REFUSED);
+                    writeln!(out, "    {name:<30} refused: {error}")?;
+                }
             }
         }
         writeln!(out, "    fnv of every answer: {:016x}", fnv(&words))?;
@@ -815,20 +822,23 @@ fn report_targets(out: &mut StdoutLock<'_>, ctx: &Arc<Context>, stream: &Arc<Str
         }
         writeln!(out, "{line}")?;
     }
-    let mut line = format!("    {:<24}", "mma (every case)");
-    for &(arch, ptx_version) in TARGETS.iter().filter(|target| target.0 >= 80) {
-        let ptx = module(ptx_version, arch, &Mma::F16.entry());
-        let answers: Result<Vec<u64>, DriverError> = mma_cases()
-            .iter()
-            .map(|case| run::<u32, u32>(ctx, stream, &ptx, &mma_input(Mma::F16, case), 1, 32))
-            .map(|answer| answer.map(|words| u64::from(words.first().copied().unwrap_or_default())))
-            .collect();
-        match answers {
-            Ok(words) => write!(line, " {arch}:{:016x}", fnv(&words))?,
-            Err(_) => write!(line, " {arch}:refused")?,
+    for kind in Mma::ALL {
+        let mut line = format!("    mma {:<20}", kind.name());
+        for &(arch, ptx_version) in TARGETS.iter().filter(|target| target.0 >= 80) {
+            let ptx = module(ptx_version, arch, &kind.entry());
+            let answers: Result<Vec<u64>, DriverError> = mma_cases()
+                .iter()
+                .filter(|case| case.products.len() <= kind.depth())
+                .map(|case| run::<u32, u32>(ctx, stream, &ptx, &mma_input(kind, case), 1, 32))
+                .map(|answer| answer.map(|words| u64::from(words.first().copied().unwrap_or_default())))
+                .collect();
+            match answers {
+                Ok(words) => write!(line, " {arch}:{:016x}", fnv(&words))?,
+                Err(_) => write!(line, " {arch}:refused")?,
+            }
         }
+        writeln!(out, "{line}")?;
     }
-    writeln!(out, "{line}")?;
     Ok(())
 }
 
@@ -862,7 +872,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut out = std::io::stdout().lock();
     writeln!(out, "cuda driver version: {}", driver_version()?)?;
     for ordinal in 0..usize::try_from(Context::device_count()?)? {
-        report_device(&mut out, ordinal)?;
+        // A device that cannot be reported on is said so, and the next one tried; stdout failing ends the run, since
+        // nothing after it could be written.
+        match report_device(&mut out, ordinal) {
+            Ok(()) => {}
+            Err(error) if error.is::<std::io::Error>() => return Err(error),
+            Err(error) => writeln!(out, "device {ordinal}: refused: {error}")?,
+        }
     }
     Ok(())
 }

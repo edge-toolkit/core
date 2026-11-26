@@ -259,15 +259,15 @@ pub(crate) fn names() -> Vec<&'static str> {
 
 /// Each matrix probe's A and B values at every k of its shape, zero where the probe names no product.
 fn operands(probe: &MatrixProbe) -> (Vec<f32>, Vec<f32>) {
-    let size = probe.shape.size();
-    let (mut left, mut right) = (vec![0.0_f32; size], vec![0.0_f32; size]);
-    for &(position, in_a, in_b) in probe.products {
-        if let (Some(slot_a), Some(slot_b)) = (left.get_mut(position), right.get_mut(position)) {
-            *slot_a = in_a;
-            *slot_b = in_b;
-        }
-    }
-    (left, right)
+    (0..probe.shape.size())
+        .map(|depth| {
+            probe
+                .products
+                .iter()
+                .find(|&&(position, _, _)| position == depth)
+                .map_or((0.0, 0.0), |&(_, in_a, in_b)| (in_a, in_b))
+        })
+        .unzip()
 }
 
 /// `value` as a WGSL literal of the type whose suffix is `suffix`, written in full so the literal is exact.

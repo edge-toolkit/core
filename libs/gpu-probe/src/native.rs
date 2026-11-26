@@ -303,7 +303,14 @@ impl Gpu {
         };
         let (device, queue) = adapter.request_device(&descriptor).await?;
         let compute = match compute {
-            Ok(()) => Ok(Compute::compile(&device, &adapter.cooperative_matrix_properties()).await),
+            Ok(()) => {
+                let info = adapter.get_info();
+                let matrices = Matrices {
+                    lanes: [info.subgroup_min_size, info.subgroup_max_size],
+                    offered: adapter.cooperative_matrix_properties(),
+                };
+                Ok(Compute::compile(&device, &matrices).await)
+            }
             Err(reason) => Err(reason),
         };
         Ok(Self {
@@ -854,16 +861,17 @@ const fn blend_component(operation: Operation) -> wgpu::BlendComponent {
 }
 
 impl Compute {
-    /// Every shader probe set, compiled for `device`, whose adapter offers the cooperative matrices `offered`.
+    /// Every shader probe set, compiled for `device`, whose adapter's cooperative matrices are `matrices`.
     ///
-    /// A matrix probe of a shape and types the adapter does not offer is refused without being compiled. Compiled
+    /// A matrix probe of a shape and types the adapter does not offer, or where no subgroup can be 32 lanes, is refused
+    /// without being compiled. Compiled
     /// anyway, it can run and answer nonsense rather than be refused: NVIDIA's Vulkan driver, which offers no 8x8x8
     /// `f32` configuration, answered 0 to every such probe on a GB10 and an RTX A1000, even with C = 1. Or it fails as
     /// an internal error, which no validation scope catches, so wgpu panics: Metal did for a 16x16 probe on an Apple M5
     /// Pro, with
     ///
     ///     Internal error: Metal: program_source:30:8: error: no type named 'simdgroup_half16x16' in namespace 'metal'
-    async fn compile(device: &wgpu::Device, offered: &[wgpu::CooperativeMatrixProperties]) -> Self {
+    async fn compile(device: &wgpu::Device, matrices: &Matrices) -> Self {
         let mut probes = Vec::new();
         for shader in shaders() {
             probes.push(compile(device, &shader.1).await);
@@ -878,7 +886,7 @@ impl Compute {
         }
         let mut matrix_probes = Vec::new();
         for (probe, shader) in MATRIX_PROBES.iter().zip(matrix_shaders()) {
-            let compiled = match ensure_offered(probe, offered) {
+            let compiled = match ensure_offered(probe, matrices) {
                 Ok(()) => compile(device, &shader.1).await,
                 Err(refusal) => Err(refusal),
             };
@@ -895,8 +903,33 @@ impl Compute {
     }
 }
 
-/// Refuse `probe` where no configuration in `offered` has its shape and types.
-fn ensure_offered(probe: &MatrixProbe, offered: &[wgpu::CooperativeMatrixProperties]) -> Result<(), wgpu::Error> {
+/// What an adapter gives the matrix probes to run on.
+struct Matrices {
+    /// The fewest and most lanes the adapter's subgroups have.
+    lanes: [u32; 2],
+    /// Every cooperative-matrix configuration the adapter offers.
+    offered: Vec<wgpu::CooperativeMatrixProperties>,
+}
+
+/// `description` as a refusal.
+fn refusal(description: String) -> wgpu::Error {
+    wgpu::Error::Validation {
+        source: Box::new(std::io::Error::other(description.clone())),
+        description,
+    }
+}
+
+/// Refuse `probe` where no subgroup can be 32 lanes, or no configuration offered has its shape and types.
+///
+/// Every matrix shader is one workgroup of 32 invocations sharing one matrix, so it is one subgroup only where the
+/// device's subgroups are 32 lanes wide. Narrower, several subgroups would each store the same tile; wider, Vulkan
+/// leaves a subgroup-scope cooperative matrix in a workgroup that is not a multiple of the subgroup undefined. A range
+/// that merely includes 32 is let through, because Metal reports 4..=64 for every Apple GPU, whose simdgroups are 32.
+fn ensure_offered(probe: &MatrixProbe, matrices: &Matrices) -> Result<(), wgpu::Error> {
+    let [fewest, most] = matrices.lanes;
+    if !(fewest..=most).contains(&32) {
+        return Err(refusal(format!("subgroups of {fewest}..={most} lanes, where a matrix probe needs 32")));
+    }
     let size = match probe.shape {
         Shape::F16x16 => 16,
         Shape::F32x8 => 8,
@@ -914,14 +947,12 @@ fn ensure_offered(probe: &MatrixProbe, offered: &[wgpu::CooperativeMatrixPropert
             && properties.ab_type == operand
             && properties.cr_type == accumulator
     };
-    if offered.iter().any(fits) {
+    if matrices.offered.iter().any(fits) {
         return Ok(());
     }
-    let description = format!("no {size}x{size}x{size} cooperative matrix of {operand:?} into {accumulator:?} offered");
-    Err(wgpu::Error::Validation {
-        source: Box::new(std::io::Error::other(description.clone())),
-        description,
-    })
+    Err(refusal(format!(
+        "no {size}x{size}x{size} cooperative matrix of {operand:?} into {accumulator:?} offered"
+    )))
 }
 
 /// The pipeline on `device` that runs the shader `wgsl` holds.
