@@ -1352,6 +1352,46 @@ signatures:
         runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
         window: none
         date: "2026-11-25"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz"
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-27"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz"
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        runtime: "et-ws-web-runner 0.3.0"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: none
+        date: "2026-11-27"
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -1577,6 +1617,26 @@ signatures:
         device: "Dell Precision 5570"
         defence: "Shields farbling, on as Brave ships"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "maxwell"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "maxwell"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: private
     results:
       multiply_add: "33800000"
       fma: "33800000"

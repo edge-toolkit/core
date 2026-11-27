@@ -3483,6 +3483,15 @@ description = "Probe every GPU Google Chrome offers on the GPU probe page, WebGL
 # WebDriver, whose calls curl makes: the page submits every set itself when opened with `submit`, and says how each
 # went in its status line, which the task prints. google-chrome and curl are the host's: the probes measure the
 # browser the person has.
+#
+# --environment starts Chrome under driver settings, such as VK_DRIVER_FILES naming one GPU's Vulkan driver, which
+# reaches a GPU Chrome would not pick of two. The page cannot see them, so they are passed to it as the rows'
+# environment, sorted by name as gpu-probe records its own.
+#
+# --headless runs Chrome with no display, through EGL, and so reaches through ANGLE's gl backend a GPU that NVIDIA's
+# EGL drives while another GPU drives the display: under X11 that EGL takes down Chrome's GPU process. WebGPU is left
+# off, since the software adapter it falls back to there leaves the page no WebGL context, and so is Vulkan for the gl
+# backends, which would composite on the display's GPU and leave WebGL none either.
 run = """
 # shellcheck shell=bash # Linux only: it starts the host's google-chrome with the Vulkan switches of Chrome on Linux.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
@@ -3506,21 +3515,45 @@ fi
 coreutils mkdir -p target/gpu-probe-chrome
 # The device goes in the page's query, so it is percent-encoded: a `&` in it would otherwise start another parameter.
 device="${usage_device:-}" yq -n 'strenv(device) | @uri' >target/gpu-probe-chrome/device
-device=$(coreutils cat target/gpu-probe-chrome/device)
+query="device=$(coreutils cat target/gpu-probe-chrome/device)"
+read -r -a settings <<<"${usage_environment:-}"
+for setting in "${settings[@]}"; do
+  if [[ $setting != [!=]*=* ]]; then
+    printf -- '--environment takes NAME=value settings, not %s\\n' "$setting" >&2
+    exit 2
+  fi
+done
+if [ -n "${usage_environment:-}" ]; then
+  environment="$(printf '%s\\n' "${settings[@]}" | LC_ALL=C coreutils sort | coreutils paste -s -d ' ')"
+  query="$query&environment=$(environment="$environment" yq -n 'strenv(environment) | @uri')"
+fi
 angle="${usage_angle:-vulkan}"
+headless="${usage_headless:-false}"
+if [ "$headless" = true ] && [ "${usage_submit:-false}" != true ]; then
+  printf -- '--headless opens no window for a person to submit from, so it takes --submit\\n' >&2
+  exit 2
+fi
 if [ "$angle" = vulkan ]; then
   switches=("--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan")
+elif [ "$headless" = true ]; then
+  switches=("--use-angle=$angle" --enable-unsafe-swiftshader)
 else
   switches=(--enable-features=Vulkan "--use-angle=$angle" --enable-unsafe-swiftshader)
 fi
-switches+=(--enable-unsafe-webgpu --ozone-platform=x11 --no-first-run)
+if [ "$headless" = true ]; then
+  switches+=(--headless=new --no-first-run)
+else
+  switches+=(--enable-unsafe-webgpu --ozone-platform=x11 --no-first-run)
+fi
 if [ "${usage_submit:-false}" != true ]; then
   profile="$PWD/target/gpu-probe-chrome/$angle"
-  google-chrome "${switches[@]}" "--user-data-dir=$profile" "http://localhost:8099/?device=$device"
+  url="http://localhost:8099/?$query"
+  coreutils env "${settings[@]}" google-chrome "${switches[@]}" "--user-data-dir=$profile" "$url"
   exit
 fi
 driver=http://localhost:9515
-chromedriver --port=9515 >target/gpu-probe-chrome/chromedriver.log 2>&1 &
+# Chrome is started by chromedriver, and takes the driver settings from its environment.
+coreutils env "${settings[@]}" chromedriver --port=9515 >target/gpu-probe-chrome/chromedriver.log 2>&1 &
 ready "$driver/status" $! 60 chromedriver
 profile="$PWD/target/gpu-probe-chrome/$angle-driven"
 args=$(printf '"%s",' "${switches[@]}" "--user-data-dir=$profile")
@@ -3529,7 +3562,7 @@ capabilities='{"capabilities":{"alwaysMatch":{"browserName":"chrome","goog:chrom
 reply=target/gpu-probe-chrome/webdriver-reply.json
 curl -sf -XPOST "$driver/session" -d "$capabilities" -o "$reply"
 session="$driver/session/$(yq -p json '.value.sessionId' "$reply")"
-url="http://localhost:8099/?submit&device=$device" yq -n -o json -I0 '{"url": strenv(url)}' >"$reply"
+url="http://localhost:8099/?submit&$query" yq -n -o json -I0 '{"url": strenv(url)}' >"$reply"
 curl -sf -XPOST "$session/url" -d "@$reply" >/dev/null
 read_status='{"script":"return document.getElementById(\\"status\\").textContent","args":[]}'
 # The page says "Submitted." only when every set went in or was on record already, and "Not submitted." otherwise.
@@ -3550,6 +3583,8 @@ shell = "{{ vars.task_shell }}"
 usage = """
 arg "[angle]" help="The ANGLE backend Chrome runs WebGL on: vulkan (default), gl or swiftshader"
 flag "--device <device>" help="The machine the rows name, such as its make and model"
+flag "--environment <settings>" help="Driver settings to start Chrome under, as NAME=value separated by spaces"
+flag "--headless" help="Run Chrome with no display, through EGL, and with no WebGPU; it takes --submit"
 flag "--submit" help="Drive Chrome through chromedriver and submit every probe set, rather than open it for a person"
 """
 
@@ -3570,6 +3605,14 @@ description = "Probe a browser on the GPU probe page from a fresh profile: a Fla
 # There is no WebDriver for most of these, and the one GNOME Web ships cannot reach the browser from inside its
 # sandbox, so with --submit the page is opened with `submit` and read from the server: the page posts its status
 # lines to `/status` once every set is submitted, and the server logs them.
+#
+# --environment starts the browser under driver settings, as gpu-probe-chrome's does, passed into a Flatpak's sandbox
+# with its --env, where a path in one names the sandbox's own files rather than the host's. Safari opens only through
+# Launch Services, which passes on no environment, so it takes none.
+#
+# --webgpu turns on WebGPU in a browser built on Firefox, which on Linux offers none as it ships, and past its GPU
+# blocklist. It changes which interfaces answer, not what any answers, so it is named in the rows only as a defence it
+# lifts, where the browser ships one.
 run = """
 # shellcheck shell=bash # Linux and macOS: the host's firefox or a Flathub Flatpak, or a macOS app.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
@@ -3617,6 +3660,15 @@ if [ "${usage_high_performance_gpu:-false}" = true ] && [ "$chromium_based" != t
   printf -- '--high-performance-gpu is for a browser built on Chromium, not %s\\n' "$browser" >&2
   exit 2
 fi
+case "$browser" in
+  firefox | librewolf | mullvad-browser | tor-browser) ;;
+  *)
+    if [ "${usage_webgpu:-false}" = true ]; then
+      printf -- '--webgpu is for a browser built on Firefox, not %s\\n' "$browser" >&2
+      exit 2
+    fi
+    ;;
+esac
 port="${usage_port:-8097}"
 # A run's workspace is keyed by its port as well, so runs of one browser on two ports never share or remove the other's.
 run="target/gpu-probe-browser/$browser-$port"
@@ -3720,6 +3772,26 @@ if [ "$macos" = true ]; then
   # Only Chromium gives the system's version to the page.
   query="$query&os_version=$(sw_vers -productVersion)"
 fi
+read -r -a settings <<<"${usage_environment:-}"
+for setting in "${settings[@]}"; do
+  if [[ $setting != [!=]*=* ]]; then
+    printf -- '--environment takes NAME=value settings, not %s\\n' "$setting" >&2
+    exit 2
+  fi
+done
+if [ -n "${usage_environment:-}" ]; then
+  if [ "$browser" = safari ]; then
+    printf -- '--environment cannot reach Safari, which opens only through Launch Services\\n' >&2
+    exit 2
+  elif [ -n "$app" ]; then
+    # A Flatpak gives its sandbox none of the caller's environment, only what each --env sets.
+    launch=("${launch[@]:0:3}" "${settings[@]/#/--env=}" "${launch[@]:3}")
+  else
+    launch=(coreutils env "${settings[@]}" "${launch[@]}")
+  fi
+  environment="$(printf '%s\\n' "${settings[@]}" | LC_ALL=C coreutils sort | coreutils paste -s -d ' ')"
+  query="$query&environment=$(environment="$environment" yq -n 'strenv(environment) | @uri')"
+fi
 case "$browser" in
   firefox | librewolf | mullvad-browser | tor-browser)
     coreutils cp .mise/gpu-probe-browser.user.js "$profile/user.js"
@@ -3743,6 +3815,12 @@ case "$browser" in
     if [ "${usage_fingerprinting_protection:-false}" = true ]; then
       printf 'user_pref("privacy.fingerprintingProtection", true);\\n' >>"$profile/user.js"
       defence="${defence:+$defence, }privacy.fingerprintingProtection on"
+    fi
+    if [ "${usage_webgpu:-false}" = true ]; then
+      printf 'user_pref("dom.webgpu.enabled", true);\\n' >>"$profile/user.js"
+      printf 'user_pref("gfx.webgpu.ignore-blocklist", true);\\n' >>"$profile/user.js"
+      # Only a browser that ships a defence of its own has WebGPU among the things it turns off.
+      if [ -n "$defence" ]; then defence="$defence, WebGPU turned on"; fi
     fi
     args=(--no-remote --profile "$profile" --new-window)
     # Mullvad Browser and Tor Browser start through a script that sends the browser's output nowhere unless asked.
@@ -3798,8 +3876,10 @@ arg "<browser>" help="The browser to probe" {
   choices "firefox" "librewolf" "mullvad-browser" "tor-browser" "brave" "chromium" "edge" "gnome-web" "chrome" "safari"
 }
 flag "--device <device>" help="The machine the rows name, such as its make and model"
+flag "--environment <settings>" help="Driver settings to start the browser under, as NAME=value separated by spaces"
 flag "--fingerprinting-protection" help="Turn on privacy.fingerprintingProtection, for one built on Firefox"
 flag "--high-performance-gpu" help="Run WebGL on the high-performance GPU, for one built on Chromium"
+flag "--webgpu" help="Turn WebGPU on, past its GPU blocklist, for one built on Firefox"
 flag "--port <port>" help="The port to serve the page on for the run, 8097 if not given"
 flag "--submit" help="Submit every probe set from the page and print how each went, rather than open it for a person"
 """
