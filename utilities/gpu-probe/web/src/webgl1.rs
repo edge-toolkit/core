@@ -10,12 +10,12 @@
     reason = "each step of opening WebGL 1 and measuring through it is a named function of its own"
 )]
 
-use et_gpu_probe::{Glsl, Signature, WEBGL1, WEBGL1_COMBINED, batched};
+use et_gpu_probe::{Glsl, PROBE_COUNT, Signature, WEBGL1, WEBGL1_COMBINED, batched};
 use js_sys::Float32Array;
 use wasm_bindgen::JsCast as _;
 use web_sys::WebGl2RenderingContext as Context;
 
-use crate::batch::{self, layout};
+use crate::batch::{self, layout, size};
 use crate::targets::{attach, read, texture};
 use crate::webgl2::{WebGl2Error, context_of, settled};
 
@@ -60,18 +60,21 @@ fn context() -> Result<(Context, Glsl), WebGl2Error> {
     Ok((context, glsl))
 }
 
-/// Whether `context` draws into a 32-bit float target and reads it back.
+/// Whether `context` draws into a 32-bit float target the size of a batch's and reads it back.
 ///
 /// That takes `OES_texture_float` for the texture, and `WEBGL_color_buffer_float`, where the browser has it, to draw
-/// into one; the Tor Browser allows both and refuses the read, which is why the read is tried too.
+/// into one; the Tor Browser allows both and refuses the read, which is why the read is tried too. The target is the
+/// size every probe in one batch draws into, since a browser may take a smaller one only.
 fn reads_floats(context: &Context) -> bool {
     let textures = context.get_extension("OES_texture_float").ok().flatten().is_some();
     let _drawable = context.get_extension("WEBGL_color_buffer_float");
     let name = "a float target";
+    let width = u32::try_from(PROBE_COUNT).unwrap_or(u32::MAX);
+    let values = width.saturating_mul(4);
     textures
-        && texture(context, layout(Glsl::Es100Float), name, 1, None)
-            .and_then(|target| attach(context, &target, name, 1))
-            .and_then(|()| read(context, 1, Context::FLOAT, &Float32Array::new_with_length(4)))
+        && texture(context, layout(Glsl::Es100Float), name, size(width), None)
+            .and_then(|target| attach(context, &target, name, size(width)))
+            .and_then(|()| read(context, width, Context::FLOAT, &Float32Array::new_with_length(values)))
             .and_then(|()| settled(context))
             .is_ok()
 }

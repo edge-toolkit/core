@@ -1368,6 +1368,39 @@ url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-she
 url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/580851837"
 provenance = "github-attestations"
 
+[[tools."github:WebAssembly/binaryen"]]
+version = "133"
+backend = "github:WebAssembly/binaryen"
+specifiers = ["latest"]
+
+[tools."github:WebAssembly/binaryen".options]
+version_prefix = "version_"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64"]
+checksum = "sha256:89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580038503"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64"]
+checksum = "sha256:2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580050094"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-arm64"]
+checksum = "sha256:ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-arm64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039733"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-x64"]
+checksum = "sha256:13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039734"
+
+[tools."github:WebAssembly/binaryen"."platforms.windows-x64"]
+checksum = "sha256:17a2cbeac6b5693c5fbafab3838d3c65fd9c1eb38b05f5baec6c657e8c84995b"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-windows.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580050907"
+
 [[tools."github:benhoyt/goawk"]]
 version = "1.32.0"
 backend = "github:benhoyt/goawk"
@@ -1830,6 +1863,36 @@ checksum = "sha256:87a632668c55969a7d916f214a28a7d365f6a68ec626b547bd1243e035b9c
 url = "https://github.com/rvben/rumdl/releases/download/v0.3.2/rumdl-v0.3.2-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449367"
 provenance = "github-attestations"
+
+[[tools."github:swc-project/swc"]]
+version = "1.16.22"
+backend = "github:swc-project/swc"
+specifiers = ["latest"]
+
+[tools."github:swc-project/swc"."platforms.linux-arm64"]
+checksum = "sha256:7477c9ee5ffd7395386d71c4f6a27d4af48d46658143fcd30a539c115554145f"
+url = "https://github.com/swc-project/swc/releases/download/v1.16.22/swc-linux-arm64-gnu"
+url_api = "https://api.github.com/repos/swc-project/swc/releases/assets/713035902"
+
+[tools."github:swc-project/swc"."platforms.linux-x64"]
+checksum = "sha256:2adfddf3eb83a769a2afe3ff03bfe35e849aa386cca56c737dd399070586317a"
+url = "https://github.com/swc-project/swc/releases/download/v1.16.22/swc-linux-x64-gnu"
+url_api = "https://api.github.com/repos/swc-project/swc/releases/assets/713036394"
+
+[tools."github:swc-project/swc"."platforms.macos-arm64"]
+checksum = "sha256:4519900160a188cbaaab6dd2976f273fe01451004eb06aeff5090a36f73830a0"
+url = "https://github.com/swc-project/swc/releases/download/v1.16.22/swc-darwin-arm64"
+url_api = "https://api.github.com/repos/swc-project/swc/releases/assets/713035538"
+
+[tools."github:swc-project/swc"."platforms.macos-x64"]
+checksum = "sha256:fc8e8b985ff40a73f4d04e36e3fc810d15d6fa7571e2e7b420abeae61b717aa4"
+url = "https://github.com/swc-project/swc/releases/download/v1.16.22/swc-darwin-x64"
+url_api = "https://api.github.com/repos/swc-project/swc/releases/assets/713035667"
+
+[tools."github:swc-project/swc"."platforms.windows-x64"]
+checksum = "sha256:a976214b54e7bb108adb83954ba0ce0535f82563add5ff5a28b0e05f888825b1"
+url = "https://github.com/swc-project/swc/releases/download/v1.16.22/swc-win32-x64-msvc.exe"
+url_api = "https://api.github.com/repos/swc-project/swc/releases/assets/713036827"
 
 [[tools."github:taiki-e/cargo-hack"]]
 version = "0.6.46"
@@ -2302,6 +2365,12 @@ url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-darwin-x64.tar.gz"
 [tools.node."platforms.windows-x64"]
 checksum = "sha256:ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2"
 url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-win-x64.zip"
+
+[[tools."npm:esbuild"]]
+version = "0.28.2"
+aube = { path = "locks/npm-esbuild/0.28.2", digest = "sha256:48c047b501bcf7f51ed4029d8d8b27c434971b09da913b3fb439c7652a5c2e31" }
+backend = "npm:esbuild"
+specifiers = ["latest"]
 
 [[tools.osv-scanner]]
 version = "2.7.0"

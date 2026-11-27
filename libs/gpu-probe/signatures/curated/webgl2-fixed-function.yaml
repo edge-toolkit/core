@@ -491,6 +491,46 @@ signatures:
         device: "Dell Precision 5570"
         defence: "Shields farbling, on as Brave ships"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: private
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950/PCIe/SSE2"
+        backend: opengl-es
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950/PCIe/SSE2"
+        backend: opengl-es
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: private
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -610,3 +650,82 @@ signatures:
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "00000007"
+  - interface: webgl2-fixed-function
+    label: "Apple A19 GPU through Metal on iOS, iPhone 17 -- WebGL 2 on Chrome 158"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "Apple A19 GPU"
+        backend: unknown
+        device: "iPhone 17"
+        reported: "Apple GPU"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0a0a"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0dd1"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgl2-fixed-function
+    label: "Qualcomm Adreno (TM) 530 through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 2 on Chrome 133 and Firefox 160"
+    seen:
+      - browser: chrome
+        browser_version: "133.0.6943.137"
+        os: android
+        os_version: "8.0.0"
+        cpu_arch: unknown
+        gpu: qualcomm
+        gpu_version: "Adreno (TM) 530"
+        backend: opengl-es
+        device: "F8331"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: android
+        cpu_arch: unknown
+        gpu: qualcomm
+        backend: opengl-es
+        device: "F8331"
+        reported: "Adreno (TM) 540, or similar"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3ea9e9ea"
+      filter_fine: "00000000"
+      filter_srgb: "3ddcc000"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgl2-fixed-function
+    label: "AMD Radeon RX 580 Series through opengl on linux, Dell Precision Tower 5810 -- WebGL 2 on firefox"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: amd
+        gpu_version: "AMD Radeon RX 580 Series"
+        backend: opengl
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        reported: "Radeon R9 200 Series, or similar"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c00"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0000"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0000"
+      raster_right_edge_fine: "0000000f"
+      raster_left_edge_fine: "000000f0"
+      raster_right_edge_coarse: "0000000f"

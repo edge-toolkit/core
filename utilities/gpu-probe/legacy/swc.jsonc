@@ -1,0 +1,12 @@
+// How swc lowers the bundled probe page to ES5 for build-gpu-probe-page-legacy.
+// It is a classic script rather than a module, minified only to drop its whitespace, which leaves it under half the
+// size swc would otherwise print it at.
+{
+  "isModule": false,
+  "jsc": {
+    "minify": { "compress": false, "mangle": false },
+    "parser": { "syntax": "ecmascript" },
+    "target": "es5",
+  },
+  "minify": true,
+}

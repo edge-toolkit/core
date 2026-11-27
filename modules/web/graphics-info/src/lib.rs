@@ -210,6 +210,8 @@ pub struct GpuComputeResult {
     elapsed_ms: f64,
     /// First element of the output matrix (`C[0][0]`) for spot-check.
     result_c00: f32,
+    /// Why the multiply did not run, empty when it did.
+    problem: String,
 }
 
 /// What every WebGPU probe set answers on each GPU this runtime's WebGPU offers, as the run's JSON.
@@ -221,8 +223,8 @@ pub struct GpuComputeResult {
 ///
 /// They are measured before anything else opens a device. Deno keeps every device it opened until the runtime exits,
 /// and on Vulkan each holds a block of wgpu's of 128 MiB of device-local memory. The AMD Radeon (TM) Graphics of a
-/// Ryzen 7 7730U has 256 MiB of it, so a second device on that GPU fails, with this error:
-/// `OperationError: Not enough memory left.` The sets have to be on the first.
+/// Ryzen 7 7730U has 256 MiB of it, so a second device on that GPU fails, with this error: `OperationError: Not enough
+/// memory left.` The sets have to be on the first.
 async fn probe_sets() -> serde_json::Value {
     let preferences = [
         (wgpu::PowerPreference::HighPerformance, "high-performance"),
@@ -545,28 +547,57 @@ async fn run_probe_shader(device: &JsValue, wgsl: &str) -> Result<u32, JsValue> 
     Ok(bits)
 }
 
+/// A multiply that did not run, for the reason given.
+const fn skipped_compute(problem: String) -> GpuComputeResult {
+    GpuComputeResult {
+        success: false,
+        elapsed_ms: 0.0,
+        result_c00: 0.0,
+        problem,
+    }
+}
+
 #[wasm_bindgen]
 impl GpuComputeResult {
     /// Run a 4x4 matrix multiply AxB=C on the GPU using a WebGPU compute shader.
+    ///
+    /// Nothing the device does to the multiply fails this call: a device that refuses it is reported as having skipped
+    /// it, with the reason, as [`GpuNumericProbe::run`] reports a refused probe. The probe sets are measured before it,
+    /// and Deno never gives their memory back, so a GPU whose budget they used up refuses every later allocation. On an
+    /// `NVIDIA GeForce GTX 950` through Vulkan on Linux, the multiply's first buffer then failed the whole module with
+    /// `OperationError: Buffer with '' label is invalid`, on [the tree it was seen on].
+    ///
+    /// The buffer's creation had been refused with `not enough memory left`.
+    ///
+    /// [the tree it was seen on]: https://github.com/edge-toolkit/core/commit/0bbce1c6ac2d158c506f2b08be3545f544c33a71
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
         let device = gpu_device_or_null(&window, "GPU compute").await;
         if device.is_null() || device.is_undefined() {
-            return Ok(Self {
-                success: false,
-                elapsed_ms: 0.0,
-                result_c00: 0.0,
-            });
+            return Ok(skipped_compute("no WebGPU device".to_owned()));
         }
 
-        let (elapsed_ms, result_c00) = run_gpu_compute_inner(&device, &window).await?;
+        match run_gpu_compute_inner(&device, &window).await {
+            Ok((elapsed_ms, result_c00)) => Ok(Self {
+                success: true,
+                elapsed_ms,
+                result_c00,
+                problem: String::default(),
+            }),
+            Err(error) => {
+                let problem = describe_js_error(&error);
+                info!("GPU compute: the device refused the multiply: {problem}");
+                Ok(skipped_compute(format!("the device refused it: {problem}")))
+            }
+        }
+    }
 
-        Ok(Self {
-            success: true,
-            elapsed_ms,
-            result_c00,
-        })
+    /// Why the multiply did not run, empty when it did.
+    #[must_use]
+    #[wasm_bindgen(js_name = problem)]
+    pub fn problem(&self) -> String {
+        self.problem.clone()
     }
 
     #[must_use]
@@ -1156,7 +1187,7 @@ pub async fn run() -> Result<(), JsValue> {
                 ));
             }
         } else {
-            log("GPU compute: skipped (no WebGPU device)");
+            log(&format!("GPU compute: skipped ({})", compute.problem()));
         }
 
         log("running numeric probe through WebGPU");
@@ -1197,6 +1228,7 @@ pub async fn run() -> Result<(), JsValue> {
                     "success": compute.success(),
                     "elapsed_ms": compute.elapsed_ms(),
                     "result_c00": compute.result_c00(),
+                    "problem": compute.problem(),
                 },
                 "gpu_numeric_probe": numeric_report(&numeric),
                 "webgl_numeric_probe": numeric_report(&numeric_webgl),

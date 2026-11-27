@@ -12,17 +12,17 @@ pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 /// Discard `value`, marking a `Result` (or other `#[must_use]`) as intentionally ignored.
 ///
 /// The workspace denies `let_underscore*` and `unused_results`, and `DeepSource RS-E1021` flags `drop()` on a
-/// non-`Drop` type (e.g. `Result`), so neither `let _ = expr` nor `drop(expr)` is available for discarding one.
-/// Passing the value here consumes it -- satisfying `must_use` / `unused_results` -- via neither. Intended for
-/// best-effort JS DOM calls in `()`-returning closures and event handlers where the error is deliberately dropped.
+/// non-`Drop` type (e.g. `Result`), so neither `let _ = expr` nor `drop(expr)` is available for discarding one. Passing
+/// the value here consumes it -- satisfying `must_use` / `unused_results` -- via neither. Intended for best-effort JS
+/// DOM calls in `()`-returning closures and event handlers where the error is deliberately dropped.
 pub fn ignore<T>(_value: T) {}
 
 /// Return this module's raw minicov coverage buffer (a `.profraw`), or empty on failure.
 ///
-/// Present only in the wasm `coverage` build. `wasm-bindgen` collects this export into every dependent browser
-/// module's JS glue, so the web-runner can pull each module's coverage after running it -- `wasm32-unknown-unknown`
-/// has no filesystem, so the bytes come back through JS rather than a file. The web-runner then routes them
-/// through the same llc + llvm-cov pipeline the WASI guests use.
+/// Present only in the wasm `coverage` build. `wasm-bindgen` collects this export into every dependent browser module's
+/// JS glue, so the web-runner can pull each module's coverage after running it -- `wasm32-unknown-unknown` has no
+/// filesystem, so the bytes come back through JS rather than a file. The web-runner then routes them through the same
+/// llc + llvm-cov pipeline the WASI guests use.
 #[cfg(all(feature = "coverage", target_arch = "wasm32"))]
 #[wasm_bindgen]
 #[expect(
@@ -85,9 +85,9 @@ pub async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
 
 /// Resolve after `duration_ms` milliseconds via `window`'s `setTimeout`, rejecting if that call throws.
 ///
-/// Takes the window rather than reading it, for the reason [`websocket_url_from_location`] takes the location:
-/// the browser's own `setTimeout` never throws for a callback and a delay, so the rejection this returns when
-/// it does can only be asserted against a window handed in.
+/// Takes the window rather than reading it, for the reason [`websocket_url_from_location`] takes the location: the
+/// browser's own `setTimeout` never throws for a callback and a delay, so the rejection this returns when it does can
+/// only be asserted against a window handed in.
 #[expect(
     clippy::future_not_send,
     reason = "wasm_bindgen_futures::JsFuture is Rc-backed and never Send; runs in single-threaded browser WASM"
@@ -116,9 +116,9 @@ pub fn websocket_url() -> Result<String, JsValue> {
 
 /// The `/ws` endpoint URL for a page at `location`, upgrading to `wss:` when its protocol is `https:`.
 ///
-/// Takes the location rather than reading `window.location`, so the `wss:` upgrade can be asserted against a
-/// location handed in, whatever protocol served the page. `location` needs just the
-/// `protocol` and `host` properties, which is what makes a plain object stand in for the real one.
+/// Takes the location rather than reading `window.location`, so the `wss:` upgrade can be asserted against a location
+/// handed in, whatever protocol served the page. `location` needs just the `protocol` and `host` properties, which is
+/// what makes a plain object stand in for the real one.
 pub fn websocket_url_from_location(location: &JsValue) -> Result<String, JsValue> {
     let protocol = js_sys::Reflect::get(location, &JsValue::from_str("protocol"))?
         .as_string()
@@ -131,10 +131,18 @@ pub fn websocket_url_from_location(location: &JsValue) -> Result<String, JsValue
 }
 
 /// Render a `JsValue` error as a displayable string, falling back to `JSON.stringify` then `Debug`.
+///
+/// An `Error` is rendered by its own `toString`, as `name: message`: neither is an enumerable property, so
+/// `JSON.stringify` would give `{}` for every exception a browser or Deno throws.
 #[must_use]
 pub fn describe_js_error(error: &JsValue) -> String {
     error
         .as_string()
+        .or_else(|| {
+            error
+                .dyn_ref::<js_sys::Error>()
+                .map(|error| String::from(error.to_string()))
+        })
         .or_else(|| js_sys::JSON::stringify(error).ok().map(String::from))
         .unwrap_or_else(|| format!("{error:?}"))
 }

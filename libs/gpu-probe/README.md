@@ -65,6 +65,27 @@ Name the machine the same way in every step, by its make and model, so its rows 
    mise run gpu-probe-chrome vulkan --device "Dell Precision 5570" --submit
    ```
 
+   Run them again under each driver setting that can change an answer, given to either task as `--environment`, which
+   records it in the rows. On Linux with two GPUs, Chrome runs WebGL and WebGPU on the one driving the display, so
+   where the other has a Vulkan driver of its own, reach it by naming that driver alone; two GPUs sharing one driver
+   cannot be told apart this way. On a hybrid laptop, name the setting that runs the browser on the discrete GPU:
+
+   ```bash
+   vulkan="VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+   mise run gpu-probe-chrome vulkan --device "Dell Precision Tower 5810" --environment "$vulkan" --submit
+   ```
+
+   Firefox on Linux offers WebGPU only with `--webgpu`, and masks the adapter's name, so a row it gives through a
+   driver setting reaching one GPU alone is filed as that GPU.
+
+   ANGLE's `gl` backend reaches a GPU that NVIDIA's own driver drives, while another drives the display, only with
+   `--headless`, through NVIDIA's EGL:
+
+   ```bash
+   egl="__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+   mise run gpu-probe-chrome gl --headless --device "Dell Precision Tower 5810" --environment "$egl" --submit
+   ```
+
    On Windows neither task runs, so serve the page with `mise run gpu-probe-page` and open
    `http://localhost:8099/?submit&device=<machine>` in each browser from a fresh profile (`--user-data-dir` for
    Chrome and Edge, `--no-remote --profile` with `.mise/gpu-probe-browser.user.js` as its `user.js` for Firefox), with
@@ -123,14 +144,38 @@ Name the machine the same way in every step, by its make and model, so its rows 
    nvidia-smi --query-gpu=name,compute_cap --format=csv
    ```
 
-   ONNX Runtime 1.22's has none for Maxwell: a Quadro M2000, at 5.2, fails its first kernel with
-   `cudaErrorNoKernelImageForDevice: no kernel image is available for execution on the device`.
+   ONNX Runtime 1.22's has none for Maxwell: a Quadro M2000 and a GeForce GTX 950, both at 5.2, fail their first
+   kernel with `cudaErrorNoKernelImageForDevice: no kernel image is available for execution on the device`. No
+   package or mise tool supplies them, so such a GPU is measured through CUDA only by an ONNX Runtime built with
+   `CMAKE_CUDA_ARCHITECTURES` naming it, against CUDA 12, the last to compile for Maxwell; any later GPU, Turing
+   onwards, needs nothing more.
 
    Then run the probe through it:
 
    ```bash
    MISE_ENV=rust,cuda mise exec -- cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture
    ```
+
+   For a Maxwell GPU, point `ORT_DYLIB_PATH` at the build's own library instead. `MISE_ENV=cuda` sets it to the
+   package's, over any value the shell exports, so it is set inside the command mise runs:
+
+   ```bash
+   ort=/path/to/onnxruntime/build/Linux/Release/libonnxruntime.so
+   test="cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture"
+   MISE_ENV=rust,cuda mise exec -- sh -c "ORT_DYLIB_PATH=$ort $test"
+   ```
+
+   On a machine with an NVIDIA GPU, the workspace's lints build `et-gpu-probe-server`'s `cuda` feature as well. The
+   libraries above are CUDA 12 and carry no headers, so it needs CUDA 13's `cuda.h` and `curand.h` beside them, of
+   the CUDA version `nvidia-smi` reports for the driver:
+
+   ```bash
+   sudo apt-get install -y --no-install-recommends cuda-cudart-dev-13-0 cuda-crt-13-0 libcurand-dev-13-0
+   ```
+
+   They are found under `/usr/local/cuda-13` or `/usr/local/cuda`; where neither links to them, name them with
+   `export CUDA_HOME=/usr/local/cuda-13.0` before building. Running what that feature builds needs only the driver,
+   which compiles its PTX for the GPU it runs on, so a Maxwell GPU that CUDA 13 no longer compiles for still answers it.
 
 4. **Deno.** The graphics-info module puts every WebGPU probe set to each adapter Deno's WebGPU gives, under
    `et-ws-web-runner`, and proposes them the same way:

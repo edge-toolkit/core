@@ -16,10 +16,13 @@ use et_gpu_probe::{
 use js_sys::{Float32Array, Object, Uint8Array, Uint16Array, Uint32Array};
 use web_sys::{WebGl2RenderingContext as Context, WebGlTexture};
 
-use crate::webgl2::{WebGl2Error, context, link, settled};
+use crate::webgl2::{WebGl2Error, context, link, settled, thrown_text};
 
 /// The layout of the target a filter probe draws its sample into, which reads back as the sample's own bits.
 const SAMPLE_LAYOUT: Layout = [Context::R32F, Context::RED, Context::FLOAT];
+
+/// The bytes the widest texel a target is made of takes: four 32-bit floats.
+const WIDEST_TEXEL: usize = 16;
 
 /// How a texture's texels are stored and handed over: its sized internal format, then its texels' format and type.
 pub(crate) type Layout = [u32; 3];
@@ -99,11 +102,17 @@ fn blend(context: &Context, probe: &Blend) -> Result<u32, WebGl2Error> {
 
 /// Sample the probe's two-texel texture into a one-texel `r32float` target, and read back the sample's bits.
 fn filter(context: &Context, probe: &Filter) -> Result<u32, WebGl2Error> {
-    let sample = texture(context, SAMPLE_LAYOUT, "r32float", 1, None)?;
-    attach(context, &sample, "r32float", 1)?;
+    let sample = texture(context, SAMPLE_LAYOUT, "r32float", [1, 1], None)?;
+    attach(context, &sample, "r32float", [1, 1])?;
     let [left, right] = probe.texels.map(|code| probe.format.texel(code));
     let name = probe.format.name();
-    let _sampled: WebGlTexture = texture(context, layout(probe.format)?, name, 2, Some(&[left, right].concat()))?;
+    let _sampled: WebGlTexture = texture(
+        context,
+        layout(probe.format)?,
+        name,
+        [2, 1],
+        Some(&[left, right].concat()),
+    )?;
     for (parameter, value) in [
         (Context::TEXTURE_MIN_FILTER, Context::LINEAR),
         (Context::TEXTURE_MAG_FILTER, Context::LINEAR),
@@ -135,50 +144,58 @@ fn raster(context: &Context, probe: &Raster) -> Result<u32, WebGl2Error> {
 
 /// Draw into a new texture of `format`, `width` texels wide and one high, holding `texels` if given.
 fn target(context: &Context, format: Format, width: u32, texels: Option<&[u8]>) -> Result<(), WebGl2Error> {
-    let drawn = texture(context, layout(format)?, format.name(), width, texels)?;
-    attach(context, &drawn, format.name(), width)
+    let drawn = texture(context, layout(format)?, format.name(), [width, 1], texels)?;
+    attach(context, &drawn, format.name(), [width, 1])
 }
 
-/// A new texture stored as `layout`, `width` texels wide and one high, holding `texels` if given, left bound.
+/// A new texture stored as `layout`, `size` texels wide and high, holding `texels` if given, left bound.
 ///
 /// The texels are laid out as [`Format::texel`] lays them, and handed over as the typed array the layout's type calls
 /// for, which views the same bytes. `name` names the format in a refusal.
+///
+/// A texture given no texels starts zeroed, and is handed zeroes rather than no data: wasm-bindgen passes no data as
+/// `undefined`, which Safari 9 refuses where a newer browser reads it as `null`, failing each WebGL 1 probe set with
+/// `the browser would not make the probes' target: JsValue(TypeError: Type error`.
 pub(crate) fn texture(
     context: &Context,
     layout: Layout,
     name: &'static str,
-    width: u32,
+    size: [u32; 2],
     texels: Option<&[u8]>,
 ) -> Result<WebGlTexture, WebGl2Error> {
     let [internal, format, kind] = layout;
+    let [width, height] = size;
     let texture = context.create_texture().ok_or(WebGl2Error::Object("texture"))?;
     context.bind_texture(Context::TEXTURE_2D, Some(&texture));
-    let data = texels.map(|bytes| typed(bytes, kind));
+    let count = usize::try_from(width.saturating_mul(height)).unwrap_or(usize::MAX);
+    let zeroes = vec![0; count.saturating_mul(WIDEST_TEXEL)];
+    let data = Some(typed(texels.unwrap_or(&zeroes), kind));
     let (target, level, border) = (Context::TEXTURE_2D, 0_i32, 0_i32);
     let uploaded = context.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_array_buffer_view(
         target,
         level,
         gl_int(internal),
         gl_int(width),
-        1,
+        gl_int(height),
         border,
         format,
         kind,
         data.as_ref(),
     );
-    if uploaded.is_err() {
-        return Err(WebGl2Error::Target(name));
+    match uploaded {
+        Ok(()) => Ok(texture),
+        Err(thrown) => Err(WebGl2Error::Upload(name, thrown_text(&thrown))),
     }
-    Ok(texture)
 }
 
-/// Attach `texture` to a new framebuffer, and draw into its `width` texels from then on.
+/// Attach `texture` to a new framebuffer, and draw into all of it, `size` texels wide and high, from then on.
 pub(crate) fn attach(
     context: &Context,
     texture: &WebGlTexture,
     name: &'static str,
-    width: u32,
+    size: [u32; 2],
 ) -> Result<(), WebGl2Error> {
+    let [width, height] = size;
     let framebuffer = context.create_framebuffer().ok_or(WebGl2Error::Object("framebuffer"))?;
     context.bind_framebuffer(Context::FRAMEBUFFER, Some(&framebuffer));
     let (attachment, level) = (Context::COLOR_ATTACHMENT0, 0_i32);
@@ -189,10 +206,11 @@ pub(crate) fn attach(
         Some(texture),
         level,
     );
-    if context.check_framebuffer_status(Context::FRAMEBUFFER) != Context::FRAMEBUFFER_COMPLETE {
-        return Err(WebGl2Error::Target(name));
+    let status = context.check_framebuffer_status(Context::FRAMEBUFFER);
+    if status != Context::FRAMEBUFFER_COMPLETE {
+        return Err(WebGl2Error::Incomplete(name, status));
     }
-    context.viewport(0, 0, gl_int(width), 1);
+    context.viewport(0, 0, gl_int(width), gl_int(height));
     Ok(())
 }
 
@@ -218,6 +236,7 @@ fn typed(bytes: &[u8], kind: u32) -> Object {
     match kind {
         Context::UNSIGNED_BYTE => Uint8Array::new(&buffer).into(),
         Context::HALF_FLOAT => Uint16Array::new(&buffer).into(),
+        Context::FLOAT => Float32Array::new(&buffer).into(),
         _ => Uint32Array::new(&buffer).into(),
     }
 }

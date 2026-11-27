@@ -161,6 +161,46 @@ signatures:
         device: "ASUS TUF H370-PRO GAMING"
         environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
         window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: private
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950/PCIe/SSE2"
+        backend: opengl-es
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950/PCIe/SSE2"
+        backend: opengl-es
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: private
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000a"
@@ -173,8 +213,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007bff"
   - interface: webgl2-clear
-    label: "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160
-      and Safari 26.4 and 27.2"
+    label: "Apple M5 Pro GPU and an iPhone 17's A19 GPU, Metal, macOS, the iOS Simulator and iOS -- WebGL 2 on Chrome,
+      Edge, Brave 1.100, Firefox 160 and Safari 26.4 and 27.2, and Chrome 158 on the iPhone 17"
     seen:
       - browser: chrome
         browser_version: "157.0.8103.79"
@@ -293,6 +333,16 @@ signatures:
         gpu_version: "Apple GPU"
         backend: unknown
         device: "iOS Simulator on M5 Pro MacBook Pro"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "Apple A19 GPU"
+        backend: unknown
+        device: "iPhone 17"
+        reported: "Apple GPU"
         window: normal
     results:
       unorm8_quarter: "0000000a"
@@ -532,7 +582,8 @@ signatures:
       half_subnormal: "00000010"
       half_overflow: "00007c00"
   - interface: webgl2-clear
-    label: "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome"
+    label: "AMD Radeon (TM) Graphics through Direct3D 11 on Windows, HP EliteBook 645 G10, and Qualcomm Adreno (TM) 530
+      through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 2 on Chrome, and on Firefox 160 on the Xperia XZ"
     seen:
       - browser: chrome
         browser_version: "158.0.8127.36"
@@ -573,6 +624,25 @@ signatures:
         gpu_version: "Radeon (TM) Graphics"
         backend: vulkan
         device: "HP EliteBook 645 G10"
+        window: normal
+      - browser: chrome
+        browser_version: "133.0.6943.137"
+        os: android
+        os_version: "8.0.0"
+        cpu_arch: unknown
+        gpu: qualcomm
+        gpu_version: "Adreno (TM) 530"
+        backend: opengl-es
+        device: "F8331"
+        window: normal
+      - browser: firefox
+        browser_version: "160.0"
+        os: android
+        cpu_arch: unknown
+        gpu: qualcomm
+        backend: opengl-es
+        device: "F8331"
+        reported: "Adreno (TM) 540, or similar"
         window: normal
     results:
       unorm8_quarter: "0000000a"

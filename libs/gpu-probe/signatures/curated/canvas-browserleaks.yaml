@@ -894,3 +894,186 @@ signatures:
         window: normal
     blocked: true
     reason: "randomised: two reads of the same canvas differed (per-read noise)"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.35 on iOS, iPhone 17 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iPhone 17"
+        window: normal
+    results:
+      md5: "a627cab6139e579d6566fc4aaea0f723"
+  - interface: canvas-browserleaks
+    label: "Safari 9.0 on iOS, iPad (3rd generation) MD369B/A -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "9.0"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iPad (3rd generation) MD369B/A"
+        window: normal
+    results:
+      md5: "9b57a74e57a85f54d72c65143b3e1a88"
+  - interface: canvas-browserleaks
+    label: "Chrome 133.0.6943.137 on Android, Sony Xperia XZ (F8331) -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "133.0.6943.137"
+        os: android
+        os_version: "8.0.0"
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "F8331"
+        window: normal
+    results:
+      md5: "1aa1f0fb30d7f270987cacbfca49d0e5"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Android, Sony Xperia XZ (F8331) -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: android
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "F8331"
+        window: normal
+    results:
+      md5: "a18ae4c44dfec3355dc36802141f9567"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.88 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: private
+    results:
+      md5: "dcd6016a675645b1bd87fc57996c78b2"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
+          __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: normal
+    results:
+      md5: "43fe8150b7274342da1e816d48da3323"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+    results:
+      md5: "060f4bcb5b1d5b6e9696d1623ecf7242"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+    results:
+      md5: "d1abb43f2fa02e7cbf96b31eddf82ceb"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.88 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        window: private
+    results:
+      md5: "c92fe233a8f8868664d3fe5674298a65"
+  - interface: canvas-browserleaks
+    label: "Chrome 158.0.8127.88 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        window: normal
+    results:
+      md5: "f73cb0e4e16500c045aa0484d1600bea"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+    results:
+      md5: "6f82f4718e9eb9591b5e694c60722f6b"
+  - interface: canvas-browserleaks
+    label: "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+    results:
+      md5: "ae12b41936bf9f1bebb1e1b7ac3fca78"

@@ -528,6 +528,82 @@ signatures:
         runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
         window: none
         date: "2026-11-25"
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "maxwell"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
+      - browser: chrome
+        browser_version: "158.0.8127.88"
+        os: linux
+        cpu_arch: x86_64
+        gpu: nvidia
+        gpu_version: "maxwell"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: private
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz"
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        driver: "NVIDIA"
+        driver_version: "580.178.4.0"
+        api_version: "Vulkan 1.4.312"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-27"
+      - browser: none
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz"
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950/PCIe/SSE2"
+        driver: "NVIDIA Corporation"
+        driver_version: "NVIDIA 580.178.04"
+        api_version: "OpenGL 3.3.0"
+        backend: opengl
+        device: "Dell Precision Tower 5810"
+        runtime: "wgpu 29.0.4, built for x86_64-unknown-linux-gnu"
+        environment: "EGL_PLATFORM=wayland"
+        window: none
+        date: "2026-11-27"
+      - browser: deno
+        browser_version: "deno_runtime 0.268.0, deno_webgpu 0.227.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        cpu_version: "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz"
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        runtime: "et-ws-web-runner 0.3.0"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: none
+        date: "2026-11-27"
+      - browser: firefox
+        browser_version: "160.0"
+        os: linux
+        cpu_arch: unknown
+        gpu: nvidia
+        gpu_version: "NVIDIA GeForce GTX 950"
+        backend: vulkan
+        device: "Dell Precision Tower 5810"
+        environment: "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
+        window: normal
     results:
       blend_multiply: "00000032"
       blend_half_float: "00003c01"
@@ -1773,4 +1849,26 @@ signatures:
       filter_srgb: "3ddd0000"
       raster_right_edge_fine: "0000000f"
       raster_left_edge_fine: "000000f0"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-fixed-function
+    label: "Apple GPU through Metal on iOS, iPhone 17 -- WebGPU on Chrome 158"
+    seen:
+      - browser: chrome
+        browser_version: "158.0.8127.35"
+        os: ios
+        cpu_arch: unknown
+        gpu: apple
+        gpu_version: "apple"
+        backend: metal
+        device: "iPhone 17"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3eaa0a0a"
+      filter_fine: "00000000"
+      filter_srgb: "3ddd0dd1"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"

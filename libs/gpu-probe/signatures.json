@@ -1244,6 +1244,264 @@
       "reason": "randomised: two reads of the same canvas differed (per-read noise)"
     },
     {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.35 on iOS, iPhone 17 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "a627cab6139e579d6566fc4aaea0f723"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Safari 9.0 on iOS, iPad (3rd generation) MD369B/A -- canvas 2D",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "9.0",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iPad (3rd generation) MD369B/A",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "9b57a74e57a85f54d72c65143b3e1a88"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 133.0.6943.137 on Android, Sony Xperia XZ (F8331) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "F8331",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "1aa1f0fb30d7f270987cacbfca49d0e5"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Android, Sony Xperia XZ (F8331) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "F8331",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "a18ae4c44dfec3355dc36802141f9567"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.88 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "md5": "dcd6016a675645b1bd87fc57996c78b2"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "43fe8150b7274342da1e816d48da3323"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "060f4bcb5b1d5b6e9696d1623ecf7242"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "d1abb43f2fa02e7cbf96b31eddf82ceb"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.88 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
+        }
+      ],
+      "results": {
+        "md5": "c92fe233a8f8868664d3fe5674298a65"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Chrome 158.0.8127.88 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "f73cb0e4e16500c045aa0484d1600bea"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "6f82f4718e9eb9591b5e694c60722f6b"
+      }
+    },
+    {
+      "interface": "canvas-browserleaks",
+      "label": "Firefox 160.0 on Linux, Dell Precision Tower 5810 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "md5": "ae12b41936bf9f1bebb1e1b7ac3fca78"
+      }
+    },
+    {
       "interface": "canvas",
       "label": "Apple M5 Pro, macOS -- canvas 2D on Chromium",
       "seen": [
@@ -2090,6 +2348,50 @@
           "backend": "unknown",
           "device": "Dell Precision 5570",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -2374,6 +2676,73 @@
       ],
       "blocked": true,
       "reason": "randomised: two reads of the same scene differed (per-read noise)"
+    },
+    {
+      "interface": "canvas",
+      "label": "Chrome 158.0.8127.35 on iOS, iPhone 17 -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "98539d98",
+        "lane1": "2c0fce46",
+        "lane2": "132ca39b",
+        "lane3": "ef986d6d"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "Chrome 133.0.6943.137 on Android, Sony Xperia XZ (F8331) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "F8331",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "cb0cffef",
+        "lane1": "e6caa331",
+        "lane2": "6bb3a134",
+        "lane3": "096f4dcf"
+      }
+    },
+    {
+      "interface": "canvas",
+      "label": "Firefox 160.0 on Android, Sony Xperia XZ (F8331) -- canvas 2D",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "unknown",
+          "backend": "unknown",
+          "device": "F8331",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "lane0": "5422c49e",
+        "lane1": "fe49b498",
+        "lane2": "c169bef1",
+        "lane3": "22f0e5b2"
+      }
     },
     {
       "interface": "host",
@@ -3281,7 +3650,7 @@
     },
     {
       "interface": "webgl1-combined",
-      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2)",
+      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2); and Apple A19 GPU on iOS, iPhone 17 (Chrome 158)",
       "seen": [
         {
           "browser": "chrome",
@@ -3447,6 +3816,18 @@
           "gpu_version": "Apple GPU",
           "backend": "unknown",
           "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "Apple A19 GPU",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "reported": "Apple GPU",
           "window": "normal"
         }
       ],
@@ -3708,6 +4089,54 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -4343,7 +4772,7 @@
     },
     {
       "interface": "webgl1-combined",
-      "label": "Qualcomm Adreno (TM) 330 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) -- WebGL 1 on Chrome 95",
+      "label": "Qualcomm Adreno (TM) 330 and 530 through OpenGL ES on Android, Samsung Galaxy Note 3 (SM-N9005) and Sony Xperia XZ (F8331) -- WebGL 1 on Chrome 95 and 133, and on Firefox 160 on the Xperia XZ",
       "seen": [
         {
           "browser": "chrome",
@@ -4355,6 +4784,29 @@
           "gpu_version": "Adreno (TM) 330",
           "backend": "opengl-es",
           "device": "SM-N9005",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 530",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "reported": "Adreno (TM) 540, or similar",
           "window": "normal"
         }
       ],
@@ -4378,8 +4830,43 @@
       }
     },
     {
+      "interface": "webgl1-combined",
+      "label": "Imagination PowerVR SGX 543 on iOS, iPad (3rd generation) MD369B/A -- WebGL 1 on Safari 9.0",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "9.0",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR SGX 543",
+          "backend": "unknown",
+          "device": "iPad (3rd generation) MD369B/A",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "34000001",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d9",
+        "inverse_sqrt": "3f13cd39",
+        "sin": "3dcc754a",
+        "cos": "3f7eb899",
+        "tan": "3dcd7d40",
+        "exp": "3f8d763d",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "40000000"
+      }
+    },
+    {
       "interface": "webgl1-split",
-      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2)",
+      "label": "Apple M5 Pro, Metal, macOS 26.7.1 (Chrome 157, Edge 157, Brave 1.100, Firefox 160, Safari 27.0 and 27.2) and the iOS Simulator (Safari 26.4 and 27.2); and Apple A19 GPU on iOS, iPhone 17 (Chrome 158)",
       "seen": [
         {
           "browser": "chrome",
@@ -4545,6 +5032,18 @@
           "gpu_version": "Apple GPU",
           "backend": "unknown",
           "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "Apple A19 GPU",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "reported": "Apple GPU",
           "window": "normal"
         }
       ],
@@ -4806,6 +5305,54 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -5476,6 +6023,88 @@
       }
     },
     {
+      "interface": "webgl1-split",
+      "label": "Qualcomm Adreno (TM) 530 through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 1 on Chrome 133 and Firefox 160",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 530",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "reported": "Adreno (TM) 540, or similar",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaa000",
+        "subnormal_product": "00000000",
+        "sqrt": "3fdda000",
+        "inverse_sqrt": "3f13c000",
+        "sin": "3dcc6000",
+        "cos": "3f7ea000",
+        "tan": "3dcd6000",
+        "exp": "3f8d6000",
+        "log": "3f8c8000",
+        "pow": "3f8ec000",
+        "atan2": "3d086000",
+        "tanh": "????????",
+        "dot": "00000000"
+      }
+    },
+    {
+      "interface": "webgl1-split",
+      "label": "Imagination PowerVR SGX 543 on iOS, iPad (3rd generation) MD369B/A -- WebGL 1 on Safari 9.0",
+      "seen": [
+        {
+          "browser": "safari",
+          "browser_version": "9.0",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "imgtec",
+          "gpu_version": "PowerVR SGX 543",
+          "backend": "unknown",
+          "device": "iPad (3rd generation) MD369B/A",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "34000001",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d9",
+        "inverse_sqrt": "3f13cd39",
+        "sin": "3dcc754a",
+        "cos": "3f7eb899",
+        "tan": "3dcd7d40",
+        "exp": "3f8d763d",
+        "log": "3f8c9f54",
+        "pow": "3f8edd20",
+        "atan2": "3d087b99",
+        "tanh": "????????",
+        "dot": "40000000"
+      }
+    },
+    {
       "interface": "webgl1",
       "label": "Firefox 160.0.0 on macOS",
       "seen": [
@@ -5706,6 +6335,54 @@
           "device": "ASUS TUF H370-PRO GAMING",
           "environment": "EGL_PLATFORM=wayland INTEL_DEBUG=nofc",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -5723,7 +6400,7 @@
     },
     {
       "interface": "webgl2-clear",
-      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 26.4 and 27.2",
+      "label": "Apple M5 Pro GPU and an iPhone 17's A19 GPU, Metal, macOS, the iOS Simulator and iOS -- WebGL 2 on Chrome, Edge, Brave 1.100, Firefox 160 and Safari 26.4 and 27.2, and Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "chrome",
@@ -5865,6 +6542,18 @@
           "gpu_version": "Apple GPU",
           "backend": "unknown",
           "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "Apple A19 GPU",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "reported": "Apple GPU",
           "window": "normal"
         }
       ],
@@ -6157,7 +6846,7 @@
     },
     {
       "interface": "webgl2-clear",
-      "label": "Radeon (TM) Graphics through d3d11 on windows, HP EliteBook 645 G10 -- WebGL 2 on chrome",
+      "label": "AMD Radeon (TM) Graphics through Direct3D 11 on Windows, HP EliteBook 645 G10, and Qualcomm Adreno (TM) 530 through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 2 on Chrome, and on Firefox 160 on the Xperia XZ",
       "seen": [
         {
           "browser": "chrome",
@@ -6205,6 +6894,29 @@
           "gpu_version": "Radeon (TM) Graphics",
           "backend": "vulkan",
           "device": "HP EliteBook 645 G10",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 530",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "reported": "Adreno (TM) 540, or similar",
           "window": "normal"
         }
       ],
@@ -6566,7 +7278,7 @@
     },
     {
       "interface": "webgl2-combined",
-      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari",
+      "label": "Apple M5 Pro GPU and an iPhone 17's A19 GPU, Metal, macOS, the iOS Simulator and iOS -- WebGL 2 on Chromium, Chrome, Edge, Brave 1.100, Firefox and Safari, and Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "chromium",
@@ -6718,6 +7430,18 @@
           "gpu_version": "Apple GPU",
           "backend": "unknown",
           "device": "iOS Simulator on M5 Pro MacBook Pro",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "Apple A19 GPU",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "reported": "Apple GPU",
           "window": "normal"
         }
       ],
@@ -6963,6 +7687,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -7222,6 +7970,30 @@
           "device": "Dell Precision 5570",
           "defence": "privacy.fingerprintingProtection on",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -7485,6 +8257,53 @@
         "atan2": "3d087ae6",
         "tanh": "3dcc1eb6",
         "dot": "3f800000"
+      }
+    },
+    {
+      "interface": "webgl2-combined",
+      "label": "Qualcomm Adreno (TM) 530 through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 2 on Chrome 133 and Firefox 160",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 530",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "reported": "Adreno (TM) 540, or similar",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00000000",
+        "fma": "????????",
+        "swamped_sum": "00000000",
+        "divide": "3eaaaaab",
+        "subnormal_product": "00000000",
+        "sqrt": "3fddb3d7",
+        "inverse_sqrt": "3f13cd3a",
+        "sin": "3dcc758b",
+        "cos": "3f7eb898",
+        "tan": "3dcd7c58",
+        "exp": "3f8d763d",
+        "log": "3f8c9f54",
+        "pow": "3f8edd1f",
+        "atan2": "3d087b9e",
+        "tanh": "3dcc1eba",
+        "dot": "00000000"
       }
     },
     {
@@ -8081,6 +8900,54 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -8231,6 +9098,105 @@
       }
     },
     {
+      "interface": "webgl2-fixed-function",
+      "label": "Apple A19 GPU through Metal on iOS, iPhone 17 -- WebGL 2 on Chrome 158",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "Apple A19 GPU",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "reported": "Apple GPU",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c01",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0a0a",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0dd1",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
+      "interface": "webgl2-fixed-function",
+      "label": "Qualcomm Adreno (TM) 530 through OpenGL ES on Android, Sony Xperia XZ (F8331) -- WebGL 2 on Chrome 133 and Firefox 160",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 530",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "reported": "Adreno (TM) 540, or similar",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c01",
+        "blend_srgb": "000000e1",
+        "filter_third": "3ea9e9ea",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddcc000",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
+      "interface": "webgl2-fixed-function",
+      "label": "AMD Radeon RX 580 Series through opengl on linux, Dell Precision Tower 5810 -- WebGL 2 on firefox",
+      "seen": [
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "amd",
+          "gpu_version": "AMD Radeon RX 580 Series",
+          "backend": "opengl",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "reported": "Radeon R9 200 Series, or similar",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c00",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0000",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0000",
+        "raster_right_edge_fine": "0000000f",
+        "raster_left_edge_fine": "000000f0",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
       "interface": "webgl2-split",
       "label": "AMD Radeon Graphics (0x15E7) through Direct3D 11 on Windows, HP EliteBook -- WebGL 2 on Chrome",
       "seen": [
@@ -8338,7 +9304,7 @@
     },
     {
       "interface": "webgl2-split",
-      "label": "Qualcomm Adreno on Android -- WebGL 2 on Chrome: Oppo (Adreno 610), Samsung Galaxy S22 Ultra (Adreno 730)",
+      "label": "Qualcomm Adreno on Android -- WebGL 2 on Chrome: Oppo (Adreno 610), Samsung Galaxy S22 Ultra (Adreno 730), Sony Xperia XZ (F8331, Adreno 530 through OpenGL ES, Chrome 133 and Firefox 160)",
       "seen": [
         {
           "browser": "chrome",
@@ -8358,6 +9324,29 @@
           "gpu_version": "Adreno 730",
           "backend": "opengl-es",
           "device": "Samsung Galaxy S22 Ultra",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "133.0.6943.137",
+          "os": "android",
+          "os_version": "8.0.0",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "gpu_version": "Adreno (TM) 530",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "window": "normal"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "android",
+          "cpu_arch": "unknown",
+          "gpu": "qualcomm",
+          "backend": "opengl-es",
+          "device": "F8331",
+          "reported": "Adreno (TM) 540, or similar",
           "window": "normal"
         }
       ],
@@ -8439,7 +9428,7 @@
     },
     {
       "interface": "webgl2-split",
-      "label": "Apple M5 Pro GPU, Metal, macOS and the iOS Simulator -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox",
+      "label": "Apple M5 Pro GPU and an iPhone 17's A19 GPU, Metal, macOS, the iOS Simulator and iOS -- WebGL 2 on Chromium, Chrome, Edge, Safari, Brave 1.100 and Firefox, and Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "chromium",
@@ -8610,6 +9599,18 @@
           "backend": "unknown",
           "device": "iOS Simulator on M5 Pro MacBook Pro",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "Apple A19 GPU",
+          "backend": "unknown",
+          "device": "iPhone 17",
+          "reported": "Apple GPU",
+          "window": "normal"
         }
       ],
       "results": {
@@ -8723,6 +9724,30 @@
           "device": "Dell Precision 5570",
           "defence": "privacy.fingerprintingProtection on",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "backend": "opengl-es",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -9015,6 +10040,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -10082,6 +11131,94 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 580.178.04",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -10433,7 +11570,7 @@
     },
     {
       "interface": "webgpu-clear",
-      "label": "Apple M5 Pro GPU, Metal, macOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari",
+      "label": "Apple M5 Pro GPU and an iPhone 17's Apple GPU, Metal, macOS and iOS -- wgpu alone and WebGPU on Chrome, Edge, Brave 1.100, Firefox and Safari, and Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "none",
@@ -10575,6 +11712,17 @@
           "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
           "window": "none",
           "date": "2026-11-24"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
+          "window": "normal"
         }
       ],
       "results": {
@@ -12094,7 +13242,7 @@
     },
     {
       "interface": "webgpu-combined",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari",
+      "label": "Apple M5 Pro GPU through Metal on macOS, and an iPhone 17's Apple GPU on iOS -- WebGPU on Safari, and Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "safari",
@@ -12104,6 +13252,17 @@
           "gpu": "apple",
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
           "window": "normal"
         }
       ],
@@ -13171,6 +14330,52 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -13425,6 +14630,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -15161,6 +16390,76 @@
           "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -16427,6 +17726,41 @@
       }
     },
     {
+      "interface": "webgpu-f16-combined",
+      "label": "Apple GPU through Metal on iOS, iPhone 17 -- WebGPU on Chrome 158",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00001000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e61",
+        "dot": "00004000"
+      }
+    },
+    {
       "interface": "webgpu-f16-split",
       "label": "NVIDIA RTX A1000 Laptop GPU and NVIDIA GB10 through Vulkan on Linux x86_64 and arm64 -- wgpu alone and WebGPU on Deno",
       "seen": [
@@ -17359,6 +18693,76 @@
           "runtime": "et-ws-web-runner 0.3.0",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -18625,6 +20029,41 @@
       }
     },
     {
+      "interface": "webgpu-f16-split",
+      "label": "Apple GPU through Metal on iOS, iPhone 17 -- WebGPU on Chrome 158",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "multiply_add": "00001000",
+        "fma": "00001000",
+        "swamped_sum": "00000000",
+        "divide": "00003555",
+        "subnormal_product": "00000200",
+        "sqrt": "00003eee",
+        "inverse_sqrt": "0000389e",
+        "sin": "00002e63",
+        "cos": "00003bf6",
+        "tan": "00002e6b",
+        "exp": "00003c6c",
+        "log": "00003c65",
+        "pow": "00003c77",
+        "atan2": "00002843",
+        "tanh": "00002e61",
+        "dot": "00004000"
+      }
+    },
+    {
       "interface": "webgpu-fixed-function",
       "label": "Intel Iris Xe Graphics (ADL GT2) and UHD Graphics 630, and the Apple Paravirtual device, through Vulkan and Metal on Linux and macOS -- wgpu alone and WebGPU on Chrome, Chromium, Brave and Deno",
       "seen": [
@@ -19225,6 +20664,94 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950/PCIe/SSE2",
+          "driver": "NVIDIA Corporation",
+          "driver_version": "NVIDIA 580.178.04",
+          "api_version": "OpenGL 3.3.0",
+          "backend": "opengl",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -20671,6 +22198,34 @@
       }
     },
     {
+      "interface": "webgpu-fixed-function",
+      "label": "Apple GPU through Metal on iOS, iPhone 17 -- WebGPU on Chrome 158",
+      "seen": [
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
+          "window": "normal"
+        }
+      ],
+      "results": {
+        "blend_multiply": "00000033",
+        "blend_half_float": "00003c01",
+        "blend_srgb": "000000e1",
+        "filter_third": "3eaa0a0a",
+        "filter_fine": "00000000",
+        "filter_srgb": "3ddd0dd1",
+        "raster_right_edge_fine": "00000007",
+        "raster_left_edge_fine": "000000f8",
+        "raster_right_edge_coarse": "0000000f"
+      }
+    },
+    {
       "interface": "webgpu-split",
       "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Chromium, Chrome 157, Edge 157 and Brave 1.100",
       "seen": [
@@ -20790,7 +22345,7 @@
     },
     {
       "interface": "webgpu-split",
-      "label": "Apple M5 Pro GPU through Metal on macOS -- WebGPU on Safari",
+      "label": "Apple M5 Pro GPU through Metal on macOS, and an iPhone 17's Apple GPU on iOS -- WebGPU on Safari, and Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "safari",
@@ -20800,6 +22355,17 @@
           "gpu": "apple",
           "gpu_version": "Apple M5 Pro GPU",
           "backend": "metal",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
           "window": "normal"
         }
       ],
@@ -22384,6 +23950,52 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -22638,6 +24250,30 @@
           "device": "Dell Precision 5570",
           "defence": "Shields farbling, on as Brave ships",
           "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
         }
       ],
       "results": {
@@ -23393,7 +25029,7 @@
     },
     {
       "interface": "webgpu-trig-split",
-      "label": "Apple M5 Pro through Metal on macOS arm64, MacBook Pro (M5 Pro, 2026) -- wgpu alone",
+      "label": "Apple M5 Pro through Metal on macOS arm64, MacBook Pro (M5 Pro, 2026), and an iPhone 17's Apple GPU on iOS -- wgpu alone, and WebGPU on Chrome 158 on the iPhone 17",
       "seen": [
         {
           "browser": "none",
@@ -23408,6 +25044,17 @@
           "runtime": "wgpu 29.0.4, built for aarch64-apple-darwin",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
+          "window": "normal"
         }
       ],
       "results": {
@@ -23859,6 +25506,76 @@
           "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
           "window": "none",
           "date": "2026-11-25"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
         }
       ],
       "results": {
@@ -24163,7 +25880,7 @@
     },
     {
       "interface": "wgpu-cooperative-matrix",
-      "label": "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630, and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76 (bifrost) through Vulkan on Android, SM-G973F -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
+      "label": "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630, and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76 (bifrost) through Vulkan on Android, SM-G973F; and an iPhone 17's Apple GPU through Metal on iOS -- wgpu alone and WebGPU on Chrome, Edge, Firefox and Deno",
       "seen": [
         {
           "browser": "none",
@@ -24514,6 +26231,87 @@
           "gpu_version": "bifrost",
           "backend": "vulkan",
           "device": "SM-G973F",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.35",
+          "os": "ios",
+          "cpu_arch": "unknown",
+          "gpu": "apple",
+          "gpu_version": "apple",
+          "backend": "metal",
+          "device": "iPhone 17",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "normal"
+        },
+        {
+          "browser": "chrome",
+          "browser_version": "158.0.8127.88",
+          "os": "linux",
+          "cpu_arch": "x86_64",
+          "gpu": "nvidia",
+          "gpu_version": "maxwell",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "private"
+        },
+        {
+          "browser": "none",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "driver": "NVIDIA",
+          "driver_version": "580.178.4.0",
+          "api_version": "Vulkan 1.4.312",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "wgpu 29.0.4, built for x86_64-unknown-linux-gnu",
+          "environment": "EGL_PLATFORM=wayland",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "deno",
+          "browser_version": "deno_runtime 0.268.0, deno_webgpu 0.227.0",
+          "os": "linux",
+          "os_version": "Pop!_OS 24.04",
+          "cpu_arch": "x86_64",
+          "cpu_version": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "runtime": "et-ws-web-runner 0.3.0",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+          "window": "none",
+          "date": "2026-11-27"
+        },
+        {
+          "browser": "firefox",
+          "browser_version": "160.0",
+          "os": "linux",
+          "cpu_arch": "unknown",
+          "gpu": "nvidia",
+          "gpu_version": "NVIDIA GeForce GTX 950",
+          "backend": "vulkan",
+          "device": "Dell Precision Tower 5810",
+          "environment": "EGL_PLATFORM=wayland VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
           "window": "normal"
         }
       ],

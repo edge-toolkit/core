@@ -166,6 +166,12 @@ ripgrep = "latest"
 "github:kucherenko/jscpd" = "latest"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.130"
+# The tools build-gpu-probe-page-legacy makes the probe page with for browsers with no WebAssembly or ES modules.
+# binaryen's wasm2js turns the probes' WebAssembly into JavaScript, esbuild bundles it with the page's script into one
+# file, and swc lowers that file to ES5.
+"github:WebAssembly/binaryen" = { version = "latest", version_prefix = "version_", strip_components = 1 }
+"github:swc-project/swc" = { version = "latest", rename_exe = "swc" }
+"npm:esbuild" = "latest"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -3374,9 +3380,8 @@ shell = "{{ vars.task_shell }}"
 #   --experimental-wasm-reftypes @+42
 # Leaving them out of the crate's flags is not enough: the std Rust ships for wasm32 has them compiled in, and
 # wasm-bindgen then fails with "failed to find the `__wbindgen_externref_table_dealloc` function". So std is rebuilt
-# with the same flags, which only nightly can do, and which takes long enough that only the LAN server, the one old
-# phones reach, builds it; the hosted site goes without. RUSTFLAGS, not the CARGO_TARGET_* variable the workspace
-# sets, because it wins over that one. `rust_nightly` predates the workspace `rust-version`, hence
+# with the same flags, which only nightly can do. RUSTFLAGS, not the CARGO_TARGET_* variable the workspace sets,
+# because it wins over that one. `rust_nightly` predates the workspace `rust-version`, hence
 # --ignore-rust-version. A target directory of its own keeps the two builds from discarding each other's artifacts.
 [tasks.build-gpu-probe-page-compat]
 description = "Build the GPU probe WASM without reference types into utilities/gpu-probe/static/pkg-compat"
@@ -3392,10 +3397,48 @@ wasm-pack build . --target web --out-dir "$pkg" --no-pack {{ vars.no_opt }} -- -
 """
 shell = "{{ vars.task_shell }}"
 
+# The probe page's script for a browser with no ES modules or no WebAssembly, which index.html loads for one.
+# Safari 9 on an iPad 3 with iOS 9.3.6 has neither, and left the page at "Loading the probes..." with
+#   The probes could not run: the page's script never started, as in a browser too old for it
+#   user agent: Mozilla/5.0 (iPad; CPU OS 9_3_6 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0
+# It starts from the compat build's WebAssembly, which has nothing past the first WebAssembly release: wasm-bindgen
+# gives it glue for a bundler, wasm2js turns it into JavaScript under the name the glue imports it by, esbuild bundles
+# that with the page's script and the polyfills such a browser needs, and swc lowers the bundle to ES5.
+[tasks.build-gpu-probe-page-legacy]
+depends = ["build-gpu-probe-page-compat"]
+description = "Build the GPU probe page's script as ES5, with no WebAssembly, into utilities/gpu-probe/static/legacy"
+run = """
+name=et_int_gpu_probe_web
+stage=target/gpu-probe-legacy
+legacy=utilities/gpu-probe/legacy
+out=utilities/gpu-probe/static/legacy
+coreutils rm -rf "$stage"
+coreutils mkdir -p "$stage/pkg" "$out"
+wasm-bindgen --target bundler --out-dir "$stage/pkg" "target/gpu-probe-compat/wasm32-unknown-unknown/release/$name.wasm"
+# Each of the glue's views of memory is renewed whenever memory has a different buffer.
+# The glue renews one only once the buffer under it is detached, which WebAssembly does when memory grows, but wasm2js
+# grows it into a new buffer and leaves the old one whole, so a view would go on using the old one: a string the
+# probes return past its end comes back empty, failing the page with
+#   The probes could not run: SyntaxError: Unexpected end of JSON input
+# and a pointer read back wrongly is freed, which Rust's allocator answers with an `abort` panic. The glue already
+# compares buffers for its DataView, but only where `detached` is unknown.
+glue="$stage/pkg/${name}_bg.js"
+stale='(cached\\w+Memory0)(?:\\.byteLength === 0|\\.buffer\\.detached === true)'
+rg --passthru --no-line-number -r '$1.buffer !== wasm.memory.buffer' "$stale" "$glue" >"$glue.renewed"
+coreutils mv -f "$glue.renewed" "$glue"
+wasm2js "$stage/pkg/${name}_bg.wasm" -O2 -o "$stage/pkg/${name}_bg.js.wasm"
+coreutils mv -f "$stage/pkg/${name}_bg.js.wasm" "$stage/pkg/${name}_bg.wasm"
+bundle="--bundle --format=iife --loader:.wasm=js --tsconfig=$legacy/tsconfig.json"
+# shellcheck disable=SC2086 # $bundle is several flags, split by design.
+esbuild "$legacy/entry.js" $bundle --outfile="$stage/bundle.js"
+swc compile "$stage/bundle.js" --config-file "$legacy/swc.jsonc" --out-file "$out/probe.js"
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.build-gpu-probe-site]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Assemble the GPU probe page as a static site in target/gpu-probe-site, to deploy to a host like Vercel"
-# The site is the page, its WASM, the files the server builds in and serves beside it, and the registry.
+# The site is the page, its WASM in both builds, its legacy script, the server's files beside it, and the registry.
 # The page holds what it measured against the registry, so that it proposes only what the registry does not record.
 # The registry is the committed JSON, not a regenerated one: a Vercel deploy installs no yq, failing a regeneration
 #   [gen:gpu-probe-signatures] /vercel/path0/.mise/task-shell.sh: line 56: yq: command not found
@@ -3406,9 +3449,12 @@ description = "Assemble the GPU probe page as a static site in target/gpu-probe-
 run = """
 site=target/gpu-probe-site
 coreutils rm -rf "$site"
-coreutils mkdir -p "$site/pkg"
-coreutils cp utilities/gpu-probe/static/index.html "$site/"
-coreutils cp utilities/gpu-probe/static/pkg/*.js utilities/gpu-probe/static/pkg/*.wasm "$site/pkg/"
+static=utilities/gpu-probe/static
+coreutils mkdir -p "$site/pkg" "$site/pkg-compat" "$site/legacy"
+coreutils cp "$static/index.html" "$static"/*.js "$site/"
+coreutils cp "$static"/pkg/*.js "$static"/pkg/*.wasm "$site/pkg/"
+coreutils cp "$static"/pkg-compat/*.js "$static"/pkg-compat/*.wasm "$site/pkg-compat/"
+coreutils cp "$static/legacy/probe.js" "$site/legacy/probe.js"
 coreutils cp utilities/gpu-probe/src/probe.css "$site/probe.css"
 coreutils cp utilities/gpu-probe/src/register.mjs "$site/register.js"
 coreutils cp utilities/gpu-probe/src/propose.mjs "$site/propose.js"
@@ -3417,7 +3463,7 @@ coreutils cp libs/gpu-probe/signatures.json "$site/signatures.json"
 shell = "{{ vars.task_shell }}"
 
 [tasks.gpu-probe-page]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Serve the GPU probe page at http://localhost:8099/, adding what it submits to the registry"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port 8099"
 
@@ -3437,6 +3483,15 @@ description = "Probe every GPU Google Chrome offers on the GPU probe page, WebGL
 # WebDriver, whose calls curl makes: the page submits every set itself when opened with `submit`, and says how each
 # went in its status line, which the task prints. google-chrome and curl are the host's: the probes measure the
 # browser the person has.
+#
+# --environment starts Chrome under driver settings, such as VK_DRIVER_FILES naming one GPU's Vulkan driver, which
+# reaches a GPU Chrome would not pick of two. The page cannot see them, so they are passed to it as the rows'
+# environment, sorted by name as gpu-probe records its own.
+#
+# --headless runs Chrome with no display, through EGL, and so reaches through ANGLE's gl backend a GPU that NVIDIA's
+# EGL drives while another GPU drives the display: under X11 that EGL takes down Chrome's GPU process. WebGPU is left
+# off, since the software adapter it falls back to there leaves the page no WebGL context, and so is Vulkan for the gl
+# backends, which would composite on the display's GPU and leave WebGL none either.
 run = """
 # shellcheck shell=bash # Linux only: it starts the host's google-chrome with the Vulkan switches of Chrome on Linux.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
@@ -3460,21 +3515,52 @@ fi
 coreutils mkdir -p target/gpu-probe-chrome
 # The device goes in the page's query, so it is percent-encoded: a `&` in it would otherwise start another parameter.
 device="${usage_device:-}" yq -n 'strenv(device) | @uri' >target/gpu-probe-chrome/device
-device=$(coreutils cat target/gpu-probe-chrome/device)
+query="device=$(coreutils cat target/gpu-probe-chrome/device)"
+read -r -a settings <<<"${usage_environment:-}"
+for setting in "${settings[@]}"; do
+  if [[ $setting != [!=]*=* ]]; then
+    printf -- '--environment takes NAME=value settings, not %s\\n' "$setting" >&2
+    exit 2
+  fi
+done
+# Only the last of a name set twice reaches the browser, which the rows' sorted environment could not say.
+names="$(printf '%s\\n' "${settings[@]%%=*}" | LC_ALL=C coreutils sort)"
+repeated="$(coreutils uniq -d <<<"$names" | coreutils paste -s -d ' ')"
+if [ -n "$repeated" ]; then
+  printf -- '--environment sets each name once, but sets %s more than once\\n' "$repeated" >&2
+  exit 2
+fi
+if [ -n "${usage_environment:-}" ]; then
+  environment="$(printf '%s\\n' "${settings[@]}" | LC_ALL=C coreutils sort | coreutils paste -s -d ' ')"
+  query="$query&environment=$(environment="$environment" yq -n 'strenv(environment) | @uri')"
+fi
 angle="${usage_angle:-vulkan}"
+headless="${usage_headless:-false}"
+if [ "$headless" = true ] && [ "${usage_submit:-false}" != true ]; then
+  printf -- '--headless opens no window for a person to submit from, so it takes --submit\\n' >&2
+  exit 2
+fi
 if [ "$angle" = vulkan ]; then
   switches=("--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan")
+elif [ "$headless" = true ]; then
+  switches=("--use-angle=$angle" --enable-unsafe-swiftshader)
 else
   switches=(--enable-features=Vulkan "--use-angle=$angle" --enable-unsafe-swiftshader)
 fi
-switches+=(--enable-unsafe-webgpu --ozone-platform=x11 --no-first-run)
+if [ "$headless" = true ]; then
+  switches+=(--headless=new --no-first-run)
+else
+  switches+=(--enable-unsafe-webgpu --ozone-platform=x11 --no-first-run)
+fi
 if [ "${usage_submit:-false}" != true ]; then
   profile="$PWD/target/gpu-probe-chrome/$angle"
-  google-chrome "${switches[@]}" "--user-data-dir=$profile" "http://localhost:8099/?device=$device"
+  url="http://localhost:8099/?$query"
+  coreutils env "${settings[@]}" google-chrome "${switches[@]}" "--user-data-dir=$profile" "$url"
   exit
 fi
 driver=http://localhost:9515
-chromedriver --port=9515 >target/gpu-probe-chrome/chromedriver.log 2>&1 &
+# Chrome is started by chromedriver, and takes the driver settings from its environment.
+coreutils env "${settings[@]}" chromedriver --port=9515 >target/gpu-probe-chrome/chromedriver.log 2>&1 &
 ready "$driver/status" $! 60 chromedriver
 profile="$PWD/target/gpu-probe-chrome/$angle-driven"
 args=$(printf '"%s",' "${switches[@]}" "--user-data-dir=$profile")
@@ -3483,7 +3569,7 @@ capabilities='{"capabilities":{"alwaysMatch":{"browserName":"chrome","goog:chrom
 reply=target/gpu-probe-chrome/webdriver-reply.json
 curl -sf -XPOST "$driver/session" -d "$capabilities" -o "$reply"
 session="$driver/session/$(yq -p json '.value.sessionId' "$reply")"
-url="http://localhost:8099/?submit&device=$device" yq -n -o json -I0 '{"url": strenv(url)}' >"$reply"
+url="http://localhost:8099/?submit&$query" yq -n -o json -I0 '{"url": strenv(url)}' >"$reply"
 curl -sf -XPOST "$session/url" -d "@$reply" >/dev/null
 read_status='{"script":"return document.getElementById(\\"status\\").textContent","args":[]}'
 # The page says "Submitted." only when every set went in or was on record already, and "Not submitted." otherwise.
@@ -3504,6 +3590,8 @@ shell = "{{ vars.task_shell }}"
 usage = """
 arg "[angle]" help="The ANGLE backend Chrome runs WebGL on: vulkan (default), gl or swiftshader"
 flag "--device <device>" help="The machine the rows name, such as its make and model"
+flag "--environment <settings>" help="Driver settings to start Chrome under, as NAME=value separated by spaces"
+flag "--headless" help="Run Chrome with no display, through EGL, and with no WebGPU; it takes --submit"
 flag "--submit" help="Drive Chrome through chromedriver and submit every probe set, rather than open it for a person"
 """
 
@@ -3524,6 +3612,14 @@ description = "Probe a browser on the GPU probe page from a fresh profile: a Fla
 # There is no WebDriver for most of these, and the one GNOME Web ships cannot reach the browser from inside its
 # sandbox, so with --submit the page is opened with `submit` and read from the server: the page posts its status
 # lines to `/status` once every set is submitted, and the server logs them.
+#
+# --environment starts the browser under driver settings, as gpu-probe-chrome's does, passed into a Flatpak's sandbox
+# with its --env, where a path in one names the sandbox's own files rather than the host's. Safari opens only through
+# Launch Services, which passes on no environment, so it takes none.
+#
+# --webgpu turns on WebGPU in a browser built on Firefox, which on Linux offers none as it ships, and past its GPU
+# blocklist. It changes which interfaces answer, not what any answers, so it is named in the rows only as a defence it
+# lifts, where the browser ships one.
 run = """
 # shellcheck shell=bash # Linux and macOS: the host's firefox or a Flathub Flatpak, or a macOS app.
 trap 'coreutils kill $(jobs -p) 2>/dev/null || true' EXIT
@@ -3571,6 +3667,15 @@ if [ "${usage_high_performance_gpu:-false}" = true ] && [ "$chromium_based" != t
   printf -- '--high-performance-gpu is for a browser built on Chromium, not %s\\n' "$browser" >&2
   exit 2
 fi
+case "$browser" in
+  firefox | librewolf | mullvad-browser | tor-browser) ;;
+  *)
+    if [ "${usage_webgpu:-false}" = true ]; then
+      printf -- '--webgpu is for a browser built on Firefox, not %s\\n' "$browser" >&2
+      exit 2
+    fi
+    ;;
+esac
 port="${usage_port:-8097}"
 # A run's workspace is keyed by its port as well, so runs of one browser on two ports never share or remove the other's.
 run="target/gpu-probe-browser/$browser-$port"
@@ -3674,6 +3779,33 @@ if [ "$macos" = true ]; then
   # Only Chromium gives the system's version to the page.
   query="$query&os_version=$(sw_vers -productVersion)"
 fi
+read -r -a settings <<<"${usage_environment:-}"
+for setting in "${settings[@]}"; do
+  if [[ $setting != [!=]*=* ]]; then
+    printf -- '--environment takes NAME=value settings, not %s\\n' "$setting" >&2
+    exit 2
+  fi
+done
+# Only the last of a name set twice reaches the browser, which the rows' sorted environment could not say.
+names="$(printf '%s\\n' "${settings[@]%%=*}" | LC_ALL=C coreutils sort)"
+repeated="$(coreutils uniq -d <<<"$names" | coreutils paste -s -d ' ')"
+if [ -n "$repeated" ]; then
+  printf -- '--environment sets each name once, but sets %s more than once\\n' "$repeated" >&2
+  exit 2
+fi
+if [ -n "${usage_environment:-}" ]; then
+  if [ "$browser" = safari ]; then
+    printf -- '--environment cannot reach Safari, which opens only through Launch Services\\n' >&2
+    exit 2
+  elif [ -n "$app" ]; then
+    # A Flatpak gives its sandbox none of the caller's environment, only what each --env sets.
+    launch=("${launch[@]:0:3}" "${settings[@]/#/--env=}" "${launch[@]:3}")
+  else
+    launch=(coreutils env "${settings[@]}" "${launch[@]}")
+  fi
+  environment="$(printf '%s\\n' "${settings[@]}" | LC_ALL=C coreutils sort | coreutils paste -s -d ' ')"
+  query="$query&environment=$(environment="$environment" yq -n 'strenv(environment) | @uri')"
+fi
 case "$browser" in
   firefox | librewolf | mullvad-browser | tor-browser)
     coreutils cp .mise/gpu-probe-browser.user.js "$profile/user.js"
@@ -3697,6 +3829,12 @@ case "$browser" in
     if [ "${usage_fingerprinting_protection:-false}" = true ]; then
       printf 'user_pref("privacy.fingerprintingProtection", true);\\n' >>"$profile/user.js"
       defence="${defence:+$defence, }privacy.fingerprintingProtection on"
+    fi
+    if [ "${usage_webgpu:-false}" = true ]; then
+      printf 'user_pref("dom.webgpu.enabled", true);\\n' >>"$profile/user.js"
+      printf 'user_pref("gfx.webgpu.ignore-blocklist", true);\\n' >>"$profile/user.js"
+      # Only a browser that ships a defence of its own has WebGPU among the things it turns off.
+      if [ -n "$defence" ]; then defence="$defence, WebGPU turned on"; fi
     fi
     args=(--no-remote --profile "$profile" --new-window)
     # Mullvad Browser and Tor Browser start through a script that sends the browser's output nowhere unless asked.
@@ -3752,19 +3890,21 @@ arg "<browser>" help="The browser to probe" {
   choices "firefox" "librewolf" "mullvad-browser" "tor-browser" "brave" "chromium" "edge" "gnome-web" "chrome" "safari"
 }
 flag "--device <device>" help="The machine the rows name, such as its make and model"
+flag "--environment <settings>" help="Driver settings to start the browser under, as NAME=value separated by spaces"
 flag "--fingerprinting-protection" help="Turn on privacy.fingerprintingProtection, for one built on Firefox"
 flag "--high-performance-gpu" help="Run WebGL on the high-performance GPU, for one built on Chromium"
+flag "--webgpu" help="Turn WebGPU on, past its GPU blocklist, for one built on Firefox"
 flag "--port <port>" help="The port to serve the page on for the run, 8097 if not given"
 flag "--submit" help="Submit every probe set from the page and print how each went, rather than open it for a person"
 """
 
 [tasks.gpu-probe-server]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Collect GPU probe signatures into libs/gpu-probe/signatures over HTTPS at localhost:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 
 [tasks.gpu-probe-server-lan]
-depends = ["build-gpu-probe-page", "build-gpu-probe-page-compat"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Collect GPU probe signatures over HTTPS from other devices on the LAN, listening on 0.0.0.0:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --bind {{ vars.lan_bind }}"
 
@@ -4393,17 +4533,21 @@ shell = "{{ vars.task_shell_plain }}"
 # Everything build-gpu-probe-site needs, and nothing more, for a host that builds only the site.
 # The Vercel deploy's install command runs this after installing mise, so what the site needs is decided here, not in
 # Vercel's settings. mise must be on PATH, as for any task that runs it, so once mise is installed the command goes
-# on with `export PATH="$HOME/.local/bin:$PATH" && mise trust --all && mise run install-gpu-probe-site-tools`. Its
-# stable Rust is named outright, as a bare `rust` would bring the nightly toolchain too. A Rust build links its build
-# scripts with the host's C compiler, which no mise tool supplies and Vercel's image lacks, so a host with none is
-# given gcc by its package manager; Vercel's image is Amazon Linux, whose manager is dnf.
+# on with `export PATH="$HOME/.local/bin:$PATH" && mise trust --all && mise run install-gpu-probe-site-tools`. A bare
+# `rust` brings both toolchains, stable for the usual build and nightly with rust-src for the compat build's std. node
+# is there because esbuild's npm package runs its binary through a node script. A Rust build links its build scripts
+# with the host's C compiler, which no mise tool supplies and Vercel's image lacks, so a host with none is given gcc by
+# its package manager; Vercel's image is Amazon Linux, whose manager is dnf.
 [tasks.install-gpu-probe-site-tools]
 description = "Install the tools build-gpu-probe-site needs, for a host such as Vercel that builds only the site"
 run = """
 if ! command -v cc >/dev/null; then
   dnf install -y gcc
 fi
-mise install rust@stable aqua:rustwasm/wasm-pack github:uutils/coreutils
+tools="rust aqua:rustwasm/wasm-pack github:uutils/coreutils github:wasm-bindgen/wasm-bindgen"
+tools="$tools github:WebAssembly/binaryen github:swc-project/swc node npm:esbuild ripgrep"
+# shellcheck disable=SC2086 # $tools is several tool names, split by design.
+mise install $tools
 """
 shell = "{{ vars.task_shell }}"
 
