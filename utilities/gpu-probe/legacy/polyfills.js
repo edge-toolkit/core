@@ -16,13 +16,15 @@ const abortable = "AbortController" in window;
 
 define(window, "globalThis", window);
 
+// An error thrown again outside the promise it was caught in, so the browser reports it as uncaught.
+const rethrow = (error) => {
+  setTimeout(() => {
+    throw error;
+  });
+};
+
 // A task that throws is reported as an uncaught error, as the browser's own reports it.
 define(window, "queueMicrotask", (task) => {
-  const rethrow = (error) => {
-    setTimeout(() => {
-      throw error;
-    });
-  };
   Promise.resolve().then(task).catch(rethrow);
 });
 
@@ -149,15 +151,17 @@ const schedule = (block) => {
   return words;
 };
 
-// One block's 64 rounds over the working state `[a, b, c, d, e, f, g, h]`, added into `hash`.
+// One block's 64 rounds over the working state, the standard's `a` to `h`, added into `hash`.
 const compress = (hash, block) => {
   const words = schedule(block);
   const state = Array.from(hash);
   for (let round = 0; round < 64; round += 1) {
-    const [a, b, c, , e, f, g, h] = state;
-    const chosen = (e & f) ^ (~e & g);
-    const first = h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + chosen + roundConstants[round] + words[round];
-    const second = (rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+    const [wordA, wordB, wordC, , wordE, wordF, wordG, wordH] = state;
+    const chosen = (wordE & wordF) ^ (~wordE & wordG);
+    const mixedE = rotate(wordE, 6) ^ rotate(wordE, 11) ^ rotate(wordE, 25);
+    const first = wordH + mixedE + chosen + roundConstants[round] + words[round];
+    const majority = (wordA & wordB) ^ (wordA & wordC) ^ (wordB & wordC);
+    const second = (rotate(wordA, 2) ^ rotate(wordA, 13) ^ rotate(wordA, 22)) + majority;
     state.pop();
     state.unshift((first + second) >>> 0);
     state[4] = (state[4] + first) >>> 0;
