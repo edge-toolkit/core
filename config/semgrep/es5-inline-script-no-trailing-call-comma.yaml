@@ -1,0 +1,14 @@
+rules:
+  - id: es5-inline-script-no-trailing-call-comma
+    languages: [generic]
+    paths:
+      include:
+        - "/utilities/gpu-probe/static/*.html"
+    # Check-only: deleting the comma does not last, as the formatter writes it back while the call stays wrapped.
+    pattern-regex: ',[ \t]*\n[ \t]*\)'
+    message: >-
+      The probe page's inline script runs in browsers before ES2017, which refuse a comma after a call's last
+      argument: Firefox 47 failed the whole script with "SyntaxError: expected expression, got `)`", leaving the page
+      at "Loading the probes...". The formatter writes that comma whenever it wraps a call, so keep the call short
+      enough to fit on one line, naming a long argument in a variable first.
+    severity: ERROR

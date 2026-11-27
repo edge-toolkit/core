@@ -89,6 +89,8 @@ mod fixed;
 mod format;
 mod half_precision;
 #[cfg(feature = "native")]
+mod memory;
+#[cfg(feature = "native")]
 pub mod native;
 #[cfg(feature = "registry")]
 mod registry;

@@ -4,9 +4,11 @@
 //! Each signature is filed under the interface the registry gives a probe set run with no browser, and seen at a row
 //! built from what the device says it is -- its vendor, name and backend from wgpu, and its driver and API versions
 //! from the API beneath -- from what the [`Machine`] says of the machine it ran on, and from the runtime that measured
-//! it.
-//! A row the registry already records, with every field the same, is left alone, so measuring twice adds nothing the
-//! second time.
+//! it. A row the registry already records, with every field the same, is left alone, so measuring twice adds nothing
+//! the second time.
+//!
+//! Each adapter's memory is recorded beside its signatures, as JSON the registry has no place for yet: what the API
+//! beneath wgpu says of it, and how far a walk capped at [`MEMORY_CAP`] went.
 #![expect(
     clippy::single_call_fn,
     reason = "each step of a measurement is named, and called once"
@@ -18,14 +20,21 @@ use std::path::{Path, PathBuf};
 use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe::{Answer, GpuVendor, HOST, Signature, host};
 use futures_executor::block_on;
+use serde_json::{Map, Value};
 
 use crate::built_info;
 use crate::machine::Machine;
 use crate::registry::{Outcome, RegisterError, RegistryTree, Submission, row};
-use crate::submitted::{ProposeError, propose};
+use crate::submitted::{ProposeError, name_of, propose};
 
 /// The operating system and CPU architecture this runs on, as a registry row names them.
 const HERE: (&str, &str) = (std::env::consts::OS, std::env::consts::ARCH);
+
+/// The most a memory walk allocates on one adapter: 1 GiB.
+///
+/// A hosted runner's adapter is a software renderer or a virtual GPU whose memory is the runner's own, of 7 GiB and up,
+/// so an uncapped walk could exhaust the machine it measures.
+pub const MEMORY_CAP: u64 = 1 << 30_u32;
 
 /// What stopped a measurement being recorded in full.
 #[derive(Debug, thiserror::Error)]
@@ -47,8 +56,8 @@ pub enum MeasureError {
 
 /// Measure every adapter in `opened` and this machine's CPU, `machine`, and add what they answer to `registry`.
 ///
-/// What became of each signature is written to `out`. An adapter that did not open is said so and passed over, as is
-/// each set an adapter would not answer: everything else is measured all the same, and the count of adapters not
+/// What became of each signature is written to `out`. An adapter that did not open is said so and passed over, as
+/// is each set an adapter would not answer: everything else is measured all the same, and the count of adapters not
 /// measured in full is the error returned once every other signature is recorded.
 pub fn measure<Out>(
     registry: &RegistryTree,
@@ -59,7 +68,7 @@ pub fn measure<Out>(
 where
     Out: Write,
 {
-    let (submissions, skipped) = measured(machine, opened, out)?;
+    let (submissions, skipped, _memory) = measured(machine, opened, out)?;
     let mut added = false;
     for submission in &submissions {
         let outcome = registry.register(submission)?;
@@ -82,8 +91,11 @@ where
 
 /// Measure as [`measure`] does, but write what is measured as a file of submissions in the directory `dir`.
 ///
-/// That is for a registry this cannot write to, such as on a CI runner. The file's path is written to `out`. An
-/// adapter passed over is said so, and counted in the error, as there.
+/// That is for a registry this cannot write to, such as on a CI runner. The file's path is written to `out`. An adapter
+/// passed over is said so, and counted in the error, as there.
+///
+/// Each adapter's memory is written beside it as a JSON array in `memory-<name>.json`, which `gpu-probe-fold` leaves
+/// alone, as it files only `.txt` files; with no adapter measured, there is none.
 pub fn propose_measured<Out>(
     dir: &Path,
     machine: &Machine,
@@ -93,23 +105,33 @@ pub fn propose_measured<Out>(
 where
     Out: Write,
 {
-    let (submissions, skipped) = measured(machine, opened, out)?;
+    let (submissions, skipped, memory) = measured(machine, opened, out)?;
     let path = propose(dir, &submissions)?;
     writeln!(out, "{} signature(s) proposed in {}", submissions.len(), path.display())?;
+    if !memory.is_empty() {
+        let count = memory.len();
+        let text = format!("{:#}\n", Value::Array(memory));
+        let memory_path = dir.join(Path::new(&format!("memory-{}", name_of(&text))).with_extension("json"));
+        fs_err::write(&memory_path, text)?;
+        writeln!(out, "{count} adapter(s)' memory written to {}", memory_path.display())?;
+    }
     passed_over(skipped)?;
     Ok(path)
 }
 
-/// Every signature the adapters in `opened` and this machine's CPU answer, beside how many adapters were passed over.
+/// Every signature the adapters in `opened` and this machine's CPU answer, and what each adapter says of its memory.
+///
+/// Beside them is how many adapters were passed over.
 fn measured<Out>(
     machine: &Machine,
     opened: Vec<Result<Gpu, NativeError>>,
     out: &mut Out,
-) -> Result<(Vec<Submission>, usize), MeasureError>
+) -> Result<(Vec<Submission>, usize, Vec<Value>), MeasureError>
 where
     Out: Write,
 {
     let mut submissions = Vec::new();
+    let mut memory = Vec::new();
     let mut skipped = 0_usize;
     for gpu in opened {
         let gpu = match gpu {
@@ -133,9 +155,52 @@ where
         if !in_full {
             skipped = skipped.saturating_add(1);
         }
+        let record = memory_of(&gpu, &adapter_label(&gpu, machine));
+        writeln!(out, "memory: {record}")?;
+        memory.push(record);
     }
     submissions.push(cpu_signature(machine));
-    Ok((submissions, skipped))
+    Ok((submissions, skipped, memory))
+}
+
+/// What `gpu`, named `label`, says of its memory, and how far a walk capped at [`MEMORY_CAP`] went.
+///
+/// The record holds the `label`, then either the `api` the figure came from with its `local`, `budget` and `unified`
+/// fields, as `ApiMemory` gives them, or the `api_error` saying why there is none, then the walk's `cap` and either
+/// the `walked` bytes and whether it was `refused`, its `walk_error`, or why it was not run, as `walk_skipped`. A CPU
+/// adapter's memory is the machine's own and the no-op backend's is none at all, so neither is walked.
+fn memory_of(gpu: &Gpu, label: &str) -> Value {
+    let mut record = Map::new();
+    let mut put = |key: &str, value: Value| {
+        let _previous: Option<Value> = record.insert(key.to_owned(), value);
+    };
+    put("label", label.into());
+    match gpu.api_memory() {
+        Ok(api) => {
+            put("api", api.api.into());
+            put("local", api.local.into());
+            put("budget", api.budget.into());
+            put("unified", api.unified.into());
+        }
+        Err(error) => put("api_error", error.to_string().into()),
+    }
+    put("cap", MEMORY_CAP.into());
+    let info = gpu.info();
+    // The no-op adapter says it is a CPU, so it is told apart first.
+    if info.backend == wgpu::Backend::Noop {
+        put("walk_skipped", "the no-op backend holds no memory".into());
+    } else if info.device_type == wgpu::DeviceType::Cpu {
+        put("walk_skipped", "a CPU adapter's memory is the machine's own".into());
+    } else {
+        match block_on(gpu.walk_memory(MEMORY_CAP)) {
+            Ok(walk) => {
+                put("walked", walk.bytes.into());
+                put("refused", walk.refused.into());
+            }
+            Err(error) => put("walk_error", error.to_string().into()),
+        }
+    }
+    Value::Object(record)
 }
 
 /// Nothing wrong where `skipped` is none, and otherwise the error counting the adapters passed over.
@@ -176,12 +241,7 @@ fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Vec<(&'static str, Result<Sub
         let _previous: Option<String> = seen.insert(field.to_owned(), value);
     }
     let seen = machine.row(seen);
-    let label = format!(
-        "{} through {} on {} -- wgpu, no browser",
-        info.name,
-        gpu.backend(),
-        machine.named(system, arch),
-    );
+    let label = adapter_label(gpu, machine);
     block_on(gpu.every_set())
         .into_iter()
         .map(|(interface, outcome)| {
@@ -189,6 +249,17 @@ fn gpu_signatures(gpu: &Gpu, machine: &Machine) -> Vec<(&'static str, Result<Sub
             (interface, submission)
         })
         .collect()
+}
+
+/// The label of what `gpu` answers on `machine`: the adapter, the backend it was opened through, and the machine.
+fn adapter_label(gpu: &Gpu, machine: &Machine) -> String {
+    let (system, arch) = HERE;
+    format!(
+        "{} through {} on {} -- wgpu, no browser",
+        gpu.info().name,
+        gpu.backend(),
+        machine.named(system, arch),
+    )
 }
 
 /// Whose GPU an adapter is: by the vendor `id` it reports, or by its `name` where the backend, like Metal, gives none.

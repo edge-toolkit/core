@@ -80,6 +80,18 @@ signatures:
         backend: metal
         device: "M5 Pro MacBook Pro"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: apple
+        gpu_version: "Apple M4 GPU"
+        backend: metal
+        device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -325,6 +337,16 @@ signatures:
         gpu_version: "Adreno 730"
         backend: vulkan
         device: "Samsung Galaxy S22 Ultra"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "adreno-6xx"
+        backend: vulkan
+        device: "CPH2727"
         window: normal
     results:
       multiply_add: "00000000"

@@ -1073,6 +1073,18 @@ signatures:
         runtime: "wgpu 29.0.4, built for aarch64-apple-darwin"
         window: none
         date: "2026-11-24"
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: apple
+        gpu_version: "Apple M4 GPU"
+        backend: metal
+        device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
     results:
       blend_multiply: "00000033"
       blend_half_float: "00003c00"
@@ -1869,6 +1881,29 @@ signatures:
       filter_third: "3eaa0a0a"
       filter_fine: "00000000"
       filter_srgb: "3ddd0dd1"
+      raster_right_edge_fine: "00000007"
+      raster_left_edge_fine: "000000f8"
+      raster_right_edge_coarse: "0000000f"
+  - interface: webgpu-fixed-function
+    label: "adreno-6xx through vulkan on android, CPH2727 -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "adreno-6xx"
+        backend: vulkan
+        device: "CPH2727"
+        window: normal
+    results:
+      blend_multiply: "00000033"
+      blend_half_float: "00003c01"
+      blend_srgb: "000000e1"
+      filter_third: "3ea9e9ea"
+      filter_fine: "00000000"
+      filter_srgb: "3ddcc000"
       raster_right_edge_fine: "00000007"
       raster_left_edge_fine: "000000f8"
       raster_right_edge_coarse: "0000000f"

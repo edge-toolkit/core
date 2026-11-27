@@ -1,0 +1,15 @@
+code: |
+  // ruleid: es5-script-no-unpolyfillable-regexp-flag
+  const atoms = text.match(/\\u\{[0-9a-f]+\}|[^]/gu);
+  // ruleid: es5-script-no-unpolyfillable-regexp-flag
+  const indices = /a(b)/d.exec(text);
+  // ruleid: es5-script-no-unpolyfillable-regexp-flag
+  const built = new RegExp(source, "v");
+  // ok: es5-script-no-unpolyfillable-regexp-flag
+  const pairs = text.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[^]/g);
+  // ok: es5-script-no-unpolyfillable-regexp-flag
+  const sticky = new RegExp(source, "gimsy");
+  // ok: es5-script-no-unpolyfillable-regexp-flag
+  const half = width / 2 / scale;
+  // ok: es5-script-no-unpolyfillable-regexp-flag
+  const url = "/pkg/data.wasm";

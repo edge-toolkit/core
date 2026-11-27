@@ -1,4 +1,4 @@
-# The probe page's WASM, which `mise run build-gpu-probe-page` builds.
+# The probe page's WASM, which `mise -E webprobe run build-gpu-probe-page` builds.
 /static/pkg/
-# Its legacy build, which `mise run build-gpu-probe-page-legacy` builds.
+# Its legacy build, which `mise -E webprobe run build-gpu-probe-page-legacy` builds.
 /static/legacy/

@@ -87,6 +87,8 @@ actix-ws = "0.4"
 # Present because wit-parser and the wasmtime bindgen return `anyhow::Result`, and `?` cannot convert one
 # without a `From<anyhow::Error>` impl, which has to name the type.
 anyhow = "1"
+# Held to the release wgpu-hal's Vulkan backend is built on, so the instance it hands out is one of these types.
+ash = { version = "0.38", default-features = false }
 # JetStream KV plus core pub/sub only, on aws-lc-rs: config/deny.toml bans `ring`.
 async-nats = { version = "0.51", default-features = false, features = ["aws-lc-rs", "kv"] }
 asyncapi-rust = "0.5"

@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use et_gpu_probe::native::{Gpu, NativeError};
 use et_gpu_probe::{DRAWING_SETS, EVERY_SET};
 use et_gpu_probe_server::machine::Machine;
-use et_gpu_probe_server::measure::{MeasureError, measure, propose_measured};
+use et_gpu_probe_server::measure::{MEMORY_CAP, MeasureError, measure, propose_measured};
 use et_gpu_probe_server::registry::RegistryTree;
 use et_gpu_probe_server::submitted::parse;
 use futures_executor::block_on;
@@ -217,6 +217,69 @@ fn an_adapter_passed_over_still_leaves_the_file_written_and_counted() {
     let outcome = propose_measured(dir.path(), &runner(), vec![unopened()], &mut out);
     assert!(matches!(outcome, Err(MeasureError::Skipped(1))));
     assert_eq!(fs_err::read_dir(dir.path()).unwrap().count(), 1);
+}
+
+/// The memory records `propose_measured` wrote for `opened` in a directory of its own, beside what it wrote to `out`.
+fn proposed_memory(opened: Vec<Result<Gpu, NativeError>>) -> (Vec<serde_json::Value>, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut out = Vec::new();
+    let _outcome = propose_measured(dir.path(), &runner(), opened, &mut out);
+    let memory = fs_err::read_dir(dir.path())
+        .unwrap()
+        .map(|item| item.unwrap().path())
+        .find(|path| path.extension().is_some_and(|extension| extension == "json"))
+        .unwrap();
+    let records = serde_json::from_str(&fs_err::read_to_string(&memory).unwrap()).unwrap();
+    (records, String::from_utf8(out).unwrap())
+}
+
+#[test]
+fn the_noop_adapters_memory_is_recorded_without_a_walk() {
+    let adapter = block_on(instance(wgpu::Backends::NOOP).request_adapter(&wgpu::RequestAdapterOptions::default()));
+    let gpu = block_on(Gpu::open_adapter(adapter.unwrap()));
+    let (records, out) = proposed_memory(vec![gpu]);
+    assert_eq!(records.len(), 1);
+    let record = &records[0];
+    assert!(
+        record["label"]
+            .as_str()
+            .unwrap()
+            .starts_with("noop wgpu backend through unknown on ")
+    );
+    assert_eq!(record["api_error"], "unknown gives no memory size beneath wgpu");
+    assert_eq!(record["cap"], MEMORY_CAP);
+    assert_eq!(record["walk_skipped"], "the no-op backend holds no memory");
+    // Parsed rather than matched, since serde_json orders its keys as given only where a build turns on its
+    // `preserve_order` feature, as the whole workspace's does.
+    let logged = out.lines().find_map(|line| line.strip_prefix("memory: ")).unwrap();
+    assert_eq!(&serde_json::from_str::<serde_json::Value>(logged).unwrap(), record);
+    assert!(out.contains("1 adapter(s)' memory written to "), "{out}");
+}
+
+#[test]
+fn every_adapter_here_has_its_memory_recorded() {
+    let opened = block_on(Gpu::open_all());
+    let adapters = opened.iter().filter(|gpu| gpu.is_ok()).count();
+    if adapters == 0 {
+        return;
+    }
+    let (records, _out) = proposed_memory(opened);
+    assert_eq!(records.len(), adapters);
+    for record in &records {
+        assert!(
+            record.get("api").is_some() != record.get("api_error").is_some(),
+            "{record}",
+        );
+        let walks = ["walked", "walk_skipped", "walk_error"];
+        assert_eq!(
+            walks.iter().filter(|key| record.get(**key).is_some()).count(),
+            1,
+            "{record}",
+        );
+        if let Some(walked) = record.get("walked") {
+            assert!(walked.as_u64().unwrap() <= MEMORY_CAP, "{record}");
+        }
+    }
 }
 
 #[test]

@@ -1,0 +1,15 @@
+code: |
+  <script>
+    report(
+      // ruleid: es5-inline-script-no-trailing-call-comma
+      "the page's script never started, as in a browser too old for it",
+    );
+    var neverStarted =
+      "the page's script never started, as in a browser too old for it";
+    // ok: es5-inline-script-no-trailing-call-comma
+    report(neverStarted);
+    // ok: es5-inline-script-no-trailing-call-comma
+    var lines = [
+      "a trailing comma in an array is ES5",
+    ];
+  </script>

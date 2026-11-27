@@ -6022,6 +6022,7 @@ dependencies = [
 name = "et-gpu-probe"
 version = "0.1.0"
 dependencies = [
+ "ash",
  "criterion",
  "document-features",
  "edge-toolkit",

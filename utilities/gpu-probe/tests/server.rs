@@ -269,7 +269,7 @@ async fn a_registry_that_cannot_be_read_is_a_server_error() {
 }
 
 #[test]
-fn plain_http_is_served_only_on_a_loopback_address() {
+fn plain_http_is_served_only_on_a_loopback_address_unless_insecure_origin_is_given() {
     use clap::Parser as _;
     use et_gpu_probe_server::{Args, StartError};
 
@@ -291,6 +291,24 @@ fn plain_http_is_served_only_on_a_loopback_address() {
     let refused = args(&["--http", "--bind", "0.0.0.0"]).check().unwrap_err();
     assert!(matches!(refused, StartError::NotLoopback(_)));
     assert!(refused.to_string().contains("0.0.0.0"));
+    args(&["--http", "--insecure-origin", "--bind", "0.0.0.0"])
+        .check()
+        .unwrap();
+    // It only loosens --http, so it means nothing without it.
+    let lone = Args::try_parse_from([
+        "et-gpu-probe-server",
+        "--registry",
+        "r.yaml",
+        "--cert",
+        "c.pem",
+        "--key",
+        "k.pem",
+        "--insecure-origin",
+    ]);
+    assert_eq!(
+        lone.unwrap_err().kind(),
+        clap::error::ErrorKind::MissingRequiredArgument,
+    );
 }
 
 #[test]

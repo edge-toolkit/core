@@ -10,7 +10,8 @@
 use std::sync::LazyLock;
 
 use et_gpu_probe::native::{
-    Gpu, NativeError, NoCompute, backend_name, compute_shaders, gl_report_of, gl_versions, named_driver, runs_compute,
+    ApiMemory, Gpu, NativeError, NoApiMemory, NoCompute, VulkanHeap, WALK_RESOLUTION, Walk, backend_name,
+    compute_shaders, gl_report_of, gl_versions, named_driver, runs_compute, vulkan_memory, walk_with,
 };
 use et_gpu_probe::{
     Answer, BLENDS, CLEARS, DRAWING_SETS, EVERY_SET, FILTERS, HOST, PROBE_COUNT, RASTERS, Signature, host,
@@ -18,6 +19,9 @@ use et_gpu_probe::{
 use futures_executor::block_on;
 use pretty_assertions::assert_eq;
 use pretty_assertions::assert_ne;
+
+/// One mebibyte, which the memory tests count in.
+const MIB: u64 = 1 << 20_u32;
 
 /// This machine's GPU, opened once and with the probe set compiled for it.
 static GPU: LazyLock<Gpu> = LazyLock::new(|| block_on(Gpu::open()).unwrap());
@@ -192,6 +196,14 @@ fn every_adapter_opens_and_answers_the_probe_set() {
         println!("adapter versions: {versions:?}");
         if ["vulkan", "opengl", "opengl-es"].contains(&gpu.backend()) {
             assert!(versions.iter().any(|(field, _)| *field == "driver"), "{versions:?}");
+        }
+        // Each API the memory is read from gives it; OpenGL gives none. A software adapter may hold none of its own, as
+        // WARP, the Microsoft Basic Render Driver, has no dedicated video memory beneath Direct3D 12.
+        let memory = gpu.api_memory();
+        println!("adapter memory: {memory:?}");
+        if ["vulkan", "metal", "d3d12"].contains(&gpu.backend()) {
+            let software = info.device_type == wgpu::DeviceType::Cpu;
+            assert!(memory.unwrap().local > 0 || software, "{}", gpu.backend());
         }
     }
 }
@@ -420,4 +432,115 @@ fn a_vulkan_driver_version_is_read_in_its_vendors_encoding() {
 #[test]
 fn a_metal_device_giving_no_architecture_is_reported_as_none() {
     assert_eq!(et_gpu_probe::native::metal_architecture_name(None), "none");
+}
+
+/// The fields of `memory`, so one can be compared whole.
+fn memory_fields(memory: ApiMemory) -> (&'static str, u64, u64, bool) {
+    (memory.api, memory.local, memory.budget, memory.unified)
+}
+
+#[test]
+fn a_discrete_gpus_vulkan_heaps_give_its_own_memory_beside_the_systems() {
+    // An RTX A1000 Laptop GPU's heaps, under NVIDIA's 595.104.02 driver on Pop!_OS 24.04.
+    let heaps = [
+        VulkanHeap::new(4096 * MIB, 3761 * MIB, true),
+        VulkanHeap::new(23819 * MIB, 23819 * MIB, false),
+    ];
+    assert_eq!(
+        memory_fields(vulkan_memory(&heaps)),
+        ("vulkan", 4096 * MIB, 3761 * MIB, false),
+    );
+}
+
+#[test]
+fn a_unified_gpus_vulkan_heap_is_a_share_of_the_systems_memory() {
+    // A GB10's one heap, under NVIDIA's 580.178.04 driver on a DGX Spark.
+    let heaps = [VulkanHeap::new(93456 * MIB, 93456 * MIB, true)];
+    assert_eq!(
+        memory_fields(vulkan_memory(&heaps)),
+        ("vulkan", 93456 * MIB, 93456 * MIB, true),
+    );
+}
+
+#[test]
+fn a_vulkan_heap_with_no_budget_is_budgeted_at_its_size() {
+    let heaps = [
+        VulkanHeap::new(2048 * MIB, 0, true),
+        VulkanHeap::new(1024 * MIB, 512 * MIB, true),
+    ];
+    assert_eq!(
+        memory_fields(vulkan_memory(&heaps)),
+        ("vulkan", 3072 * MIB, 2560 * MIB, true),
+    );
+}
+
+/// A walk over a device that has `available` bytes, where `fail_at` names the size of a request that fails outright.
+fn walk_over(cap: u64, available: u64, fail_at: u64) -> Result<Walk, &'static str> {
+    let taken = std::cell::Cell::new(0_u64);
+    let allocate = |size: u64| {
+        let after = taken.get().saturating_add(size);
+        let fits = after <= available;
+        if fits {
+            taken.set(after);
+        }
+        let outcome = match size {
+            failing if failing == fail_at => Err("the device was lost"),
+            _ if fits => Ok(Ok(size)),
+            _ => Ok(Err("out of memory")),
+        };
+        std::future::ready(outcome)
+    };
+    block_on(walk_with(cap, 256 * MIB, allocate))
+}
+
+#[test]
+fn a_walk_stops_within_its_resolution_of_where_the_device_refuses() {
+    let walk = walk_over(u64::MAX, 3440 * MIB + 5 * MIB, 0).unwrap();
+    assert_eq!((walk.bytes, walk.refused), (3440 * MIB, true));
+}
+
+#[test]
+fn a_walk_stops_at_its_cap_without_being_refused() {
+    let walk = walk_over(1000 * MIB + 3, u64::MAX, 0).unwrap();
+    // The cap is not a whole number of the walk's 16 MiB resolution, so the walk stops at the last one below it.
+    assert_eq!(WALK_RESOLUTION, 16 * MIB);
+    assert_eq!((walk.bytes, walk.refused), (992 * MIB, false));
+}
+
+#[test]
+fn a_walk_ends_with_the_failure_of_an_allocation() {
+    assert_eq!(walk_over(u64::MAX, u64::MAX, 256 * MIB), Err("the device was lost"));
+}
+
+#[test]
+fn this_gpus_api_says_how_much_memory_it_has() {
+    let memory = GPU.api_memory();
+    println!("api memory: {memory:?}");
+    // OpenGL is read for no memory size, so a GPU wgpu opened through it gives none.
+    if !["vulkan", "metal", "d3d12"].contains(&GPU.backend()) {
+        assert_eq!(memory.unwrap_err().backend, GPU.backend());
+        return;
+    }
+    let memory = memory.unwrap();
+    // A software adapter may hold none of its own, as WARP, the Microsoft Basic Render Driver, has no dedicated video
+    // memory beneath Direct3D 12.
+    let software = GPU.info().device_type == wgpu::DeviceType::Cpu;
+    assert!(software || memory.local > 0 && memory.budget > 0, "{memory:?}");
+    // Apple's GPUs are unified, and Metal is the API that says so on every Mac but one with a discrete GPU.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    assert_eq!((memory.api, memory.unified), ("metal", true));
+}
+
+#[test]
+fn an_adapter_no_graphics_api_stands_behind_gives_no_memory_size() {
+    let gpu = block_on(Gpu::open_adapter(noop_adapter())).unwrap();
+    let error: NoApiMemory = gpu.api_memory().unwrap_err();
+    assert_eq!(error.backend, "unknown");
+    assert_eq!(error.to_string(), "unknown gives no memory size beneath wgpu");
+}
+
+#[test]
+fn this_gpu_holds_what_a_capped_walk_allocates() {
+    let walk = block_on(GPU.walk_memory(512 * MIB)).unwrap();
+    assert_eq!((walk.bytes, walk.refused), (512 * MIB, false));
 }

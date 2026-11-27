@@ -24,6 +24,18 @@ signatures:
         backend: metal
         device: "iPhone 17"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: apple
+        gpu_version: "Apple M4 GPU"
+        backend: metal
+        device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
     results:
       sin_4_55: "bf7ca1ce"
       sin_5_66: "bf15686f"
@@ -618,3 +630,33 @@ signatures:
       cos_9_36: "bf7f7695"
       cos_10_47: "bf007076"
       cos_11_21: "3e59e4d8"
+  - interface: webgpu-trig-split
+    label: "adreno-6xx through vulkan on android, CPH2727 -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "adreno-6xx"
+        backend: vulkan
+        device: "CPH2727"
+        window: normal
+    results:
+      sin_4_55: "bf7ca1cc"
+      sin_5_66: "bf156871"
+      sin_6_40: "3deeb16f"
+      sin_7_14: "3f417981"
+      sin_7_88: "3f7fe9d2"
+      sin_9_36: "3d8492b4"
+      sin_10_47: "bf5d72fd"
+      sin_11_21: "bf7a2328"
+      cos_4_55: "be258e8a"
+      cos_5_66: "3f4fe0c2"
+      cos_6_40: "3f7e415e"
+      cos_7_14: "3f27a424"
+      cos_7_88: "bcd51eaf"
+      cos_9_36: "bf7f768c"
+      cos_10_47: "bf007010"
+      cos_11_21: "3e59e465"

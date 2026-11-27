@@ -13,10 +13,18 @@ it to the registry, under the GPU it ran on. The row it is seen at is filled in 
 be corrected before submitting. A Chromium browser on Android gives the phone's model code, such as `SM-G973F`, as the
 device, and every Chromium browser gives the system's version; `?device=<machine>` and `?os_version=<version>` give
 them instead, and `?submit` submits every set once probed.
-Serve it on this machine, which builds the WASM first:
+
+`?memory=<MiB>` also walks the high-performance adapter's memory once the sets are probed, allocating until the
+browser refuses or the walk holds that many MiB, and shows how far it went. Under headless Chrome on Linux the adapter
+is SwiftShader unless Chrome is started with `--use-angle=vulkan --enable-features=Vulkan,VulkanFromANGLE
+--disable-vulkan-surface`; SwiftShader reserves memory without backing it, so its walk always reaches the cap.
+
+The tools that build the page, and every task here that builds, serves or drives it, are in the opt-in `webprobe`
+mise env, so each is run with `-E webprobe`, once `mise -E webprobe install` has installed its tools. Serve it on this
+machine, which builds the WASM first:
 
 ```bash
-mise run gpu-probe-page
+mise -E webprobe run gpu-probe-page
 ```
 
 then open `http://localhost:8099/`. Chrome on Linux gives WebGPU only behind switches, and runs WebGL on whichever
@@ -24,23 +32,23 @@ ANGLE backend it is told to, so this opens it with WebGPU on and WebGL on `vulka
 page itself if nothing does yet; `--submit` drives it through chromedriver instead, submitting every set:
 
 ```bash
-mise run gpu-probe-chrome vulkan --device "Dell Precision 5570" --submit
+mise -E webprobe run gpu-probe-chrome vulkan --device "Dell Precision 5570" --submit
 ```
 
 For phones and other machines, serve it over HTTPS on this machine or on the LAN:
 
 ```bash
-mise run gpu-probe-server
+mise -E webprobe run gpu-probe-server
 ```
 
 ```bash
-mise run gpu-probe-server-lan
+mise -E webprobe run gpu-probe-server-lan
 ```
 
 Then open one of the addresses it prints, and accept the self-signed certificate once in each browser. The
 certificate covers localhost, each LAN address, and each address's `nip.io` name, which is a real domain for trying a
-browser defence that treats a bare IP differently. `mise run build-gpu-probe-page` builds the WASM alone, into
-`static/pkg`.
+browser defence that treats a bare IP differently. `mise -E webprobe run build-gpu-probe-page` builds the WASM
+alone, into `static/pkg`.
 
 A phone's model code names it exactly, but not as it is sold. Google Play's
 [supported devices list](https://storage.googleapis.com/play_public/supported_devices.html), also a
@@ -57,7 +65,7 @@ the page deployed to a public static host such as Vercel. This assembles the pag
 serves beside it and `libs/gpu-probe/signatures.json` into `target/gpu-probe-site`, the directory to deploy:
 
 ```bash
-mise run build-gpu-probe-site
+mise -E webprobe run build-gpu-probe-site
 ```
 
 With no server behind it, the page has no registry to add to, so instead of submit buttons it proposes what it found

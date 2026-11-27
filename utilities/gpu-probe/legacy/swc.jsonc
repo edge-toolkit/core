@@ -1,12 +1,18 @@
 // How swc lowers the bundled probe page to ES5 for build-gpu-probe-page-legacy.
 // It is a classic script rather than a module, minified only to drop its whitespace, which leaves it under half the
-// size swc would otherwise print it at.
+// size swc would otherwise print it at. `env` lowers it for engines that predate ES2015, and names a core-js module
+// for each built-in the script uses that they lack, such as `Symbol` and `Array.prototype.fill`, which Arora 0.11's
+// QtWebKit has neither of; the build bundles those modules in after. `coreJs` is the release mise installs.
 {
   "isModule": false,
+  "env": {
+    "targets": "ie 11, safari 7",
+    "mode": "usage",
+    "coreJs": "3.51.0",
+  },
   "jsc": {
     "minify": { "compress": false, "mangle": false },
     "parser": { "syntax": "ecmascript" },
-    "target": "es5",
   },
   "minify": true,
 }

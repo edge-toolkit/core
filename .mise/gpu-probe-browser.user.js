@@ -1,4 +1,4 @@
-// The prefs `mise run gpu-probe-browser` starts each fresh profile of a browser built on Firefox with.
+// The prefs `mise -E webprobe run gpu-probe-browser` starts each fresh profile of a browser built on Firefox with.
 // They skip what a new profile opens with -- the onboarding and pre-onboarding screens, the terms-of-use and
 // data-reporting notices, the welcome page and the default-browser question -- so the probe page is the only thing
 // shown, let it be served over plain HTTP from localhost, which Mullvad Browser's HTTPS-Only mode would refuse, and

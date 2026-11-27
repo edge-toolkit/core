@@ -90,17 +90,7 @@ pub fn probe_webgl1() -> Result<String, JsError> {
 /// the signatures: the adapter's description, one `name: value` line each.
 #[wasm_bindgen]
 pub async fn probe_webgpu(power: &str, fallback: bool) -> Result<String, JsError> {
-    let power_preference = match power {
-        "high-performance" => wgpu::PowerPreference::HighPerformance,
-        "low-power" => wgpu::PowerPreference::LowPower,
-        _ => wgpu::PowerPreference::None,
-    };
-    let options = wgpu::RequestAdapterOptions {
-        power_preference,
-        force_fallback_adapter: fallback,
-        compatible_surface: None,
-    };
-    let (signatures, report, problems) = match Gpu::open_with(&options).await {
+    let (signatures, report, problems) = match Gpu::open_with(&adapter_options(power, fallback)).await {
         Ok(gpu) => {
             // A set that fails leaves the others answered and submittable, and is reported beside them.
             let (signatures, problems) = gather(gpu.every_set().await);
@@ -110,6 +100,40 @@ pub async fn probe_webgpu(power: &str, fallback: bool) -> Result<String, JsError
     };
     let answer = json!({ "signatures": signatures, "report": report, "problems": problems });
     Ok(serde_json::to_string(&answer)?)
+}
+
+/// How far allocating on the WebGPU adapter the browser gives for `power` and `fallback` goes before it refuses.
+///
+/// The walk holds no more than `cap_mib` mebibytes at once, and frees it all when it ends. The answer is JSON text:
+/// an object whose `bytes` is how much was held when the walk stopped, `refused` whether the browser refused it rather
+/// than the walk reaching `cap_mib`, and `problems` why there was no walk. A page reaches nothing beneath WebGPU, so
+/// this is the one figure a page can give of a GPU's memory.
+#[wasm_bindgen]
+pub async fn probe_memory(power: &str, fallback: bool, cap_mib: u32) -> Result<String, JsError> {
+    let cap = u64::from(cap_mib) << 20_u32;
+    let walked = match Gpu::open_with(&adapter_options(power, fallback)).await {
+        Ok(gpu) => gpu.walk_memory(cap).await,
+        Err(problem) => Err(problem),
+    };
+    let answer = match walked {
+        Ok(walk) => json!({ "bytes": walk.bytes, "refused": walk.refused, "problems": [] }),
+        Err(problem) => json!({ "problems": [format!("WebGPU memory: {problem}")] }),
+    };
+    Ok(serde_json::to_string(&answer)?)
+}
+
+/// The adapter request for `power`, a `GPUPowerPreference`, asking for the browser's fallback adapter if `fallback`.
+fn adapter_options(power: &str, fallback: bool) -> wgpu::RequestAdapterOptions<'static, 'static> {
+    let power_preference = match power {
+        "high-performance" => wgpu::PowerPreference::HighPerformance,
+        "low-power" => wgpu::PowerPreference::LowPower,
+        _ => wgpu::PowerPreference::None,
+    };
+    wgpu::RequestAdapterOptions {
+        power_preference,
+        force_fallback_adapter: fallback,
+        compatible_surface: None,
+    }
 }
 
 /// What a page shows of each set in `measured` that answered, and why each that did not gave nothing.

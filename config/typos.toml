@@ -23,8 +23,12 @@ locale = "en-au"
 # so bare "flate" is still flagged.
 # `setp.eq` and the like are PTX's set-predicate instruction, in cuda-probe's hand-written PTX, not a misspelling of
 # "step". Anchored to the instruction's `.` and comparison so bare "setp" is still flagged.
+# A quoted run of exactly eight hex digits is a probe result in the GPU probe registry, as `lane2: "ba30e85d"`, a word
+# of bits whose letters can spell a near-word such as "ba". Anchored to the quotes and the length, so the labels and
+# prose beside them in the same files are still checked.
 extend-ignore-re = [
   "Functionality is equivelant to",
+  "\"[0-9a-f]{8}\"",
   "lod-(min|max)-clamp",
   "setp\\.(eq|ne|lt|le|gt|ge)\\b",
   "std\\.compress\\.flate",

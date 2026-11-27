@@ -45,6 +45,59 @@ where
     hal.map(|vulkan| read(&vulkan)).ok_or(OtherApi)
 }
 
+/// The memory heaps of the Vulkan device beneath `adapter`, each with its budget where the driver gives one.
+///
+/// Budgets come from `VK_EXT_memory_budget`, chained only where the device offers it, as Vulkan requires. Without it
+/// every budget is left at 0, which `vulkan_memory` budgets at the heap's size.
+///
+/// The heaps are read through `VK_KHR_get_physical_device_properties2`, which wgpu enables wherever the driver offers
+/// it, rather than the entry point Vulkan 1.1 promoted it to: a Vulkan 1.0 instance can offer the extension yet lack
+/// the core entry point, which ash then answers by panicking. An instance without the extension gives no heaps here, as
+/// one that is not Vulkan does.
+#[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
+pub(crate) fn vulkan_heaps(adapter: &wgpu::Adapter) -> Result<Vec<crate::memory::VulkanHeap>, OtherApi> {
+    use ash::khr::get_physical_device_properties2 as properties2;
+    use ash::vk;
+    with_vulkan(adapter, |vulkan| {
+        let shared = vulkan.shared_instance();
+        let instance = shared.raw_instance();
+        let physical = vulkan.raw_physical_device();
+        // Every driver a test runs on offers both extensions, so each absence is taken as a value, through `Option`,
+        // rather than by an `if` that would leave a branch no run could take.
+        let enabled = shared.extensions().contains(&properties2::NAME);
+        let loaded = enabled
+            .then(|| properties2::Instance::new(shared.entry(), instance))
+            .ok_or(OtherApi)?;
+        // SAFETY: the call only lists what the physical device offers, which the instance outlives.
+        let extensions = unsafe { instance.enumerate_device_extension_properties(physical) }.unwrap_or_default();
+        let budgeted = extensions
+            .iter()
+            .any(|extension| extension.extension_name_as_c_str() == Ok(vk::EXT_MEMORY_BUDGET_NAME));
+        let mut budget = vk::PhysicalDeviceMemoryBudgetPropertiesEXT::default();
+        #[expect(
+            clippy::obfuscated_if_else,
+            reason = "an `if` here is a branch no test driver can take, since every one offers VK_EXT_memory_budget"
+        )]
+        let mut properties = budgeted
+            .then(|| vk::PhysicalDeviceMemoryProperties2::default().push_next(&mut budget))
+            .unwrap_or_default();
+        // SAFETY: the call only fills in `properties`, and the budget chained to it, both of which outlive it.
+        unsafe {
+            loaded.get_physical_device_memory_properties2(physical, &mut properties);
+        }
+        let memory = properties.memory_properties;
+        Ok(memory
+            .memory_heaps_as_slice()
+            .iter()
+            .zip(budget.heap_budget)
+            .map(|(heap, budget)| {
+                let device_local = heap.flags.contains(vk::MemoryHeapFlags::DEVICE_LOCAL);
+                crate::memory::VulkanHeap::new(heap.size, budget, device_local)
+            })
+            .collect())
+    })?
+}
+
 /// What OpenGL gives for `GL_VENDOR` and `GL_VERSION` beneath `adapter`.
 #[cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))]
 pub(crate) fn gl_strings(adapter: &wgpu::Adapter) -> Result<(String, String), OtherApi> {
@@ -74,8 +127,8 @@ where
 
 /// What `read` makes of the architecture the Metal device `raw` gives, `None` for one that gives none.
 ///
-/// objc2-metal types `architecture` as never nil, but an Intel Mac's device answers nil, which its binding turns into a
-/// panic, `unexpected NULL returned from -[MTLIGAccelDevice architecture]`. Sending the message directly lets the nil
+/// objc2-metal types `architecture` as never nil, but an Intel Mac's device answers nil, which its binding turns into
+/// a panic, `unexpected NULL returned from -[MTLIGAccelDevice architecture]`. Sending the message directly lets the nil
 /// arrive as `None`.
 #[cfg(target_vendor = "apple")]
 pub(crate) fn with_metal_architecture<Read, Out>(
