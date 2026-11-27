@@ -3463,7 +3463,7 @@ coreutils cp libs/gpu-probe/signatures.json "$site/signatures.json"
 shell = "{{ vars.task_shell }}"
 
 [tasks.gpu-probe-page]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Serve the GPU probe page at http://localhost:8099/, adding what it submits to the registry"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }} --http --port 8099"
 
@@ -3523,6 +3523,13 @@ for setting in "${settings[@]}"; do
     exit 2
   fi
 done
+# Only the last of a name set twice reaches the browser, which the rows' sorted environment could not say.
+names="$(printf '%s\\n' "${settings[@]%%=*}" | LC_ALL=C coreutils sort)"
+repeated="$(coreutils uniq -d <<<"$names" | coreutils paste -s -d ' ')"
+if [ -n "$repeated" ]; then
+  printf -- '--environment sets each name once, but sets %s more than once\\n' "$repeated" >&2
+  exit 2
+fi
 if [ -n "${usage_environment:-}" ]; then
   environment="$(printf '%s\\n' "${settings[@]}" | LC_ALL=C coreutils sort | coreutils paste -s -d ' ')"
   query="$query&environment=$(environment="$environment" yq -n 'strenv(environment) | @uri')"
@@ -3779,6 +3786,13 @@ for setting in "${settings[@]}"; do
     exit 2
   fi
 done
+# Only the last of a name set twice reaches the browser, which the rows' sorted environment could not say.
+names="$(printf '%s\\n' "${settings[@]%%=*}" | LC_ALL=C coreutils sort)"
+repeated="$(coreutils uniq -d <<<"$names" | coreutils paste -s -d ' ')"
+if [ -n "$repeated" ]; then
+  printf -- '--environment sets each name once, but sets %s more than once\\n' "$repeated" >&2
+  exit 2
+fi
 if [ -n "${usage_environment:-}" ]; then
   if [ "$browser" = safari ]; then
     printf -- '--environment cannot reach Safari, which opens only through Launch Services\\n' >&2
@@ -3885,7 +3899,7 @@ flag "--submit" help="Submit every probe set from the page and print how each we
 """
 
 [tasks.gpu-probe-server]
-depends = ["build-gpu-probe-page"]
+depends = ["build-gpu-probe-page", "build-gpu-probe-page-legacy"]
 description = "Collect GPU probe signatures into libs/gpu-probe/signatures over HTTPS at localhost:8444"
 run = "{{ vars.gpu_probe_server }} {{ vars.gpu_probe_server_args }}"
 

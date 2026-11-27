@@ -67,8 +67,8 @@ Name the machine the same way in every step, by its make and model, so its rows 
 
    Run them again under each driver setting that can change an answer, given to either task as `--environment`, which
    records it in the rows. On Linux with two GPUs, Chrome runs WebGL and WebGPU on the one driving the display, so
-   reach the other by naming its Vulkan driver alone, and on a hybrid laptop name the setting that runs the browser on
-   the discrete GPU:
+   where the other has a Vulkan driver of its own, reach it by naming that driver alone; two GPUs sharing one driver
+   cannot be told apart this way. On a hybrid laptop, name the setting that runs the browser on the discrete GPU:
 
    ```bash
    vulkan="VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
@@ -156,6 +156,15 @@ Name the machine the same way in every step, by its make and model, so its rows 
    MISE_ENV=rust,cuda mise exec -- cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture
    ```
 
+   For a Maxwell GPU, point `ORT_DYLIB_PATH` at the build's own library instead. `MISE_ENV=cuda` sets it to the
+   package's, over any value the shell exports, so it is set inside the command mise runs:
+
+   ```bash
+   ort=/path/to/onnxruntime/build/Linux/Release/libonnxruntime.so
+   test="cargo test -p et-ws-wasi-runner --features cuda --test nn_probe -- --nocapture"
+   MISE_ENV=rust,cuda mise exec -- sh -c "ORT_DYLIB_PATH=$ort $test"
+   ```
+
    On a machine with an NVIDIA GPU, the workspace's lints build `et-gpu-probe-server`'s `cuda` feature as well. The
    libraries above are CUDA 12 and carry no headers, so it needs CUDA 13's `cuda.h` and `curand.h` beside them, of
    the CUDA version `nvidia-smi` reports for the driver:
@@ -165,8 +174,8 @@ Name the machine the same way in every step, by its make and model, so its rows 
    ```
 
    They are found under `/usr/local/cuda-13` or `/usr/local/cuda`; where neither links to them, name them with
-   `CUDA_HOME=/usr/local/cuda-13.0`. Running what that feature builds needs only the driver, which compiles its PTX
-   for the GPU it runs on, so a Maxwell GPU that CUDA 13 no longer compiles for still answers it.
+   `export CUDA_HOME=/usr/local/cuda-13.0` before building. Running what that feature builds needs only the driver,
+   which compiles its PTX for the GPU it runs on, so a Maxwell GPU that CUDA 13 no longer compiles for still answers it.
 
 4. **Deno.** The graphics-info module puts every WebGPU probe set to each adapter Deno's WebGPU gives, under
    `et-ws-web-runner`, and proposes them the same way:

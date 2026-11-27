@@ -120,11 +120,12 @@
     <div id="gpus"></div>
     <script>
     // This script starts the page's own and is written for any browser, so that it can say what went wrong where the
-    // other cannot. A browser with ES modules and WebAssembly runs /probe.js, a module. One with neither, such as
-    // Safari 9 on an iPad 3, runs the legacy build of it, the same script with the probes as JavaScript, lowered to
-    // ES5. The first error raised before either starts, that the script did not load in time, or that it loaded and
-    // never started, is reported to the page and to the server, with a button sending it again; a static host has no
-    // server to take it, which the button then says. Only the latest of the sends says how it went.
+    // other cannot. A browser with ES modules, WebAssembly, and the optional chaining and `??` it is written with runs
+    // /probe.js, a module. One without, such as Safari 9 on an iPad 3, or Chrome 78 and Safari 13.0, which lack only
+    // the syntax, runs the legacy build of it, the same script with the probes as JavaScript, lowered to ES5. The first
+    // error raised before either starts, that the script did not load in time, or that it loaded and never started, is
+    // reported to the page and to the server, with a button sending it again; a static host has no server to take it,
+    // which the button then says. Only the latest of the sends says how it went.
     (function() {
       var reported = false;
       var report = function(problem) {
@@ -142,6 +143,7 @@
           var attempt = latest;
           outcome.textContent = "Sending...";
           request.open("POST", "/status");
+          request.timeout = 10000;
           request.setRequestHeader("Content-Type", "application/json");
           request.onload = function() {
             if (attempt !== latest) return;
@@ -152,6 +154,11 @@
           request.onerror = function() {
             if (attempt !== latest) return;
             outcome.textContent = "Not sent: the server did not answer.";
+          };
+          request.ontimeout = function() {
+            if (attempt !== latest) return;
+            outcome.textContent =
+              "Not sent: the server did not answer within ten seconds.";
           };
           request.send(JSON.stringify({ status: lines }));
         };
@@ -175,8 +182,17 @@
           );
         }, 10000);
       });
+      // Whether the browser parses `source`.
+      var parses = function(source) {
+        try {
+          return typeof new Function(source) === "function";
+        } catch (error) {
+          return false;
+        }
+      };
       var script = document.createElement("script");
-      var modern = "noModule" in script && typeof WebAssembly === "object";
+      var modern = "noModule" in script && typeof WebAssembly === "object" &&
+        parses("return window?.x ?? 0;");
       if (modern) script.type = "module";
       script.src = modern ? "/probe.js" : "/legacy/probe.js";
       // A request that stalls holds back the window's load, so its deadline starts with the request rather than then.

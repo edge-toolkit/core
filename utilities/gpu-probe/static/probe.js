@@ -153,6 +153,13 @@ const driverGpu = (unmasked, similar) => {
   return similar ? { vendor, model: "", backend, reported: renderer } : { vendor, model: renderer, backend };
 };
 
+// `name` without the vendor it starts with, whatever its case; the vendor is the browser's text, so it is compared as
+// text rather than made into a pattern.
+const withoutVendor = (name, vendor) => {
+  const prefix = `${vendor} `.toLowerCase();
+  return name.toLowerCase().startsWith(prefix) ? name.slice(prefix.length) : name;
+};
+
 // The GPU ANGLE names inside its renderer string, `inner` being what its parentheses hold.
 const angleGpu = (inner, similar, renderer) => {
   const [vendor, named = "", ...rest] = topLevel(inner);
@@ -160,7 +167,7 @@ const angleGpu = (inner, similar, renderer) => {
   const vulkan = named.match(/^Vulkan [\d.]+ \((.*?)(?: \(0x[0-9A-Fa-f]+\))?\)$/);
   const direct3d = named.match(/^(.*?)(?: \(0x[0-9A-Fa-f]+\))? Direct3D\w* vs_\w+ ps_\w+$/);
   const listed = vulkan ?? direct3d;
-  const model = listed ? listed[1].replace(new RegExp(`^${vendor} `, "i"), "") : named;
+  const model = listed ? withoutVendor(listed[1], vendor) : named;
   const backend = api ? api[1] : "unknown";
   if (similar) return { vendor, model: "", backend, reported: renderer };
   return { vendor, model, backend };
