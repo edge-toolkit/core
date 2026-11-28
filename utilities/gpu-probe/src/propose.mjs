@@ -205,14 +205,15 @@ const covers = (row, seen) =>
 
 // What the registry `known`, the document signatures.json holds, makes of each of `submissions`: `recorded` when it
 // already has the sighting, `sighting` with the entry's label when the signature is known but not seen there, and
-// `new` otherwise. These are the answers the server's /register gives the same submission.
+// `new` otherwise. These are the answers the server's /register gives the same submission. Each known one also gives
+// the `entry` holding it, whose rows say where else it has been seen.
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export const judged = (submissions, known) =>
   submissions.map((submission) => {
     const entry = (known.signatures ?? []).find((candidate) => holds(candidate, submission));
     if (!entry) return { submission, kind: "new" };
-    if ((entry.seen ?? []).some((row) => covers(row, submission.seen))) return { submission, kind: "recorded" };
-    return { submission, kind: "sighting", label: entry.label };
+    if ((entry.seen ?? []).some((row) => covers(row, submission.seen))) return { submission, kind: "recorded", entry };
+    return { submission, kind: "sighting", label: entry.label, entry };
   });
 
 // The proposals for `submissions`, each submission an object in the shape the server's /register takes: the files

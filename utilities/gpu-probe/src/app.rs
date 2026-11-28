@@ -21,6 +21,9 @@ const SUBMIT_PAGE: &str = include_str!("submit.html");
 /// The styles the server's pages share, served at `/probe.css`.
 const STYLES: &str = include_str!("probe.css");
 
+/// The icon the server's pages show in a browser's tab, served at `/favicon.svg`.
+const FAVICON: &str = include_str!("favicon.svg");
+
 /// The module the server's pages post a submission with, served at `/register.js`.
 const REGISTER_SCRIPT: &str = include_str!("register.mjs");
 
@@ -43,6 +46,7 @@ pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<RegistryTr
         .app_data(registry)
         .route("/submit", embedded("text/html; charset=utf-8", SUBMIT_PAGE))
         .route("/probe.css", embedded("text/css; charset=utf-8", STYLES))
+        .route("/favicon.svg", embedded("image/svg+xml", FAVICON))
         .route(
             "/register.js",
             embedded("text/javascript; charset=utf-8", REGISTER_SCRIPT),
@@ -61,7 +65,8 @@ pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<RegistryTr
                 .app_data(json_body(status_refused))
                 .route(web::post().to(status)),
         )
-        .route("/signatures.yaml", web::get().to(signatures));
+        .route("/signatures.yaml", web::get().to(signatures))
+        .route("/signatures.json", web::get().to(signatures_json));
     if let Some(root) = root {
         scope = scope.service(actix_files::Files::new("/", root).index_file("index.html"));
     }
@@ -83,6 +88,20 @@ async fn signatures(registry: web::Data<RegistryTree>) -> HttpResponse {
         Ok(text) => HttpResponse::Ok()
             .insert_header((CONTENT_TYPE, "application/yaml; charset=utf-8"))
             .body(text),
+        Err(error) => HttpResponse::InternalServerError().body(error.to_string()),
+    }
+}
+
+/// The registry as it stands, as JSON, for a probe page to judge what it measured against.
+///
+/// It is the document a static site of the page is built with, so the page judges the same way wherever it is served.
+async fn signatures_json(registry: web::Data<RegistryTree>) -> HttpResponse {
+    let text = match registry.text() {
+        Ok(text) => text,
+        Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
+    };
+    match serde_saphyr::from_str::<serde_json::Value>(&text) {
+        Ok(document) => HttpResponse::Ok().json(document),
         Err(error) => HttpResponse::InternalServerError().body(error.to_string()),
     }
 }

@@ -1,7 +1,8 @@
 signatures:
   - interface: webgpu-trig-split
-    label: "Apple M5 Pro through Metal on macOS arm64, MacBook Pro (M5 Pro, 2026), and an iPhone 17's Apple GPU on iOS --
-      wgpu alone, and WebGPU on Chrome 158 on the iPhone 17"
+    label: "Apple M5 Pro and M4 GPUs through Metal on macOS arm64, MacBook Pro (M5 Pro, 2026), M5 Pro MacBook Pro and M4
+      MacBook Air, and an iPhone 17's Apple GPU on iOS -- wgpu alone, and WebGPU on Chrome and Chromium, and on Chrome
+      158 on the iPhone 17"
     seen:
       - browser: none
         os: macos
@@ -34,6 +35,18 @@ signatures:
         gpu_version: "Apple M4 GPU"
         backend: metal
         device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
+      - browser: chromium
+        browser_version: "Claude 6.28899.6 (Chromium 156.0.8078.100)"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         reported: "metal-3"
         window: normal
     results:

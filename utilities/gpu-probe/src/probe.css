@@ -1,8 +1,36 @@
+:root {
+  color-scheme: light dark;
+
+  --muted: #7a7a7a;
+  --line: #8884;
+  --card: #8881;
+  --ok: #1f8a5b;
+  --ok-tint: #1f8a5b1f;
+  --new: #2a6fdb;
+  --new-tint: #2a6fdb1f;
+  --partial: #b7791f;
+  --partial-tint: #b7791f24;
+  --bad: #b23;
+}
+
 body {
   font: 15px/1.5 system-ui, sans-serif;
-  max-width: 64rem;
+  max-width: 52rem;
   margin: 2rem auto;
   padding: 0 1rem;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+h1 {
+  margin-bottom: 0.2rem;
+}
+
+.lede,
+.note {
+  color: var(--muted);
 }
 
 button {
@@ -12,7 +40,7 @@ button {
 }
 
 .ok {
-  color: #2a7;
+  color: var(--ok);
 }
 
 .dup {
@@ -20,7 +48,118 @@ button {
 }
 
 .bad {
-  color: #b23;
+  color: var(--bad);
+}
+
+/* A box set apart from the page: the progress of the run, and what the registry made of it. */
+.card {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--card);
+  padding: 0.8rem 1rem;
+  margin: 1rem 0;
+}
+
+#progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+#progress p {
+  margin: 0;
+}
+
+/* A ring turning while the probes run. */
+.spinner {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 3px solid var(--line);
+  border-top-color: var(--new);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The verdict, tinted by what the registry made of the device. */
+#verdict h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.4rem;
+}
+
+#verdict p {
+  margin: 0.3rem 0;
+}
+
+#verdict.unique {
+  border-color: var(--ok);
+  background: var(--ok-tint);
+}
+
+#verdict.several {
+  border-color: var(--partial);
+  background: var(--partial-tint);
+}
+
+#verdict.partial,
+#verdict.new {
+  border-color: var(--new);
+  background: var(--new-tint);
+}
+
+/* A short word beside a GPU's name saying what the registry made of it. */
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  border-radius: 1rem;
+  padding: 0 0.6rem;
+  margin-left: 0.5rem;
+  border: 1px solid var(--line);
+}
+
+.badge.unique {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.badge.several {
+  color: var(--partial);
+  border-color: var(--partial);
+}
+
+.badge.partial,
+.badge.new {
+  color: var(--new);
+  border-color: var(--new);
+}
+
+details {
+  margin: 0.6rem 0;
+}
+
+summary {
+  cursor: pointer;
+}
+
+details.gpu {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.9rem;
+}
+
+details.gpu > summary {
+  font-weight: 600;
+}
+
+#proposals li {
+  margin: 0.4rem 0;
 }
 
 /* A triangle in the page's top right corner, holding the GitHub mark, that links to the repository. The system

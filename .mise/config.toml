@@ -2085,26 +2085,30 @@ taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.
 shell = "{{ vars.task_shell }}"
 
 [tasks.readme-mise-version-check]
-# Keep the README's stated mise version in sync with the enforced `min_version` in .mise/config.toml.
-# No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
-# The README states the same version as a floor ("or later"), so the match takes the first version on its
-# install line and compares that; the trailing words are not part of the comparison.
-description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
+# Keep the mise version README.md and CONTRIBUTING.md state in sync with `min_version` in .mise/config.toml.
+# No structural linter spans a markdown prose value and a TOML value, so this is a small goawk compare. Each file
+# states the version as a floor ("or later") on its "Please install" line, so the match takes the first version on
+# that line and compares that; the trailing words are not part of the comparison.
+description = "Fail if README.md's or CONTRIBUTING.md's mise version differs from min_version in .mise/config.toml"
 run = """
-# README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.
-# gen:dockerignore adds /*.md. Skip there -- the native check lanes (which have README.md) enforce the sync.
+# The Markdown files are excluded from the docker build context, so they are absent when `check` runs inside an image.
+# gen:dockerignore adds /*.md. Skip there -- the native check lanes (which have them) enforce the sync.
 if [ ! -f README.md ]; then
   echo "readme-mise-version-check: README.md absent (docker build context); skipping -- native lanes enforce it"
   exit 0
 fi
 config_version="$(goawk -F'"' '/^min_version/{print $2; exit}' .mise/config.toml)"
 # shellcheck disable=SC2016 # $0/RSTART/RLENGTH are awk fields, not shell vars -- single quotes are intended
-readme_prog='/Please install/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
-readme_version="$(goawk "$readme_prog" README.md)"
-if [ "$config_version" != "$readme_version" ]; then
-  echo "README mise version ($readme_version) != .mise/config.toml min_version ($config_version)" >&2
-  exit 1
-fi
+doc_prog='/Please install/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
+status=0
+for doc in README.md CONTRIBUTING.md; do
+  doc_version="$(goawk "$doc_prog" "$doc")"
+  if [ "$config_version" != "$doc_version" ]; then
+    echo "$doc mise version (${doc_version:-none}) != .mise/config.toml min_version ($config_version)" >&2
+    status=1
+  fi
+done
+exit "$status"
 """
 shell = "{{ vars.task_shell }}"
 

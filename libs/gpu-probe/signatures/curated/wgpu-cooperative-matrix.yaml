@@ -35,12 +35,13 @@ signatures:
       f32x8_unrounded_product: "????????"
       f32x8_half_ulps_then_one: "????????"
   - interface: wgpu-cooperative-matrix
-    label: "No cooperative matrix of either shape: Quadro M2000, AMD Radeon RX 580, Intel Iris Xe and UHD Graphics 630,
-      and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA DGX Spark, Dell
-      Precision 5570 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics (rdna-2), Microsoft Basic Render Driver
-      and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64, HP EliteBook 645 G10; and Mali-G76
-      (bifrost) through Vulkan on Android, SM-G973F; and an iPhone 17's Apple GPU through Metal on iOS -- wgpu alone and
-      WebGPU on Chrome, Edge, Firefox and Deno"
+    label: "No cooperative matrix of either shape: Quadro M2000, GeForce GTX 950, AMD Radeon RX 580, Intel Iris Xe and
+      UHD Graphics 630, and llvmpipe (LLVM 20.1.2, 128 and 256 bits), through Vulkan on Linux arm64 and x86_64, NVIDIA
+      DGX Spark, Dell Precision 5570, Dell Precision Tower 5810 and ASUS TUF H370-PRO GAMING; AMD Radeon (TM) Graphics
+      (rdna-2), Microsoft Basic Render Driver and SwiftShader through Vulkan, Direct3D 12 and OpenGL on Windows x86_64,
+      HP EliteBook 645 G10; Mali-G76 (bifrost) and Adreno (6xx) through Vulkan on Android, SM-G973F and CPH2727; Apple
+      M4 and M5 Pro GPUs through Metal on macOS arm64, M4 MacBook Air and M5 Pro MacBook Pro; and an iPhone 17's Apple
+      GPU through Metal on iOS -- wgpu alone and WebGPU on Chrome, Chromium, Edge, Firefox and Deno"
     seen:
       - browser: none
         os: linux
@@ -434,6 +435,18 @@ signatures:
         gpu_version: "Apple M4 GPU"
         backend: metal
         device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
+      - browser: chromium
+        browser_version: "Claude 6.28899.6 (Chromium 156.0.8078.100)"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M5 Pro"
+        gpu: apple
+        gpu_version: "Apple M5 Pro GPU"
+        backend: metal
+        device: "M5 Pro MacBook Pro"
         reported: "metal-3"
         window: normal
     results:

@@ -69,8 +69,10 @@ mise -E webprobe run build-gpu-probe-site
 ```
 
 With no server behind it, the page has no registry to add to, so instead of submit buttons it proposes what it found
-as a pull request. It first holds each probe set against the JSON it was deployed with, as the server would, and
-leaves out what the registry already records, saying how many sets were new signatures and which were known ones seen
+as a pull request. It first holds each probe set against the JSON it was deployed with, as the server would, and says
+whether the registry knows the device: by name when it records that device alone giving every answer the visit gave,
+and otherwise which devices gave them all, or failing that which came closest. It leaves out what the registry already
+records unless asked to send it too, and says how many sets were new signatures and which were known ones seen
 somewhere new, such as on a new browser version. The rest go in plain-text files of submissions for the registry's
 `submitted/` directory, which name each GPU's row once and give each probe set's values without their names. A file's
 link opens GitHub's page for adding a file, filled in with it; GitHub forks the repository for a visitor who cannot
@@ -114,7 +116,9 @@ A signature the registry has through that interface gains the row, unless it hol
 else becomes a new entry at the end of the interface's file under `curated/`, which is made if the interface has none
 yet. The file is edited as text, so its comments and every other entry are left as they were. `/submit` posts each
 line pasted into it, as JSON submissions one per line. `/signatures.yaml` serves the registry as it stands, its header
-and every curated entry as one document, and `--root` serves a probe page's files at `/`.
+and every curated entry as one document, and `/signatures.json` the same document as JSON, which the probe page holds
+what it measured against to say whether the registry knows the device, as it does on a static host. `--root` serves a
+probe page's files at `/`.
 
 A row the registry already holds with every field the same, perhaps among more written by hand, records the sighting
 already, so nothing is added for it. The day and the run's URL are not compared: the row keeps the first ones.

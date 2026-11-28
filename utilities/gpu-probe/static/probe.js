@@ -142,11 +142,14 @@ const vendorNames = new Map([
 
 // The GPU a renderer ANGLE does not wrap names, which is the driver's own. On Android that driver is OpenGL ES, which
 // Chrome before ANGLE reached it, such as Chrome 95 on Android 5, drew through alone, and WebGL gives the driver's
-// vendor beside it, by the driver's name for it: only those the registry names a GPU vendor by are taken.
+// vendor beside it, by the driver's name for it: only those the registry names a GPU vendor by are taken. Safari on
+// iOS gives it too, as `Imagination Technologies` for an iPad 3's PowerVR SGX 543 under Safari 9.
 const driverGpu = (unmasked, similar) => {
   const { context, debug, renderer } = unmasked;
-  const android = renderer && field("os").value === "android";
-  const named = debug && android ? String(context.getParameter(debug.UNMASKED_VENDOR_WEBGL)) : "";
+  const os = field("os").value;
+  const android = renderer && os === "android";
+  const vendorGiven = renderer && (android || os === "ios");
+  const named = debug && vendorGiven ? String(context.getParameter(debug.UNMASKED_VENDOR_WEBGL)) : "";
   const driverVendor = named.toLowerCase();
   const vendor = vendorNames.has(driverVendor) ? driverVendor : "";
   const backend = android ? "opengl-es" : "unknown";
@@ -345,7 +348,11 @@ const showSignature = (signature, gpuFields, into, title) => {
   if (served) {
     const button = document.createElement("button");
     button.textContent = `Submit ${signature.interface}`;
-    button.addEventListener("click", () => submit(signature, gpuFields, outcome));
+    // The registry may now hold the signature, so what it makes of the device is judged again once it answers.
+    button.addEventListener("click", async () => {
+      await submit(signature, gpuFields, outcome);
+      document.dispatchEvent(new Event("gpu-probe-submitted"));
+    });
     section.append(button, outcome);
   }
   section.append(lines);
@@ -362,11 +369,16 @@ const showSignature = (signature, gpuFields, into, title) => {
   };
 };
 
-// One GPU's section: its part of the row, editable, then each signature it gave with its own submit button.
+// One GPU's section, folded to its name and a badge saying what the registry made of it: its part of the row, editable,
+// then each signature it gave with its own submit button. Each submitter it gives back carries the badge.
 const showGpu = (title, values, answer) => {
-  const section = document.createElement("section");
-  const heading = document.createElement("h2");
-  heading.textContent = title;
+  const section = document.createElement("details");
+  section.className = "gpu";
+  const heading = document.createElement("summary");
+  const badge = document.createElement("span");
+  badge.className = "badge";
+  badge.hidden = true;
+  heading.append(title, badge);
   const fieldset = document.createElement("fieldset");
   const legend = document.createElement("legend");
   legend.textContent = "This GPU's part of the row";
@@ -385,7 +397,7 @@ const showGpu = (title, values, answer) => {
   section.append(heading, fieldset);
   if (answer.problems.length) {
     const problems = document.createElement("p");
-    problems.className = "bad";
+    problems.className = "note";
     problems.textContent = `Not probed: ${answer.problems.join("; ")}`;
     section.append(problems);
   }
@@ -397,7 +409,22 @@ const showGpu = (title, values, answer) => {
     section.append(report);
   }
   field("gpus").append(section);
+  for (const submitter of submitters) submitter.badge = badge;
   return submitters;
+};
+
+// How long a step waits for the page to draw before going on regardless, in milliseconds: a browser draws no frame
+// for a page in a tab behind another, which would otherwise hold the run until the tab was shown.
+const drawWait = 100;
+
+// Say what the run is doing, and let the page draw it, with the spinner turning, before the next step holds the
+// browser: the WebGL and canvas probes run without giving it back until they finish.
+const step = async (text) => {
+  status.textContent = text;
+  await new Promise((drawn) => {
+    requestAnimationFrame(() => setTimeout(drawn, 0));
+    setTimeout(drawn, drawWait);
+  });
 };
 
 // The device a downloaded file is named for: the one the row names, or else the kind of Apple device the browser says
@@ -528,6 +555,7 @@ const probeWebGpu = async (submitters, problems) => {
   const answered = new Set();
   for (const { power, fallback } of adapterChoices) {
     const choice = fallback ? "fallback" : power;
+    await step(`Probing WebGPU's ${choice} adapter...`);
     const { answer, adapter } = await measured(fallback, () => probes.probe_webgpu(power, fallback));
     if (!adapter) {
       problems.push(`WebGPU gave no ${choice} adapter`);
@@ -578,6 +606,7 @@ const probeAll = async () => {
     ["webgl", "WebGL 1", probes.probe_webgl1],
   ];
   for (const [kind, title, probe] of webgls) {
+    await step(`Probing ${title}...`);
     const webgl = webglGpu(kind);
     const webglValues = gpuValues(webgl.vendor, webgl.model, webgl.backend, title, webgl.reported);
     const webglAnswer = JSON.parse(probe());
@@ -586,6 +615,7 @@ const probeAll = async () => {
   }
   await probeWebGpu(submitters, problems);
   // The canvas fingerprints say nothing of which GPU drew them, so their row names none.
+  await step("Probing canvas 2D...");
   const canvasAnswer = JSON.parse(probes.probe_canvas());
   problems.push(...canvasAnswer.problems);
   const version = brandVersion || field("browser_version").value;
@@ -615,7 +645,7 @@ const probeMemory = async () => {
   // A value that is no count, an empty one included, takes the default; 0 is kept, and walks nothing. One past what
   // `probe_memory`'s u32 holds takes the default too, which the binding would otherwise wrap to a small number.
   const given = Number.parseInt(query.get("memory"), 10);
-  const cap = given >= 0 && given <= 0xffffffff ? given : memoryCap;
+  const cap = given >= 0 && given < 2 ** 32 ? given : memoryCap;
   const shown = field("memory");
   shown.hidden = false;
   shown.textContent = `Walking up to ${cap} MiB of GPU memory...`;
@@ -632,60 +662,266 @@ const probeMemory = async () => {
 };
 
 // What the registry makes of the judgements, as one line: how many it already records, how many are new and how many
-// are seen somewhere new, then which those are.
-const judgedText = (judgements, proposed) => {
+// are seen somewhere new.
+const judgedText = (judgements) => {
   const count = (kind) => judgements.filter((judgement) => judgement.kind === kind).length;
-  const recorded = `the registry already records ${count("recorded")}`;
-  const kinds = `${count("new")} are new signatures, and ${count("sighting")} are known signatures seen somewhere new`;
-  const sightings = proposed
-    .filter(({ kind }) => kind === "sighting")
-    .map(({ submission: given, label }) => `${given.interface} (${label})`);
-  const named = sightings.length ? ` Seen somewhere new: ${sightings.join("; ")}.` : "";
-  return `Of ${judgements.length} probe sets, ${recorded}, ${kinds}.${named}`;
+  const recorded = `${count("recorded")} already on record here`;
+  const kinds = `${count("sighting")} known but first seen here, and ${count("new")} new`;
+  return `Of ${judgements.length} probe sets: ${recorded}, ${kinds}.`;
 };
 
-// Propose what the run found on GitHub, as a page no server serves does. The registry the site was built with, which
-// every probe set is held against so that only what it does not record is proposed, is read first; a site without it
-// proposes everything, and says so. The proposals follow every edit to a row, so what is proposed is what the rows
-// say. Making them is asynchronous, so only the latest edit's are shown.
-const propose = async (submitters, missing) => {
-  const known = await fetch("/signatures.json").then(
+// The known signatures proposed as seen somewhere new, each as an item naming its interface and its entry's label.
+const showSightings = (proposed) => {
+  const items = proposed
+    .filter(({ kind }) => kind === "sighting")
+    .map(({ submission: given, label }) => {
+      const item = document.createElement("li");
+      item.textContent = `${given.interface}: ${label}`;
+      return item;
+    });
+  field("sightings-list").replaceChildren(...items);
+  field("sightings").hidden = items.length === 0;
+};
+
+// The name a registry row knows its device by: the machine it names, or failing that its GPU's model, or nothing.
+const knownAs = (row) => row.device || row.gpu_version || "";
+
+// Whether a row was measured in a browser, as a visit to this page is. wgpu run on its own records `none`, and answers
+// otherwise: a browser hides features, such as cooperative matrices, that wgpu alone reaches.
+const inBrowser = (row) => row.browser !== "none";
+
+// The engine each browser the registry names draws with: browsers sharing one answer alike on the same GPU, where
+// browsers on different engines answer some probe sets otherwise. On iOS every browser draws with WebKit.
+const engines = new Map([
+  ["brave", "blink"],
+  ["chrome", "blink"],
+  ["chromium", "blink"],
+  ["edge", "blink"],
+  ["opera", "blink"],
+  ["samsung-internet", "blink"],
+  ["firefox", "gecko"],
+  ["librewolf", "gecko"],
+  ["mullvad-browser", "gecko"],
+  ["tor-browser", "gecko"],
+  ["gnome-web", "webkit"],
+  ["safari", "webkit"],
+]);
+
+// The engine the browser of `row` draws with, or the browser's own name where the registry knows no engine for it.
+const engineOf = (row) => (row.os === "ios" ? "webkit" : (engines.get(row.browser) ?? row.browser));
+
+// The engine the browser of a visit's row `seen` draws with, or nothing where the registry knows none for it, which
+// then compares the visit with every browser's rows.
+const visitEngine = (seen) => (seen.os === "ios" || engines.has(seen.browser) ? engineOf(seen) : "");
+
+// The devices the browser rows of `entry` name, only those drawn with `engine` where it is given.
+const namesOf = (entry, engine) => {
+  const rows = (entry.seen ?? []).filter((row) => inBrowser(row) && (!engine || engineOf(row) === engine));
+  return new Set(rows.map(knownAs).filter(Boolean));
+};
+
+// The devices the registry records answering the probe set of `judgement` otherwise, on the visit's browser engine:
+// those seen on another entry of its interface and not on the one it matched. A device never seen answering that probe
+// set is not among them, since a gap in the registry says nothing of how it answers; nor is one seen on another
+// engine, which answers some probe sets otherwise on the same GPU.
+const answeredOtherwise = (judgement, known) => {
+  const { interface: name, seen } = judgement.submission;
+  const engine = visitEngine(seen);
+  const same = judgement.entry ? namesOf(judgement.entry, engine) : new Set();
+  const others = new Set();
+  for (const entry of known.signatures ?? []) {
+    if (entry.interface !== name || entry === judgement.entry) continue;
+    for (const device of namesOf(entry, engine)) {
+      if (!same.has(device)) others.add(device);
+    }
+  }
+  return others;
+};
+
+// The devices the registry records giving any of the `telling` answers on the visit's browser engine, each with how
+// many of them it is on record for, those on record for the most first: `alike`, those it records answering none of
+// them otherwise, and `seen`, every one, for the closest where no device is alike.
+const devicesOf = (telling, known) => {
+  const on = new Map();
+  for (const { entry, submission: given } of telling) {
+    if (!entry) continue;
+    for (const device of namesOf(entry, visitEngine(given.seen))) on.set(device, (on.get(device) ?? 0) + 1);
+  }
+  const ruledOut = new Set(telling.flatMap((judgement) => [...answeredOtherwise(judgement, known)]));
+  const seen = [...on.keys()]
+    .sort((one, other) => on.get(other) - on.get(one) || one.localeCompare(other))
+    .map((device) => ({ device, on: on.get(device) }));
+  return { alike: seen.filter((candidate) => !ruledOut.has(candidate.device)), seen };
+};
+
+// The most devices the verdict lists as the closest to one no recorded device matches; the rest are counted.
+const closestShown = 8;
+
+// What the registry `known` makes of a device from the `judgements` of the probe sets it answered. A device is alike
+// when the registry records it giving some of the same answers and none other, in the same browser: `unique` when one
+// device alone is, `several` when more than one is, which the probes then cannot tell apart. `partial` is a device
+// some of whose answers are on record but that every recorded device answered otherwise somewhere, or that are on
+// record from other engines alone, and `new` one none of whose answers are. A withheld probe set says nothing of the
+// device, so it is not counted, and `withheld` is a device whose browser withheld every one. It gives the kind, the
+// devices alike or failing that the closest, each with how many of the answers it is on record for, and a short badge.
+const verdictOf = (judgements, known) => {
+  const telling = judgements.filter(({ submission: given }) => !given.blocked);
+  const matched = telling.filter(({ entry }) => entry);
+  const counts = { matched: matched.length, telling: telling.length };
+  if (telling.length === 0) return { kind: "withheld", names: [], counts, badge: "withheld" };
+  if (matched.length === 0) return { kind: "new", names: [], counts, badge: "new" };
+  const { alike, seen } = devicesOf(telling, known);
+  if (alike.length === 1) return { kind: "unique", names: alike, counts, badge: alike[0].device };
+  if (alike.length > 1) return { kind: "several", names: alike, counts, badge: `${alike.length} devices alike` };
+  return { kind: "partial", names: seen, counts, badge: "partly known" };
+};
+
+// A device the verdict names, with how many of the `telling` answers it is on record for where that is not all.
+const onRecord = ({ device, on }, telling) => (on < telling ? `${device} (on record for ${on} of ${telling})` : device);
+
+// The invitation to send what a recognised device answered: a model the registry has not seen answering alike, such
+// as an older chip of the same family, is as worth knowing as a new signature.
+const welcomeAlike =
+  "Is yours a different model? Name it under Your device and send the results: knowing that another device gives " +
+  "identical answers is just as useful as a new signature.";
+
+// The verdict's heading, its explanation, the devices it names, and its invitation, for the whole visit.
+const verdictText = ({ kind, names, counts }) => {
+  const listedNames = names.map((name) => onRecord(name, counts.telling));
+  if (kind === "unique") {
+    const [only] = names;
+    const all = only.on === counts.telling;
+    const alone = "No other device in the registry gives these answers in a browser like this one.";
+    const gaps = all ? alone : `${alone} It is on record for ${only.on} of these ${counts.telling} probe sets.`;
+    const title = all ? `Recognised uniquely: ${only.device}` : `Probably: ${only.device}`;
+    return { title, detail: gaps, devices: [], welcome: welcomeAlike };
+  }
+  if (kind === "several") {
+    const alike = "The registry records each of these devices giving these answers and none other, in a browser like";
+    const detail = `${alike} this one, so the probes cannot tell them apart:`;
+    return { title: "Recognised, but not uniquely", detail, devices: listedNames, welcome: welcomeAlike };
+  }
+  const welcome = "Sending the results adds your device.";
+  if (kind === "partial") {
+    const unknown = counts.telling - counts.matched;
+    const why = unknown
+      ? `${unknown} of ${counts.telling} probe sets are new to the registry, and every device on record answers`
+      : "Each answer is on record, but every device on record answers";
+    const more = listedNames.length - closestShown;
+    const shown = listedNames.slice(0, closestShown);
+    const devices = more > 0 ? [...shown, `and ${more} more`] : shown;
+    const otherwise = `${why} at least one of them otherwise in a browser like this one. The closest:`;
+    const elsewhere = "These answers are on record only from browsers that draw otherwise, so they name no device.";
+    const detail = names.length ? otherwise : elsewhere;
+    return { title: "Not recognised as a known device", detail, devices, welcome };
+  }
+  if (kind === "withheld") {
+    const hidden = "The browser withheld every probe set, so these results cannot say which device this is.";
+    return { title: "Not identifiable", detail: hidden, devices: [], welcome: "" };
+  }
+  const none = "None of these probe sets is on record yet.";
+  return { title: "New to the registry", detail: none, devices: [], welcome };
+};
+
+// Show what the registry `known` makes of the visit as a whole, and of each GPU on its badge. Each judgement is the
+// submitter's at the same place.
+const showVerdicts = (submitters, judgements, known) => {
+  const verdict = verdictOf(judgements, known);
+  const { title, detail, devices, welcome } = verdictText(verdict);
+  field("verdict").className = `card ${verdict.kind}`;
+  field("verdict-title").textContent = title;
+  field("verdict-detail").textContent = detail;
+  const items = devices.map((name) => {
+    const item = document.createElement("li");
+    item.textContent = name;
+    return item;
+  });
+  field("verdict-devices").replaceChildren(...items);
+  field("verdict-devices").hidden = items.length === 0;
+  field("verdict-welcome").textContent = welcome;
+  field("verdict").hidden = false;
+  const badges = new Map();
+  submitters.forEach((submitter, index) => {
+    if (!badges.has(submitter.badge)) badges.set(submitter.badge, []);
+    badges.get(submitter.badge).push(judgements[index]);
+  });
+  for (const [badge, own] of badges) {
+    const gpuVerdict = verdictOf(own, known);
+    badge.className = `badge ${gpuVerdict.kind}`;
+    badge.textContent = gpuVerdict.badge;
+    badge.hidden = false;
+  }
+  return title;
+};
+
+// The registry as JSON, which every probe set is held against to say whether it knows the device: the one a static
+// site was built with, or the one the serving gpu-probe-server holds now. Null where it cannot be read.
+const readRegistry = () =>
+  fetch("/signatures.json").then(
     (response) => (response.ok ? response.json() : null),
     () => null,
   );
-  field("submit-all").hidden = true;
+
+// Each submitter's submission, as its row stands.
+const submissionsOf = (submitters) => submitters.map((shown) => JSON.parse(shown.line()));
+
+// Propose what the run found on GitHub, as a page no server serves does. A site without the registry proposes
+// everything, and says so. A probe set the registry records is left out unless asked for, since one seen on another
+// device that shares its signature is still worth sending. The proposals follow every edit to a row, so what is
+// proposed is what the rows say. Making them is asynchronous, so only the latest edit's are shown.
+const propose = async (submitters) => {
+  const known = await readRegistry();
   field("propose").hidden = false;
   let edits = 0;
+  let title = "";
   const fill = async () => {
     edits += 1;
     const edit = edits;
-    const submissions = submitters.map((shown) => JSON.parse(shown.line()));
+    const submissions = submissionsOf(submitters);
     const judgements = known
       ? judged(submissions, known)
       : submissions.map((given) => ({ submission: given, kind: "new" }));
-    const proposed = judgements.filter(({ kind }) => kind !== "recorded");
+    const everything = field("everything").checked;
+    const proposed = judgements.filter(({ kind }) => everything || kind !== "recorded");
     const made = await proposals(proposed.map(({ submission: given }) => given));
     if (edit !== edits) return;
+    if (known) title = showVerdicts(submitters, judgements, known);
     const unread = "The registry could not be read, so every probe set is proposed.";
-    field("judged").textContent = known ? judgedText(judgements, proposed) : unread;
+    const nothing = made.length ? "" : " There is nothing new to send, unless you tick the box below.";
+    field("judged").textContent = known ? `${judgedText(judgements)}${nothing}` : unread;
+    showSightings(proposed);
     field("proposals").replaceChildren(...made.map(showProposal(made.length)));
     field("more").hidden = made.length < 2;
   };
   await fill();
+  // An older browser tells a checkbox's change only by `change`; the edit counter drops a fill made twice.
   document.addEventListener("input", fill);
-  status.textContent = `Probed. Check each row, then propose the results on GitHub.${missing}`;
+  document.addEventListener("change", fill);
+  status.textContent = title ? `Probed. ${title}.` : "Probed. Check each row, then propose the results on GitHub.";
+  // The verdict says what the status would, so the status is kept for a driver alone.
+  field("progress").hidden = Boolean(title);
   await tell(status.textContent);
 };
 
 // Offer the run's submitters to the server that serves the page. Every set is submitted in turn, the button off
 // meanwhile so a second press cannot send them twice, and how each went is written to the status. It opens
 // "Submitted." only when every set went in or was there already, and there was one to send: that is what a driver
-// reading it is told the run succeeded by.
+// reading it is told the run succeeded by. What the registry makes of the device is shown as a static site shows it,
+// and again after every edit to a row and every submission, since either changes the answer; only the latest is shown.
 const offer = async (submitters, missing) => {
+  let judgings = 0;
+  const recognise = async () => {
+    judgings += 1;
+    const judging = judgings;
+    const known = await readRegistry();
+    if (!known || judging !== judgings) return "";
+    return showVerdicts(submitters, judged(submissionsOf(submitters), known), known);
+  };
   const submitAll = async () => {
     const button = field("submit-all");
     button.disabled = true;
     status.className = "";
+    field("progress").hidden = false;
     const outcomes = [];
     for (const shown of submitters) {
       status.textContent = `Submitting ${outcomes.length + 1} of ${submitters.length} probe sets...`;
@@ -697,12 +933,19 @@ const offer = async (submitters, missing) => {
     status.className = taken ? "" : "bad";
     status.textContent = `${verdict}${missing}\n${lines}`;
     button.disabled = false;
+    await recognise();
     await tell(status.textContent);
   };
   // The button stays off until every probe set has been measured, which is only now.
+  field("submit-all").hidden = false;
   field("submit-all").disabled = submitters.length === 0;
   field("submit-all").addEventListener("click", submitAll);
-  status.textContent = `Probed. Check each row, then submit.${missing}`;
+  const title = await recognise();
+  document.addEventListener("input", recognise);
+  document.addEventListener("gpu-probe-submitted", recognise);
+  const recognised = title ? ` ${title}.` : "";
+  status.textContent = `Probed.${recognised} Check each row, then submit.${missing}`;
+  field("progress").hidden = Boolean(title);
   if (query.has("submit")) await submitAll();
 };
 
@@ -710,6 +953,7 @@ const offer = async (submitters, missing) => {
 // finding its cause needs, and a button sends it again, saying whether it arrived, for a phone whose first post was
 // lost. A static host has no server to tell, so there a link emails the same lines instead.
 const fail = async (error) => {
+  field("progress").hidden = false;
   status.className = "bad";
   status.textContent = `The probes could not run: ${String(error)}`;
   const stack = error?.stack ? [`stack: ${error.stack}`] : [];
@@ -746,13 +990,20 @@ const run = async () => {
   try {
     probes = await loadProbes();
     await fillShared();
-    status.textContent = "Running the probes...";
+    // A server's operator checks each row before submitting, so there the rows start unfolded.
+    field("row-details").open = served;
     const { submitters, problems } = await probeAll();
+    await step("Finishing...");
     await probeMemory();
     const missing = problems.length ? ` Not probed: ${problems.join("; ")}.` : "";
-    await (served ? offer(submitters, missing) : propose(submitters, missing));
+    field("missing").textContent = missing.trim();
+    field("missing").hidden = !missing;
+    field("gpus-heading").hidden = false;
+    await (served ? offer(submitters, missing) : propose(submitters));
   } catch (error) {
     await fail(error);
+  } finally {
+    field("spinner").hidden = true;
   }
 };
 

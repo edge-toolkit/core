@@ -102,6 +102,7 @@ async fn the_form_and_what_the_pages_share_are_served_and_never_cached() {
     let built_in = [
         ("/submit", "text/html", "import { register } from \"/register.js\""),
         ("/probe.css", "text/css", ".bad {"),
+        ("/favicon.svg", "image/svg+xml", "<title>GPU Probe</title>"),
         ("/register.js", "text/javascript", "fetch(\"/register\""),
         ("/propose.js", "text/javascript", "export const proposals"),
     ];
@@ -137,6 +138,31 @@ async fn the_registry_is_served_as_it_stands() {
         served::TestRequest::get().uri("/signatures.yaml").to_request(),
     )
     .await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+#[actix_rt::test]
+async fn the_registry_is_served_as_json_as_it_stands() {
+    let dir = workspace();
+    let app = service(dir.path().join("registry"), None).await;
+    let request = || served::TestRequest::get().uri("/signatures.json").to_request();
+    let response = served::call_service(&app, request()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let document: Value = served::read_body_json(response).await;
+    let expected: Value = serde_saphyr::from_str(&[HEADER, ENTRIES].concat()).unwrap();
+    assert_eq!(document, expected);
+
+    let missing = service(dir.path().join("missing"), None).await;
+    let response = served::call_service(&missing, request()).await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+    // A file of entries that opens as one but is not YAML reads as text, and fails only as a document.
+    let broken = dir.path().join("broken");
+    fs_err::create_dir_all(broken.join("curated")).unwrap();
+    fs_err::write(broken.join("header.yaml"), HEADER).unwrap();
+    fs_err::write(broken.join("curated/webgpu-split.yaml"), "signatures:\n  - [unclosed\n").unwrap();
+    let unreadable = service(broken, None).await;
+    let response = served::call_service(&unreadable, request()).await;
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
 }
 
