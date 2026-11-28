@@ -44,13 +44,18 @@ pub struct Args {
     /// Another name to advertise the server at, which a generated certificate covers too.
     #[arg(long)]
     pub public_host: Vec<String>,
-    /// Serve plain HTTP instead of HTTPS, which only a loopback `--bind` may.
+    /// Serve plain HTTP rather than HTTPS, on a loopback `--bind` unless `--insecure-origin` is given.
     ///
     /// A browser treats a loopback origin as secure, so WebGPU still runs there.
     ///
     /// `--cert` and `--key` are not read.
     #[arg(long)]
     pub http: bool,
+    /// Let `--http` serve an address other devices reach, which browsers treat as insecure.
+    ///
+    /// It gives no WebGPU, so it is for a browser that has none anyway or cannot take the certificate.
+    #[arg(long, requires = "http")]
+    pub insecure_origin: bool,
 }
 
 /// Why the server would not start.
@@ -58,14 +63,14 @@ pub struct Args {
 #[non_exhaustive]
 pub enum StartError {
     /// Plain HTTP was asked for on an address other devices could reach, where a browser would not run WebGPU.
-    #[error("--http serves only a loopback --bind, not {0}: a browser treats only a loopback origin as secure")]
+    #[error("--http serves only a loopback --bind, not {0}, unless --insecure-origin is given")]
     NotLoopback(IpAddr),
 }
 
 impl Args {
     /// Check the arguments can be served as given.
     pub const fn check(&self) -> Result<(), StartError> {
-        if self.http && !self.bind.is_loopback() {
+        if self.http && !self.insecure_origin && !self.bind.is_loopback() {
             return Err(StartError::NotLoopback(self.bind));
         }
         Ok(())

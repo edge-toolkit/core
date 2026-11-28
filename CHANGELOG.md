@@ -7,6 +7,11 @@ Changelog 1.1.0.
 
 ### Added
 
+- `et-gpu-probe` says how much memory a GPU has, two ways. `native::Gpu::api_memory` reads it from the API beneath
+  wgpu -- Vulkan's device-local heaps and their `VK_EXT_memory_budget` budget, Metal's recommended working set, or
+  DXGI's dedicated video memory -- and says whether it is unified with the system's. `native::Gpu::walk_memory`
+  allocates buffers until the device refuses, up to a cap, which needs nothing beneath WebGPU; `native::walk_with`
+  is that walk over any allocator.
 - The `gpu-probe` workflow measures the GPU probe sets on every free GitHub-hosted runner image: wgpu and the CPU
   through `gpu-probe`, the probes behind `wasi:nn`, and the six WebGPU sets through Deno, as the graphics-info module
   now measures them. Its `gpu-probe-submitted` artifact holds a file of submissions per runner for the registry.
@@ -67,20 +72,22 @@ Changelog 1.1.0.
   `signatures.json` is generated as before.
 - `et-gpu-probe-server` collects GPU probe signatures over HTTPS into `libs/gpu-probe/signatures`: a paste form
   at `/submit`, JSON submissions at `POST /register`, each added as a new entry or as another place a known one was
-  seen. `mise run gpu-probe-server` serves this machine and `mise run gpu-probe-server-lan` the LAN. Its TLS and
-  LAN-address code is the new `et-https-listener` crate, which `et-ws-server` now re-exports as its `tls` and `net`
-  modules; its new `generate_tls_certs_covering` puts extra names, such as LAN addresses, in a self-signed pair.
-  Beside it, `gpu-probe` probes every GPU adapter of this machine, software renderers included, and its CPU, and
-  adds whatever sightings the registry is missing, driving the GPUs through `et-gpu-probe`'s new `native` feature.
-  The same feature builds for `wasm32`, opening the browser's WebGPU, and every `native::Gpu` call is async. The
-  server serves a probe page that runs the probe sets as WASM, through WebGL 2 and WebGPU, and submits each signature;
-  `mise run gpu-probe-page` builds and serves it on plain HTTP at localhost, which `--http` allows on a loopback only.
+  seen. `mise -E webprobe run gpu-probe-server` serves this machine and `mise -E webprobe run gpu-probe-server-lan`
+  the LAN. Its TLS and LAN-address code is the new `et-https-listener` crate, which `et-ws-server` now re-exports as
+  its `tls` and `net` modules; its new `generate_tls_certs_covering` puts extra names, such as LAN addresses, in a
+  self-signed pair. Beside it, `gpu-probe` probes every GPU adapter of this machine, software renderers included, and
+  its CPU, and adds whatever sightings the registry is missing, driving the GPUs through `et-gpu-probe`'s new `native`
+  feature. The same feature builds for `wasm32`, opening the browser's WebGPU, and every `native::Gpu` call is async.
+  The server serves a probe page that runs the probe sets as WASM, through WebGL 2 and WebGPU, and submits each
+  signature; `mise -E webprobe run gpu-probe-page` builds and serves it on plain HTTP at localhost, which `--http`
+  allows on a loopback only. The tools and tasks that build, serve and drive the page are in the opt-in `webprobe`
+  mise env.
 - The probe page also puts the probes to WebGL 1, which some browsers offer while withholding WebGL 2 and WebGPU, and
   takes both WebGL interfaces in each mode the research page does: a shader a probe, filed as `webgl1-split`, and
   every probe in one shader, filed as `webgl1-combined` and `webgl2-combined`. `et-gpu-probe`'s new `batched` writes
   those shaders, in GLSL ES 3.00 or 1.00 by `Glsl`, and halves a combined shader the browser refuses until the probe
-  it will not take is alone. `mise run gpu-probe-browser <browser>` probes Firefox or a Flatpak browser from a fresh
-  profile, Mullvad Browser and Tor Browser with NoScript left out.
+  it will not take is alone. `mise -E webprobe run gpu-probe-browser <browser>` probes Firefox or a Flatpak browser
+  from a fresh profile, Mullvad Browser and Tor Browser with NoScript left out.
 - A WASI module can read a lidar. `et-ws-wasi-runner`'s new `lidar` feature, on by default, hosts
   `et:ws-wasi/serial`, lending a guest the serial ports its `SERIAL_PORTS_<NAME>` variables name: a device, or
   `tcp://<host>:<port>` for one a bridge such as ser2net serves. The interface's own `serial-host` world, which the

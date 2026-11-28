@@ -75,8 +75,11 @@ const spaceBefore = (atoms, first, last) => {
 // after a space.
 const lineOf = (name, text) => {
   const lines = [];
-  // An escape is kept whole, so a break never falls inside one.
-  let atoms = `${name} ${text}`.match(/\\u\{[0-9a-f]+\}|\\\\|[^]/gu);
+  // An escape is kept whole, so a break never falls inside one, and so is a character past the Basic Multilingual
+  // Plane, as the surrogate pair JavaScript holds it as. The pair is matched by its halves rather than with the `u`
+  // flag, which a browser before ES2015 refuses even through the legacy build: Safari 9 on an iPad 3 failed the page
+  // with "SyntaxError: Invalid flags supplied to RegExp constructor", since core-js cannot polyfill the flag.
+  let atoms = `${name} ${text}`.match(/\\u\{[0-9a-f]+\}|\\\\|[\uD800-\uDBFF][\uDC00-\uDFFF]|[^]/g);
   // The atoms before `first` open a continuation, and are never broken at.
   let first = 0;
   while (textOf(atoms).length > longestLine) {

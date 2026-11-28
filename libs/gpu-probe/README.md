@@ -32,10 +32,10 @@ to it: a software renderer such as WARP, llvmpipe or SwiftShader, or ONNX Runtim
 ### From a clone, on this computer
 
 Install the tools first; everything below runs through mise, and `et-ws-wasi-runner` and its ONNX Runtime build only
-with mise's tools:
+with mise's tools. The `webprobe` env holds the tools that build the probe page, which every step serving it needs:
 
 ```bash
-MISE_ENV=rust mise install
+MISE_ENV=rust,webprobe mise install
 ```
 
 Name the machine the same way in every step, by its make and model, so its rows agree.
@@ -61,8 +61,8 @@ Name the machine the same way in every step, by its make and model, so its rows 
    and macOS, run each installed browser in turn, and Chrome on Linux on each ANGLE backend:
 
    ```bash
-   mise run gpu-probe-browser firefox --device "Dell Precision 5570" --submit
-   mise run gpu-probe-chrome vulkan --device "Dell Precision 5570" --submit
+   mise -E webprobe run gpu-probe-browser firefox --device "Dell Precision 5570" --submit
+   mise -E webprobe run gpu-probe-chrome vulkan --device "Dell Precision 5570" --submit
    ```
 
    Run them again under each driver setting that can change an answer, given to either task as `--environment`, which
@@ -72,7 +72,7 @@ Name the machine the same way in every step, by its make and model, so its rows 
 
    ```bash
    vulkan="VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json"
-   mise run gpu-probe-chrome vulkan --device "Dell Precision Tower 5810" --environment "$vulkan" --submit
+   mise -E webprobe run gpu-probe-chrome vulkan --device "Dell Precision Tower 5810" --environment "$vulkan" --submit
    ```
 
    Firefox on Linux offers WebGPU only with `--webgpu`, and masks the adapter's name, so a row it gives through a
@@ -83,10 +83,11 @@ Name the machine the same way in every step, by its make and model, so its rows 
 
    ```bash
    egl="__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
-   mise run gpu-probe-chrome gl --headless --device "Dell Precision Tower 5810" --environment "$egl" --submit
+   device="Dell Precision Tower 5810"
+   mise -E webprobe run gpu-probe-chrome gl --headless --device "$device" --environment "$egl" --submit
    ```
 
-   On Windows neither task runs, so serve the page with `mise run gpu-probe-page` and open
+   On Windows neither task runs, so serve the page with `mise -E webprobe run gpu-probe-page` and open
    `http://localhost:8099/?submit&device=<machine>` in each browser from a fresh profile (`--user-data-dir` for
    Chrome and Edge, `--no-remote --profile` with `.mise/gpu-probe-browser.user.js` as its `user.js` for Firefox), with
    `&browser=edge&browser_version=<version>` for Edge, which reports Chromium's. Open Chrome and Edge once with each
@@ -209,7 +210,7 @@ Name the machine the same way in every step, by its make and model, so its rows 
 Phones, tablets and other machines on the same network submit to this clone's registry through the HTTPS server:
 
 ```bash
-mise run gpu-probe-server-lan
+mise -E webprobe run gpu-probe-server-lan
 ```
 
 Open one of the addresses it prints in each browser on the device, accept the self-signed certificate, and submit each

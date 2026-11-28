@@ -151,6 +151,16 @@ signatures:
         backend: unknown
         device: "M5 Pro MacBook Pro"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: unknown
+        backend: unknown
+        device: "M4 MacBook Air"
+        window: normal
     results:
       md5: "5b56667d605255332ae8c23f24989dd5"
   - interface: canvas-browserleaks
@@ -842,7 +852,8 @@ signatures:
     results:
       md5: "28b3bf73b7d36a33733cb85bdba413ee"
   - interface: canvas-browserleaks
-    label: "Chromium 158.0.8127.36 on Linux, ASUS TUF H370-PRO GAMING -- canvas 2D"
+    label: "Chromium 158.0.8127.36 on Linux, ASUS TUF H370-PRO GAMING, Dell OptiPlex 3060 and ASUS TP300L -- canvas
+      2D"
     seen:
       - browser: chromium
         browser_version: "158.0.8127.36"
@@ -863,6 +874,24 @@ signatures:
         backend: unknown
         device: "ASUS TUF H370-PRO GAMING"
         environment: "EGL_PLATFORM=wayland INTEL_DEBUG=nofc"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell OptiPlex 3060"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TP300L"
         window: normal
     results:
       md5: "398df3de3612e14b8a95dabf6679081b"
@@ -1077,3 +1106,58 @@ signatures:
         window: normal
     results:
       md5: "ae12b41936bf9f1bebb1e1b7ac3fca78"
+  - interface: canvas-browserleaks
+    label: "Chrome 157.0.8103.78 on Android, CPH2727 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "CPH2727"
+        window: normal
+    results:
+      md5: "12af18bf96f98be4d7abc291efe83e8c"
+  - interface: canvas-browserleaks
+    label: "Firefox 143.0 on Linux, Dell OptiPlex 3060 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "143.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell OptiPlex 3060"
+        window: normal
+    blocked: true
+    reason: "randomised: toDataURL differed from getImageData of the same canvas (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Arora 0.11.0 (QtWebKit 538.1) on 32-bit Linux, Dell Latitude 2120 -- canvas 2D"
+    seen:
+      - browser: "arora"
+        browser_version: "0.11.0"
+        os: linux
+        cpu_arch: i686
+        gpu: unknown
+        backend: unknown
+        device: "Dell Latitude 2120"
+        window: normal
+    results:
+      md5: "f5dd460c4607c085885c71317026eb89"
+  - interface: canvas-browserleaks
+    label: "Firefox 147.0 on Linux, ASUS TP300L -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "147.0"
+        os: linux
+        os_version: "Pop!_OS"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TP300L"
+        window: normal
+    blocked: true
+    reason: "randomised: toDataURL differed from getImageData of the same canvas (noise keyed to the session)"

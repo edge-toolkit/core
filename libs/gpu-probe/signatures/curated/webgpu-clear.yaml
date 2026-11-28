@@ -1002,6 +1002,18 @@ signatures:
         backend: metal
         device: "iPhone 17"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: apple
+        gpu_version: "Apple M4 GPU"
+        backend: metal
+        device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000b"
@@ -1876,6 +1888,16 @@ signatures:
         runtime: "et-ws-web-runner 0.3.0"
         window: none
         date: "2026-11-25"
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "adreno-6xx"
+        backend: vulkan
+        device: "CPH2727"
+        window: normal
     results:
       unorm8_quarter: "0000000a"
       unorm8_half: "0000000b"

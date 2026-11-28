@@ -16,7 +16,8 @@ signatures:
       lane2: "5debc5c0"
       lane3: "52ef3664"
   - interface: canvas
-    label: "Firefox 149.0 and 160.0 on Linux -- canvas 2D, unchanged by privacy.fingerprintingProtection"
+    label: "Firefox 143.0, 147.0, 149.0 and 160.0 on Linux, Dell OptiPlex 3060, ASUS TP300L and Dell Precision 5570 --
+      canvas 2D, unchanged by privacy.fingerprintingProtection"
     seen:
       - browser: firefox
         browser_version: "149.0"
@@ -41,6 +42,24 @@ signatures:
         backend: unknown
         device: "Dell Precision 5570"
         defence: "privacy.fingerprintingProtection on"
+        window: normal
+      - browser: firefox
+        browser_version: "143.0"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell OptiPlex 3060"
+        window: normal
+      - browser: firefox
+        browser_version: "147.0"
+        os: linux
+        os_version: "Pop!_OS"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TP300L"
         window: normal
     results:
       lane0: "b11cf4d5"
@@ -378,6 +397,16 @@ signatures:
         gpu: unknown
         backend: unknown
         device: "M5 Pro MacBook Pro"
+        window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: unknown
+        backend: unknown
+        device: "M4 MacBook Air"
         window: normal
     results:
       lane0: "95560b85"
@@ -930,3 +959,75 @@ signatures:
       lane1: "fe49b498"
       lane2: "c169bef1"
       lane3: "22f0e5b2"
+  - interface: canvas
+    label: "Chrome 157.0.8103.78 on Android, CPH2727 -- canvas 2D"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: unknown
+        backend: unknown
+        device: "CPH2727"
+        window: normal
+    results:
+      lane0: "b8e96c14"
+      lane1: "06806082"
+      lane2: "ba30e85d"
+      lane3: "b25fe916"
+  - interface: canvas
+    label: "Chromium 158.0.8127.36 on Linux, Dell OptiPlex 3060 and ASUS TP300L -- canvas 2D"
+    seen:
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS 24.04"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "Dell OptiPlex 3060"
+        window: normal
+      - browser: chromium
+        browser_version: "158.0.8127.36"
+        os: linux
+        os_version: "Pop!_OS"
+        cpu_arch: x86_64
+        gpu: unknown
+        backend: unknown
+        device: "ASUS TP300L"
+        window: normal
+    results:
+      lane0: "af6c324f"
+      lane1: "f7e15551"
+      lane2: "dd1e20f1"
+      lane3: "9c6b0f29"
+  - interface: canvas
+    label: "Firefox 47.0 on 32-bit Ubuntu, Dell Latitude 2120 -- canvas 2D"
+    seen:
+      - browser: firefox
+        browser_version: "47.0"
+        os: linux
+        cpu_arch: i686
+        gpu: unknown
+        backend: unknown
+        device: "Dell Latitude 2120"
+        window: normal
+    results:
+      lane0: "fbe1b0d2"
+      lane1: "ba337eec"
+      lane2: "632ec135"
+      lane3: "2c5eda0b"
+  - interface: canvas
+    label: "Arora 0.11.0 (QtWebKit 538.1) on 32-bit Linux, Dell Latitude 2120 -- canvas 2D"
+    seen:
+      - browser: "arora"
+        browser_version: "0.11.0"
+        os: linux
+        cpu_arch: i686
+        gpu: unknown
+        backend: unknown
+        device: "Dell Latitude 2120"
+        window: normal
+    blocked: true
+    reason: "randomised: two reads of the same scene differed (per-read noise)"

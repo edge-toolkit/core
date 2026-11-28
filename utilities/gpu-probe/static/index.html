@@ -51,6 +51,7 @@
     </a>
     <h1>GPU Probe</h1>
     <p id="status">Loading the probes...</p>
+    <p id="memory" hidden></p>
     <form id="seen">
       <fieldset>
         <legend>
@@ -125,8 +126,26 @@
     // the syntax, runs the legacy build of it, the same script with the probes as JavaScript, lowered to ES5. The first
     // error raised before either starts, that the script did not load in time, or that it loaded and never started, is
     // reported to the page and to the server, with a button sending it again; a static host has no server to take it,
-    // which the button then says. Only the latest of the sends says how it went.
+    // which the button then says, and once a send fails a link offers to email it instead. Only the latest of the sends
+    // says how it went.
     (function() {
+      // Where an error no server took is emailed, and the link that emails `lines` there. The page's script offers the
+      // same link for an error it raises itself. The body is cut to a length every mail client takes from a link, and
+      // never between the halves of a character past the Basic Multilingual Plane, the first of which alone
+      // encodeURIComponent refuses with a URIError.
+      window.gpuProbeMail = "jayvdb@gmail.com";
+      window.gpuProbeMailLink = function(lines) {
+        var subject = encodeURIComponent("GPU Probe error");
+        var text = lines.join("\n").slice(0, 1000);
+        var last = text.charCodeAt(text.length - 1);
+        if (last >= 0xd800 && last <= 0xdbff) text = text.slice(0, -1);
+        var body = encodeURIComponent(text);
+        var link = document.createElement("a");
+        link.href = "mailto:" + window.gpuProbeMail + "?subject=" + subject +
+          "&body=" + body;
+        link.textContent = "Email this error to " + window.gpuProbeMail;
+        return link;
+      };
       var reported = false;
       var report = function(problem) {
         if (reported || window.gpuProbeStarted) return;
@@ -137,6 +156,14 @@
         var lines = [status.textContent, "user agent: " + navigator.userAgent];
         var outcome = document.createElement("p");
         var latest = 0;
+        var mailed = false;
+        var offerMail = function() {
+          if (mailed) return;
+          mailed = true;
+          var mail = document.createElement("p");
+          mail.appendChild(window.gpuProbeMailLink(lines));
+          outcome.parentNode.insertBefore(mail, outcome.nextSibling);
+        };
         var send = function() {
           var request = new XMLHttpRequest();
           latest += 1;
@@ -150,15 +177,18 @@
             outcome.textContent = request.status < 300
               ? "Sent: the server has logged it."
               : "Not sent: the server answered " + request.status + ".";
+            if (request.status >= 300) offerMail();
           };
           request.onerror = function() {
             if (attempt !== latest) return;
             outcome.textContent = "Not sent: the server did not answer.";
+            offerMail();
           };
           request.ontimeout = function() {
             if (attempt !== latest) return;
             outcome.textContent =
               "Not sent: the server did not answer within ten seconds.";
+            offerMail();
           };
           request.send(JSON.stringify({ status: lines }));
         };
@@ -175,11 +205,14 @@
           : "";
         report(event.message + where);
       });
+      // Each message is named before it is reported, so that no call wraps: the formatter ends a wrapped call's last
+      // argument with a comma, which a browser before ES2017, such as Firefox 47, refuses to parse, failing this whole
+      // script with "SyntaxError: expected expression, got `)`".
+      var neverStarted =
+        "the page's script never started, as in a browser too old for it";
       window.addEventListener("load", function() {
         setTimeout(function() {
-          report(
-            "the page's script never started, as in a browser too old for it",
-          );
+          report(neverStarted);
         }, 10000);
       });
       // Whether the browser parses `source`.
@@ -196,10 +229,10 @@
       if (modern) script.type = "module";
       script.src = modern ? "/probe.js" : "/legacy/probe.js";
       // A request that stalls holds back the window's load, so its deadline starts with the request rather than then.
+      var late = "the page's script " + script.src +
+        " did not load within a minute";
       var deadline = setTimeout(function() {
-        report(
-          "the page's script " + script.src + " did not load within a minute",
-        );
+        report(late);
       }, 60000);
       script.onload = function() {
         clearTimeout(deadline);

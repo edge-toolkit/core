@@ -19,11 +19,14 @@
     )
 )]
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 #[cfg(target_vendor = "apple")]
 use objc2_metal::MTLDevice as _;
 
+pub use crate::memory::{ApiMemory, NoApiMemory, VulkanHeap, WALK_RESOLUTION, Walk, vulkan_memory, walk_with};
 use crate::r#unsafe;
 use crate::{
     Accumulator, Answer, BLENDS, Blend, CLEARS, Clear, EVERY_SET, F16_INPUTS, FILTERS, Filter, Format, INPUTS,
@@ -45,7 +48,7 @@ const OPTIONAL_FEATURES: wgpu::Features = wgpu::Features::RG11B10UFLOAT_RENDERAB
 ///
 /// Every probe set the bench runners record is answered within tens of milliseconds, so a device still busy after this
 /// long has stopped answering, and [`NativeError::Poll`] says so where an unbounded wait hangs the caller for good.
-const SUBMISSION_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const SUBMISSION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How many bytes the storage buffer every probe shader reads [`INPUTS`] from holds.
 #[expect(
@@ -123,6 +126,12 @@ pub enum NativeError {
     /// wgpu dropped the buffer's mapping callback without ever calling it.
     #[error("the GPU never said whether its answers could be read back: {0}")]
     Unmapped(#[from] futures_channel::oneshot::Canceled),
+    /// The device was lost before it finished its work.
+    ///
+    /// wgpu says so natively by dropping the callback for that work uncalled, and in a page only through the device's
+    /// lost callback.
+    #[error("the GPU was lost before it finished its work")]
+    Lost,
     /// The device runs no compute shaders, which a shader probe set is, for the reason given.
     #[error("the device runs no compute shaders: {0}")]
     Compute(#[from] NoCompute),
@@ -290,15 +299,15 @@ impl Gpu {
 
     /// Open a device on `adapter`, compiling the shader probe sets for it unless `compute` gives the reason not to.
     ///
-    /// Cooperative matrices are asked for only where a matrix probe would run on them. Asked for anyway, a driver can
-    /// offer them and then refuse the device: lavapipe from Mesa 26.0.8 on arm64 Ubuntu 26.04 did, and wgpu panicked
-    /// with `wgpu-hal invariant was violated (usage error): Requested feature is not available on this device`, on
-    /// <https://github.com/edge-toolkit/core/commit/a17610dd94f476d2b53b8660751d5ab058041e57> at
+    /// Cooperative matrices are asked for only where a matrix probe would run on them. Asked for anyway, a driver
+    /// can offer them and then refuse the device: lavapipe from Mesa 26.0.8 on arm64 Ubuntu 26.04 did, and wgpu
+    /// panicked with `wgpu-hal invariant was violated (usage error): Requested feature is not available on this
+    /// device`, on <https://github.com/edge-toolkit/core/commit/a17610dd94f476d2b53b8660751d5ab058041e57> at
     /// <https://github.com/edge-toolkit/core/actions/runs/45729965729/job/139623710473>.
     async fn open_device(adapter: wgpu::Adapter, compute: Result<(), NoCompute>) -> Result<Self, NativeError> {
         let info = adapter.get_info();
-        // Metal reports 4..=64 for every device whatever its simdgroups are. The only Metal GPUs offering a
-        // cooperative matrix are Apple's own, whose simdgroups are 32 lanes, so there 32 is taken as what they are.
+        // Metal reports 4..=64 for every device whatever its simdgroups are. The only Metal GPUs offering a cooperative
+        // matrix are Apple's own, whose simdgroups are 32 lanes, so there 32 is taken as what they are.
         let lanes = match info.backend {
             wgpu::Backend::Metal => [32, 32],
             wgpu::Backend::Noop
@@ -438,8 +447,8 @@ impl Gpu {
 
     /// What every set in [`EVERY_SET`] answers on this GPU, each beside the interface the registry files it under.
     ///
-    /// Each is measured on its own, so one that fails -- the device lost at its readback, say -- leaves the sets
-    /// before it answered. A set added to [`EVERY_SET`] fails to compile here until it is measured.
+    /// Each is measured on its own, so one that fails -- the device lost at its readback, say -- leaves the sets before
+    /// it answered. A set added to [`EVERY_SET`] fails to compile here until it is measured.
     pub async fn every_set(&self) -> [(&'static str, Result<Signature, NativeError>); EVERY_SET.len()] {
         let [
             split,
@@ -502,6 +511,27 @@ impl Gpu {
         #[cfg(windows)]
         dx12_report(adapter, &mut report);
         report
+    }
+
+    /// What the graphics API beneath wgpu says of the GPU's memory, read from Vulkan, Metal or DXGI.
+    pub fn api_memory(&self) -> Result<ApiMemory, NoApiMemory> {
+        crate::memory::api_memory(&self.adapter, &self.device)
+    }
+
+    /// How far allocating on the device goes before it refuses, allocating at most `cap` bytes.
+    ///
+    /// Everything allocated is freed once the walk ends. Buffers start at the device's largest, which its default
+    /// limits make 256 MiB, and halve on each refusal down to [`WALK_RESOLUTION`].
+    pub async fn walk_memory(&self, cap: u64) -> Result<Walk, NativeError> {
+        let largest = self.device.limits().max_buffer_size;
+        // Set once the device is lost. In a page wgpu still calls a lost device's work-done callback, and its error
+        // scopes come back empty, so this is what tells an allocation after the loss that it holds nothing.
+        let lost = Arc::new(AtomicBool::new(false));
+        let losing = Arc::clone(&lost);
+        self.device
+            .set_device_lost_callback(move |_reason, _message| losing.store(true, Ordering::Relaxed));
+        let allocate = |size| crate::memory::allocate(&self.device, &self.queue, &lost, size);
+        walk_with(cap, largest, allocate).await
     }
 
     /// The pass `build` makes, or the device's reason for refusing a texture, pipeline or upload it asked for.
@@ -882,8 +912,8 @@ impl Compute {
     /// without being compiled. Compiled anyway, it can run and answer nonsense rather than be refused: NVIDIA's Vulkan
     /// driver, which offers no 8x8x8 `f32` configuration, answered 0 to every such probe on a GB10 and an RTX A1000,
     /// even with C = 1. Or it fails as an internal error, which no validation scope catches, so wgpu panics: Metal did
-    /// for a 16x16 probe on an Apple M5 Pro, with
-    /// `Internal error: Metal: program_source:30:8: error: no type named 'simdgroup_half16x16' in namespace 'metal'`.
+    /// for a 16x16 probe on an Apple M5 Pro, with `Internal error: Metal: program_source:30:8: error: no type named
+    /// 'simdgroup_half16x16' in namespace 'metal'`.
     async fn compile(device: &wgpu::Device, matrices: &Matrices) -> Self {
         let mut probes = Vec::new();
         for shader in shaders() {
@@ -952,8 +982,8 @@ fn ensure_offered(probe: &MatrixProbe, matrices: &Matrices) -> Result<(), wgpu::
         Accumulator::F16 => wgpu::CooperativeScalarType::F16,
         Accumulator::F32 => wgpu::CooperativeScalarType::F32,
     };
-    // The checks are values rather than branches: the runners that measure coverage offer cooperative matrices only
-    // on subgroups narrower than 32, so no branch that lets a probe through could be taken there.
+    // The checks are values rather than branches: the runners that measure coverage offer cooperative matrices only on
+    // subgroups narrower than 32, so no branch that lets a probe through could be taken there.
     let wanted = ([size; 3], operand, accumulator);
     let fits = |properties: &wgpu::CooperativeMatrixProperties| {
         let offered = [properties.m_size, properties.n_size, properties.k_size];

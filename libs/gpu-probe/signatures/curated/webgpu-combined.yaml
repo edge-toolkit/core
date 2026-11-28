@@ -239,6 +239,18 @@ signatures:
         backend: metal
         device: "M5 Pro MacBook Pro"
         window: normal
+      - browser: chrome
+        browser_version: "157.0.8103.79"
+        os: macos
+        os_version: "27.2.1"
+        cpu_arch: aarch64
+        cpu_version: "Apple M4"
+        gpu: apple
+        gpu_version: "Apple M4 GPU"
+        backend: metal
+        device: "M4 MacBook Air"
+        reported: "metal-3"
+        window: normal
     results:
       multiply_add: "33800000"
       fma: "33800000"
@@ -2339,3 +2351,33 @@ signatures:
       atan2: "3d087ae5"
       tanh: "3dcc1ebe"
       dot: "40000000"
+  - interface: webgpu-combined
+    label: "adreno-6xx through vulkan on android, CPH2727 -- WebGPU on chrome"
+    seen:
+      - browser: chrome
+        browser_version: "157.0.8103.78"
+        os: android
+        os_version: "16.0.0"
+        cpu_arch: aarch64
+        gpu: qualcomm
+        gpu_version: "adreno-6xx"
+        backend: vulkan
+        device: "CPH2727"
+        window: normal
+    results:
+      multiply_add: "00000000"
+      fma: "00000000"
+      swamped_sum: "00000000"
+      divide: "3eaaaaab"
+      subnormal_product: "00000000"
+      sqrt: "3fddb3d7"
+      inverse_sqrt: "3f13cd3a"
+      sin: "3dcc758b"
+      cos: "3f7eb898"
+      tan: "3dcd7c58"
+      exp: "3f8d763d"
+      log: "3f8c9f54"
+      pow: "3f8edd1f"
+      atan2: "3d087b9e"
+      tanh: "3dcc1eba"
+      dot: "00000000"

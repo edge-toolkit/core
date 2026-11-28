@@ -349,10 +349,10 @@ fn draw_scene(context: &CanvasRenderingContext2d, width: f64, height: f64) -> Re
     context.set_global_composite_operation("source-over")?;
     context.set_text_baseline("alphabetic");
     context.set_fill_style_str("#222");
-    context.set_font("600 22px 'Times New Roman', Georgia, serif");
+    set_font(context, "600 22px 'Times New Roman', Georgia, serif")?;
     context.fill_text("GPU fp \u{2728} 1234567890", 8.0, FILLED_BASELINE)?;
     context.set_stroke_style_str("rgba(0,0,0,0.5)");
-    context.set_font("italic 16px system-ui, sans-serif");
+    set_font(context, "italic 16px system-ui, sans-serif")?;
     context.stroke_text("the quick brown fox", 10.0, STROKED_BASELINE)?;
     Ok(())
 }
@@ -477,7 +477,7 @@ fn draw_browserleaks(canvas: &HtmlCanvasElement, context: &CanvasRenderingContex
     canvas.set_attribute("width", &BROWSERLEAKS_WIDTH.to_string())?;
     canvas.set_attribute("height", &BROWSERLEAKS_HEIGHT.to_string())?;
     context.set_text_baseline("top");
-    context.set_font("14px 'Arial'");
+    set_font(context, "14px 'Arial'")?;
     context.set_text_baseline("alphabetic");
     context.set_fill_style_str("#f60");
     context.fill_rect(125.0, 1.0, 62.0, 20.0);
@@ -485,6 +485,19 @@ fn draw_browserleaks(canvas: &HtmlCanvasElement, context: &CanvasRenderingContex
     context.fill_text(BROWSERLEAKS_TEXT, 2.0, 15.0)?;
     context.set_fill_style_str("rgba(102, 204, 0, 0.7)");
     context.fill_text(BROWSERLEAKS_TEXT, 4.0, 17.0)?;
+    Ok(())
+}
+
+/// Set `context`'s font to `font`, or give what setting it threw.
+///
+/// web-sys binds the setter as one that cannot throw, but Firefox 47 on a Dell Latitude 2120 threw setting it on a
+/// canvas in a sandboxed frame, `[Exception... "Failure"  nsresult: "0x80004005 (NS_ERROR_FAILURE)"  location: "JS
+/// frame :: https://192.168.1.100:8444/legacy/probe.js :: __wbg_set_font_aa0c0c514c73a5fa :: line 1"  data: no]`, on
+/// commit <https://github.com/edge-toolkit/core/commit/903976a04eee0c44fd80a17753fa866758194a63>, and the throw unwound
+/// through the probes and ended the page's whole run. Set through `Reflect`, the throw comes back as an error, which
+/// fails only the fingerprint being drawn.
+fn set_font(context: &CanvasRenderingContext2d, font: &str) -> Result<(), CanvasError> {
+    let _set: bool = js_sys::Reflect::set(context, &JsValue::from_str("font"), &JsValue::from_str(font))?;
     Ok(())
 }
 

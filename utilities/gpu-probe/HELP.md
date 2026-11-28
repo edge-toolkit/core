@@ -27,11 +27,14 @@ Collect GPU probe signatures into a registry over HTTPS
 - `--cert <CERT>` -- The PEM certificate to serve, generated self-signed with the key when either is missing
 - `--key <KEY>` -- The PEM private key of the certificate
 - `--public-host <PUBLIC_HOST>` -- Another name to advertise the server at, which a generated certificate covers too
-- `--http` -- Serve plain HTTP instead of HTTPS, which only a loopback `--bind` may.
+- `--http` -- Serve plain HTTP rather than HTTPS, on a loopback `--bind` unless `--insecure-origin` is given.
 
   A browser treats a loopback origin as secure, so WebGPU still runs there.
 
   `--cert` and `--key` are not read.
+- `--insecure-origin` -- Let `--http` serve an address other devices reach, which browsers treat as insecure.
+
+  It gives no WebGPU, so it is for a browser that has none anyway or cannot take the certificate.
 
 ## Environment variables
 

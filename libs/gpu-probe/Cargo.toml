@@ -29,7 +29,16 @@ required-features = ["native", "registry"]
 registry = ["dep:platforms", "dep:serde_json", "dep:target-lexicon", "dep:thiserror", "dep:webbrowser", "dep:wgpu-hal"]
 ## Puts the probe sets to a GPU through wgpu, and reads what the device says it is.
 ## Natively it opens Vulkan, Metal, Direct3D 12 and OpenGL and reads the API beneath wgpu; on wasm32, WebGPU.
-native = ["dep:futures-channel", "dep:glow", "dep:objc2", "dep:objc2-metal", "dep:thiserror", "dep:wgpu", "dep:windows"]
+native = [
+  "dep:ash",
+  "dep:futures-channel",
+  "dep:glow",
+  "dep:objc2",
+  "dep:objc2-metal",
+  "dep:thiserror",
+  "dep:wgpu",
+  "dep:windows",
+]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
@@ -51,7 +60,9 @@ wgpu-hal = { workspace = true, optional = true }
 wgpu = { workspace = true, features = ["dx12", "metal", "std", "vulkan", "wgsl"], optional = true }
 
 # OpenGL too, where wgpu reaches it without ANGLE: through EGL, or WGL on Windows.
+# ash names the Vulkan structures a device's memory heaps and their budgets are read into.
 [target.'cfg(not(any(target_arch = "wasm32", target_vendor = "apple")))'.dependencies]
+ash = { workspace = true, optional = true }
 glow = { workspace = true, optional = true }
 wgpu = { workspace = true, features = ["gles"], optional = true }
 

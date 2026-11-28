@@ -7,7 +7,7 @@ import { register } from "/register.js";
 
 window.gpuProbeStarted = true;
 
-// The probe sets, once loaded: `probe_canvas`, `probe_webgl1`, `probe_webgl2` and `probe_webgpu`.
+// The probe sets, once loaded: `probe_canvas`, `probe_webgl1`, `probe_webgl2` and `probe_webgpu`, and `probe_memory`.
 let probes = null;
 
 const field = (id) => document.getElementById(id);
@@ -604,6 +604,33 @@ const probeAll = async () => {
   return { submitters, problems };
 };
 
+// The most a memory walk holds when the `memory` query parameter is given no value, in MiB.
+const memoryCap = 4096;
+
+// How far allocating on the high-performance WebGPU adapter goes, shown and told to a driver, where the query asks
+// for it with `memory`, its value the most to hold in MiB. It is asked for, never run unbidden: a walk fills the GPU's
+// memory up to that, which a page someone is only visiting has no business doing.
+const probeMemory = async () => {
+  if (!query.has("memory") || !navigator.gpu) return;
+  // A value that is no count, an empty one included, takes the default; 0 is kept, and walks nothing. One past what
+  // `probe_memory`'s u32 holds takes the default too, which the binding would otherwise wrap to a small number.
+  const given = Number.parseInt(query.get("memory"), 10);
+  const cap = given >= 0 && given <= 0xffffffff ? given : memoryCap;
+  const shown = field("memory");
+  shown.hidden = false;
+  shown.textContent = `Walking up to ${cap} MiB of GPU memory...`;
+  const started = performance.now();
+  const walk = () => probes.probe_memory("high-performance", false, cap);
+  const { answer, adapter } = await measured(false, walk);
+  const seconds = ((performance.now() - started) / 1000).toFixed(1);
+  const mib = Math.round(answer.bytes / 2 ** 20);
+  const stopped = answer.refused ? "the browser refused more" : "the walk reached its cap";
+  const model = adapter ? adapterModel(adapter.info) || "an adapter that names nothing" : "no adapter";
+  const walked = `GPU memory on ${model}: ${mib} MiB allocated in ${seconds}s before ${stopped}.`;
+  shown.textContent = answer.problems.length ? answer.problems.join("; ") : walked;
+  await tell(`memory walk: ${shown.textContent}`);
+};
+
 // What the registry makes of the judgements, as one line: how many it already records, how many are new and how many
 // are seen somewhere new, then which those are.
 const judgedText = (judgements, proposed) => {
@@ -681,7 +708,7 @@ const offer = async (submitters, missing) => {
 
 // Say the run failed, and why. The server is told the browser and where the error arose too, since that is what
 // finding its cause needs, and a button sends it again, saying whether it arrived, for a phone whose first post was
-// lost.
+// lost. A static host has no server to tell, so there a link emails the same lines instead.
 const fail = async (error) => {
   status.className = "bad";
   status.textContent = `The probes could not run: ${String(error)}`;
@@ -689,7 +716,12 @@ const fail = async (error) => {
   const lines = [status.textContent, `user agent: ${navigator.userAgent}`, ...stack];
   const report = lines.join("\n");
   const told = await tell(report);
-  if (!served) return;
+  if (!served) {
+    const mail = document.createElement("p");
+    mail.appendChild(window.gpuProbeMailLink(lines));
+    status.parentNode.insertBefore(mail, status.nextSibling);
+    return;
+  }
   const button = document.createElement("button");
   button.textContent = "Send this error to the server";
   const outcome = document.createElement("p");
@@ -716,6 +748,7 @@ const run = async () => {
     await fillShared();
     status.textContent = "Running the probes...";
     const { submitters, problems } = await probeAll();
+    await probeMemory();
     const missing = problems.length ? ` Not probed: ${problems.join("; ")}.` : "";
     await (served ? offer(submitters, missing) : propose(submitters, missing));
   } catch (error) {

@@ -1,0 +1,19 @@
+rules:
+  - id: es5-script-no-unpolyfillable-regexp-flag
+    languages: [generic]
+    paths:
+      include:
+        - "/utilities/gpu-probe/src/*.mjs"
+        - "/utilities/gpu-probe/static/*.js"
+        - "/utilities/gpu-probe/legacy/*.js"
+    # Check-only: what a flag stands in for differs by flag and by pattern, so no one rewrite replaces it.
+    pattern-either:
+      - pattern-regex: '(?<![\s/*])/[gimsy]*[duv][gimsy]*(?=[\s,;.)\]])'
+      - pattern-regex: 'RegExp\([^()]*,\s*["''`][gimsy]*[duv]'
+    message: >-
+      The probe page's scripts are bundled into its legacy build for browsers before ES2015, which swc lowers to ES5
+      and core-js polyfills. core-js cannot polyfill the `u`, `v` or `d` regular expression flags, so swc's `new
+      RegExp(..., "u")` throws there: Safari 9 on an iPad 3 failed the page with "SyntaxError: Invalid flags supplied
+      to RegExp constructor". Write the pattern without the flag, such as matching a surrogate pair by its two halves
+      rather than relying on `u` to make `[^]` take a whole code point.
+    severity: ERROR

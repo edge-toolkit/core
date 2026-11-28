@@ -6,9 +6,10 @@
 
 use std::path::PathBuf;
 
+use actix_web::error::{InternalError, JsonPayloadError};
 use actix_web::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use actix_web::middleware::DefaultHeaders;
-use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, web};
+use actix_web::{HttpRequest, HttpResponse, web};
 use serde_json::json;
 use tracing::info;
 
@@ -50,8 +51,16 @@ pub fn configure(config: &mut web::ServiceConfig, registry: web::Data<RegistryTr
             "/propose.js",
             embedded("text/javascript; charset=utf-8", PROPOSE_SCRIPT),
         )
-        .route("/register", web::post().to(register))
-        .route("/status", web::post().to(status))
+        .service(
+            web::resource("/register")
+                .app_data(json_body(submission_refused))
+                .route(web::post().to(register)),
+        )
+        .service(
+            web::resource("/status")
+                .app_data(json_body(status_refused))
+                .route(web::post().to(status)),
+        )
         .route("/signatures.yaml", web::get().to(signatures));
     if let Some(root) = root {
         scope = scope.service(actix_files::Files::new("/", root).index_file("index.html"));
@@ -86,24 +95,17 @@ async fn signatures(registry: web::Data<RegistryTree>) -> HttpResponse {
 /// A body not sent as `application/json` answers 415 before it is read. A browser sends that type from another origin's
 /// page only after a CORS preflight, which this server never grants, so a page elsewhere cannot write to the registry
 /// by posting it a form or `text/plain`, the kinds of request a browser sends with no preflight. A body longer than
-/// [`MAX_BODY`] answers 413 unread.
+/// [`MAX_BODY`] answers 413 unread. Both are answered by [`submission_refused`], before this handler is called.
 #[expect(
     clippy::future_not_send,
     reason = "actix runs each handler on its worker's own thread, and the request it takes is not Send"
 )]
-async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<RegistryTree>) -> HttpResponse {
-    if request.content_type() != "application/json" {
-        let message = "a submission must be sent as application/json";
-        return reply(HttpResponse::UnsupportedMediaType(), false, message);
-    }
-    if body.len() > MAX_BODY {
-        let message = "a submission must be at most 64 KiB";
-        return reply(HttpResponse::PayloadTooLarge(), false, message);
-    }
-    let submission: Submission = match serde_json::from_slice(&body) {
-        Ok(submission) => submission,
-        Err(error) => return reply(HttpResponse::BadRequest(), false, &format!("bad submission: {error}")),
-    };
+async fn register(
+    request: HttpRequest,
+    submission: web::Json<Submission>,
+    registry: web::Data<RegistryTree>,
+) -> HttpResponse {
+    let submission = submission.into_inner();
     let peer = peer_of(&request);
     let outcome = registry.register(&submission);
     let message = outcome.as_ref().map_or_else(ToString::to_string, ToString::to_string);
@@ -127,16 +129,8 @@ async fn register(request: HttpRequest, body: web::Bytes, registry: web::Data<Re
     clippy::future_not_send,
     reason = "actix runs each handler on its worker's own thread, and the request it takes is not Send"
 )]
-async fn status(request: HttpRequest, body: web::Bytes) -> HttpResponse {
-    if request.content_type() != "application/json" {
-        return HttpResponse::UnsupportedMediaType().finish();
-    }
-    if body.len() > MAX_BODY {
-        return HttpResponse::PayloadTooLarge().finish();
-    }
-    let Ok(report) = serde_json::from_slice::<StatusReport>(&body) else {
-        return HttpResponse::BadRequest().finish();
-    };
+async fn status(request: HttpRequest, report: web::Json<StatusReport>) -> HttpResponse {
+    let report = report.into_inner();
     let peer = peer_of(&request);
     for line in report.status {
         info!("{peer} page status: {line}");
@@ -161,4 +155,59 @@ fn peer_of(request: &HttpRequest) -> String {
 /// The JSON answer to a submission.
 fn reply(mut status: actix_web::HttpResponseBuilder, accepted: bool, message: &str) -> HttpResponse {
     status.json(json!({ "ok": accepted, "message": message }))
+}
+
+/// How a route reads its JSON body, with `refused` answering one it will not read or cannot read.
+///
+/// The body must be sent as `application/json` and be at most [`MAX_BODY`] long, and be what the route's handler takes.
+/// actix checks the type and the length before it reads the body, and parses it only then.
+fn json_body<Refused>(refused: Refused) -> web::JsonConfig
+where
+    Refused: Fn(JsonPayloadError, &HttpRequest) -> actix_web::Error + Send + Sync + 'static,
+{
+    web::JsonConfig::default()
+        .limit(MAX_BODY)
+        .content_type_required(true)
+        .error_handler(refused)
+}
+
+/// The status a body that `error` kept from being read answers with.
+///
+/// That is 415 for one not sent as JSON, 413 for one past [`MAX_BODY`], and 400 for one that is not what the route
+/// takes.
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "JsonPayloadError is non_exhaustive; every error but the type and the length is a body it cannot read"
+)]
+fn refusal_status(error: &JsonPayloadError) -> actix_web::HttpResponseBuilder {
+    match error {
+        JsonPayloadError::ContentType => HttpResponse::UnsupportedMediaType(),
+        JsonPayloadError::Overflow { .. } | JsonPayloadError::OverflowKnownLength { .. } => {
+            HttpResponse::PayloadTooLarge()
+        }
+        _ => HttpResponse::BadRequest(),
+    }
+}
+
+/// How `/register` answers a body it will not read or cannot read as a submission, in the JSON of every answer to one.
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "JsonPayloadError is non_exhaustive; every error but the type and the length is a body it cannot read"
+)]
+fn submission_refused(error: JsonPayloadError, _request: &HttpRequest) -> actix_web::Error {
+    let message = match &error {
+        JsonPayloadError::ContentType => "a submission must be sent as application/json".to_owned(),
+        JsonPayloadError::Overflow { .. } | JsonPayloadError::OverflowKnownLength { .. } => {
+            "a submission must be at most 64 KiB".to_owned()
+        }
+        _ => format!("bad submission: {error}"),
+    };
+    let response = reply(refusal_status(&error), false, &message);
+    InternalError::from_response(error, response).into()
+}
+
+/// How `/status` answers a body it will not read or cannot read as status lines, with no body.
+fn status_refused(error: JsonPayloadError, _request: &HttpRequest) -> actix_web::Error {
+    let response = refusal_status(&error).finish();
+    InternalError::from_response(error, response).into()
 }
