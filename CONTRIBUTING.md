@@ -9,8 +9,8 @@ section it belongs to.
 
 ## Install mise
 
-Install [`mise`](https://mise.jdx.dev/) at the version the README gives, including the shell integration. It is
-needed for all use of this repository.
+Please install [`mise`](https://mise.jdx.dev/) 2026.10.15 or later, including the shell integration. It is needed for
+all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)
 holds the Rust/Node tooling and shared tasks, and per-language `.mise/config.<lang>.toml` files are selected via

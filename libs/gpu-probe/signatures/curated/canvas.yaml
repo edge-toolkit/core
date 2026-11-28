@@ -1031,3 +1031,19 @@ signatures:
         window: normal
     blocked: true
     reason: "randomised: two reads of the same scene differed (per-read noise)"
+  - interface: canvas
+    label: "Safari 9.0 on iOS, iPad (3rd generation) MD369B/A -- canvas 2D"
+    seen:
+      - browser: safari
+        browser_version: "9.0"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iPad (3rd generation) MD369B/A"
+        window: normal
+    results:
+      lane0: "61c244c1"
+      lane1: "0908535f"
+      lane2: "8b4735bf"
+      lane3: "ccb3cf6a"

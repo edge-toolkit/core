@@ -937,7 +937,8 @@ signatures:
     results:
       md5: "a627cab6139e579d6566fc4aaea0f723"
   - interface: canvas-browserleaks
-    label: "Safari 9.0 on iOS, iPad (3rd generation) MD369B/A -- canvas 2D"
+    label: "Safari 9.0 on iOS, iPad (3rd generation) MD369B/A -- canvas 2D (one visit's value; a later one gave
+      9c9e9eaf2d33df97fcb071bb42a9be47)"
     seen:
       - browser: safari
         browser_version: "9.0"
@@ -1161,3 +1162,17 @@ signatures:
         window: normal
     blocked: true
     reason: "randomised: toDataURL differed from getImageData of the same canvas (noise keyed to the session)"
+  - interface: canvas-browserleaks
+    label: "Safari 9.0 on iOS, iPad (3rd generation) MD369B/A -- canvas 2D (a later visit's value; an earlier one gave
+      9b57a74e57a85f54d72c65143b3e1a88)"
+    seen:
+      - browser: safari
+        browser_version: "9.0"
+        os: ios
+        cpu_arch: unknown
+        gpu: unknown
+        backend: unknown
+        device: "iPad (3rd generation) MD369B/A"
+        window: normal
+    results:
+      md5: "9c9e9eaf2d33df97fcb071bb42a9be47"

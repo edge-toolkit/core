@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>GPU Probe</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/probe.css">
     <style>
     fieldset {
@@ -50,74 +51,110 @@
       </svg>
     </a>
     <h1>GPU Probe</h1>
-    <p id="status">Loading the probes...</p>
+    <p class="lede">
+      This page runs small probes on your device's GPU through WebGL and WebGPU
+      -- shader arithmetic, clears, blending and canvas drawing -- and reads
+      back the exact results, which differ slightly between GPUs, drivers and
+      browsers. It says whether the registry already knows your device. The
+      results are sent only when you choose to, though a probe server serving
+      this page is told how the run went, its canvas results among it.
+    </p>
+    <div id="progress" class="card">
+      <span id="spinner" class="spinner" aria-hidden="true"></span>
+      <p id="status" role="status">Loading the probes...</p>
+    </div>
     <p id="memory" hidden></p>
-    <form id="seen">
-      <fieldset>
-        <legend>
-          Where this was measured: the part of a registry row every GPU below
-          shares
-        </legend>
-        <label for="browser">browser</label><input id="browser">
-        <label for="browser_version">browser_version</label><input
-          id="browser_version"
-        >
-        <label for="os">os</label><input id="os" list="os-names">
-        <datalist id="os-names">
-          <option>linux</option>
-          <option>macos</option>
-          <option>windows</option>
-          <option>android</option>
-          <option>ios</option>
-        </datalist>
-        <label for="os_version">os_version</label><input id="os_version">
-        <label for="cpu_arch">cpu_arch</label><input id="cpu_arch">
-        <label for="window">window</label><input
-          id="window"
-          list="window-names"
-          value="normal"
-        >
-        <datalist id="window-names">
-          <option>normal</option>
-          <option>private</option>
-        </datalist>
-        <label for="device">device</label><input id="device" size="40">
-        <label for="defence">defence</label><input id="defence" size="40">
-        <label for="environment">environment</label><input
-          id="environment"
-          size="40"
-        >
-      </fieldset>
-    </form>
-    <p><button id="submit-all" disabled>Submit every probe set</button></p>
+    <div id="verdict" class="card" hidden>
+      <h2 id="verdict-title"></h2>
+      <p id="verdict-detail"></p>
+      <ul id="verdict-devices"></ul>
+      <p id="verdict-welcome"></p>
+    </div>
+    <p>
+      <label for="device">Your device</label>
+      <input id="device" size="36" placeholder="its make and model">
+    </p>
+    <details id="row-details">
+      <summary>Where this was measured</summary>
+      <form id="seen">
+        <fieldset>
+          <legend>
+            The part of a registry row every GPU below shares
+          </legend>
+          <label for="browser">browser</label><input id="browser">
+          <label for="browser_version">browser_version</label><input
+            id="browser_version"
+          >
+          <label for="os">os</label><input id="os" list="os-names">
+          <datalist id="os-names">
+            <option>linux</option>
+            <option>macos</option>
+            <option>windows</option>
+            <option>android</option>
+            <option>ios</option>
+          </datalist>
+          <label for="os_version">os_version</label><input id="os_version">
+          <label for="cpu_arch">cpu_arch</label><input id="cpu_arch">
+          <label for="window">window</label><input
+            id="window"
+            list="window-names"
+            value="normal"
+          >
+          <datalist id="window-names">
+            <option>normal</option>
+            <option>private</option>
+          </datalist>
+          <label for="defence">defence</label><input id="defence" size="40">
+          <label for="environment">environment</label><input
+            id="environment"
+            size="40"
+          >
+        </fieldset>
+      </form>
+    </details>
+    <p>
+      <button id="submit-all" disabled hidden>Submit every probe set</button>
+    </p>
     <div id="propose" hidden>
-      <p>
-        No gpu-probe-server serves this page, so what it found is proposed to
-        the registry on GitHub instead, which needs a GitHub account. A probe
-        set the registry already records is left out. The link opens GitHub's
-        page for adding a file to the registry, with these results filled in.
-        GitHub makes a copy of the repository for you, and opens a pull request
-        with the file when you press "Propose changes".
-      </p>
-      <p>
-        Without a GitHub account, download each file instead and email it to
-        <a
-          href="mailto:john.vandenberg@curtin.edu.au?subject=GPU%20Probe%20results"
-        >john.vandenberg@curtin.edu.au</a>.
-      </p>
-      <p>
-        To submit more data than a browser can measure, read the
-        <a
-          href="https://github.com/edge-toolkit/core/blob/main/libs/gpu-probe/README.md"
-        >et-gpu-probe README</a>.
-      </p>
+      <h2>Send the results</h2>
       <p id="judged"></p>
+      <details id="sightings" hidden>
+        <summary>Known signatures first seen here</summary>
+        <ul id="sightings-list"></ul>
+      </details>
+      <p>
+        <label><input type="checkbox" id="everything"> Also send the probe sets
+          the registry already records</label>
+      </p>
       <ol id="proposals"></ol>
-      <p id="more" hidden>
+      <p id="more" hidden class="note">
         GitHub takes one file from a link, and a link only so long, so the GPUs
         are split across files: each link opens a pull request of its own.
       </p>
+      <details>
+        <summary>How sending works</summary>
+        <p>
+          Each link opens GitHub's page for adding a file to the registry, with
+          these results filled in, which needs a GitHub account. GitHub makes a
+          copy of the repository for you, and opens a pull request with the file
+          when you press "Propose changes".
+        </p>
+        <p>
+          Without a GitHub account, download each file instead and email it to
+          <a
+            href="mailto:john.vandenberg@curtin.edu.au?subject=GPU%20Probe%20results"
+          >john.vandenberg@curtin.edu.au</a>.
+        </p>
+        <p>
+          To submit more data than a browser can measure, read the
+          <a
+            href="https://github.com/edge-toolkit/core/blob/main/libs/gpu-probe/README.md"
+          >et-gpu-probe README</a>.
+        </p>
+      </details>
     </div>
+    <h2 id="gpus-heading" hidden>What each GPU answered</h2>
+    <p id="missing" class="note" hidden></p>
     <div id="gpus"></div>
     <script>
     // This script starts the page's own and is written for any browser, so that it can say what went wrong where the
@@ -150,6 +187,7 @@
       var report = function(problem) {
         if (reported || window.gpuProbeStarted) return;
         reported = true;
+        document.getElementById("spinner").hidden = true;
         var status = document.getElementById("status");
         status.className = "bad";
         status.textContent = "The probes could not run: " + problem;

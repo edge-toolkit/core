@@ -1430,6 +1430,6 @@ Rules, from `config/taplo`:
   (run `mise run gen:gpu-probe-signatures`).
 - `mise-lock-check` (`default` env; run by `check:rust`) -- Fail if .mise/mise*.lock or .mise/locks/ differ from what a
   full install resolves. Config: `.mise/mise-lock-check.awk`.
-- `readme-mise-version-check` (`default` env; run by `check:rust`) -- Fail if README.md's mise version differs from
-  min_version in .mise/config.toml.
+- `readme-mise-version-check` (`default` env; run by `check:rust`) -- Fail if README.md's or CONTRIBUTING.md's mise
+  version differs from min_version in .mise/config.toml.
 - `verification-check` (`default` env; run by `check:rust`) -- Fail if generated scenario output files are stale.
